@@ -22,9 +22,13 @@ node_modules/
 .yarn/install-state.gz
 
 # ---------- Artefactos de construccion ----------
-dist/
-build/
-out/
+# Anclados a la raiz con "/" inicial. Sin el ancla, "out/" tambien ignoraba
+# src/domain/ports/out/, que es una carpeta del codigo fuente y no un
+# artefacto. El fallo solo salio a la luz cuando el CI trabajo sobre una
+# copia limpia del repositorio.
+/dist/
+/build/
+/out/
 .vite/
 *.tsbuildinfo
 

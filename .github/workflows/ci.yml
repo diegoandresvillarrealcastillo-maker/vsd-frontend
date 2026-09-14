@@ -29,8 +29,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GITLEAKS_VERSION: "8.30.1"
-  COMMITLINT_VERSION: "21.2.2"
+  GITLEAKS_VERSION: '8.30.1'
+  COMMITLINT_VERSION: '21.2.2'
 
 jobs:
   secretos:
@@ -87,3 +87,56 @@ jobs:
           COMMIT_DESDE: ${{ github.event.pull_request.base.sha }}
           COMMIT_HASTA: ${{ github.event.pull_request.head.sha }}
         run: npx commitlint --from "$COMMIT_DESDE" --to "$COMMIT_HASTA" --verbose
+
+  calidad:
+    name: Calidad del codigo
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v7
+
+      - name: Comprobar si el repositorio ya tiene proyecto de Node
+        id: proyecto
+        # vsd-frontend todavia no tiene package.json: el trabajo se salta en
+        # lugar de fallar, y empezara a ejecutarse solo cuando exista.
+        run: |
+          if [ -f package.json ]; then
+            echo "existe=si" >> "$GITHUB_OUTPUT"
+          else
+            echo "existe=no" >> "$GITHUB_OUTPUT"
+            echo "Sin package.json todavia: no hay nada que comprobar."
+          fi
+
+      - name: Preparar Node
+        if: steps.proyecto.outputs.existe == 'si'
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Instalar dependencias
+        if: steps.proyecto.outputs.existe == 'si'
+        # npm ci respeta package-lock.json al pie de la letra: el CI instala
+        # exactamente las mismas versiones que hay en el equipo.
+        run: npm ci
+
+      - name: Revisar el estilo y las fronteras de la arquitectura
+        if: steps.proyecto.outputs.existe == 'si'
+        run: npm run lint
+
+      - name: Revisar el formato
+        if: steps.proyecto.outputs.existe == 'si'
+        run: npm run format:check
+
+      - name: Revisar los tipos
+        if: steps.proyecto.outputs.existe == 'si'
+        run: npm run typecheck
+
+      - name: Ejecutar las pruebas con cobertura
+        if: steps.proyecto.outputs.existe == 'si'
+        # Falla si domain/ o application/ bajan del 80 %.
+        run: npm run test:coverage
+
+      - name: Compilar
+        if: steps.proyecto.outputs.existe == 'si'
+        run: npm run build
