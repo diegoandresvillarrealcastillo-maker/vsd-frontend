@@ -89,6 +89,10 @@ este repositorio solo pueden existir valores publicos. Las credenciales
 de base de datos y la clave de rol de servicio de Supabase viven
 exclusivamente en `vsd-backend`.
 
+El valor que toma cada variable en desarrollo, preproduccion y produccion
+esta documentado en
+[vsd-backend/docs/ambientes.md](https://github.com/diegoandresvillarrealcastillo-maker/vsd-backend/blob/desarrollo/docs/ambientes.md).
+
 ---
 
 ## Como se trabaja
