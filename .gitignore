@@ -1,0 +1,67 @@
+# ============================================================
+#  VSD Health - archivos que nunca deben llegar al repositorio
+# ============================================================
+
+# ---------- Secretos y entorno ----------
+# Regla critica: ningun archivo de entorno real se versiona.
+# Solo .env.example, que contiene los nombres de las variables sin valores.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+service-account*.json
+
+# ---------- Dependencias ----------
+node_modules/
+.pnpm-store/
+.yarn/cache/
+.yarn/install-state.gz
+
+# ---------- Artefactos de construccion ----------
+dist/
+build/
+out/
+.vite/
+*.tsbuildinfo
+
+# ---------- Pruebas y cobertura ----------
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+blob-report/
+.lighthouseci/
+
+# ---------- Cache de herramientas ----------
+.cache/
+.eslintcache
+.stylelintcache
+.turbo/
+
+# ---------- Registros ----------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------- Editores ----------
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+
+# ---------- Sistema operativo ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- Especifico del frontend ----------
+.vercel
+dev-dist/
