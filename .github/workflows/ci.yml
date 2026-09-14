@@ -1,0 +1,89 @@
+# ============================================================
+#  VSD Health - Integracion continua
+# ============================================================
+#  Primera barrera automatica del proyecto. En este ciclo cubre
+#  dos cosas que no dependen de que exista codigo de aplicacion:
+#
+#    1. que no entre ningun secreto al repositorio;
+#    2. que todo commit siga Conventional Commits y cite su ticket.
+#
+#  Los trabajos de lint, pruebas y construccion se anaden en los
+#  ciclos que introducen el codigo correspondiente.
+# ============================================================
+
+name: CI
+
+on:
+  pull_request:
+    branches: [desarrollo, preproduccion, produccion]
+  push:
+    branches: [desarrollo, preproduccion, produccion]
+
+# Principio de minimo privilegio: el CI solo necesita leer el codigo.
+permissions:
+  contents: read
+
+# Si se empuja dos veces seguidas, la ejecucion anterior se cancela.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GITLEAKS_VERSION: "8.30.1"
+  COMMITLINT_VERSION: "21.2.2"
+
+jobs:
+  secretos:
+    name: Escaneo de secretos
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Descargar el codigo con el historial completo
+        uses: actions/checkout@v7
+        with:
+          # Gitleaks revisa todos los commits, no solo el ultimo:
+          # un secreto borrado despues sigue estando en el historial.
+          fetch-depth: 0
+
+      - name: Instalar Gitleaks
+        run: |
+          set -euo pipefail
+          url="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl --silent --show-error --fail --location "$url" --output gitleaks.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
+          rm -f gitleaks gitleaks.tar.gz
+          gitleaks version
+
+      - name: Buscar secretos en todo el historial
+        # --redact evita que el secreto encontrado quede impreso en el
+        # registro del trabajo, que seria una segunda filtracion.
+        run: gitleaks git . --redact --no-banner --verbose
+
+  commits:
+    name: Convencion de commits
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Descargar el codigo con el historial completo
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Preparar Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Instalar commitlint
+        run: |
+          npm install --no-save --no-audit --no-fund \
+            "@commitlint/cli@${COMMITLINT_VERSION}" \
+            "@commitlint/config-conventional@${COMMITLINT_VERSION}"
+
+      - name: Validar los mensajes de commit del Pull Request
+        env:
+          # Se pasan por variable de entorno y no interpoladas dentro del
+          # script, para no inyectar contenido del evento en la shell.
+          COMMIT_DESDE: ${{ github.event.pull_request.base.sha }}
+          COMMIT_HASTA: ${{ github.event.pull_request.head.sha }}
+        run: npx commitlint --from "$COMMIT_DESDE" --to "$COMMIT_HASTA" --verbose
