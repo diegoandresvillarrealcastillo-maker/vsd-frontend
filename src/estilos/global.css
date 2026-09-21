@@ -1,0 +1,143 @@
+/* ============================================================
+   VSD Health - base visual
+   ============================================================
+   Aqui viven los tokens y nada mas. Ningun componente define un color
+   suelto: si un dia hay que cambiar la paleta, se cambia en un sitio.
+   ============================================================ */
+
+:root {
+  color-scheme: light dark;
+
+  /* ---------- Color ---------- */
+  /* Tema claro. La paleta es calida y de bajo contraste cromatico a
+     proposito: es una herramienta de bienestar, no un panel de control. */
+  --fondo: #f7f5f2;
+  --fondo-elevado: #ffffff;
+  --fondo-sutil: #efebe5;
+
+  --texto: #1f2328;
+  --texto-tenue: #5c6470;
+
+  --borde: #ddd8d0;
+  --borde-fuerte: #c3bcb1;
+
+  --acento: #3d7a6b;
+  --acento-suave: #d8e8e3;
+  --acento-contraste: #ffffff;
+
+  --error: #a33a32;
+  --error-suave: #f7e2e0;
+
+  --exito: #3d7a6b;
+
+  /* Los dos tonos entre los que respira el fondo de la autenticacion. */
+  --respiro-a: #eef2ef;
+  --respiro-b: #f7f2ea;
+
+  /* ---------- Forma ---------- */
+  --radio: 12px;
+  --radio-grande: 20px;
+  --sombra: 0 1px 2px rgb(31 35 40 / 6%), 0 8px 24px rgb(31 35 40 / 6%);
+
+  /* ---------- Movimiento ---------- */
+  /* Una sola curva para todo. La entrada es rapida y la salida se demora un
+     poco mas: asi el movimiento se siente amortiguado y no mecanico. */
+  --curva: cubic-bezier(0.22, 1, 0.36, 1);
+  --rapido: 160ms;
+  --medio: 280ms;
+  --lento: 520ms;
+  --respiracion: 5200ms;
+
+  /* ---------- Tipografia ---------- */
+  --fuente:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fondo: #14161a;
+    --fondo-elevado: #1c1f25;
+    --fondo-sutil: #23272e;
+
+    --texto: #e8e6e3;
+    --texto-tenue: #9aa1ab;
+
+    --borde: #2e333b;
+    --borde-fuerte: #434a54;
+
+    --acento: #7fc3b1;
+    --acento-suave: #1f3b35;
+    --acento-contraste: #10221e;
+
+    --error: #e8938b;
+    --error-suave: #3a2422;
+
+    --exito: #7fc3b1;
+
+    --respiro-a: #171b1f;
+    --respiro-b: #1b1815;
+
+    --sombra: 0 1px 2px rgb(0 0 0 / 30%), 0 8px 24px rgb(0 0 0 / 28%);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#raiz {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--fuente);
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--texto);
+  background: var(--fondo);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* El foco debe verse siempre. Quitarlo por estetica deja sin navegar a quien
+   usa el teclado, que es justo quien mas lo necesita. */
+:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ============================================================
+   Reducir movimiento
+   ============================================================
+   No es un detalle de cortesia: a bastante gente el movimiento le produce
+   mareo o malestar. Quien lo pide en su sistema recibe la aplicacion
+   entera sin animacion, y todo sigue funcionando igual.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Texto visible solo para lectores de pantalla. */
+.solo-lectores {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

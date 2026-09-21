@@ -1,6 +1,7 @@
 ## Ticket
 
 <!-- Obligatorio. Ejemplo: SCRUM-31 -->
+
 SCRUM-
 
 ## Que cambia y por que
