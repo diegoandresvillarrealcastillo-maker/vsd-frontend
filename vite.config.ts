@@ -6,7 +6,7 @@ import react from '@vitejs/plugin-react';
 // TypeScript deja de revisar esa parte y un nombre mal escrito pasa sin aviso.
 import { defineConfig } from 'vitest/config';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
 
   resolve: {
@@ -25,7 +25,12 @@ export default defineConfig({
 
   build: {
     outDir: 'dist',
-    sourcemap: true,
+
+    // En produccion no se publican los mapas. No es que revelen un secreto
+    // —las claves publicas ya estan en el paquete— pero son dos megas y medio
+    // de codigo fuente servido a cada visita, y no hacen falta para nada. En
+    // desarrollo y en preproduccion si, que es donde se depura.
+    sourcemap: mode !== 'production',
   },
 
   test: {
@@ -46,4 +51,4 @@ export default defineConfig({
       // SCRUM-73, cuando exista logica que merezca cubrirse.
     },
   },
-});
+}));
