@@ -49,42 +49,82 @@ function clienteONulo(): ReturnType<typeof supabase> | null {
   }
 }
 
+const DEMASIADOS_INTENTOS = 'Demasiados intentos seguidos. Espera un momento y vuelve.';
+
+/** Cada codigo de error de Supabase con su texto en espanol. */
+const MENSAJES: Readonly<Record<string, string>> = {
+  invalid_credentials: 'El correo o la contrasena no coinciden.',
+  weak_password: 'Esa contrasena es muy corta. Necesita al menos 8 caracteres.',
+  email_not_confirmed: 'Todavia no confirmaste el correo. Revisa tu bandeja.',
+  over_request_rate_limit: DEMASIADOS_INTENTOS,
+  over_email_send_rate_limit: 'Se enviaron muchos correos seguidos. Espera unos minutos.',
+  validation_failed: 'Revisa el correo: no tiene un formato valido.',
+
+  // Estos dos no son culpa de quien esta delante de la pantalla: son
+  // configuracion que falta en Supabase. Decirle "el correo o la contrasena no
+  // coinciden" la mandaria a revisar algo que esta bien.
+  email_provider_disabled: 'El acceso por correo no esta habilitado todavia. Avisa al equipo.',
+  signup_disabled: 'El registro esta cerrado ahora mismo. Avisa al equipo.',
+};
+
 /**
  * Convierte el error de Supabase en algo que se pueda mostrar.
  *
- * La regla que manda aqui: **ningun mensaje puede revelar si un correo esta
- * registrado**. Decir "esa cuenta no existe" convierte la pantalla de acceso
- * en una forma de averiguar quien usa la aplicacion, y tratandose de una
- * herramienta de bienestar eso es informacion que nadie tiene por que poder
- * consultar.
+ * Se decide por el **codigo** del error y nunca por el estado HTTP. Antes se
+ * trataba cualquier 400 como credenciales equivocadas, y eso hacia que una
+ * pantalla de registro dijera "el correo o la contrasena no coinciden" cuando
+ * el problema real era que el proveedor de correo estaba desactivado en
+ * Supabase. Un mensaje que manda a revisar lo que ya esta bien cuesta mas que
+ * no decir nada.
+ *
+ * La regla que sigue mandando: **ningun mensaje del inicio de sesion puede
+ * revelar si un correo esta registrado**. Decir "esa cuenta no existe"
+ * convierte la pantalla de acceso en una forma de averiguar quien usa la
+ * aplicacion.
  */
 function traducir(error: AuthError | null): ResultadoDeAcceso {
   if (!error) {
     return BIEN;
   }
 
-  const codigo = error.code ?? '';
+  const conocido = MENSAJES[error.code ?? ''];
 
-  if (codigo === 'invalid_credentials' || error.status === 400) {
-    return { ok: false, mensaje: 'El correo o la contrasena no coinciden.' };
+  if (conocido) {
+    return { ok: false, mensaje: conocido };
   }
 
-  if (codigo === 'over_request_rate_limit' || error.status === 429) {
-    return { ok: false, mensaje: 'Demasiados intentos seguidos. Espera un momento y vuelve.' };
-  }
-
-  if (codigo === 'weak_password') {
-    return { ok: false, mensaje: 'Esa contrasena es muy corta. Necesita al menos 8 caracteres.' };
-  }
-
-  if (codigo === 'email_not_confirmed') {
-    return { ok: false, mensaje: 'Todavia no confirmaste el correo. Revisa tu bandeja.' };
+  if (error.status === 429) {
+    return { ok: false, mensaje: DEMASIADOS_INTENTOS };
   }
 
   // Cualquier otra cosa: ni el mensaje crudo de la libreria, que suele estar en
   // ingles y a veces trae detalles del servidor, ni un "error desconocido" que
   // no ayuda a nadie.
   return { ok: false, mensaje: 'No se pudo completar. Intentalo de nuevo en un momento.' };
+}
+
+/**
+ * Lo mismo, pero para el registro.
+ *
+ * Una cuenta que ya existe se responde aparte porque en el registro **si hay
+ * que decirlo**: sin eso la persona se queda sin saber por que no puede
+ * continuar. La frase va en condicional para no afirmarlo de plano.
+ *
+ * Es una concesion consciente. En el inicio de sesion y en la recuperacion la
+ * regla de no revelar se mantiene entera; aqui cede lo justo para que la
+ * pantalla sirva de algo.
+ */
+function traducirRegistro(error: AuthError | null): ResultadoDeAcceso {
+  const codigo = error?.code ?? '';
+
+  if (codigo === 'user_already_exists' || codigo === 'email_exists') {
+    return {
+      ok: false,
+      mensaje: 'Si ya tienes una cuenta con ese correo, entra desde la pantalla de acceso.',
+    };
+  }
+
+  return traducir(error);
 }
 
 export function ProveedorDeSesion({ children }: { children: ReactNode }) {
@@ -173,7 +213,7 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
         },
       });
 
-      return traducir(error);
+      return traducirRegistro(error);
     },
     [],
   );
