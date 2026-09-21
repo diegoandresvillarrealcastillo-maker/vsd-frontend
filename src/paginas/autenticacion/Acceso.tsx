@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { BotonDeEnvio, type EstadoDeEnvio } from '../../componentes/BotonDeEnvio.tsx';
 import { BotonDeGoogle } from '../../componentes/BotonDeGoogle.tsx';
 import { Campo } from '../../componentes/Campo.tsx';
+import { entorno } from '../../infraestructura/entorno.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { Aparece, LienzoDeAcceso } from './LienzoDeAcceso.tsx';
@@ -122,15 +123,22 @@ export function Acceso() {
           </BotonDeEnvio>
         </Aparece>
 
-        <Aparece>
-          <div className="separador">
-            <span>o</span>
-          </div>
-        </Aparece>
+        {/* El botón de Google solo aparece cuando sus credenciales existen.
+            Enseñarlo sin ellas lleva a una pantalla de error de Google, y
+            quien lo pulse va a pensar que la aplicación está rota. */}
+        {entorno.conGoogle && (
+          <>
+            <Aparece>
+              <div className="separador">
+                <span>o</span>
+              </div>
+            </Aparece>
 
-        <Aparece>
-          <BotonDeGoogle disabled={ocupado} onClick={() => void entrarConGoogle(recordar)} />
-        </Aparece>
+            <Aparece>
+              <BotonDeGoogle disabled={ocupado} onClick={() => void entrarConGoogle(recordar)} />
+            </Aparece>
+          </>
+        )}
       </form>
     </LienzoDeAcceso>
   );

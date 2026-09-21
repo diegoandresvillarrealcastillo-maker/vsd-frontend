@@ -205,3 +205,18 @@ describe('accesibilidad de las tres pantallas', () => {
     expect(screen.getByText(/no diagnostica/i)).toBeInTheDocument();
   });
 });
+
+describe('el boton de Google', () => {
+  it('no aparece mientras no haya credenciales configuradas', () => {
+    // Sin VITE_PROVEEDOR_GOOGLE en si, el boton lleva a una pantalla de error
+    // de Google. Quien lo pulse va a pensar que la aplicacion esta rota, asi
+    // que es preferible no ofrecerlo.
+    for (const pantalla of [<Acceso key="a" />, <Registro key="r" />]) {
+      const { unmount } = pintar(pantalla, estado());
+
+      expect(screen.queryByRole('button', { name: /Google/i })).not.toBeInTheDocument();
+
+      unmount();
+    }
+  });
+});
