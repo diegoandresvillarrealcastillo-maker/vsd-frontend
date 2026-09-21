@@ -25,6 +25,30 @@ export const VERSION_DEL_AVISO = '2026-09-1';
 
 const BIEN: ResultadoDeAcceso = { ok: true };
 
+const SIN_CONFIGURAR: ResultadoDeAcceso = {
+  ok: false,
+  mensaje: 'La aplicacion no tiene configurado el acceso. Avisa a quien la administra.',
+};
+
+/**
+ * El cliente, o `null` si falta configuracion.
+ *
+ * `supabase()` lanza cuando no encuentra las credenciales, y eso esta bien
+ * cuando alguien va a usarlo. Lo que no puede es tumbar la aplicacion entera:
+ * quien acaba de clonar el repositorio se encontraba una pantalla en blanco y
+ * el motivo solo en la consola del navegador.
+ *
+ * Aqui se atrapa para que lo que no depende de Supabase —la portada, el aviso
+ * clinico, las lineas de atencion— siga en pie.
+ */
+function clienteONulo(): ReturnType<typeof supabase> | null {
+  try {
+    return supabase();
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Convierte el error de Supabase en algo que se pueda mostrar.
  *
@@ -65,14 +89,28 @@ function traducir(error: AuthError | null): ResultadoDeAcceso {
 
 export function ProveedorDeSesion({ children }: { children: ReactNode }) {
   const [sesion, setSesion] = useState<Session | null>(null);
-  const [cargando, setCargando] = useState(true);
+
+  // Empieza en "cargando" solo si hay algo que cargar. Sin configuracion no
+  // hay sesion posible y se sabe desde el primer instante, asi que anunciar
+  // una espera que nunca va a terminar dejaria las rutas protegidas colgadas.
+  //
+  // Se calcula con la forma perezosa de useState —una funcion— para que se
+  // evalue una sola vez y no en cada pintado.
+  const [cargando, setCargando] = useState(() => clienteONulo() !== null);
 
   useEffect(() => {
     let vigente = true;
+    const cliente = clienteONulo();
+
+    if (!cliente) {
+      // La aplicacion tiene que seguir en pie: la portada y el aviso clinico
+      // no dependen de Supabase.
+      return;
+    }
 
     // Primero lo que ya hubiera guardado, para no expulsar a quien recarga.
-    void supabase()
-      .auth.getSession()
+    void cliente.auth
+      .getSession()
       .then(({ data }) => {
         if (vigente) {
           setSesion(data.session);
@@ -80,8 +118,6 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
         }
       })
       .catch(() => {
-        // Sin credenciales configuradas no hay sesion posible, y eso no es un
-        // fallo: es el estado normal de quien todavia no ha entrado.
         if (vigente) {
           setCargando(false);
         }
@@ -90,7 +126,7 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     // Y despues, cualquier cambio: entrar, salir, o que se renueve el token.
     // Sin esta suscripcion, cerrar sesion en otra pestana dejaria esta creyendo
     // que sigue dentro.
-    const { data: suscripcion } = supabase().auth.onAuthStateChange((_evento, nueva) => {
+    const { data: suscripcion } = cliente.auth.onAuthStateChange((_evento, nueva) => {
       if (vigente) {
         setSesion(nueva);
         setCargando(false);
@@ -119,7 +155,13 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
 
       recordarEnEsteEquipo(recordar);
 
-      const { error } = await supabase().auth.signUp({
+      const cliente = clienteONulo();
+
+      if (!cliente) {
+        return SIN_CONFIGURAR;
+      }
+
+      const { error } = await cliente.auth.signUp({
         email: correo,
         password: contrasena,
         options: {
@@ -142,7 +184,13 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
       // llamada, y para entonces ya tiene que estar decidido donde va.
       recordarEnEsteEquipo(recordar);
 
-      const { error } = await supabase().auth.signInWithPassword({
+      const cliente = clienteONulo();
+
+      if (!cliente) {
+        return SIN_CONFIGURAR;
+      }
+
+      const { error } = await cliente.auth.signInWithPassword({
         email: correo,
         password: contrasena,
       });
@@ -155,7 +203,13 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
   const entrarConGoogle = useCallback(async (recordar: boolean): Promise<ResultadoDeAcceso> => {
     recordarEnEsteEquipo(recordar);
 
-    const { error } = await supabase().auth.signInWithOAuth({
+    const cliente = clienteONulo();
+
+    if (!cliente) {
+      return SIN_CONFIGURAR;
+    }
+
+    const { error } = await cliente.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}${RUTAS.PANEL}` },
     });
@@ -164,7 +218,13 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
   }, []);
 
   const pedirRecuperacion = useCallback(async (correo: string): Promise<ResultadoDeAcceso> => {
-    const { error } = await supabase().auth.resetPasswordForEmail(correo, {
+    const cliente = clienteONulo();
+
+    if (!cliente) {
+      return SIN_CONFIGURAR;
+    }
+
+    const { error } = await cliente.auth.resetPasswordForEmail(correo, {
       redirectTo: `${window.location.origin}${RUTAS.CONTRASENA_NUEVA}`,
     });
 
@@ -179,13 +239,19 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
   }, []);
 
   const cambiarContrasena = useCallback(async (nueva: string): Promise<ResultadoDeAcceso> => {
-    const { error } = await supabase().auth.updateUser({ password: nueva });
+    const cliente = clienteONulo();
+
+    if (!cliente) {
+      return SIN_CONFIGURAR;
+    }
+
+    const { error } = await cliente.auth.updateUser({ password: nueva });
 
     return traducir(error);
   }, []);
 
   const salir = useCallback(async (): Promise<void> => {
-    await supabase().auth.signOut();
+    await clienteONulo()?.auth.signOut();
     olvidarPreferenciaDePestana();
     setSesion(null);
   }, []);
