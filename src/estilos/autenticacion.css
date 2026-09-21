@@ -48,12 +48,29 @@
 .acceso__tarjeta {
   position: relative;
   z-index: 1;
+  isolation: isolate;
+  overflow: hidden;
   width: min(100%, 26rem);
   padding: 32px 28px;
   background: var(--fondo-elevado);
   border: 1px solid var(--borde);
   border-radius: var(--radio-grande);
   box-shadow: var(--sombra);
+}
+
+/* El resplandor que sigue al cursor. Va bajo el contenido y no recibe
+   eventos: es una superficie que reacciona, no un control. */
+.acceso__resplandor {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  transition: opacity var(--medio) var(--curva);
+}
+
+.acceso__contenido {
+  position: relative;
+  z-index: 1;
 }
 
 .acceso__titulo {
@@ -84,12 +101,30 @@
 }
 
 .acceso__enlace {
+  position: relative;
   color: var(--acento);
   text-decoration: none;
 }
 
-.acceso__enlace:hover {
-  text-decoration: underline;
+/* El subrayado crece desde la izquierda en lugar de aparecer entero. Cuesta
+   lo mismo y convierte un cambio de estado en un gesto. */
+.acceso__enlace::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 1.5px;
+  background: currentColor;
+  border-radius: 2px;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--medio) var(--curva);
+}
+
+.acceso__enlace:hover::after,
+.acceso__enlace:focus-visible::after {
+  transform: scaleX(1);
 }
 
 /* ---------- Campos ---------- */
@@ -112,14 +147,23 @@
   border: 1px solid var(--borde-fuerte);
   border-radius: var(--radio);
   transition:
-    border-color var(--rapido) var(--curva),
-    box-shadow var(--rapido) var(--curva);
+    border-color var(--medio) var(--curva),
+    background var(--medio) var(--curva),
+    box-shadow var(--medio) var(--curva);
 }
 
+/* El anillo de foco crece desde el borde. La transicion incluye el color de
+   fondo para que el campo activo se distinga tambien cuando el anillo termina
+   de expandirse. */
 .campo__entrada:focus {
   outline: none;
   border-color: var(--acento);
+  background: var(--fondo-elevado);
   box-shadow: 0 0 0 3px var(--acento-suave);
+}
+
+.campo__entrada:hover:not(:focus):not(:disabled) {
+  border-color: var(--acento);
 }
 
 /* El error vira el borde de color. Nada de sacudidas: el temblor es
@@ -184,11 +228,41 @@
   border: none;
   border-radius: var(--radio);
   cursor: pointer;
-  transition: filter var(--rapido) var(--curva);
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
+  transition:
+    filter var(--medio) var(--curva),
+    box-shadow var(--medio) var(--curva);
 }
 
 .envio:hover:not(:disabled) {
-  filter: brightness(1.08);
+  filter: brightness(1.06);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--acento) 32%, transparent);
+}
+
+.envio__texto {
+  position: relative;
+  z-index: 1;
+}
+
+/* Un brillo que cruza el boton al pasar el cursor. Tarda 600 ms y solo ocurre
+   una vez por entrada: repetirlo en bucle lo convertiria en un anuncio. */
+.envio__brillo {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    color-mix(in srgb, var(--acento-contraste) 26%, transparent) 50%,
+    transparent 65%
+  );
+  transform: translateX(-100%);
+  transition: transform 600ms var(--curva);
+}
+
+.envio:hover:not(:disabled) .envio__brillo {
+  transform: translateX(100%);
 }
 
 .envio:disabled {
@@ -232,11 +306,16 @@
   border: 1px solid var(--borde-fuerte);
   border-radius: var(--radio);
   cursor: pointer;
-  transition: background var(--rapido) var(--curva);
+  transition:
+    background var(--medio) var(--curva),
+    border-color var(--medio) var(--curva),
+    box-shadow var(--medio) var(--curva);
 }
 
 .google:hover:not(:disabled) {
   background: var(--fondo-sutil);
+  border-color: var(--texto-tenue);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
 }
 
 .separador {
@@ -281,5 +360,21 @@
   .acceso__respiro {
     animation: none;
     opacity: 0.85;
+  }
+
+  /* El brillo del boton y el resplandor de la tarjeta se apagan del todo. El
+     resto de estados —color, sombra— se mantiene: no se mueven, y sin ellos
+     no habria forma de saber que hay algo bajo el cursor. */
+  .envio__brillo,
+  .acceso__resplandor {
+    display: none;
+  }
+
+  .acceso__enlace::after {
+    transition: none;
+  }
+
+  .acceso__enlace:hover::after {
+    transform: scaleX(1);
   }
 }

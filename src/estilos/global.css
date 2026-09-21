@@ -34,6 +34,10 @@
   --respiro-a: #eef2ef;
   --respiro-b: #f7f2ea;
 
+  /* El resplandor que sigue al cursor sobre la tarjeta. Muy tenue: se tiene
+     que percibir como que la superficie reacciona, no como una linterna. */
+  --resplandor: rgb(61 122 107 / 7%);
+
   /* ---------- Forma ---------- */
   --radio: 12px;
   --radio-grande: 20px;
@@ -76,6 +80,9 @@
 
     --respiro-a: #1d262a;
     --respiro-b: #251f1a;
+
+    /* En oscuro hace falta mas para que se note, pero sigue siendo poco. */
+    --resplandor: rgb(127 195 177 / 10%);
 
     --sombra: 0 1px 2px rgb(0 0 0 / 30%), 0 8px 24px rgb(0 0 0 / 28%);
   }

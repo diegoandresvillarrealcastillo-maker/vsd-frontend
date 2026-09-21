@@ -1,7 +1,14 @@
-import { motion } from 'framer-motion';
-import type { ReactNode } from 'react';
+import {
+  motion,
+  useMotionTemplate,
+  useMotionValue,
+  useReducedMotion,
+  useSpring,
+} from 'framer-motion';
+import type { MouseEvent, ReactNode } from 'react';
 
 import '../../estilos/autenticacion.css';
+import { ACOMPANADO, ENTRADA } from '../../estilos/movimiento.ts';
 
 interface Props {
   titulo: string;
@@ -23,6 +30,36 @@ interface Props {
  * reacomoda para lo que vas a hacer.
  */
 export function LienzoDeAcceso({ titulo, entradilla, children, pie }: Props) {
+  const sinMovimiento = useReducedMotion();
+
+  // La posicion del cursor dentro de la tarjeta, para el resplandor que la
+  // sigue. Son valores de movimiento y no estado de React: cambiar estado en
+  // cada pixel repintaria el arbol entero sesenta veces por segundo.
+  const x = useMotionValue(-400);
+  const y = useMotionValue(-400);
+
+  // El resorte hace que el resplandor persiga al cursor con un retraso
+  // minimo, en lugar de ir pegado. Pegado se siente mecanico; con inercia
+  // parece que hay algo detras del cristal.
+  const xSuave = useSpring(x, { stiffness: 220, damping: 28, mass: 0.6 });
+  const ySuave = useSpring(y, { stiffness: 220, damping: 28, mass: 0.6 });
+
+  const resplandor = useMotionTemplate`radial-gradient(220px circle at ${xSuave}px ${ySuave}px, var(--resplandor), transparent 70%)`;
+
+  function seguirAlCursor(evento: MouseEvent<HTMLElement>) {
+    const caja = evento.currentTarget.getBoundingClientRect();
+
+    x.set(evento.clientX - caja.left);
+    y.set(evento.clientY - caja.top);
+  }
+
+  function soltarElCursor() {
+    // Lejos de la tarjeta, para que el resplandor se apague al salir en vez de
+    // quedarse clavado en el ultimo punto.
+    x.set(-400);
+    y.set(-400);
+  }
+
   return (
     <main className="acceso">
       {/* Decorativo: no aporta informacion y no debe leerse en voz alta. */}
@@ -31,12 +68,22 @@ export function LienzoDeAcceso({ titulo, entradilla, children, pie }: Props) {
       <motion.section
         layoutId="tarjeta-de-acceso"
         className="acceso__tarjeta"
-        transition={{ type: 'spring', stiffness: 260, damping: 30 }}
+        transition={ACOMPANADO}
+        {...(sinMovimiento ? {} : { onMouseMove: seguirAlCursor, onMouseLeave: soltarElCursor })}
       >
+        {!sinMovimiento && (
+          <motion.div
+            className="acceso__resplandor"
+            aria-hidden="true"
+            style={{ background: resplandor }}
+          />
+        )}
+
         {/* La entrada escalonada: unos 40 ms entre elementos. Casi no se
             percibe y hace que la pantalla se sienta viva en lugar de aparecer
             de golpe. */}
         <motion.div
+          className="acceso__contenido"
           initial="oculto"
           animate="visible"
           variants={{
@@ -78,7 +125,7 @@ export function Aparece({ children }: { children: ReactNode }) {
         oculto: { opacity: 0, y: 8 },
         visible: { opacity: 1, y: 0 },
       }}
-      transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+      transition={ENTRADA}
     >
       {children}
     </motion.div>
