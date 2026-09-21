@@ -1,0 +1,14 @@
+{
+  // Archivo raiz de la solucion. No compila nada por si mismo: reparte el
+  // trabajo entre dos proyectos con reglas distintas.
+  //
+  //   - tsconfig.app.json   el codigo que se ejecuta en el navegador
+  //   - tsconfig.node.json  la configuracion de Vite, que se ejecuta en Node
+  //
+  // Estan separados porque no comparten bibliotecas: el navegador tiene DOM y
+  // no tiene sistema de archivos, y en Node es al reves. Con un solo proyecto
+  // habria que declarar las dos cosas a la vez y TypeScript dejaria de avisar
+  // cuando alguien usa una API que no existe donde su codigo se ejecuta.
+  "files": [],
+  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]
+}

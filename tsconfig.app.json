@@ -1,0 +1,43 @@
+{
+  // El codigo que acaba en el navegador.
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+
+    // Vite se encarga de generar los archivos; TypeScript solo revisa tipos.
+    "noEmit": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "composite": true,
+
+    "moduleDetection": "force",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "useDefineForClassFields": true,
+
+    // El grupo estricto. Cada una de estas sirve para que un descuido salga
+    // aqui y no en la pantalla de alguien.
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+
+    "types": ["vite/client", "@testing-library/jest-dom"],
+
+    // Sin baseUrl: esta en desuso y en TypeScript 7 deja de funcionar. Los
+    // patrones de "paths" se resuelven contra la carpeta de este archivo.
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src"]
+}

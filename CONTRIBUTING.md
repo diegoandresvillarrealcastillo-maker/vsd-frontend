@@ -8,11 +8,11 @@ Estas reglas aplican por igual a `vsd-frontend` y `vsd-backend`.
 
 VSD Health no usa `main`. Hay tres ramas de larga vida:
 
-| Rama | Que contiene | Quien escribe en ella |
-|---|---|---|
-| `produccion` | Lo que usan las personas reales | Nadie directamente. Solo entra por Pull Request desde `preproduccion` |
-| `preproduccion` | Version candidata, en validacion | Nadie directamente. Solo entra por Pull Request desde `desarrollo` |
-| `desarrollo` | Integracion del trabajo del equipo | Nadie directamente. Solo entra por Pull Request desde ramas de trabajo |
+| Rama            | Que contiene                       | Quien escribe en ella                                                  |
+| --------------- | ---------------------------------- | ---------------------------------------------------------------------- |
+| `produccion`    | Lo que usan las personas reales    | Nadie directamente. Solo entra por Pull Request desde `preproduccion`  |
+| `preproduccion` | Version candidata, en validacion   | Nadie directamente. Solo entra por Pull Request desde `desarrollo`     |
+| `desarrollo`    | Integracion del trabajo del equipo | Nadie directamente. Solo entra por Pull Request desde ramas de trabajo |
 
 El flujo completo es siempre el mismo:
 
