@@ -50,9 +50,9 @@ describe('Registro', () => {
     const registrarse = vi.fn().mockResolvedValue({ ok: true });
     pintar(<Registro />, estado({ registrarse }));
 
-    await userEvent.type(screen.getByLabelText('Correo'), 'alguien@ucundinamarca.edu.co');
-    await userEvent.type(screen.getByLabelText('Contrasena'), 'unaContrasenaLarga');
-    await userEvent.type(screen.getByLabelText('Repite la contrasena'), 'unaContrasenaLarga');
+    await userEvent.type(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
+    await userEvent.type(screen.getByLabelText('Contraseña'), 'unaContrasenaLarga');
+    await userEvent.type(screen.getByLabelText('Repite la contraseña'), 'unaContrasenaLarga');
 
     await userEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
@@ -64,9 +64,9 @@ describe('Registro', () => {
     const registrarse = vi.fn().mockResolvedValue({ ok: true });
     pintar(<Registro />, estado({ registrarse }));
 
-    await userEvent.type(screen.getByLabelText('Correo'), 'alguien@ucundinamarca.edu.co');
-    await userEvent.type(screen.getByLabelText('Contrasena'), 'unaContrasenaLarga');
-    await userEvent.type(screen.getByLabelText('Repite la contrasena'), 'otraDistinta');
+    await userEvent.type(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
+    await userEvent.type(screen.getByLabelText('Contraseña'), 'unaContrasenaLarga');
+    await userEvent.type(screen.getByLabelText('Repite la contraseña'), 'otraDistinta');
     await userEvent.click(screen.getByLabelText(/Acepto el tratamiento/));
 
     await userEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
@@ -79,9 +79,9 @@ describe('Registro', () => {
     const registrarse = vi.fn().mockResolvedValue({ ok: true });
     pintar(<Registro />, estado({ registrarse }));
 
-    await userEvent.type(screen.getByLabelText('Correo'), 'alguien@ucundinamarca.edu.co');
-    await userEvent.type(screen.getByLabelText('Contrasena'), 'corta');
-    await userEvent.type(screen.getByLabelText('Repite la contrasena'), 'corta');
+    await userEvent.type(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
+    await userEvent.type(screen.getByLabelText('Contraseña'), 'corta');
+    await userEvent.type(screen.getByLabelText('Repite la contraseña'), 'corta');
     await userEvent.click(screen.getByLabelText(/Acepto el tratamiento/));
 
     await userEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
@@ -98,17 +98,16 @@ describe('Registro', () => {
     const registrarse = vi.fn().mockResolvedValue({ ok: true });
     pintar(<Registro />, estado({ registrarse }));
 
-    await userEvent.type(screen.getByLabelText('Correo'), 'alguien@ucundinamarca.edu.co');
-    await userEvent.type(screen.getByLabelText('Contrasena'), 'unaContrasenaLarga');
-    await userEvent.type(screen.getByLabelText('Repite la contrasena'), 'unaContrasenaLarga');
+    await userEvent.type(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
+    await userEvent.type(screen.getByLabelText('Contraseña'), 'unaContrasenaLarga');
+    await userEvent.type(screen.getByLabelText('Repite la contraseña'), 'unaContrasenaLarga');
     await userEvent.click(screen.getByLabelText(/Acepto el tratamiento/));
 
     await userEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
     expect(registrarse).toHaveBeenCalledWith({
-      correo: 'alguien@ucundinamarca.edu.co',
+      correo: 'alguien@ejemplo.com',
       contrasena: 'unaContrasenaLarga',
-      recordar: true,
       aceptaElAviso: true,
     });
   });
@@ -119,15 +118,33 @@ describe('Acceso', () => {
     vi.clearAllMocks();
   });
 
-  it('pasa "no recordar" cuando se marca la casilla', async () => {
+  it('recuerda el dispositivo si no se toca la casilla', async () => {
+    // Marcada por defecto: es lo que espera quien entra desde su propio
+    // equipo, que son la mayoria.
+    const entrar = vi.fn().mockResolvedValue({ ok: true });
+    pintar(<Acceso />, estado({ entrar }));
+
+    await userEvent.type(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
+    await userEvent.type(screen.getByLabelText('Contraseña'), 'loQueSea123');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+
+    expect(entrar).toHaveBeenCalledWith({
+      correo: 'alguien@ejemplo.com',
+      contrasena: 'loQueSea123',
+      recordar: true,
+    });
+  });
+
+  it('deja de recordarlo al desmarcar la casilla', async () => {
     // Es la casilla de las salas de computo de la universidad. Si el valor no
     // viajara, la sesion quedaria abierta en un equipo compartido.
     const entrar = vi.fn().mockResolvedValue({ ok: true });
     pintar(<Acceso />, estado({ entrar }));
 
-    await userEvent.type(screen.getByLabelText('Correo'), 'alguien@ucundinamarca.edu.co');
-    await userEvent.type(screen.getByLabelText('Contrasena'), 'loQueSea123');
-    await userEvent.click(screen.getByLabelText(/No recordar en este equipo/));
+    await userEvent.type(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
+    await userEvent.type(screen.getByLabelText('Contraseña'), 'loQueSea123');
+    await userEvent.click(screen.getByLabelText(/Recordar en este dispositivo/));
 
     await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
 
@@ -136,34 +153,28 @@ describe('Acceso', () => {
     );
   });
 
-  it('recuerda el equipo si no se marca nada', async () => {
-    const entrar = vi.fn().mockResolvedValue({ ok: true });
-    pintar(<Acceso />, estado({ entrar }));
+  it('no pregunta por recordar el dispositivo al registrarse', () => {
+    // Al crear la cuenta la pregunta no tiene sentido: acabas de hacerla y vas
+    // a entrar igual. La unica casilla que queda ahi es la del consentimiento.
+    pintar(<Registro />, estado());
 
-    await userEvent.type(screen.getByLabelText('Correo'), 'alguien@ucundinamarca.edu.co');
-    await userEvent.type(screen.getByLabelText('Contrasena'), 'loQueSea123');
-
-    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
-
-    expect(entrar).toHaveBeenCalledWith(
-      expect.objectContaining({ recordar: true }) as Record<string, unknown>,
-    );
+    expect(screen.queryByLabelText(/Recordar en este dispositivo/)).toBeNull();
   });
 
   it('muestra el error sin decir si la cuenta existe', async () => {
     const entrar = vi
       .fn()
-      .mockResolvedValue({ ok: false, mensaje: 'El correo o la contrasena no coinciden.' });
+      .mockResolvedValue({ ok: false, mensaje: 'El correo o la contraseña no coinciden.' });
 
     pintar(<Acceso />, estado({ entrar }));
 
     await userEvent.type(screen.getByLabelText('Correo'), 'noexiste@ejemplo.test');
-    await userEvent.type(screen.getByLabelText('Contrasena'), 'loQueSea123');
+    await userEvent.type(screen.getByLabelText('Contraseña'), 'loQueSea123');
     await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
 
     const aviso = await screen.findByRole('alert');
 
-    expect(aviso).toHaveTextContent('El correo o la contrasena no coinciden.');
+    expect(aviso).toHaveTextContent('El correo o la contraseña no coinciden.');
     // Cualquiera de estas frases permitiria averiguar quien tiene cuenta
     // probando direcciones una a una.
     expect(aviso).not.toHaveTextContent(/no existe|no registrado|no encontrad/i);

@@ -35,7 +35,7 @@ export function OjoDeContrasena({ visible, onClick, disabled }: Props) {
       // contrasena esta visible ahora mismo. Sin el, el boton se anuncia igual
       // en los dos estados.
       aria-pressed={visible}
-      aria-label={visible ? 'Ocultar la contrasena' : 'Mostrar la contrasena'}
+      aria-label={visible ? 'Ocultar la contraseña' : 'Mostrar la contraseña'}
       whileHover={sinMovimiento || disabled ? {} : { scale: 1.12 }}
       whileTap={sinMovimiento || disabled ? {} : { scale: 0.88 }}
       transition={INMEDIATO}

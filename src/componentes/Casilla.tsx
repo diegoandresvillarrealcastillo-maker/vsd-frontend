@@ -1,5 +1,5 @@
-import { motion, useReducedMotion } from 'framer-motion';
-import { useId, type ReactNode } from 'react';
+﻿import { motion, useReducedMotion } from 'framer-motion';
+import { useId, useState, type ReactNode } from 'react';
 
 import { INMEDIATO } from '../estilos/movimiento.ts';
 
@@ -37,7 +37,19 @@ export function Casilla({ etiqueta, nota, marcada, onChange, disabled }: Props) 
   const id = useId();
   const idNota = `${id}-nota`;
 
+  // La cesion al pulsar se lleva desde la etiqueta y no con `whileTap` sobre
+  // la caja. `whileTap` obliga a Framer Motion a anadirle `tabindex="0"` para
+  // poder capturar la pulsacion, y esa caja esta marcada como oculta para
+  // lectores de pantalla: un elemento que se anuncia como inexistente pero
+  // recibe el foco deja a quien navega con teclado en una parada muda.
+  //
+  // De paso queda mejor: ahora la casilla cede al pulsar en cualquier punto de
+  // la etiqueta, que es toda la superficie que de verdad responde.
+  const [pulsada, setPulsada] = useState(false);
+
   const resorte = sinMovimiento ? { duration: 0 } : INMEDIATO;
+
+  const escala = pulsada && !disabled && !sinMovimiento ? 0.8 : marcada ? 1 : 0.94;
 
   return (
     <div className="casilla">
@@ -51,15 +63,23 @@ export function Casilla({ etiqueta, nota, marcada, onChange, disabled }: Props) 
         onChange={(e) => onChange(e.target.checked)}
       />
 
-      <label className="casilla__cuerpo" htmlFor={id}>
+      <label
+        className="casilla__cuerpo"
+        htmlFor={id}
+        onPointerDown={() => setPulsada(true)}
+        onPointerUp={() => setPulsada(false)}
+        // Si el dedo sale de la etiqueta sin soltar, la casilla tiene que
+        // volver a su sitio: si no, se queda encogida para siempre.
+        onPointerLeave={() => setPulsada(false)}
+        onPointerCancel={() => setPulsada(false)}
+      >
         <motion.span
           className="casilla__caja"
           aria-hidden="true"
           animate={{
-            scale: marcada ? 1 : 0.94,
+            scale: escala,
             borderColor: marcada ? 'var(--acento)' : 'var(--borde-fuerte)',
           }}
-          whileTap={sinMovimiento || disabled ? {} : { scale: 0.8 }}
           transition={resorte}
         >
           {/* El relleno crece desde el centro. Encenderlo de golpe se lee como

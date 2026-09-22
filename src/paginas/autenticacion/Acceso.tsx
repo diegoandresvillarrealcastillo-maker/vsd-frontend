@@ -17,9 +17,13 @@ export function Acceso() {
 
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
-  const [recordar, setRecordar] = useState(true);
   const [estado, setEstado] = useState<EstadoDeEnvio>('listo');
   const [error, setError] = useState<string | null>(null);
+
+  // Marcada por defecto: es lo que espera quien entra desde su propio equipo,
+  // que son la mayoria. Quien esta en una sala de computo de la universidad la
+  // desmarca, y entonces la sesion muere al cerrar la pestana.
+  const [recordar, setRecordar] = useState(true);
 
   // A donde queria ir antes de que la ruta protegida la mandara aqui.
   const destino = (ubicacion.state as { volverA?: string } | null)?.volverA ?? RUTAS.PANEL;
@@ -58,7 +62,7 @@ export function Acceso() {
             </Link>
           </span>
           <Link className="acceso__enlace" to={RUTAS.RECUPERAR}>
-            Olvide mi contrasena
+            Olvidé mi contraseña
           </Link>
         </>
       }
@@ -90,7 +94,7 @@ export function Acceso() {
 
         <Aparece>
           <Campo
-            etiqueta="Contrasena"
+            etiqueta="Contraseña"
             type="password"
             name="current-password"
             autoComplete="current-password"
@@ -103,11 +107,11 @@ export function Acceso() {
 
         <Aparece>
           <Casilla
-            etiqueta="No recordar en este equipo"
-            nota="Para computadores compartidos: la sesion se cierra al cerrar la pestana."
-            marcada={!recordar}
+            etiqueta="Recordar en este dispositivo"
+            nota="Si lo desmarcas, la sesión se cierra al cerrar la pestaña. Úsalo en computadores compartidos."
+            marcada={recordar}
             disabled={ocupado}
-            onChange={(marcada) => setRecordar(!marcada)}
+            onChange={setRecordar}
           />
         </Aparece>
 

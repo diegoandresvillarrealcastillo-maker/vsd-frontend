@@ -27,7 +27,7 @@ export interface EstadoDeSesion {
   readonly registrarse: (
     datos: DatosDeAcceso & { aceptaElAviso: boolean },
   ) => Promise<ResultadoDeAcceso>;
-  readonly entrar: (datos: DatosDeAcceso) => Promise<ResultadoDeAcceso>;
+  readonly entrar: (datos: DatosDeEntrada) => Promise<ResultadoDeAcceso>;
   readonly entrarConGoogle: (recordar: boolean) => Promise<ResultadoDeAcceso>;
   readonly pedirRecuperacion: (correo: string) => Promise<ResultadoDeAcceso>;
   readonly cambiarContrasena: (nueva: string) => Promise<ResultadoDeAcceso>;
@@ -37,6 +37,17 @@ export interface EstadoDeSesion {
 export interface DatosDeAcceso {
   readonly correo: string;
   readonly contrasena: string;
+}
+
+/**
+ * Lo que hace falta para entrar, mas la decision de recordar el equipo.
+ *
+ * Solo la pantalla de inicio de sesion la ofrece. Al registrarte la pregunta
+ * no tiene sentido —acabas de crear la cuenta y vas a entrar de todos modos—
+ * y en la puerta de entrada de quien ya la tiene si lo tiene: buena parte de
+ * quien usa VSD Health entra desde una sala de computo compartida.
+ */
+export interface DatosDeEntrada extends DatosDeAcceso {
   /** Sin marcar, la sesion muere al cerrar la pestana. */
   readonly recordar: boolean;
 }

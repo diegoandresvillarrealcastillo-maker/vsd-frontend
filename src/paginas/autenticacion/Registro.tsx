@@ -9,6 +9,7 @@ import { entorno } from '../../infraestructura/entorno.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { Aparece, LienzoDeAcceso } from './LienzoDeAcceso.tsx';
+import { PistasDelCorreo } from './PistasDelCorreo.tsx';
 
 /** Minimo de caracteres. Supabase rechaza por debajo de ocho. */
 const MINIMO = 8;
@@ -31,7 +32,6 @@ export function Registro() {
   const [contrasena, setContrasena] = useState('');
   const [repetida, setRepetida] = useState('');
   const [acepta, setAcepta] = useState(false);
-  const [recordar, setRecordar] = useState(true);
   const [estado, setEstado] = useState<EstadoDeEnvio>('listo');
   const [error, setError] = useState<string | null>(null);
   const [errorDeCampo, setErrorDeCampo] = useState<ErroresDeContrasena>({});
@@ -59,7 +59,7 @@ export function Registro() {
     }
 
     if (repetida !== contrasena) {
-      fallos.repetida = 'Las dos contrasenas no coinciden.';
+      fallos.repetida = 'Las dos contraseñas no coinciden.';
     }
 
     setErrorDeCampo(fallos);
@@ -73,7 +73,6 @@ export function Registro() {
     const resultado = await registrarse({
       correo,
       contrasena,
-      recordar,
       aceptaElAviso: acepta,
     });
 
@@ -92,20 +91,17 @@ export function Registro() {
   if (enviado) {
     return (
       <LienzoDeAcceso
-        titulo="Revisa tu correo"
-        entradilla={`Te enviamos un enlace a ${correo} para confirmar la cuenta.`}
+        titulo="Ya te enviamos el correo"
+        // Se dice que la cuenta existe y que le falta un paso. Un "revisa tu
+        // correo" a secas deja sin saber si el registro funciono o no.
+        entradilla={`Tu cuenta ya está creada. Para activarla, abre ${correo} y pulsa el enlace que acabamos de mandarte.`}
         pie={
           <Link className="acceso__enlace" to={RUTAS.ACCESO}>
-            Volver al inicio de sesion
+            Volver al inicio de sesión
           </Link>
         }
       >
-        <Aparece>
-          <p className="aviso aviso--bien">
-            Si no lo ves en unos minutos, mira en correo no deseado. El enlace caduca, asi que usalo
-            pronto.
-          </p>
-        </Aparece>
+        <PistasDelCorreo />
       </LienzoDeAcceso>
     );
   }
@@ -140,6 +136,7 @@ export function Registro() {
             autoComplete="email"
             inputMode="email"
             required
+            ayuda="Aquí te llega el enlace para activar la cuenta, así que usa uno al que puedas entrar."
             value={correo}
             disabled={ocupado}
             onChange={(e) => setCorreo(e.target.value)}
@@ -148,7 +145,7 @@ export function Registro() {
 
         <Aparece>
           <Campo
-            etiqueta="Contrasena"
+            etiqueta="Contraseña"
             type="password"
             name="new-password"
             autoComplete="new-password"
@@ -163,7 +160,7 @@ export function Registro() {
 
         <Aparece>
           <Campo
-            etiqueta="Repite la contrasena"
+            etiqueta="Repite la contraseña"
             type="password"
             name="new-password-repeat"
             autoComplete="new-password"
@@ -178,20 +175,10 @@ export function Registro() {
         <Aparece>
           <Casilla
             etiqueta="Acepto el tratamiento de mis datos"
-            nota="VSD Health maneja informacion relacionada con tu bienestar. No diagnostica, no formula medicamentos y no reemplaza a ningun profesional."
+            nota="VSD Health maneja información relacionada con tu bienestar. No diagnostica, no formula medicamentos y no reemplaza a ningún profesional."
             marcada={acepta}
             disabled={ocupado}
             onChange={setAcepta}
-          />
-        </Aparece>
-
-        <Aparece>
-          <Casilla
-            etiqueta="No recordar en este equipo"
-            nota="Para computadores compartidos: la sesion se cierra al cerrar la pestana."
-            marcada={!recordar}
-            disabled={ocupado}
-            onChange={(marcada) => setRecordar(!marcada)}
           />
         </Aparece>
 
@@ -221,7 +208,9 @@ export function Registro() {
             </Aparece>
 
             <Aparece>
-              <BotonDeGoogle disabled={ocupado} onClick={() => void entrarConGoogle(recordar)}>
+              {/* Al registrarse siempre se recuerda: la pregunta de si guardar
+                  la sesion solo la hace la pantalla de inicio de sesion. */}
+              <BotonDeGoogle disabled={ocupado} onClick={() => void entrarConGoogle(true)}>
                 Registrarme con Google
               </BotonDeGoogle>
             </Aparece>

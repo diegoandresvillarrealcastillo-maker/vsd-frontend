@@ -10,6 +10,7 @@ import { RUTAS } from '../rutas/rutas.ts';
 import {
   SesionContexto,
   type DatosDeAcceso,
+  type DatosDeEntrada,
   type EstadoDeSesion,
   type ResultadoDeAcceso,
 } from './SesionContexto.ts';
@@ -23,11 +24,21 @@ import {
  */
 export const VERSION_DEL_AVISO = '2026-09-1';
 
+/**
+ * Al registrarse y al entrar con Google, la sesion se recuerda.
+ *
+ * La pregunta de si recordar el equipo solo la hace la pantalla de inicio de
+ * sesion. Al crear una cuenta no tiene sentido —acabas de hacerla y vas a
+ * entrar igual— y ponerla ahi seria una casilla mas que leer en el peor
+ * momento para pedir atencion.
+ */
+const RECORDAR_SIEMPRE = true;
+
 const BIEN: ResultadoDeAcceso = { ok: true };
 
 const SIN_CONFIGURAR: ResultadoDeAcceso = {
   ok: false,
-  mensaje: 'La aplicacion no tiene configurado el acceso. Avisa a quien la administra.',
+  mensaje: 'La aplicación no tiene configurado el acceso. Avisa a quien la administra.',
 };
 
 /**
@@ -53,18 +64,18 @@ const DEMASIADOS_INTENTOS = 'Demasiados intentos seguidos. Espera un momento y v
 
 /** Cada codigo de error de Supabase con su texto en espanol. */
 const MENSAJES: Readonly<Record<string, string>> = {
-  invalid_credentials: 'El correo o la contrasena no coinciden.',
-  weak_password: 'Esa contrasena es muy corta. Necesita al menos 8 caracteres.',
-  email_not_confirmed: 'Todavia no confirmaste el correo. Revisa tu bandeja.',
+  invalid_credentials: 'El correo o la contraseña no coinciden.',
+  weak_password: 'Esa contraseña es muy corta. Necesita al menos 8 caracteres.',
+  email_not_confirmed: 'Todavía no confirmaste el correo. Revisa tu bandeja.',
   over_request_rate_limit: DEMASIADOS_INTENTOS,
   over_email_send_rate_limit: 'Se enviaron muchos correos seguidos. Espera unos minutos.',
-  validation_failed: 'Revisa el correo: no tiene un formato valido.',
+  validation_failed: 'Revisa el correo: no tiene un formato válido.',
 
   // Estos dos no son culpa de quien esta delante de la pantalla: son
   // configuracion que falta en Supabase. Decirle "el correo o la contrasena no
   // coinciden" la mandaria a revisar algo que esta bien.
-  email_provider_disabled: 'El acceso por correo no esta habilitado todavia. Avisa al equipo.',
-  signup_disabled: 'El registro esta cerrado ahora mismo. Avisa al equipo.',
+  email_provider_disabled: 'El acceso por correo no está habilitado todavía. Avisa al equipo.',
+  signup_disabled: 'El registro está cerrado ahora mismo. Avisa al equipo.',
 };
 
 /**
@@ -100,7 +111,7 @@ function traducir(error: AuthError | null): ResultadoDeAcceso {
   // Cualquier otra cosa: ni el mensaje crudo de la libreria, que suele estar en
   // ingles y a veces trae detalles del servidor, ni un "error desconocido" que
   // no ayuda a nadie.
-  return { ok: false, mensaje: 'No se pudo completar. Intentalo de nuevo en un momento.' };
+  return { ok: false, mensaje: 'No se pudo completar. Inténtalo de nuevo en un momento.' };
 }
 
 /**
@@ -183,7 +194,6 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     async ({
       correo,
       contrasena,
-      recordar,
       aceptaElAviso,
     }: DatosDeAcceso & { aceptaElAviso: boolean }): Promise<ResultadoDeAcceso> => {
       if (!aceptaElAviso) {
@@ -193,7 +203,7 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
         return { ok: false, mensaje: 'Para crear la cuenta hace falta aceptar el aviso.' };
       }
 
-      recordarEnEsteEquipo(recordar);
+      recordarEnEsteEquipo(RECORDAR_SIEMPRE);
 
       const cliente = clienteONulo();
 
@@ -219,7 +229,7 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
   );
 
   const entrar = useCallback(
-    async ({ correo, contrasena, recordar }: DatosDeAcceso): Promise<ResultadoDeAcceso> => {
+    async ({ correo, contrasena, recordar }: DatosDeEntrada): Promise<ResultadoDeAcceso> => {
       // Antes de iniciar sesion, no despues: el token se escribe durante la
       // llamada, y para entonces ya tiene que estar decidido donde va.
       recordarEnEsteEquipo(recordar);

@@ -12,13 +12,13 @@
  */
 
 const MOTIVOS: Readonly<Record<string, string>> = {
-  otp_expired: 'El enlace caduco. Pide uno nuevo y usalo en cuanto llegue.',
+  otp_expired: 'El enlace caducó. Pide uno nuevo y úsalo en cuanto llegue.',
   access_denied: 'El enlace ya no vale. Puede que se usara antes o que caducara.',
-  invalid_request: 'El enlace llego incompleto. Copialo entero desde el correo.',
+  invalid_request: 'El enlace llegó incompleto. Cópialo entero desde el correo.',
   // Este no es culpa de quien lo abre: la direccion de vuelta no esta en la
   // lista de permitidas del proyecto, y eso se arregla en el panel.
-  bad_oauth_callback: 'La direccion de vuelta no esta autorizada. Avisa al equipo.',
-  validation_failed: 'La direccion de vuelta no esta autorizada. Avisa al equipo.',
+  bad_oauth_callback: 'La dirección de vuelta no está autorizada. Avisa al equipo.',
+  validation_failed: 'La dirección de vuelta no está autorizada. Avisa al equipo.',
 };
 
 export interface MotivoDelEnlace {
@@ -46,6 +46,6 @@ export function motivoDelEnlace(url: URL): MotivoDelEnlace | null {
 
   return {
     codigo,
-    mensaje: MOTIVOS[codigo] ?? 'El enlace no sirvio. Pide uno nuevo desde la pantalla anterior.',
+    mensaje: MOTIVOS[codigo] ?? 'El enlace no sirvió. Pide uno nuevo desde la pantalla anterior.',
   };
 }

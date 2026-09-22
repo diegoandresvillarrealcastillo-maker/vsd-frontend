@@ -3,14 +3,44 @@
    ============================================================
    Aqui viven los tokens y nada mas. Ningun componente define un color
    suelto: si un dia hay que cambiar la paleta, se cambia en un sitio.
-   ============================================================ */
+
+   ------------------------------------------------------------
+   Como funcionan los dos temas
+   ------------------------------------------------------------
+   El elemento raiz lleva siempre `data-tema`, con "claro" u "oscuro".
+   Lo pone un script en el `index.html` antes de que se pinte nada, y
+   lo cambia el selector de tema. No hay tercer estado en el CSS: lo
+   que el sistema pida se resuelve antes de llegar aqui.
+
+   Al tocar un color, hay que tocarlo en los dos bloques.
+   ------------------------------------------------------------ */
+
+/* ------------------------------------------------------------
+   Por que el cambio de tema apaga las transiciones
+   ------------------------------------------------------------
+   Una propiedad que esta en la lista de `transition` y cuyo valor sale
+   de una variable no se actualiza cuando lo unico que cambia es esa
+   variable: se queda clavada en el valor de origen. Se vio en el boton
+   principal, que al pasar a oscuro cambiaba el color del texto pero no
+   el del fondo y quedaba a 2,03:1, ilegible.
+
+   El elemento raiz se marca mientras dura el cambio y esta regla
+   desactiva toda transicion. Ademas es lo que se quiere igualmente:
+   cambiar de tema no es tocar un control, es cambiar de sitio, y
+   fundir la pagina entera durante un cuarto de segundo es ruido.
+   ------------------------------------------------------------ */
+:root[data-cambiando-tema] *,
+:root[data-cambiando-tema] *::before,
+:root[data-cambiando-tema] *::after {
+  transition: none !important;
+}
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 
-  /* ---------- Color ---------- */
-  /* Tema claro. La paleta es calida y de bajo contraste cromatico a
-     proposito: es una herramienta de bienestar, no un panel de control. */
+  /* ---------- Color ----------
+     La paleta es calida y de bajo contraste cromatico a proposito: es
+     una herramienta de bienestar, no un panel de control. */
   --fondo: #f7f5f2;
   --fondo-elevado: #ffffff;
   --fondo-sutil: #efebe5;
@@ -18,30 +48,95 @@
   --texto: #1f2328;
   --texto-tenue: #5c6470;
 
+  /* El tono mas bajo que se permite para texto. Se subio desde #868e99,
+     que daba 2,79:1 contra el fondo sutil y no llegaba al 4,5:1 que
+     pide la WCAG. Ahora el peor caso es 4,81:1. */
+  --texto-apagado: #5f6774;
+
+  /* Linea decorativa: separadores y contornos de tarjeta. No identifica
+     ningun control, asi que no tiene que llegar a 3:1. */
   --borde: #ddd8d0;
-  --borde-fuerte: #c3bcb1;
+
+  /* Linea de control: el borde de un campo, de un boton fantasma o del
+     acceso con Google. Esa si es la unica senal de donde empieza y
+     acaba el control, y por eso llega a 3:1 contra el fondo que tiene
+     detras. Venia de #c3bcb1, que daba 1,88:1. */
+  --borde-fuerte: #948c82;
 
   --acento: #3d7a6b;
+  --acento-claro: #4a8f7e;
   --acento-suave: #d8e8e3;
   --acento-contraste: #ffffff;
 
   --error: #a33a32;
   --error-suave: #f7e2e0;
 
-  --exito: #3d7a6b;
+  /* Un verde mas cerrado que el acento. No es un capricho: este color
+     solo se usa como texto sobre `--acento-suave`, y con el tono del
+     acento se quedaba en 3,95:1. */
+  --exito: #2f6153;
+
+  /* ---------- Colores con significado ----------
+     Los tres que se permiten fuera de la paleta base. Cada uno tiene un
+     trabajo y no hace ningun otro.
+
+     Estan desaturados a proposito. Un rojo de semaforo y un verde de
+     neon funcionan en un tablero de control; aqui gritan. Lo que se
+     busca es que se distingan entre si, no que llamen la atencion. */
+
+  /* El animo. Solo eso: nunca es un ritmo cardiaco. */
+  --pulso: #b8503f;
+
+  /* Salud en positivo: descanso, constancia, racha cumplida. */
+  --vital: #3d7a6b;
+
+  /* Dato: cifras, trazos, enlaces dentro de una grafica. Se oscurecio
+     desde #4a6fa5, que sobre su propio fondo palido daba 4,07:1. */
+  --dato: #40608f;
+  --dato-suave: #dfe6f1;
+
+  /* ---------- La franja del limite ----------
+     La seccion de lo que la aplicacion no hace invierte el fondo de
+     golpe, sin degradado. El corte es la intencion: eso no es mas texto
+     de portada, y tiene que leerse aparte. Por eso estos valores van al
+     reves que el resto de la paleta. */
+  --limite-fondo: #1f2328;
+  --limite-texto: #f7f5f2;
+  --limite-tenue: #b3bac3;
+  --limite-tarjeta: #2a3037;
+  --limite-borde: #3b424b;
+  --limite-cruz: #e8938b;
+
+  /* ---------- La capsula de navegacion ----------
+     Flota sobre el contenido como una pieza oscura, tambien en tema
+     claro: es lo que la separa del fondo sin tener que dibujarle un
+     borde grueso. */
+  --nav-fondo: rgb(31 35 40 / 90%);
+  --nav-borde: rgb(255 255 255 / 12%);
+  --nav-texto: #f7f5f2;
+  --nav-texto-tenue: #b3bac3;
 
   /* Los dos tonos entre los que respira el fondo de la autenticacion. */
   --respiro-a: #eef2ef;
   --respiro-b: #f7f2ea;
 
-  /* El resplandor que sigue al cursor sobre la tarjeta. Muy tenue: se tiene
-     que percibir como que la superficie reacciona, no como una linterna. */
+  /* El resplandor que sigue al cursor sobre la tarjeta. Muy tenue: se
+     tiene que percibir como que la superficie reacciona, no como una
+     linterna. */
   --resplandor: rgb(61 122 107 / 7%);
 
-  /* ---------- Forma ---------- */
+  --sombra: 0 1px 2px rgb(31 35 40 / 6%), 0 8px 24px rgb(31 35 40 / 6%);
+
+  /* ---------- Forma ----------
+     Nada con esquina viva. El minimo es 7px en iconos y sube hasta la
+     pildora completa en todo lo que se pulsa. */
+  --radio-chico: 7px;
   --radio: 12px;
   --radio-grande: 20px;
-  --sombra: 0 1px 2px rgb(31 35 40 / 6%), 0 8px 24px rgb(31 35 40 / 6%);
+  --radio-enorme: 26px;
+  --radio-pildora: 9999px;
+
+  --resplandor-accion: 0 4px 14px color-mix(in srgb, var(--acento) 26%, transparent);
 
   /* ---------- Movimiento ---------- */
   /* Una sola curva para todo. La entrada es rapida y la salida se demora un
@@ -52,40 +147,80 @@
   --lento: 520ms;
   --respiracion: 5200ms;
 
-  /* ---------- Tipografia ---------- */
+  /* ---------- Tipografia ----------
+     El interletrado se apreta a medida que el tamano crece. Esa
+     compresion es lo que hace que un titular se lea como un bloque y no
+     como palabras sueltas; a tamano pequeno se abre otra vez, porque
+     ahi lo apretado se vuelve ilegible. */
   --fuente:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+
+  --peso-texto: 500;
+  --peso-titulo: 600;
+  --peso-fuerte: 800;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --fondo: #14161a;
-    --fondo-elevado: #1c1f25;
-    --fondo-sutil: #23272e;
+/* ============================================================
+   Tema oscuro
+   ============================================================
+   Mismos nombres, mismos trabajos. Si se anade un color arriba, hay
+   que anadirlo aqui: el navegador no avisa de los que falten, y el
+   sintoma es un color del tema claro apareciendo de noche.
+   ============================================================ */
+:root[data-tema='oscuro'] {
+  color-scheme: dark;
 
-    --texto: #e8e6e3;
-    --texto-tenue: #9aa1ab;
+  --fondo: #14161a;
+  --fondo-elevado: #1c1f25;
+  --fondo-sutil: #23272e;
 
-    --borde: #2e333b;
-    --borde-fuerte: #434a54;
+  --texto: #e8e6e3;
+  --texto-tenue: #9aa1ab;
 
-    --acento: #7fc3b1;
-    --acento-suave: #1f3b35;
-    --acento-contraste: #10221e;
+  /* Subido desde #767d87, que daba 3,97:1 sobre el fondo elevado. */
+  --texto-apagado: #8a919c;
 
-    --error: #e8938b;
-    --error-suave: #3a2422;
+  --borde: #2e333b;
 
-    --exito: #7fc3b1;
+  /* Subido desde #434a54, que daba 1,84:1. */
+  --borde-fuerte: #6c737d;
 
-    --respiro-a: #1d262a;
-    --respiro-b: #251f1a;
+  --acento: #7fc3b1;
+  --acento-claro: #94d2c1;
+  --acento-suave: #1f3b35;
+  --acento-contraste: #10221e;
 
-    /* En oscuro hace falta mas para que se note, pero sigue siendo poco. */
-    --resplandor: rgb(127 195 177 / 10%);
+  --error: #e8938b;
+  --error-suave: #3a2422;
 
-    --sombra: 0 1px 2px rgb(0 0 0 / 30%), 0 8px 24px rgb(0 0 0 / 28%);
-  }
+  --exito: #7fc3b1;
+
+  --pulso: #e8897a;
+  --vital: #7fc3b1;
+  --dato: #8fb3e0;
+  --dato-suave: #1e2836;
+
+  /* La inversion va al reves: aqui la franja del limite es la clara. */
+  --limite-fondo: #f2efea;
+  --limite-texto: #1f2328;
+  --limite-tenue: #5c6470;
+  --limite-tarjeta: #ffffff;
+  --limite-borde: #ddd8d0;
+  --limite-cruz: #a33a32;
+
+  --nav-fondo: rgb(20 22 26 / 86%);
+  --nav-borde: rgb(255 255 255 / 10%);
+  --nav-texto: #e8e6e3;
+  --nav-texto-tenue: #9aa1ab;
+
+  --respiro-a: #1d262a;
+  --respiro-b: #251f1a;
+
+  /* En oscuro hace falta mas para que se note, pero sigue siendo poco. */
+  --resplandor: rgb(127 195 177 / 10%);
+
+  --sombra: 0 1px 2px rgb(0 0 0 / 30%), 0 8px 24px rgb(0 0 0 / 28%);
 }
 
 *,
@@ -100,22 +235,263 @@ body,
   height: 100%;
 }
 
+/* Los enlaces del menu llevan a secciones de la misma pagina. Sin esto el
+   salto es un corte y hay que volver a situarse; con esto se ve el recorrido y
+   se entiende que no se cambio de pagina. El bloque de reducir movimiento, mas
+   abajo, lo desactiva para quien lo pidio. */
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
   font-family: var(--fuente);
-  font-size: 16px;
+  /* En porcentaje y no en pixeles. Un `16px` fijo ignora a quien subio el
+     tamano de letra por defecto en su navegador, que es lo primero que hace
+     mucha gente con baja vision. Con `100%`, todo el `rem` de la aplicacion se
+     escala con esa preferencia. */
+  font-size: 100%;
+  font-weight: var(--peso-texto);
   line-height: 1.55;
   color: var(--texto);
   background: var(--fondo);
   -webkit-font-smoothing: antialiased;
 }
 
-/* El foco debe verse siempre. Quitarlo por estetica deja sin navegar a quien
-   usa el teclado, que es justo quien mas lo necesita. */
+h1,
+h2,
+h3 {
+  font-weight: var(--peso-titulo);
+  letter-spacing: -0.03em;
+}
+
+/* ============================================================
+   Foco
+   ============================================================
+   Debe verse siempre. Quitarlo por estetica deja sin navegar a quien
+   usa el teclado, que es justo quien mas lo necesita.
+
+   Son dos anillos y no uno: el de dentro del color de acento y el de
+   fuera del color del fondo. Asi el indicador se ve tanto sobre una
+   superficie clara como sobre la capsula oscura de navegacion, sin
+   tener que escribir una regla distinta para cada sitio.
+   ============================================================ */
 :focus-visible {
   outline: 2px solid var(--acento);
   outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--fondo);
   border-radius: 4px;
+}
+
+/* La capsula de navegacion esta fija arriba, asi que al tabular el navegador
+   puede dejar el elemento enfocado justo debajo de ella y sin verse. Este
+   margen le reserva sitio al desplazarlo. Es el criterio 2.4.11 de la WCAG
+   2.2, "el foco no queda tapado". */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  scroll-margin-top: 112px;
+  scroll-margin-bottom: 24px;
+}
+
+/* ============================================================
+   Salto al contenido
+   ============================================================
+   El primer tabulador de la pagina. Quien navega con teclado no tiene
+   que recorrer la navegacion entera en cada pantalla para llegar a lo
+   que vino a leer.
+
+   Se esconde moviendolo fuera de la pantalla y no con `display: none`
+   ni con `visibility`, porque esas dos lo sacan del orden de
+   tabulacion y lo dejan inalcanzable, que es justo lo contrario de lo
+   que hace falta.
+   ============================================================ */
+.salto {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  translate: -50% -200%;
+  z-index: 100;
+  padding: 12px 22px;
+  color: var(--acento-contraste);
+  background: var(--acento);
+  border-radius: var(--radio-pildora);
+  box-shadow: var(--sombra);
+  font-size: 0.9375rem;
+  font-weight: var(--peso-titulo);
+  text-decoration: none;
+  transition: translate var(--medio) var(--curva);
+}
+
+.salto:focus-visible {
+  translate: -50% 0;
+}
+
+/* ============================================================
+   Marca
+   ============================================================
+   La imagen tiene fondo transparente, asi que va suelta sobre la
+   superficie que tenga detras: sin recuadro, sin relleno y sin mezcla
+   de capas.
+   ============================================================ */
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.logo__imagen {
+  display: block;
+  height: 40px;
+  width: auto;
+}
+
+/* El logo tiene las letras blancas con perfil verde. Sobre el lienzo claro se
+   apoya en ese perfil y pierde cuerpo, sobre todo la palabra "Health". Esta
+   sombra le devuelve el borde.
+   Es un parche: lo que corresponde es una version del logo con las letras
+   oscuras para tema claro. Un logotipo esta exento del minimo de contraste de
+   la WCAG, asi que esto es legibilidad, no accesibilidad. */
+:root[data-tema='claro'] .logo__imagen {
+  filter: drop-shadow(0 1px 1.5px rgb(31 35 40 / 30%));
+}
+
+/* ============================================================
+   Selector de tema
+   ============================================================
+   Flota arriba a la derecha, en todas las pantallas. Esta separado
+   de la capsula de navegacion y no dentro a proposito: cambiar el
+   tema no es navegar, y mezclarlo con los enlaces le daria un peso
+   que no tiene.
+
+   Vive aqui y no en la hoja de la portada porque ahora aparece
+   tambien en el acceso, en el registro y en el panel, y esas
+   pantallas no cargan esa hoja.
+   ============================================================ */
+
+.tema {
+  position: fixed;
+  top: 88px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 49;
+  width: min(100% - 24px, 1120px);
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+  /* El contenedor ocupa todo el ancho para alinearse con la capsula de
+     navegacion, asi que no puede interceptar pulsaciones: solo los botones. */
+  pointer-events: none;
+}
+
+/* Dentro de la tarjeta de acceso, en su esquina. Flotando sobre esas
+   pantallas quedaba suelto en mitad de la nada: ahi lo unico que hay es la
+   tarjeta, y un control pegado al borde de la ventana no pertenece a nada. */
+.tema--incrustado {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  left: auto;
+  z-index: 2;
+  width: auto;
+  translate: none;
+}
+
+.tema__opcion {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--texto-apagado);
+  background: transparent;
+  border: none;
+  border-radius: var(--radio-pildora);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: color var(--rapido) var(--curva);
+}
+
+.tema__opcion[aria-pressed='true'] {
+  color: var(--acento);
+}
+
+.tema__opcion:hover {
+  color: var(--texto);
+}
+
+/* La pastilla que se desliza entre los dos. Va debajo del icono. */
+.tema__pastilla {
+  position: absolute;
+  inset: 0;
+  background: var(--acento-suave);
+  border-radius: var(--radio-pildora);
+}
+
+.tema__icono {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+/* ============================================================
+   Pildora
+   ============================================================
+   El boton y el enlace de accion de toda la aplicacion. Vive aqui y
+   no en la hoja de la portada porque lo usan tres pantallas, y una de
+   ellas no carga esa hoja: el boton se veria sin estilo y nadie se
+   enteraria hasta abrirla.
+   ============================================================ */
+
+.pildora {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  font: inherit;
+  font-weight: var(--peso-titulo);
+  font-size: 0.9375rem;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  border-radius: var(--radio-pildora);
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background var(--medio) var(--curva),
+    border-color var(--medio) var(--curva),
+    box-shadow var(--medio) var(--curva);
+}
+
+.pildora--fuerte {
+  color: var(--acento-contraste);
+  background: var(--acento);
+  box-shadow: var(--resplandor-accion);
+}
+
+.pildora--fuerte:hover {
+  background: var(--acento-claro);
+}
+
+.pildora--fantasma {
+  color: var(--texto);
+  background: transparent;
+  border-color: var(--borde-fuerte);
+}
+
+.pildora--fantasma:hover {
+  background: var(--fondo-sutil);
+  border-color: var(--texto-tenue);
+}
+
+.pildora--grande {
+  padding: 15px 28px;
+  font-size: 1.0625rem;
 }
 
 /* ============================================================

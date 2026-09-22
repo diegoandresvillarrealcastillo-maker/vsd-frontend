@@ -22,8 +22,7 @@ export function supabase(): SupabaseClient {
 
   cliente = createClient(url, claveAnonima, {
     auth: {
-      // Donde vive la sesion lo decide el adaptador, segun la persona haya
-      // marcado o no "no recordar en este equipo".
+      // Donde vive la sesion lo decide el adaptador, no este cliente.
       storage: almacenamientoDeSesion,
       storageKey: 'vsd.sesion',
 

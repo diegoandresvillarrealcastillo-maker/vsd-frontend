@@ -36,74 +36,94 @@ export function BotonDeEnvio({ estado, children, textoAlTerminar = 'Listo' }: Pr
   const reaccion = sinMovimiento || bloqueado ? {} : REACCION_DE_BOTON;
 
   return (
-    <motion.button
-      type="submit"
-      layout
-      transition={ACOMPANADO}
-      className={`envio${ocupado ? ' envio--ocupado' : ''}${hecho ? ' envio--hecho' : ''}`}
-      disabled={bloqueado}
-      // Mientras esta ocupado, quien no ve la pantalla necesita saberlo: el
-      // cambio de forma no le llega.
-      aria-busy={ocupado || undefined}
-      aria-label={ocupado ? 'Enviando' : hecho ? textoAlTerminar : undefined}
-      {...reaccion}
-    >
-      {/* El brillo que cruza el boton al pasar el cursor. Es decorativo y no
+    <>
+      {/* El boton cambia de forma y de etiqueta, pero eso no se anuncia solo.
+          Esta region si: cualquier cambio de su texto lo lee un lector de
+          pantalla en cuanto ocurre, sin interrumpir lo que estuviera diciendo.
+
+          Va fuera del boton a proposito. Dentro pasaria a formar parte de su
+          nombre, y el boton se anunciaria como "Entrar Enviando". */}
+      <span className="solo-lectores" role="status" aria-live="polite">
+        {ocupado ? 'Enviando' : hecho ? textoAlTerminar : ''}
+      </span>
+
+      <motion.button
+        type="submit"
+        layout
+        transition={ACOMPANADO}
+        className={`envio${ocupado ? ' envio--ocupado' : ''}${hecho ? ' envio--hecho' : ''}`}
+        // `aria-disabled` y no `disabled`. Un boton deshabilitado de verdad
+        // desaparece del orden de tabulacion, y el navegador se lleva el foco
+        // al principio del documento justo cuando la persona espera una
+        // respuesta: se queda sin saber donde esta ni que paso. Asi el foco no
+        // se mueve, y la pulsacion se frena abajo.
+        aria-disabled={bloqueado || undefined}
+        aria-busy={ocupado || undefined}
+        aria-label={ocupado ? 'Enviando' : hecho ? textoAlTerminar : undefined}
+        onClick={(evento) => {
+          if (bloqueado) {
+            evento.preventDefault();
+          }
+        }}
+        {...reaccion}
+      >
+        {/* El brillo que cruza el boton al pasar el cursor. Es decorativo y no
           debe leerse; va detras del texto y no recibe eventos. */}
-      {!sinMovimiento && !bloqueado && <span className="envio__brillo" aria-hidden="true" />}
+        {!sinMovimiento && !bloqueado && <span className="envio__brillo" aria-hidden="true" />}
 
-      <AnimatePresence mode="wait" initial={false}>
-        {ocupado && (
-          <motion.span
-            key="girando"
-            className="envio__giro"
-            initial={{ opacity: 0, scale: 0.6 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.6 }}
-            transition={INMEDIATO}
-          />
-        )}
-
-        {hecho && (
-          <motion.svg
-            key="hecho"
-            width="22"
-            height="22"
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
-            initial={{ opacity: 0, scale: 0.7 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            transition={INMEDIATO}
-          >
-            {/* El trazo se dibuja solo: el check aparece como si alguien lo
-                acabara de hacer, y eso lee mejor que un icono que surge. */}
-            <motion.path
-              d="M5 12.5 10 17.5 19 7.5"
-              stroke="currentColor"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              initial={{ pathLength: sinMovimiento ? 1 : 0 }}
-              animate={{ pathLength: 1 }}
-              transition={{ duration: sinMovimiento ? 0 : 0.34, ease: 'easeOut' }}
+        <AnimatePresence mode="wait" initial={false}>
+          {ocupado && (
+            <motion.span
+              key="girando"
+              className="envio__giro"
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.6 }}
+              transition={INMEDIATO}
             />
-          </motion.svg>
-        )}
+          )}
 
-        {!bloqueado && (
-          <motion.span
-            key="texto"
-            className="envio__texto"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            {children}
-          </motion.span>
-        )}
-      </AnimatePresence>
-    </motion.button>
+          {hecho && (
+            <motion.svg
+              key="hecho"
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+              initial={{ opacity: 0, scale: 0.7 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={INMEDIATO}
+            >
+              {/* El trazo se dibuja solo: el check aparece como si alguien lo
+                acabara de hacer, y eso lee mejor que un icono que surge. */}
+              <motion.path
+                d="M5 12.5 10 17.5 19 7.5"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                initial={{ pathLength: sinMovimiento ? 1 : 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: sinMovimiento ? 0 : 0.34, ease: 'easeOut' }}
+              />
+            </motion.svg>
+          )}
+
+          {!bloqueado && (
+            <motion.span
+              key="texto"
+              className="envio__texto"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              {children}
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </motion.button>
+    </>
   );
 }

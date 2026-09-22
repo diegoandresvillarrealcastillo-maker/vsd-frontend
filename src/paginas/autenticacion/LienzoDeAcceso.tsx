@@ -6,9 +6,14 @@ import {
   useSpring,
 } from 'framer-motion';
 import type { MouseEvent, ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 
+import { Logo } from '../../componentes/Logo.tsx';
+import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/autenticacion.css';
 import { ACOMPANADO, ENTRADA } from '../../estilos/movimiento.ts';
+import { RUTAS } from '../../rutas/rutas.ts';
+import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
 
 interface Props {
   titulo: string;
@@ -61,9 +66,22 @@ export function LienzoDeAcceso({ titulo, entradilla, children, pie }: Props) {
   }
 
   return (
-    <main className="acceso">
+    // `tabIndex={-1}` no lo mete en el orden de tabulacion: lo hace capaz de
+    // recibir el foco cuando alguien usa el enlace de salto. Sin eso, el
+    // navegador mueve el desplazamiento pero deja el foco atras, y quien usa
+    // lector de pantalla sigue oyendo la navegacion.
+    <main className="acceso" id={ID_DEL_CONTENIDO} tabIndex={-1}>
       {/* Decorativo: no aporta informacion y no debe leerse en voz alta. */}
       <div className="acceso__respiro" aria-hidden="true" />
+
+      {/* La marca tambien aqui. Desaparecer justo al registrarte o al
+          recuperar la contrasena deja sin saber en que aplicacion estas, que
+          es cuando mas importa.
+
+          El logo lleva a la portada, pero eso hay que saberlo: nadie pulsa un
+          logo esperando salir de donde esta. Por eso debajo va el enlace
+          escrito. */}
+      <Logo className="acceso__marca" />
 
       <motion.section
         layoutId="tarjeta-de-acceso"
@@ -78,6 +96,11 @@ export function LienzoDeAcceso({ titulo, entradilla, children, pie }: Props) {
             style={{ background: resplandor }}
           />
         )}
+
+        {/* Dentro de la tarjeta y no flotando sobre la ventana: en estas
+            pantallas la tarjeta es lo unico que hay, y un control pegado al
+            borde de la pantalla no pertenece a nada. */}
+        <SelectorDeTema variante="incrustado" />
 
         {/* La entrada escalonada: unos 40 ms entre elementos. Casi no se
             percibe y hace que la pantalla se sienta viva en lugar de aparecer
@@ -107,6 +130,22 @@ export function LienzoDeAcceso({ titulo, entradilla, children, pie }: Props) {
           )}
         </motion.div>
       </motion.section>
+
+      {/* La salida. Sin esto, quien abre el acceso desde un enlace se queda
+          encerrado en la tarjeta: no hay menu, no hay atras, y el unico camino
+          de vuelta es un logo que nadie sabe que es un enlace. */}
+      <Link className="acceso__volver" to={RUTAS.INICIO}>
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" aria-hidden="true">
+          <path
+            d="M14 6l-6 6 6 6"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        Volver al inicio
+      </Link>
     </main>
   );
 }

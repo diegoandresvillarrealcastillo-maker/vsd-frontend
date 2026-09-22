@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    Las pantallas de acceso
    ============================================================
    Un criterio manda sobre el resto: en una herramienta de bienestar
@@ -11,8 +11,44 @@
   min-height: 100dvh;
   display: grid;
   place-items: center;
+  align-content: center;
+  gap: 24px;
   padding: 24px 16px;
   overflow: hidden;
+}
+
+/* La marca, encima de la tarjeta. El fondo que respira queda detras de las
+   dos, asi que esta necesita su propio nivel. */
+.acceso__marca {
+  position: relative;
+  z-index: 1;
+}
+
+.acceso__marca .logo__imagen {
+  height: 54px;
+}
+
+/* La salida hacia la portada. Debajo de la tarjeta y en tono bajo: tiene que
+   estar, pero no competir con el formulario. */
+.acceso__volver {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  color: var(--texto-tenue);
+  font-size: 0.875rem;
+  border-radius: var(--radio-pildora);
+  text-decoration: none;
+  transition:
+    color var(--rapido) var(--curva),
+    background var(--rapido) var(--curva);
+}
+
+.acceso__volver:hover {
+  color: var(--texto);
+  background: var(--fondo-sutil);
 }
 
 /* ---------- El fondo que respira ----------
@@ -51,7 +87,9 @@
   isolation: isolate;
   overflow: hidden;
   width: min(100%, 26rem);
-  padding: 32px 28px;
+  /* Arriba va mas: el selector de tema vive en esa esquina y sin este hueco
+     se monta sobre el titulo en las pantallas de titulo largo. */
+  padding: 48px 28px 32px;
   background: var(--fondo-elevado);
   border: 1px solid var(--borde);
   border-radius: var(--radio-grande);
@@ -332,16 +370,16 @@
   color: var(--acento-contraste);
   background: var(--acento);
   border: none;
-  border-radius: var(--radio);
+  border-radius: var(--radio-pildora);
   cursor: pointer;
   overflow: hidden;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
+  box-shadow: var(--resplandor-accion);
   transition:
     filter var(--medio) var(--curva),
     box-shadow var(--medio) var(--curva);
 }
 
-.envio:hover:not(:disabled) {
+.envio:hover:not([aria-disabled='true']) {
   filter: brightness(1.06);
   box-shadow: 0 6px 18px color-mix(in srgb, var(--acento) 32%, transparent);
 }
@@ -367,11 +405,11 @@
   transition: transform 600ms var(--curva);
 }
 
-.envio:hover:not(:disabled) .envio__brillo {
+.envio:hover:not([aria-disabled='true']) .envio__brillo {
   transform: translateX(100%);
 }
 
-.envio:disabled {
+.envio[aria-disabled='true'] {
   cursor: default;
 }
 
@@ -410,7 +448,7 @@
   color: var(--texto);
   background: var(--fondo);
   border: 1px solid var(--borde-fuerte);
-  border-radius: var(--radio);
+  border-radius: var(--radio-pildora);
   cursor: pointer;
   transition:
     background var(--medio) var(--curva),
@@ -456,6 +494,20 @@
 .aviso--bien {
   color: var(--exito);
   background: var(--acento-suave);
+}
+
+/* ---------- Pistas ----------
+   Las tres cosas que hay que saber tras enviar un correo. Van en lista y no
+   en parrafo porque son independientes entre si: quien ya sabe una salta a la
+   siguiente sin releer. */
+.pistas {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--texto-tenue);
 }
 
 /* ---------- Reducir movimiento ----------

@@ -14,7 +14,51 @@
     <meta name="theme-color" content="#f7f5f2" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#14161a" media="(prefers-color-scheme: dark)" />
 
+    <!--
+      Manrope es la alternativa libre mas cercana a la tipografia de la
+      referencia: geometrica y humanista a la vez, con el mismo comportamiento
+      al apretarle el interletrado en tamanos grandes.
+
+      Si no hay red, la cadena de respaldo deja la tipografia del sistema y la
+      pagina sigue entera. Por eso los pesos se piden en una sola peticion y
+      con `display=swap`: el texto se ve desde el primer instante.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;800&display=swap"
+      rel="stylesheet"
+    />
+
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <!--
+      El tema se decide aqui, antes de que se pinte nada.
+
+      Si esperara al JavaScript de la aplicacion, quien tiene el sistema en
+      oscuro veria un fogonazo blanco en cada carga, que es justo lo que mas
+      molesta de un tema oscuro.
+
+      Es la unica copia de la clave de almacenamiento fuera de `tema.ts`. Va
+      duplicada a proposito: importar un modulo aqui llegaria tarde.
+    -->
+    <script>
+      (function () {
+        try {
+          var guardado = localStorage.getItem('vsd.tema');
+          var vale = guardado === 'claro' || guardado === 'oscuro';
+          var delSistema = window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'oscuro'
+            : 'claro';
+
+          document.documentElement.dataset.tema = vale ? guardado : delSistema;
+        } catch (error) {
+          // En navegacion privada leer puede lanzar. Se queda en claro, que es
+          // el valor por defecto de la hoja de estilos.
+          document.documentElement.dataset.tema = 'claro';
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="raiz"></div>
