@@ -138,6 +138,13 @@
   font-weight: 500;
 }
 
+/* La caja que contiene el input y, si es de contrasena, el ojo. */
+.campo__caja {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
 .campo__entrada {
   width: 100%;
   padding: 11px 13px;
@@ -155,6 +162,41 @@
 /* El anillo de foco crece desde el borde. La transicion incluye el color de
    fondo para que el campo activo se distinga tambien cuando el anillo termina
    de expandirse. */
+.campo__entrada--conOjo {
+  padding-right: 46px;
+}
+
+/* ---------- El ojo que revela la contrasena ----------
+   Va dentro del campo para que la persona no tenga que mover la mirada: lo
+   que quiere ver y el control que lo revela ocupan el mismo sitio. */
+.ojo {
+  position: absolute;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  color: var(--texto-tenue);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition:
+    color var(--rapido) var(--curva),
+    background var(--rapido) var(--curva);
+}
+
+.ojo:hover:not(:disabled) {
+  color: var(--acento);
+  background: var(--acento-suave);
+}
+
+.ojo:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
 .campo__entrada:focus {
   outline: none;
   border-color: var(--acento);
@@ -187,28 +229,92 @@
   color: var(--texto-tenue);
 }
 
-/* ---------- Casillas ---------- */
+/* ---------- Casillas ----------
+   El input nativo sigue existiendo: es el que recibe el foco, el que responde
+   a la barra espaciadora y el que anuncia un lector de pantalla. Lo que se ve
+   es decoracion sincronizada con el.
+
+   Se esconde con posicion absoluta y opacidad cero, y NO con display:none ni
+   visibility:hidden: esas dos lo sacan del orden de tabulacion y lo dejan
+   inalcanzable desde el teclado. */
 .casilla {
+  position: relative;
+}
+
+.casilla__real {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.casilla__real:disabled {
+  cursor: default;
+}
+
+.casilla__cuerpo {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 10px;
+  gap: 12px;
   align-items: start;
   font-size: 0.875rem;
   cursor: pointer;
 }
 
-.casilla input {
-  margin: 2px 0 0;
-  width: 1.05rem;
-  height: 1.05rem;
-  accent-color: var(--acento);
+.casilla__real:disabled ~ .casilla__cuerpo {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.casilla__caja {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  background: var(--fondo);
+  border: 1.5px solid var(--borde-fuerte);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+/* Cuando el foco esta en el input invisible, el anillo se pinta en la caja.
+   Sin esto, quien navega con teclado no sabria donde esta. */
+.casilla__real:focus-visible ~ .casilla__cuerpo .casilla__caja {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+}
+
+/* El relleno crece desde el centro. */
+.casilla__relleno {
+  position: absolute;
+  inset: 0;
+  background: var(--acento);
+  border-radius: 5px;
+}
+
+.casilla__check {
+  position: relative;
+  width: 15px;
+  height: 15px;
+  color: var(--acento-contraste);
+}
+
+.casilla__texto {
+  padding-top: 1px;
 }
 
 .casilla__nota {
   display: block;
-  margin-top: 2px;
+  margin-top: 3px;
   color: var(--texto-tenue);
   font-size: 0.8125rem;
+  line-height: 1.4;
 }
 
 /* ---------- El boton que se convierte en el progreso ----------

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { BotonDeEnvio, type EstadoDeEnvio } from '../../componentes/BotonDeEnvio.tsx';
 import { BotonDeGoogle } from '../../componentes/BotonDeGoogle.tsx';
 import { Campo } from '../../componentes/Campo.tsx';
+import { Casilla } from '../../componentes/Casilla.tsx';
 import { entorno } from '../../infraestructura/entorno.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
@@ -175,39 +176,23 @@ export function Registro() {
         </Aparece>
 
         <Aparece>
-          <label className="casilla">
-            <input
-              type="checkbox"
-              checked={acepta}
-              required
-              disabled={ocupado}
-              onChange={(e) => setAcepta(e.target.checked)}
-            />
-            <span>
-              Acepto el tratamiento de mis datos
-              <span className="casilla__nota">
-                VSD Health maneja informacion relacionada con tu bienestar. No diagnostica, no
-                formula medicamentos y no reemplaza a ningun profesional.
-              </span>
-            </span>
-          </label>
+          <Casilla
+            etiqueta="Acepto el tratamiento de mis datos"
+            nota="VSD Health maneja informacion relacionada con tu bienestar. No diagnostica, no formula medicamentos y no reemplaza a ningun profesional."
+            marcada={acepta}
+            disabled={ocupado}
+            onChange={setAcepta}
+          />
         </Aparece>
 
         <Aparece>
-          <label className="casilla">
-            <input
-              type="checkbox"
-              checked={!recordar}
-              disabled={ocupado}
-              onChange={(e) => setRecordar(!e.target.checked)}
-            />
-            <span>
-              No recordar en este equipo
-              <span className="casilla__nota">
-                Para computadores compartidos: la sesion se cierra al cerrar la pestana.
-              </span>
-            </span>
-          </label>
+          <Casilla
+            etiqueta="No recordar en este equipo"
+            nota="Para computadores compartidos: la sesion se cierra al cerrar la pestana."
+            marcada={!recordar}
+            disabled={ocupado}
+            onChange={(marcada) => setRecordar(!marcada)}
+          />
         </Aparece>
 
         <Aparece>
