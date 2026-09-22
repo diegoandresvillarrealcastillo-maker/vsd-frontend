@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 
 import { BotonDeEnvio, type EstadoDeEnvio } from '../../componentes/BotonDeEnvio.tsx';
 import { Campo } from '../../componentes/Campo.tsx';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { Aparece, LienzoDeAcceso } from './LienzoDeAcceso.tsx';
+import { motivoDelEnlace } from './motivoDelEnlace.ts';
 
 const MINIMO = 8;
 
@@ -51,7 +52,7 @@ export function ContrasenaNueva() {
     }
 
     if (repetida !== contrasena) {
-      fallos.repetida = 'Las dos contrasenas no coinciden.';
+      fallos.repetida = 'Las dos contraseñas no coinciden.';
     }
 
     setErrorDeCampo(fallos);
@@ -85,10 +86,24 @@ export function ContrasenaNueva() {
   }
 
   if (!sesion) {
+    // Supabase manda el motivo en la URL cuando el enlace falla. Leerlo
+    // convierte un "no vale" generico en algo accionable: pedir otro, o avisar
+    // al equipo si lo que falta es configuracion.
+    const motivo = motivoDelEnlace(new URL(window.location.href));
+
+    // Sin sesion y sin motivo, nadie llego aqui desde un correo: la direccion
+    // se escribio a mano. Esta pantalla no tiene nada que ofrecer en ese caso
+    // —no hay contrasena que cambiar, porque no se sabe de quien— asi que se
+    // devuelve al principio del recorrido en lugar de ensenar un formulario
+    // que iba a fallar al enviarse.
+    if (motivo === null) {
+      return <Navigate to={RUTAS.RECUPERAR} replace />;
+    }
+
     return (
       <LienzoDeAcceso
         titulo="El enlace no vale"
-        entradilla="Puede que haya caducado o que ya se haya usado."
+        entradilla={motivo.mensaje}
         pie={
           <Link className="acceso__enlace" to={RUTAS.RECUPERAR}>
             Pedir uno nuevo
@@ -97,16 +112,24 @@ export function ContrasenaNueva() {
       >
         <Aparece>
           <p className="aviso aviso--error">
-            Los enlaces de recuperacion duran poco y sirven una sola vez. Es a proposito: uno que
-            durara para siempre seria una llave permanente en la bandeja de tu correo.
+            Los enlaces de recuperación duran poco y sirven una sola vez. Es a propósito: uno que
+            durara para siempre sería una llave permanente en la bandeja de tu correo.
           </p>
         </Aparece>
+
+        {motivo.codigo !== undefined && (
+          <Aparece>
+            {/* El codigo crudo, para poder buscarlo. No contiene nada de la
+                persona, asi que se le puede ensenar. */}
+            <p className="campo__ayuda">Código: {motivo.codigo}</p>
+          </Aparece>
+        )}
       </LienzoDeAcceso>
     );
   }
 
   return (
-    <LienzoDeAcceso titulo="Contrasena nueva" entradilla="Elige una y entras directo.">
+    <LienzoDeAcceso titulo="Contraseña nueva" entradilla="Elige una y entras directo.">
       <form className="acceso__formulario" onSubmit={(e) => void enviar(e)} noValidate>
         {error !== null && (
           <Aparece>
@@ -118,7 +141,7 @@ export function ContrasenaNueva() {
 
         <Aparece>
           <Campo
-            etiqueta="Contrasena nueva"
+            etiqueta="Contraseña nueva"
             type="password"
             name="new-password"
             autoComplete="new-password"
@@ -133,7 +156,7 @@ export function ContrasenaNueva() {
 
         <Aparece>
           <Campo
-            etiqueta="Repitela"
+            etiqueta="Repítela"
             type="password"
             name="new-password-repeat"
             autoComplete="new-password"

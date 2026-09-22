@@ -10,10 +10,15 @@
  * que la siguiente persona que se siente entra directamente al diario de la
  * anterior.
  *
- * De ahi la casilla "no recordar en este equipo". Marcada, la sesion vive en
- * `sessionStorage`: sobrevive a recargar la pagina, que es lo que se espera, y
- * desaparece al cerrar la pestana. Sin marcar, vive en `localStorage` y dura
- * los treinta dias del token de refresco.
+ * De ahi que haya dos destinos. Con `recordarEnEsteEquipo(false)` la sesion
+ * vive en `sessionStorage`: sobrevive a recargar la pagina, que es lo que se
+ * espera, y desaparece al cerrar la pestana. Con `true` vive en
+ * `localStorage` y dura los treinta dias del token de refresco.
+ *
+ * Hoy nadie llama con `false`: la casilla que lo ofrecia se quito de las
+ * pantallas de acceso y el proveedor guarda siempre. El mecanismo se conserva
+ * entero y probado porque el caso de la sala de computo no ha desaparecido,
+ * solo la forma de pedirlo; ver `RECORDAR_SIEMPRE` en `ProveedorDeSesion`.
  *
  * ---------------------------------------------------------------------------
  * Por que un adaptador y no dos clientes

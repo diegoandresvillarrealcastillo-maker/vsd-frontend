@@ -6,6 +6,7 @@ import { Campo } from '../../componentes/Campo.tsx';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { Aparece, LienzoDeAcceso } from './LienzoDeAcceso.tsx';
+import { PistasDelCorreo } from './PistasDelCorreo.tsx';
 
 export function Recuperar() {
   const { pedirRecuperacion } = useSesion();
@@ -35,24 +36,20 @@ export function Recuperar() {
   if (enviado) {
     return (
       <LienzoDeAcceso
-        titulo="Revisa tu correo"
-        entradilla="Si existe una cuenta con esa direccion, te acabamos de enviar un enlace."
+        titulo="Ya te enviamos el correo"
+        /* Dice "si existe una cuenta" a proposito. Confirmar que un correo
+           esta registrado convertiria esta pantalla en una forma de averiguar
+           quien usa la aplicacion, probando direcciones una a una. En una
+           herramienta de bienestar, eso no lo tiene que poder consultar
+           nadie. */
+        entradilla={`Si existe una cuenta con ${correo}, acabamos de mandarle un enlace para poner una contraseña nueva.`}
         pie={
           <Link className="acceso__enlace" to={RUTAS.ACCESO}>
-            Volver al inicio de sesion
+            Volver al inicio de sesión
           </Link>
         }
       >
-        <Aparece>
-          {/* La frase de arriba dice "si existe una cuenta" a proposito.
-              Confirmar que un correo esta registrado convertiria esta pantalla
-              en una forma de averiguar quien usa la aplicacion, probando
-              direcciones una a una. En una herramienta de bienestar, eso no lo
-              tiene que poder consultar nadie. */}
-          <p className="aviso aviso--bien">
-            Si no lo ves en unos minutos, mira en correo no deseado.
-          </p>
-        </Aparece>
+        <PistasDelCorreo />
       </LienzoDeAcceso>
     );
   }
@@ -60,10 +57,10 @@ export function Recuperar() {
   return (
     <LienzoDeAcceso
       titulo="Recuperar el acceso"
-      entradilla="Te enviamos un enlace para poner una contrasena nueva."
+      entradilla="Te enviamos un enlace para poner una contraseña nueva."
       pie={
         <Link className="acceso__enlace" to={RUTAS.ACCESO}>
-          Volver al inicio de sesion
+          Volver al inicio de sesión
         </Link>
       }
     >

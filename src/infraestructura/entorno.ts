@@ -46,6 +46,23 @@ export const entorno = {
   esDesarrollo: nombreDeAmbiente === 'development',
   esProduccion: nombreDeAmbiente === 'production',
 
+  /**
+   * Si se ofrece entrar con Google.
+   *
+   * Activarlo no cuesta dinero —ni Google ni Supabase cobran por el inicio de
+   * sesion— pero **si depende de un tramite**: alguien con permisos de
+   * administrador tiene que crear el proyecto en Google Cloud, generar las
+   * credenciales de OAuth y registrar una URL de redireccion por ambiente.
+   *
+   * Mientras ese tramite no este hecho, el boton no se muestra. Ensenar un
+   * boton que lleva a una pantalla de error de Google es peor que no
+   * ensenarlo: quien lo pulse va a pensar que la aplicacion esta rota.
+   *
+   * Cuando las credenciales existan, se pone esta variable en `si` y el boton
+   * aparece sin tocar una linea de codigo.
+   */
+  conGoogle: import.meta.env.VITE_PROVEEDOR_GOOGLE?.trim() === 'si',
+
   /** URL base de la API. Sin barra final, para poder concatenar sin dudar. */
   urlDeLaApi: (import.meta.env.VITE_API_BASE_URL?.trim() || 'http://localhost:3000').replace(
     /\/+$/,

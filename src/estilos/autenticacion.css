@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    Las pantallas de acceso
    ============================================================
    Un criterio manda sobre el resto: en una herramienta de bienestar
@@ -11,8 +11,44 @@
   min-height: 100dvh;
   display: grid;
   place-items: center;
+  align-content: center;
+  gap: 24px;
   padding: 24px 16px;
   overflow: hidden;
+}
+
+/* La marca, encima de la tarjeta. El fondo que respira queda detras de las
+   dos, asi que esta necesita su propio nivel. */
+.acceso__marca {
+  position: relative;
+  z-index: 1;
+}
+
+.acceso__marca .logo__imagen {
+  height: 54px;
+}
+
+/* La salida hacia la portada. Debajo de la tarjeta y en tono bajo: tiene que
+   estar, pero no competir con el formulario. */
+.acceso__volver {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  color: var(--texto-tenue);
+  font-size: 0.875rem;
+  border-radius: var(--radio-pildora);
+  text-decoration: none;
+  transition:
+    color var(--rapido) var(--curva),
+    background var(--rapido) var(--curva);
+}
+
+.acceso__volver:hover {
+  color: var(--texto);
+  background: var(--fondo-sutil);
 }
 
 /* ---------- El fondo que respira ----------
@@ -48,12 +84,31 @@
 .acceso__tarjeta {
   position: relative;
   z-index: 1;
+  isolation: isolate;
+  overflow: hidden;
   width: min(100%, 26rem);
-  padding: 32px 28px;
+  /* Arriba va mas: el selector de tema vive en esa esquina y sin este hueco
+     se monta sobre el titulo en las pantallas de titulo largo. */
+  padding: 48px 28px 32px;
   background: var(--fondo-elevado);
   border: 1px solid var(--borde);
   border-radius: var(--radio-grande);
   box-shadow: var(--sombra);
+}
+
+/* El resplandor que sigue al cursor. Va bajo el contenido y no recibe
+   eventos: es una superficie que reacciona, no un control. */
+.acceso__resplandor {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  transition: opacity var(--medio) var(--curva);
+}
+
+.acceso__contenido {
+  position: relative;
+  z-index: 1;
 }
 
 .acceso__titulo {
@@ -84,12 +139,30 @@
 }
 
 .acceso__enlace {
+  position: relative;
   color: var(--acento);
   text-decoration: none;
 }
 
-.acceso__enlace:hover {
-  text-decoration: underline;
+/* El subrayado crece desde la izquierda en lugar de aparecer entero. Cuesta
+   lo mismo y convierte un cambio de estado en un gesto. */
+.acceso__enlace::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 1.5px;
+  background: currentColor;
+  border-radius: 2px;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--medio) var(--curva);
+}
+
+.acceso__enlace:hover::after,
+.acceso__enlace:focus-visible::after {
+  transform: scaleX(1);
 }
 
 /* ---------- Campos ---------- */
@@ -103,6 +176,13 @@
   font-weight: 500;
 }
 
+/* La caja que contiene el input y, si es de contrasena, el ojo. */
+.campo__caja {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
 .campo__entrada {
   width: 100%;
   padding: 11px 13px;
@@ -112,14 +192,58 @@
   border: 1px solid var(--borde-fuerte);
   border-radius: var(--radio);
   transition:
-    border-color var(--rapido) var(--curva),
-    box-shadow var(--rapido) var(--curva);
+    border-color var(--medio) var(--curva),
+    background var(--medio) var(--curva),
+    box-shadow var(--medio) var(--curva);
+}
+
+/* El anillo de foco crece desde el borde. La transicion incluye el color de
+   fondo para que el campo activo se distinga tambien cuando el anillo termina
+   de expandirse. */
+.campo__entrada--conOjo {
+  padding-right: 46px;
+}
+
+/* ---------- El ojo que revela la contrasena ----------
+   Va dentro del campo para que la persona no tenga que mover la mirada: lo
+   que quiere ver y el control que lo revela ocupan el mismo sitio. */
+.ojo {
+  position: absolute;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  color: var(--texto-tenue);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition:
+    color var(--rapido) var(--curva),
+    background var(--rapido) var(--curva);
+}
+
+.ojo:hover:not(:disabled) {
+  color: var(--acento);
+  background: var(--acento-suave);
+}
+
+.ojo:disabled {
+  cursor: default;
+  opacity: 0.5;
 }
 
 .campo__entrada:focus {
   outline: none;
   border-color: var(--acento);
+  background: var(--fondo-elevado);
   box-shadow: 0 0 0 3px var(--acento-suave);
+}
+
+.campo__entrada:hover:not(:focus):not(:disabled) {
+  border-color: var(--acento);
 }
 
 /* El error vira el borde de color. Nada de sacudidas: el temblor es
@@ -143,28 +267,92 @@
   color: var(--texto-tenue);
 }
 
-/* ---------- Casillas ---------- */
+/* ---------- Casillas ----------
+   El input nativo sigue existiendo: es el que recibe el foco, el que responde
+   a la barra espaciadora y el que anuncia un lector de pantalla. Lo que se ve
+   es decoracion sincronizada con el.
+
+   Se esconde con posicion absoluta y opacidad cero, y NO con display:none ni
+   visibility:hidden: esas dos lo sacan del orden de tabulacion y lo dejan
+   inalcanzable desde el teclado. */
 .casilla {
+  position: relative;
+}
+
+.casilla__real {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.casilla__real:disabled {
+  cursor: default;
+}
+
+.casilla__cuerpo {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 10px;
+  gap: 12px;
   align-items: start;
   font-size: 0.875rem;
   cursor: pointer;
 }
 
-.casilla input {
-  margin: 2px 0 0;
-  width: 1.05rem;
-  height: 1.05rem;
-  accent-color: var(--acento);
+.casilla__real:disabled ~ .casilla__cuerpo {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.casilla__caja {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  background: var(--fondo);
+  border: 1.5px solid var(--borde-fuerte);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+/* Cuando el foco esta en el input invisible, el anillo se pinta en la caja.
+   Sin esto, quien navega con teclado no sabria donde esta. */
+.casilla__real:focus-visible ~ .casilla__cuerpo .casilla__caja {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+}
+
+/* El relleno crece desde el centro. */
+.casilla__relleno {
+  position: absolute;
+  inset: 0;
+  background: var(--acento);
+  border-radius: 5px;
+}
+
+.casilla__check {
+  position: relative;
+  width: 15px;
+  height: 15px;
+  color: var(--acento-contraste);
+}
+
+.casilla__texto {
+  padding-top: 1px;
 }
 
 .casilla__nota {
   display: block;
-  margin-top: 2px;
+  margin-top: 3px;
   color: var(--texto-tenue);
   font-size: 0.8125rem;
+  line-height: 1.4;
 }
 
 /* ---------- El boton que se convierte en el progreso ----------
@@ -182,16 +370,46 @@
   color: var(--acento-contraste);
   background: var(--acento);
   border: none;
-  border-radius: var(--radio);
+  border-radius: var(--radio-pildora);
   cursor: pointer;
-  transition: filter var(--rapido) var(--curva);
+  overflow: hidden;
+  box-shadow: var(--resplandor-accion);
+  transition:
+    filter var(--medio) var(--curva),
+    box-shadow var(--medio) var(--curva);
 }
 
-.envio:hover:not(:disabled) {
-  filter: brightness(1.08);
+.envio:hover:not([aria-disabled='true']) {
+  filter: brightness(1.06);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--acento) 32%, transparent);
 }
 
-.envio:disabled {
+.envio__texto {
+  position: relative;
+  z-index: 1;
+}
+
+/* Un brillo que cruza el boton al pasar el cursor. Tarda 600 ms y solo ocurre
+   una vez por entrada: repetirlo en bucle lo convertiria en un anuncio. */
+.envio__brillo {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    color-mix(in srgb, var(--acento-contraste) 26%, transparent) 50%,
+    transparent 65%
+  );
+  transform: translateX(-100%);
+  transition: transform 600ms var(--curva);
+}
+
+.envio:hover:not([aria-disabled='true']) .envio__brillo {
+  transform: translateX(100%);
+}
+
+.envio[aria-disabled='true'] {
   cursor: default;
 }
 
@@ -230,13 +448,18 @@
   color: var(--texto);
   background: var(--fondo);
   border: 1px solid var(--borde-fuerte);
-  border-radius: var(--radio);
+  border-radius: var(--radio-pildora);
   cursor: pointer;
-  transition: background var(--rapido) var(--curva);
+  transition:
+    background var(--medio) var(--curva),
+    border-color var(--medio) var(--curva),
+    box-shadow var(--medio) var(--curva);
 }
 
 .google:hover:not(:disabled) {
   background: var(--fondo-sutil);
+  border-color: var(--texto-tenue);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
 }
 
 .separador {
@@ -273,6 +496,20 @@
   background: var(--acento-suave);
 }
 
+/* ---------- Pistas ----------
+   Las tres cosas que hay que saber tras enviar un correo. Van en lista y no
+   en parrafo porque son independientes entre si: quien ya sabe una salta a la
+   siguiente sin releer. */
+.pistas {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--texto-tenue);
+}
+
 /* ---------- Reducir movimiento ----------
    El bloque general de global.css ya frena transiciones y animaciones.
    Aqui se apaga ademas la respiracion del fondo, que es la unica que
@@ -281,5 +518,21 @@
   .acceso__respiro {
     animation: none;
     opacity: 0.85;
+  }
+
+  /* El brillo del boton y el resplandor de la tarjeta se apagan del todo. El
+     resto de estados —color, sombra— se mantiene: no se mueven, y sin ellos
+     no habria forma de saber que hay algo bajo el cursor. */
+  .envio__brillo,
+  .acceso__resplandor {
+    display: none;
+  }
+
+  .acceso__enlace::after {
+    transition: none;
+  }
+
+  .acceso__enlace:hover::after {
+    transform: scaleX(1);
   }
 }

@@ -4,6 +4,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { BotonDeEnvio, type EstadoDeEnvio } from '../../componentes/BotonDeEnvio.tsx';
 import { BotonDeGoogle } from '../../componentes/BotonDeGoogle.tsx';
 import { Campo } from '../../componentes/Campo.tsx';
+import { Casilla } from '../../componentes/Casilla.tsx';
+import { entorno } from '../../infraestructura/entorno.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { Aparece, LienzoDeAcceso } from './LienzoDeAcceso.tsx';
@@ -15,9 +17,13 @@ export function Acceso() {
 
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
-  const [recordar, setRecordar] = useState(true);
   const [estado, setEstado] = useState<EstadoDeEnvio>('listo');
   const [error, setError] = useState<string | null>(null);
+
+  // Marcada por defecto: es lo que espera quien entra desde su propio equipo,
+  // que son la mayoria. Quien esta en una sala de computo de la universidad la
+  // desmarca, y entonces la sesion muere al cerrar la pestana.
+  const [recordar, setRecordar] = useState(true);
 
   // A donde queria ir antes de que la ruta protegida la mandara aqui.
   const destino = (ubicacion.state as { volverA?: string } | null)?.volverA ?? RUTAS.PANEL;
@@ -56,7 +62,7 @@ export function Acceso() {
             </Link>
           </span>
           <Link className="acceso__enlace" to={RUTAS.RECUPERAR}>
-            Olvide mi contrasena
+            Olvidé mi contraseña
           </Link>
         </>
       }
@@ -88,7 +94,7 @@ export function Acceso() {
 
         <Aparece>
           <Campo
-            etiqueta="Contrasena"
+            etiqueta="Contraseña"
             type="password"
             name="current-password"
             autoComplete="current-password"
@@ -100,20 +106,13 @@ export function Acceso() {
         </Aparece>
 
         <Aparece>
-          <label className="casilla">
-            <input
-              type="checkbox"
-              checked={!recordar}
-              disabled={ocupado}
-              onChange={(e) => setRecordar(!e.target.checked)}
-            />
-            <span>
-              No recordar en este equipo
-              <span className="casilla__nota">
-                Para computadores compartidos: la sesion se cierra al cerrar la pestana.
-              </span>
-            </span>
-          </label>
+          <Casilla
+            etiqueta="Recordar en este dispositivo"
+            nota="Si lo desmarcas, la sesión se cierra al cerrar la pestaña. Úsalo en computadores compartidos."
+            marcada={recordar}
+            disabled={ocupado}
+            onChange={setRecordar}
+          />
         </Aparece>
 
         <Aparece>
@@ -122,15 +121,22 @@ export function Acceso() {
           </BotonDeEnvio>
         </Aparece>
 
-        <Aparece>
-          <div className="separador">
-            <span>o</span>
-          </div>
-        </Aparece>
+        {/* El botón de Google solo aparece cuando sus credenciales existen.
+            Enseñarlo sin ellas lleva a una pantalla de error de Google, y
+            quien lo pulse va a pensar que la aplicación está rota. */}
+        {entorno.conGoogle && (
+          <>
+            <Aparece>
+              <div className="separador">
+                <span>o</span>
+              </div>
+            </Aparece>
 
-        <Aparece>
-          <BotonDeGoogle disabled={ocupado} onClick={() => void entrarConGoogle(recordar)} />
-        </Aparece>
+            <Aparece>
+              <BotonDeGoogle disabled={ocupado} onClick={() => void entrarConGoogle(recordar)} />
+            </Aparece>
+          </>
+        )}
       </form>
     </LienzoDeAcceso>
   );

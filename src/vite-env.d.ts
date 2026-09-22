@@ -23,6 +23,9 @@ interface ImportMetaEnv {
 
   /** development | preproduction | production */
   readonly VITE_APP_ENV: string;
+
+  /** `si` para ofrecer entrar con Google. Cualquier otro valor lo oculta. */
+  readonly VITE_PROVEEDOR_GOOGLE?: string;
 }
 
 interface ImportMeta {

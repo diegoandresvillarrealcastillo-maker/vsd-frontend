@@ -21,7 +21,7 @@ export function RutaProtegida({ children }: { children: ReactNode }) {
     // la tiene, cada vez que recarga la pagina.
     return (
       <p role="status" aria-live="polite" className="solo-lectores">
-        Comprobando la sesion
+        Comprobando la sesión
       </p>
     );
   }

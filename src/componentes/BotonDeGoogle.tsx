@@ -1,3 +1,7 @@
+import { motion, useReducedMotion } from 'framer-motion';
+
+import { REACCION_SUAVE } from '../estilos/movimiento.ts';
+
 interface Props {
   onClick: () => void;
   disabled?: boolean;
@@ -10,12 +14,25 @@ interface Props {
  * Para quien tiene correo institucional es el camino mas corto: un boton en
  * lugar de recordar otra contrasena.
  *
+ * Reacciona menos que el boton principal, y es a proposito. Dos controles que
+ * responden igual de fuerte compiten por la atencion; la jerarquia tambien se
+ * construye con el movimiento, no solo con el color.
+ *
  * No lleva `type="submit"`: dentro de un formulario, un boton sin tipo lo
  * envia, y aqui lo que hace es marcharse a Google.
  */
 export function BotonDeGoogle({ onClick, disabled, children = 'Continuar con Google' }: Props) {
+  const sinMovimiento = useReducedMotion();
+  const reaccion = sinMovimiento || disabled ? {} : REACCION_SUAVE;
+
   return (
-    <button type="button" className="google" onClick={onClick} disabled={disabled}>
+    <motion.button
+      type="button"
+      className="google"
+      onClick={onClick}
+      disabled={disabled}
+      {...reaccion}
+    >
       <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
         <path
           fill="#4285F4"
@@ -35,6 +52,6 @@ export function BotonDeGoogle({ onClick, disabled, children = 'Continuar con Goo
         />
       </svg>
       {children}
-    </button>
+    </motion.button>
   );
 }
