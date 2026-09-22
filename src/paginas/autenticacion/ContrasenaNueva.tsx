@@ -6,6 +6,7 @@ import { Campo } from '../../componentes/Campo.tsx';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { Aparece, LienzoDeAcceso } from './LienzoDeAcceso.tsx';
+import { motivoDelEnlace } from './motivoDelEnlace.ts';
 
 const MINIMO = 8;
 
@@ -85,10 +86,15 @@ export function ContrasenaNueva() {
   }
 
   if (!sesion) {
+    // Supabase manda el motivo en la URL cuando el enlace falla. Leerlo
+    // convierte un "no vale" generico en algo accionable: pedir otro, o avisar
+    // al equipo si lo que falta es configuracion.
+    const motivo = motivoDelEnlace(new URL(window.location.href));
+
     return (
       <LienzoDeAcceso
         titulo="El enlace no vale"
-        entradilla="Puede que haya caducado o que ya se haya usado."
+        entradilla={motivo?.mensaje ?? 'Puede que haya caducado o que ya se haya usado.'}
         pie={
           <Link className="acceso__enlace" to={RUTAS.RECUPERAR}>
             Pedir uno nuevo
@@ -101,6 +107,14 @@ export function ContrasenaNueva() {
             durara para siempre seria una llave permanente en la bandeja de tu correo.
           </p>
         </Aparece>
+
+        {motivo?.codigo !== undefined && (
+          <Aparece>
+            {/* El codigo crudo, para poder buscarlo. No contiene nada de la
+                persona, asi que se le puede ensenar. */}
+            <p className="campo__ayuda">Codigo: {motivo.codigo}</p>
+          </Aparece>
+        )}
       </LienzoDeAcceso>
     );
   }
