@@ -75,7 +75,7 @@ export async function llamarALaApi<T>(ruta: string, opciones: Opciones = {}): Pr
     // hay alguien dentro mientras ninguna peticion funciona.
     await supabase().auth.signOut();
 
-    throw new ErrorDeLaApi(401, 'Tu sesion caduco. Vuelve a entrar.');
+    throw new ErrorDeLaApi(401, 'Tu sesión caducó. Vuelve a entrar.');
   }
 
   if (!respuesta.ok) {
@@ -83,7 +83,7 @@ export async function llamarALaApi<T>(ruta: string, opciones: Opciones = {}): Pr
 
     throw new ErrorDeLaApi(
       respuesta.status,
-      'No se pudo completar la peticion.',
+      'No se pudo completar la petición.',
       identificador ?? undefined,
     );
   }
