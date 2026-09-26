@@ -7,6 +7,7 @@ import {
 } from '../infraestructura/supabase/almacenamiento.ts';
 import { supabase } from '../infraestructura/supabase/cliente.ts';
 import { RUTAS } from '../rutas/rutas.ts';
+import { VERSION_DEL_AVISO } from './consentimiento.ts';
 import {
   SesionContexto,
   type DatosDeAcceso,
@@ -14,15 +15,6 @@ import {
   type EstadoDeSesion,
   type ResultadoDeAcceso,
 } from './SesionContexto.ts';
-
-/**
- * Version del aviso de tratamiento de datos que se acepta al registrarse.
- *
- * Queda guardada con la cuenta porque la Ley 1581 no se conforma con un si o
- * un no: ante una reclamacion hay que poder demostrar **a que** dio permiso
- * cada persona y **cuando**. Si el aviso cambia, esta cadena cambia con el.
- */
-export const VERSION_DEL_AVISO = '2026-09-1';
 
 /**
  * Al registrarse y al entrar con Google, la sesion se recuerda.
