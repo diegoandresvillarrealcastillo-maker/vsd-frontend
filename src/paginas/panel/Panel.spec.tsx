@@ -154,15 +154,43 @@ describe('Panel', () => {
   });
 
   it('el correo ya registrado se explica con su propio mensaje', async () => {
-    darDeAltaLaCuenta.mockRejectedValue(new ErrorDeLaApi(409, 'da igual lo que diga'));
+    darDeAltaLaCuenta.mockRejectedValue(
+      new ErrorDeLaApi(409, 'da igual lo que diga', undefined, 'CORREO_YA_REGISTRADO'),
+    );
 
     pintar();
 
-    // El texto sale del estado HTTP y no del mensaje de la API: por eso el
-    // mensaje del doble es irrelevante y aun asi la pantalla dice lo correcto.
+    // El texto sale del codigo de la API y no de su mensaje: por eso el mensaje
+    // del doble es irrelevante y aun asi la pantalla dice lo correcto.
     expect(await screen.findByRole('alert')).toHaveTextContent(
       /ya pertenece a una cuenta creada con otro método/,
     );
+  });
+
+  it('el consentimiento que falta se explica por su codigo, no por ser un 400', async () => {
+    darDeAltaLaCuenta.mockRejectedValue(
+      new ErrorDeLaApi(400, 'da igual', undefined, 'CONSENTIMIENTO_NO_REGISTRADO'),
+    );
+
+    pintar();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/falta la aceptación del aviso/);
+  });
+
+  it('otro 400 no se explica como si fuera el consentimiento', async () => {
+    // Es el motivo de mirar el codigo y no solo el estado. Dar por hecho que
+    // todo 400 es el consentimiento mandaria a la persona a revisar algo que
+    // estaba bien.
+    darDeAltaLaCuenta.mockRejectedValue(
+      new ErrorDeLaApi(400, 'otra cosa', undefined, 'IDENTIFICADOR_INVALIDO'),
+    );
+
+    pintar();
+
+    const aviso = await screen.findByRole('alert');
+
+    expect(aviso).not.toHaveTextContent(/aviso de tratamiento/);
+    expect(aviso).toHaveTextContent(/error 400/);
   });
 
   it('la sesion caducada manda a entrar otra vez', async () => {
