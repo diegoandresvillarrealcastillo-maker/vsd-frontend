@@ -50,3 +50,40 @@ export interface CategoriaDelCatalogo {
 export function traerElCatalogo(senal?: AbortSignal): Promise<readonly CategoriaDelCatalogo[]> {
   return llamarALaApi<readonly CategoriaDelCatalogo[]>('/api/catalogo', senal ? { senal } : {});
 }
+
+/** Una actividad junto a la categoria en la que vive. */
+export interface ActividadConSuCategoria {
+  readonly actividad: ActividadDelCatalogo;
+  readonly categoria: CategoriaDelCatalogo;
+}
+
+/**
+ * Busca una actividad por su identificador.
+ *
+ * Trae el catalogo entero y busca dentro, porque **la API no tiene una ruta
+ * para una actividad suelta**. Podria tenerla, pero no la necesita: el catalogo
+ * completo son nueve actividades en tres categorias, cabe en una respuesta
+ * pequena, y es la misma para todo el mundo.
+ *
+ * Devuelve tambien la categoria porque la pantalla la usa para situar a la
+ * persona, y buscarla dos veces seria recorrer lo mismo otra vez.
+ *
+ * `null` cuando no existe. No lanza: una direccion escrita a mano con un
+ * identificador que no existe es un caso normal, no un fallo.
+ */
+export async function buscarActividad(
+  id: string,
+  senal?: AbortSignal,
+): Promise<ActividadConSuCategoria | null> {
+  const catalogo = await traerElCatalogo(senal);
+
+  for (const categoria of catalogo) {
+    const actividad = categoria.actividades.find((una) => una.id === id);
+
+    if (actividad !== undefined) {
+      return { actividad, categoria };
+    }
+  }
+
+  return null;
+}

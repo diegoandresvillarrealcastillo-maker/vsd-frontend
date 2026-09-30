@@ -150,12 +150,28 @@
   gap: 8px;
 }
 
+/* Es un enlace, y ocupa toda la tarjeta. En un movil, acertarle a un
+   texto de una linea con el dedo es mas dificil de lo que parece. */
 .panel__actividad {
   display: grid;
   gap: 2px;
   padding: 10px 12px;
   border: 1px solid var(--borde);
   border-radius: 10px;
+  text-decoration: none;
+  transition:
+    border-color var(--rapido) var(--curva),
+    background var(--rapido) var(--curva);
+}
+
+.panel__actividad:hover {
+  border-color: var(--texto-tenue);
+  background: var(--fondo-sutil);
+}
+
+.panel__actividad:focus-visible {
+  outline: 2px solid var(--texto);
+  outline-offset: 2px;
 }
 
 .panel__actividad-nombre {

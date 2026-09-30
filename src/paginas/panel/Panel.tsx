@@ -5,7 +5,7 @@ import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/panel.css';
 import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
 import type { CategoriaDelCatalogo } from '../../infraestructura/api/catalogo.ts';
-import { RUTAS } from '../../rutas/rutas.ts';
+import { RUTAS, rutaDeActividad } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
 import { useDatosDelPanel } from './useDatosDelPanel.ts';
@@ -146,9 +146,10 @@ function TuCuenta({ cuenta }: { cuenta: Cuenta }) {
 /**
  * El catalogo.
  *
- * Todavia no se puede completar ninguna: el motor de actividades es la epica
- * VSDH-E09. Se listan porque son lo que la API ofrece, y ensenarlas con un
- * boton que no lleva a ningun sitio seria prometer algo que no existe.
+ * Desde SCRUM-83 cada actividad **lleva a su pantalla**. Las que todavia no
+ * tienen mecanica lo dicen alli en lugar de fingir que se pueden hacer: es
+ * preferible a un enlace que no lleva a nada, y a esconderlas del catalogo,
+ * porque forman parte de lo que el producto ofrece.
  */
 function Actividades({ catalogo }: { catalogo: readonly CategoriaDelCatalogo[] }) {
   if (catalogo.length === 0) {
@@ -174,16 +175,21 @@ function Actividades({ catalogo }: { catalogo: readonly CategoriaDelCatalogo[] }
 
           <ul className="panel__actividades">
             {categoria.actividades.map((actividad) => (
-              <li key={actividad.id} className="panel__actividad">
-                <span className="panel__actividad-nombre">{actividad.nombre}</span>
+              <li key={actividad.id}>
+                {/* El enlace envuelve la tarjeta entera y no solo el nombre:
+                    en un movil, acertarle a un texto de una linea con el dedo
+                    es mas dificil de lo que parece. */}
+                <Link className="panel__actividad" to={rutaDeActividad(actividad.id)}>
+                  <span className="panel__actividad-nombre">{actividad.nombre}</span>
 
-                {actividad.tipo !== undefined && (
-                  <span className="panel__actividad-tipo">{actividad.tipo}</span>
-                )}
+                  {actividad.tipo !== undefined && (
+                    <span className="panel__actividad-tipo">{actividad.tipo}</span>
+                  )}
 
-                {actividad.descripcion !== undefined && (
-                  <span className="panel__actividad-texto">{actividad.descripcion}</span>
-                )}
+                  {actividad.descripcion !== undefined && (
+                    <span className="panel__actividad-texto">{actividad.descripcion}</span>
+                  )}
+                </Link>
               </li>
             ))}
           </ul>
