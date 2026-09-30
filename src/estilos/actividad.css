@@ -1,0 +1,168 @@
+/* ============================================================
+   Hacer una actividad
+   ============================================================
+   Comparte la barra superior con el panel: marca a la izquierda,
+   salida en medio y selector de tema en la esquina. Estando
+   dentro de una actividad, la salida lleva al panel y no a la
+   portada, porque volver al catalogo es lo que se quiere el
+   noventa por ciento de las veces.
+   ============================================================ */
+
+.actividad {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100dvh;
+  background: var(--fondo);
+}
+
+.actividad__barra {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: min(100% - 32px, 1120px);
+  margin-inline: auto;
+  padding-block: 16px;
+  min-height: 72px;
+  border-bottom: 1px solid var(--borde);
+}
+
+.actividad__marca {
+  margin-right: auto;
+}
+
+.actividad__marca .logo__imagen {
+  height: 44px;
+}
+
+/* Deja hueco al selector de tema, que va en la esquina de esta misma barra. */
+.actividad__volver {
+  margin-right: 88px;
+  padding: 8px 14px;
+  color: var(--texto-tenue);
+  font-size: 0.875rem;
+  border-radius: var(--radio-pildora);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    color var(--rapido) var(--curva),
+    background var(--rapido) var(--curva);
+}
+
+.actividad__volver:hover {
+  color: var(--texto);
+  background: var(--fondo-sutil);
+}
+
+.actividad__contenido {
+  display: grid;
+  place-items: center;
+  padding: 24px 16px 64px;
+}
+
+.actividad__caja {
+  width: min(100%, 34rem);
+}
+
+.actividad__categoria {
+  margin: 0 0 4px;
+  color: var(--texto-tenue);
+  font-size: 0.875rem;
+  text-transform: lowercase;
+}
+
+.actividad__texto {
+  margin: 0 0 20px;
+  color: var(--texto-tenue);
+}
+
+.actividad__cargando {
+  margin: 0;
+  color: var(--texto-tenue);
+}
+
+/* ---------- El formulario de una mecanica ---------- */
+
+.actividad__formulario {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+/* Etiqueta encima del campo, no al lado: a 320 px de ancho, al lado
+   no cabe, y partir la etiqueta en dos lineas se lee peor. */
+.actividad__campo {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.actividad__campo label {
+  color: var(--texto);
+  font-size: 0.9375rem;
+}
+
+.actividad__campo input,
+.actividad__campo select {
+  padding: 10px 12px;
+  color: var(--texto);
+  background: var(--fondo-sutil);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  font: inherit;
+}
+
+.actividad__campo input:focus-visible,
+.actividad__campo select:focus-visible {
+  outline: 2px solid var(--texto);
+  outline-offset: 2px;
+}
+
+/* ---------- Al terminar ---------- */
+
+/* El nivel se ve, pero sin gritar. Un resultado sobre el propio
+   bienestar no necesita un cartel de colores: acompana, no
+   califica. De ahi que solo cambie el borde lateral. */
+.actividad__nivel {
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  border-left: 3px solid var(--borde);
+  background: var(--fondo-sutil);
+  border-radius: 0 10px 10px 0;
+  color: var(--texto);
+}
+
+.actividad__nivel--favorable {
+  border-left-color: #3f9e6a;
+}
+
+.actividad__nivel--en_seguimiento {
+  border-left-color: #b8893a;
+}
+
+.actividad__nivel--requiere_atencion {
+  border-left-color: #b5563f;
+}
+
+.actividad__apoyo {
+  margin: 0 0 20px;
+  color: var(--texto-tenue);
+  font-size: 0.9375rem;
+}
+
+.actividad__pendiente {
+  margin-top: 24px;
+}
+
+.actividad__fallo {
+  padding: 16px;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  background: var(--fondo-sutil);
+}
+
+.actividad__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
