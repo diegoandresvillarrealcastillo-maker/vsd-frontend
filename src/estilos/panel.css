@@ -1,0 +1,182 @@
+/* ============================================================
+   El panel de la cuenta
+   ============================================================
+   Provisional en su contenido, no en su estructura: la barra de
+   arriba —marca a la izquierda, tema a la derecha— es la que va a
+   quedar cuando esta pantalla se llene.
+   ============================================================ */
+
+.panel {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100dvh;
+  background: var(--fondo);
+}
+
+.panel__barra {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: min(100% - 32px, 1120px);
+  margin-inline: auto;
+  padding-block: 16px;
+  min-height: 72px;
+  border-bottom: 1px solid var(--borde);
+}
+
+.panel__marca {
+  margin-right: auto;
+}
+
+.panel__marca .logo__imagen {
+  height: 44px;
+}
+
+/* Deja hueco al selector de tema, que va encima de esta misma barra, en la
+   esquina. Sin el margen, el enlace se le mete debajo. */
+.panel__salida {
+  margin-right: 88px;
+  padding: 8px 14px;
+  color: var(--texto-tenue);
+  font-size: 0.875rem;
+  border-radius: var(--radio-pildora);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    color var(--rapido) var(--curva),
+    background var(--rapido) var(--curva);
+}
+
+.panel__salida:hover {
+  color: var(--texto);
+  background: var(--fondo-sutil);
+}
+
+.panel__contenido {
+  display: grid;
+  place-items: center;
+  padding: 24px 16px 64px;
+}
+
+.panel__caja {
+  width: min(100%, 32rem);
+  text-align: center;
+}
+
+.panel__correo {
+  margin: 0 0 24px;
+  color: var(--texto-tenue);
+}
+
+/* ============================================================
+   Lo que llega de la API
+   ============================================================
+   La caja de arriba esta centrada porque solo tenia un titulo y
+   un correo. Estas secciones llevan datos y listas, y un texto
+   centrado en varias lineas se lee mucho peor, asi que vuelven
+   a la izquierda.
+   ============================================================ */
+
+.panel__cargando {
+  margin: 0 0 24px;
+  color: var(--texto-tenue);
+}
+
+.panel__fallo {
+  margin: 0 0 24px;
+  padding: 16px;
+  text-align: left;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  background: var(--fondo-sutil);
+}
+
+.panel__fallo-texto {
+  margin: 0 0 12px;
+  color: var(--texto);
+}
+
+.panel__seccion {
+  margin: 0 0 32px;
+  text-align: left;
+}
+
+.panel__titulo {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  color: var(--texto-tenue);
+  font-weight: 600;
+}
+
+/* Dos columnas: el nombre del dato y su valor. `auto 1fr` deja la
+   primera tan ancha como haga falta y ni un pixel mas. */
+.panel__datos {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.panel__datos dt {
+  color: var(--texto-tenue);
+  font-size: 0.875rem;
+}
+
+.panel__datos dd {
+  margin: 0;
+  color: var(--texto);
+}
+
+.panel__categoria {
+  margin-bottom: 20px;
+}
+
+.panel__categoria-nombre {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+
+.panel__categoria-texto {
+  margin: 0 0 8px;
+  color: var(--texto-tenue);
+  font-size: 0.875rem;
+}
+
+.panel__actividades {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.panel__actividad {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+}
+
+.panel__actividad-nombre {
+  color: var(--texto);
+}
+
+/* El tipo es una clave interna del sistema —juego, preguntas,
+   bitacora— y se ensena en minuscula tal como viene, sin
+   traducirla: inventar aqui una traduccion crearia un segundo
+   vocabulario que no coincide con el de la base. */
+.panel__actividad-tipo {
+  color: var(--texto-tenue);
+  font-size: 0.75rem;
+}
+
+.panel__actividad-texto {
+  color: var(--texto-tenue);
+  font-size: 0.875rem;
+}
+
+.panel__vacio {
+  margin: 0;
+  color: var(--texto-tenue);
+}

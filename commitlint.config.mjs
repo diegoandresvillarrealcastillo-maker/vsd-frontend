@@ -25,17 +25,17 @@ export default {
       2,
       'always',
       [
-        'feat',     // nueva funcionalidad
-        'fix',      // correccion de un defecto
-        'docs',     // solo documentacion
-        'style',    // formato, sin cambio de comportamiento
+        'feat', // nueva funcionalidad
+        'fix', // correccion de un defecto
+        'docs', // solo documentacion
+        'style', // formato, sin cambio de comportamiento
         'refactor', // reestructuracion sin cambio de comportamiento
-        'perf',     // mejora de rendimiento
-        'test',     // pruebas
-        'build',    // dependencias o sistema de construccion
-        'ci',       // integracion continua
-        'chore',    // tareas de mantenimiento
-        'revert',   // reversion de un commit anterior
+        'perf', // mejora de rendimiento
+        'test', // pruebas
+        'build', // dependencias o sistema de construccion
+        'ci', // integracion continua
+        'chore', // tareas de mantenimiento
+        'revert', // reversion de un commit anterior
       ],
     ],
 
