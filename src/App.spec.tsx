@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -121,8 +122,12 @@ describe('Volver a la portada', () => {
     expect(volver).toHaveAttribute('href', RUTAS.INICIO);
   });
 
-  it('se puede salir del panel estando dentro', () => {
+  it('se puede salir del panel estando dentro', async () => {
     pintar(RUTAS.PANEL, estado({ sesion: SESION }));
+
+    // Desde SCRUM-89 vive en el menu de la cuenta, el boton redondo de la
+    // barra, como en el diseño de Figma.
+    await userEvent.click(screen.getByRole('button', { name: /menú de tu cuenta/ }));
 
     expect(screen.getByRole('link', { name: /página principal/ })).toHaveAttribute(
       'href',
@@ -157,7 +162,8 @@ describe('Guardas de ruta', () => {
     // quien lo envia no entiende por que no paso nada.
     pintar(ruta, estado({ sesion: SESION, correo: 'alguien@ejemplo.com' }));
 
-    expect(screen.getByRole('heading', { name: 'Ya estás dentro' })).toBeInTheDocument();
+    // La marca de la barra solo existe dentro de la aplicacion.
+    expect(screen.getByRole('link', { name: 'VSD-H, inicio' })).toBeInTheDocument();
   });
 
   it('no deja escribir una contrasena nueva a quien no vino del correo', () => {
