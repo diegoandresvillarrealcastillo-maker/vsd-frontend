@@ -1,0 +1,730 @@
+﻿/* ============================================================
+   La portada
+   ============================================================
+   Una sola regla manda sobre el resto: la portada tiene que caber en
+   la cabeza. Cinco bloques, ni uno mas. Una pagina que se baja
+   eternamente no convence a nadie, solo cansa, y quien llega aqui
+   normalmente no esta con energia de sobra.
+
+   Ni un color escrito a mano. Todo sale de los tokens, y por eso la
+   pagina entera cambia sola entre tema claro y oscuro.
+   ============================================================ */
+
+.portada {
+  min-height: 100dvh;
+  overflow-x: hidden;
+  background: var(--fondo);
+}
+
+/* El halo ambiental del fondo. Dos manchas muy abiertas que dan
+   profundidad sin dibujar nada. Detras de todo y sin eventos. */
+.portada::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      70% 45% at 22% 6%,
+      color-mix(in srgb, var(--acento) 16%, transparent) 0%,
+      transparent 72%
+    ),
+    radial-gradient(
+      55% 40% at 88% 30%,
+      color-mix(in srgb, var(--pulso) 9%, transparent) 0%,
+      transparent 70%
+    );
+}
+
+.portada > * {
+  position: relative;
+  z-index: 1;
+}
+
+.seccion {
+  width: min(100% - 32px, 1120px);
+  margin-inline: auto;
+  padding-block: clamp(56px, 9vw, 104px);
+}
+
+/* La capsula de navegacion flota encima del contenido, asi que un enlace de
+   ancla dejaria el titulo justo debajo de ella. Este margen lo aparta. */
+[id='que-hace'],
+[id='como-funciona'],
+[id='limite'] {
+  scroll-margin-top: 96px;
+}
+
+.seccion__titulo {
+  margin: 0 0 12px;
+  font-size: clamp(1.75rem, 4.2vw, 3rem);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.seccion__entradilla {
+  max-width: 46ch;
+  margin: 0 0 clamp(32px, 5vw, 56px);
+  color: var(--texto-tenue);
+  font-size: 1.0625rem;
+}
+
+/* ============================================================
+   Navegacion flotante
+   ============================================================
+   Una capsula que flota sobre el contenido, nunca una barra pegada al
+   borde. La diferencia no es estetica: una barra pegada parte la
+   pantalla en dos, y una capsula deja ver que hay algo debajo.
+   ============================================================ */
+
+.navegacion {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 50;
+  width: min(100% - 24px, 1120px);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  /* A la izquierda queda el minimo que evita que el logo se meta dentro de la
+     curva de la capsula. Menos que esto y la marca se recorta. */
+  padding: 7px 8px 7px 16px;
+  color: var(--nav-texto);
+  background: var(--nav-fondo);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--nav-borde);
+  border-radius: var(--radio-pildora);
+}
+
+/* Pegado al borde izquierdo de la capsula: el relleno de la izquierda lo
+   quita la propia capsula, para que la marca quede del todo a la izquierda. */
+.navegacion__marca {
+  margin-right: auto;
+}
+
+/* El logo lleva "VSD" arriba y "Health" debajo. Por debajo de esta altura, la
+   segunda linea se convierte en una mancha y el logo deja de leerse. */
+.navegacion__marca .logo__imagen {
+  height: 44px;
+}
+
+.navegacion__enlaces {
+  display: none;
+  gap: 4px;
+}
+
+/* Por debajo de esto los enlaces no caben sin apretujarse, y un menu
+   desplegable para tres anclas dentro de la misma pagina es mas
+   maquinaria que beneficio: los mismos destinos estan a un scroll. */
+@media (width >= 860px) {
+  .navegacion__enlaces {
+    display: flex;
+  }
+}
+
+/* ---------- Los cuatro destinos y la burbuja ----------
+   Los enlaces y el boton comparten forma para que la burbuja pueda pasar de
+   uno a otro sin dar un salto de tamano al llegar. */
+.navegacion__enlace,
+.navegacion__accion {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 16px;
+  color: var(--nav-texto-tenue);
+  font-size: 0.9375rem;
+  border: 1px solid transparent;
+  border-radius: var(--radio-pildora);
+  text-decoration: none;
+  transition: color var(--rapido) var(--curva);
+}
+
+.navegacion__accion {
+  padding: 9px 20px;
+  font-weight: var(--peso-titulo);
+}
+
+.navegacion__enlace:hover,
+.navegacion__accion:hover {
+  color: var(--nav-texto);
+}
+
+/* Mientras la burbuja no esta aqui, el boton se sostiene con un contorno: sin
+   el quedaria igual que un enlace mas y la portada perderia su llamada. */
+.navegacion__accion:not([data-activa]) {
+  color: var(--nav-texto);
+  border-color: var(--nav-borde);
+}
+
+.navegacion__enlace[aria-current],
+.navegacion__accion[data-activa] {
+  color: var(--acento-contraste);
+}
+
+/* La burbuja va por debajo del texto y no recibe eventos: es una superficie,
+   no un control. */
+.navegacion__burbuja {
+  position: absolute;
+  inset: -1px;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--acento);
+  border-radius: var(--radio-pildora);
+}
+
+.navegacion__texto {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- Sesion activa ----------
+   No es un boton: es un cartel que dice que sigues dentro y lleva a lo tuyo.
+   Por eso no lleva relleno ni burbuja, solo el punto verde. */
+.navegacion__sesion {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 18px;
+  color: var(--nav-texto);
+  font-size: 0.875rem;
+  border: 1px solid var(--nav-borde);
+  border-radius: var(--radio-pildora);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background var(--rapido) var(--curva);
+}
+
+.navegacion__sesion:hover {
+  background: rgb(255 255 255 / 8%);
+}
+
+/* El verde de "salud en positivo", usado aqui como senal de que algo esta
+   encendido. El estado lo dice tambien el texto: el punto no es la unica
+   forma de saberlo. */
+.navegacion__punto {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--vital);
+}
+
+/* ============================================================
+   Heroe
+   ============================================================ */
+
+.heroe {
+  display: grid;
+  place-items: center;
+  min-height: 100svh;
+  padding-block: 128px 72px;
+  text-align: center;
+}
+
+.heroe__contenido {
+  width: min(100% - 32px, 860px);
+}
+
+.heroe__etiqueta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 26px;
+  padding: 7px 15px;
+  color: var(--texto-tenue);
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-pildora);
+}
+
+/* El titular. El interletrado va muy apretado a proposito: a este
+   tamano es lo que hace que la frase se lea como un bloque y no como
+   palabras sueltas. */
+.heroe__titulo {
+  margin: 0 0 22px;
+  font-size: clamp(2.6rem, 8.2vw, 5.5rem);
+  font-weight: var(--peso-titulo);
+  line-height: 0.96;
+  letter-spacing: -0.055em;
+  text-wrap: balance;
+}
+
+/* El recuadro punteado alrededor de una sola palabra. Se usa una vez
+   en toda la pagina: si se repite, deja de senalar nada. */
+.destacado {
+  display: inline-block;
+  padding: 0 0.18em 0.06em;
+  color: var(--acento);
+  border: 1.5px dashed var(--acento);
+  border-radius: var(--radio-chico);
+}
+
+.heroe__entradilla {
+  max-width: 54ch;
+  margin: 0 auto 32px;
+  color: var(--texto-tenue);
+  font-size: clamp(1rem, 2.2vw, 1.1875rem);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.heroe__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+/* La fila de garantias va pegada a los botones a proposito: es lo que
+   responde a la duda que aparece justo al mirarlos. */
+.garantias {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 20px;
+  color: var(--texto-apagado);
+  font-size: 0.8125rem;
+}
+
+.garantias__punto {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.garantias__marca {
+  color: var(--vital);
+}
+
+/* ============================================================
+   Tarjetas de metrica
+   ============================================================ */
+
+.metricas {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+
+@media (width >= 760px) {
+  .metricas {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Cada tarjeta esta envuelta en el animador de entrada, asi que es ese
+   envoltorio el que ocupa la celda de la rejilla. Sin estirarlo primero, las
+   tres tarjetas acaban con alturas distintas segun lo que diga su texto. */
+.metricas > *,
+.pasos > * {
+  height: 100%;
+}
+
+.metrica {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 24px;
+  background: var(--fondo-elevado);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-grande);
+  box-shadow: var(--sombra);
+  transition:
+    border-color var(--medio) var(--curva),
+    box-shadow var(--medio) var(--curva);
+}
+
+/* El desplazamiento y la escala los lleva Framer Motion; aqui solo el borde y
+   la sombra, que son propiedades que el CSS resuelve mejor. */
+.metrica--activa {
+  border-color: var(--acento);
+  box-shadow:
+    var(--sombra),
+    0 0 0 1px color-mix(in srgb, var(--acento) 40%, transparent);
+}
+
+.metrica__lienzo {
+  display: grid;
+  place-items: center;
+  min-height: 168px;
+  margin-bottom: 20px;
+}
+
+.metrica__etiqueta {
+  margin: 0 0 6px;
+  color: var(--texto-apagado);
+  font-size: 0.75rem;
+  font-weight: var(--peso-titulo);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metrica__titulo {
+  margin: 0 0 8px;
+  font-size: 1.3125rem;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+.metrica__texto {
+  margin: 0;
+  color: var(--texto-tenue);
+  font-size: 0.9375rem;
+}
+
+/* El dato grande de cada tarjeta. Nunca es un puntaje: son horas,
+   veces o dias, cosas que la persona reconoce porque las vivio. */
+.metrica__cifra {
+  font-size: 2.75rem;
+  font-weight: var(--peso-titulo);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.metrica__unidad {
+  margin-left: 4px;
+  color: var(--texto-apagado);
+  font-size: 1rem;
+  font-weight: var(--peso-texto);
+  letter-spacing: -0.01em;
+}
+
+/* ---------- Sueno: las barras ---------- */
+.sueno {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  height: 92px;
+}
+
+.sueno__barra {
+  width: 15px;
+  border-radius: var(--radio-chico);
+  background: linear-gradient(
+    180deg,
+    var(--vital) 0%,
+    color-mix(in srgb, var(--vital) 28%, transparent) 100%
+  );
+  transform-origin: bottom;
+}
+
+/* ============================================================
+   Pasos
+   ============================================================ */
+
+.pasos {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+
+@media (width >= 760px) {
+  .pasos {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.paso {
+  height: 100%;
+  padding: 24px;
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-grande);
+  transition:
+    border-color var(--medio) var(--curva),
+    background var(--medio) var(--curva);
+}
+
+/* El desplazamiento y la escala los lleva Framer Motion; aqui solo el borde y
+   el fondo. Sin fondo propio, la tarjeta levantada dejaria ver el halo del
+   lienzo por debajo y el borde flotaria sobre nada. */
+.paso:hover {
+  background: var(--fondo-elevado);
+  border-color: var(--acento);
+}
+
+.paso__numero {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-bottom: 16px;
+  color: var(--dato);
+  font-size: 0.875rem;
+  font-weight: var(--peso-fuerte);
+  background: var(--dato-suave);
+  border-radius: var(--radio-pildora);
+  font-variant-numeric: tabular-nums;
+}
+
+.paso__titulo {
+  margin: 0 0 8px;
+  font-size: 1.1875rem;
+  letter-spacing: -0.025em;
+}
+
+.paso__texto {
+  margin: 0;
+  color: var(--texto-tenue);
+  font-size: 0.9375rem;
+}
+
+/* ============================================================
+   El limite
+   ============================================================
+   Inversion de fondo, sin degradado. El salto es la intencion: lo que
+   viene aqui no es mas texto de portada, es donde termina lo que la
+   aplicacion puede hacer, y merece leerse aparte.
+   ============================================================ */
+
+.limite {
+  background: var(--limite-fondo);
+  color: var(--limite-texto);
+}
+
+.limite__caja {
+  width: min(100% - 32px, 1120px);
+  margin-inline: auto;
+  padding-block: clamp(56px, 9vw, 96px);
+}
+
+.limite__titulo {
+  margin: 0 0 16px;
+  font-size: clamp(1.75rem, 4.2vw, 3rem);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.limite__texto {
+  max-width: 62ch;
+  margin: 0 0 32px;
+  color: var(--limite-tenue);
+  font-size: 1.0625rem;
+}
+
+.limite__lista {
+  display: grid;
+  gap: 10px;
+  max-width: 62ch;
+  margin: 0 0 32px;
+  padding: 0;
+  list-style: none;
+}
+
+.limite__punto {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  font-size: 1rem;
+}
+
+.limite__cruz {
+  flex: none;
+  margin-top: 3px;
+  color: var(--limite-cruz);
+}
+
+.limite__ayuda {
+  max-width: 62ch;
+  padding: 20px 22px;
+  background: var(--limite-tarjeta);
+  border: 1px solid var(--limite-borde);
+  border-radius: var(--radio-grande);
+}
+
+.limite__ayuda p {
+  margin: 0;
+  color: var(--limite-tenue);
+  font-size: 0.9375rem;
+}
+
+.limite__ayuda strong {
+  color: var(--limite-texto);
+}
+
+/* ============================================================
+   Cierre y pie
+   ============================================================ */
+
+.cierre {
+  text-align: center;
+}
+
+.cierre__titulo {
+  margin: 0 auto 14px;
+  max-width: 18ch;
+  font-size: clamp(2rem, 5.5vw, 3.5rem);
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+.cierre__texto {
+  max-width: 44ch;
+  margin: 0 auto 30px;
+  color: var(--texto-tenue);
+}
+
+.pie {
+  border-top: 1px solid var(--borde);
+  background: var(--fondo-sutil);
+}
+
+.pie__caja {
+  width: min(100% - 32px, 1120px);
+  margin-inline: auto;
+  padding-block: 48px 40px;
+  display: grid;
+  gap: 40px;
+  color: var(--texto-tenue);
+  font-size: 0.875rem;
+}
+
+/* En pantallas anchas, el aviso a la izquierda y el equipo a la derecha. */
+@media (width >= 760px) {
+  .pie__caja {
+    grid-template-columns: 1.4fr 1fr;
+    gap: 40px 64px;
+  }
+
+  .pie__legal {
+    grid-column: 1 / -1;
+  }
+}
+
+.pie__marca {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.pie__marca-logo .logo__imagen {
+  height: 48px;
+}
+
+.pie__aviso {
+  max-width: 62ch;
+  margin: 0;
+  line-height: 1.55;
+}
+
+.pie__equipo {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.pie__titulo {
+  margin: 0;
+  color: var(--texto);
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.pie__texto {
+  margin: 0;
+  max-width: 44ch;
+}
+
+.pie__personas {
+  display: grid;
+  gap: 12px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pie__persona {
+  display: grid;
+  gap: 1px;
+}
+
+.pie__nombre {
+  color: var(--texto);
+  font-weight: var(--peso-titulo);
+}
+
+.pie__rol {
+  color: var(--texto-apagado);
+  font-size: 0.8125rem;
+}
+
+.pie__legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding-top: 24px;
+  border-top: 1px solid var(--borde);
+  color: var(--texto-apagado);
+  font-size: 0.8125rem;
+}
+
+/* ============================================================
+   Invitacion al entrar
+   ============================================================
+   La tarjeta que sube al llevar un rato bajando. Va anclada abajo y
+   no es un modal: no atrapa el foco ni tapa la pagina. Quien la
+   ignora puede seguir leyendo, y quien la cierra no la vuelve a ver
+   en toda la visita.
+   ============================================================ */
+
+.invitacion {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
+  z-index: 60;
+  margin-inline: auto;
+  width: min(100% - 32px, 460px);
+  padding: 20px 20px 20px 22px;
+  background: var(--fondo-elevado);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-enorme);
+  box-shadow: var(--sombra);
+}
+
+.invitacion__titulo {
+  margin: 0 0 6px;
+  padding-right: 28px;
+  font-size: 1.1875rem;
+  letter-spacing: -0.03em;
+}
+
+.invitacion__texto {
+  margin: 0 0 16px;
+  color: var(--texto-tenue);
+  font-size: 0.9375rem;
+}
+
+.invitacion__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.invitacion__cerrar {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: var(--texto-tenue);
+  background: transparent;
+  border: none;
+  border-radius: var(--radio-pildora);
+  cursor: pointer;
+  transition:
+    color var(--rapido) var(--curva),
+    background var(--rapido) var(--curva);
+}
+
+.invitacion__cerrar:hover {
+  color: var(--texto);
+  background: var(--fondo-sutil);
+}

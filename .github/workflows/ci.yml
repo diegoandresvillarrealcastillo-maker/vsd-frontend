@@ -1,14 +1,15 @@
 # ============================================================
 #  VSD Health - Integracion continua
 # ============================================================
-#  Primera barrera automatica del proyecto. En este ciclo cubre
-#  dos cosas que no dependen de que exista codigo de aplicacion:
+#  Primera barrera automatica del proyecto. Cubre cuatro cosas:
 #
 #    1. que no entre ningun secreto al repositorio;
-#    2. que todo commit siga Conventional Commits y cite su ticket.
+#    2. que todo commit siga Conventional Commits y cite su ticket;
+#    3. estilo, formato y tipos;
+#    4. que las pruebas pasen y la aplicacion compile.
 #
-#  Los trabajos de lint, pruebas y construccion se anaden en los
-#  ciclos que introducen el codigo correspondiente.
+#  El trabajo de calidad empezo a ejecutarse con SCRUM-71, que es
+#  cuando el repositorio dejo de tener solo documentacion.
 # ============================================================
 
 name: CI
@@ -95,48 +96,30 @@ jobs:
       - name: Descargar el codigo
         uses: actions/checkout@v7
 
-      - name: Comprobar si el repositorio ya tiene proyecto de Node
-        id: proyecto
-        # vsd-frontend todavia no tiene package.json: el trabajo se salta en
-        # lugar de fallar, y empezara a ejecutarse solo cuando exista.
-        run: |
-          if [ -f package.json ]; then
-            echo "existe=si" >> "$GITHUB_OUTPUT"
-          else
-            echo "existe=no" >> "$GITHUB_OUTPUT"
-            echo "Sin package.json todavia: no hay nada que comprobar."
-          fi
-
       - name: Preparar Node
-        if: steps.proyecto.outputs.existe == 'si'
         uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
 
       - name: Instalar dependencias
-        if: steps.proyecto.outputs.existe == 'si'
         # npm ci respeta package-lock.json al pie de la letra: el CI instala
         # exactamente las mismas versiones que hay en el equipo.
         run: npm ci
 
-      - name: Revisar el estilo y las fronteras de la arquitectura
-        if: steps.proyecto.outputs.existe == 'si'
+      - name: Revisar el estilo
         run: npm run lint
 
       - name: Revisar el formato
-        if: steps.proyecto.outputs.existe == 'si'
         run: npm run format:check
 
       - name: Revisar los tipos
-        if: steps.proyecto.outputs.existe == 'si'
         run: npm run typecheck
 
       - name: Ejecutar las pruebas con cobertura
-        if: steps.proyecto.outputs.existe == 'si'
-        # Falla si domain/ o application/ bajan del 80 %.
+        # Todavia sin umbral minimo: se fija en SCRUM-73, cuando exista logica
+        # que merezca cubrirse. El umbral vive en vite.config.ts.
         run: npm run test:coverage
 
       - name: Compilar
-        if: steps.proyecto.outputs.existe == 'si'
         run: npm run build
