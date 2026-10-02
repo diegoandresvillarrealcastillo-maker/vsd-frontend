@@ -5,7 +5,6 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
-import { VERSION_DEL_AVISO } from '../../sesion/consentimiento.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { Panel } from './Panel.tsx';
 
@@ -17,11 +16,13 @@ import { Panel } from './Panel.tsx';
  * tres estados, el reintento— en lugar de comprobar que un doble devuelve lo
  * que se le dijo que devolviera.
  */
-const { darDeAltaLaCuenta, traerElCatalogo } = vi.hoisted(() => ({
+const { consultarLaVersionDelAviso, darDeAltaLaCuenta, traerElCatalogo } = vi.hoisted(() => ({
+  consultarLaVersionDelAviso: vi.fn(),
   darDeAltaLaCuenta: vi.fn(),
   traerElCatalogo: vi.fn(),
 }));
 
+vi.mock('../../infraestructura/api/aviso.ts', () => ({ consultarLaVersionDelAviso }));
 vi.mock('../../infraestructura/api/cuenta.ts', () => ({ darDeAltaLaCuenta }));
 vi.mock('../../infraestructura/api/catalogo.ts', () => ({ traerElCatalogo }));
 
@@ -84,6 +85,7 @@ function pintar() {
 }
 
 beforeEach(() => {
+  consultarLaVersionDelAviso.mockResolvedValue('version-de-la-api');
   darDeAltaLaCuenta.mockResolvedValue(CUENTA);
   traerElCatalogo.mockResolvedValue(CATALOGO);
 });
@@ -98,10 +100,9 @@ describe('Panel', () => {
 
     await screen.findByText('Tu cuenta');
 
-    // La version no se escribe aqui a mano: se compara contra la constante que
-    // tambien usa el registro. Si las dos se separaran, quedarian guardados dos
-    // consentimientos distintos para la misma persona.
-    expect(darDeAltaLaCuenta).toHaveBeenCalledWith(VERSION_DEL_AVISO, expect.anything());
+    // La version no la conoce el frontend: la dice la API, que es su unica
+    // fuente (SCRUM-85). El alta tiene que mandar exactamente esa, y no otra.
+    expect(darDeAltaLaCuenta).toHaveBeenCalledWith('version-de-la-api', expect.anything());
   });
 
   it('muestra el rol y el consentimiento que devuelve la API', async () => {
@@ -191,6 +192,22 @@ describe('Panel', () => {
 
     expect(aviso).not.toHaveTextContent(/aviso de tratamiento/);
     expect(aviso).toHaveTextContent(/error 400/);
+  });
+
+  it('si el aviso cambio justo antes del alta, lo explica y reintentar lo arregla', async () => {
+    darDeAltaLaCuenta.mockRejectedValueOnce(
+      new ErrorDeLaApi(409, 'da igual', undefined, 'VERSION_DEL_AVISO_NO_VIGENTE'),
+    );
+
+    pintar();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/acaba de actualizarse/);
+
+    // Reintentar vuelve a pedir la version, que es justo lo que hace falta.
+    await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+
+    expect(await screen.findByText('Tu cuenta')).toBeInTheDocument();
+    expect(consultarLaVersionDelAviso).toHaveBeenCalledTimes(2);
   });
 
   it('la sesion caducada manda a entrar otra vez', async () => {

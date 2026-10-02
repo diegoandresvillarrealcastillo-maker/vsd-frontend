@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { consultarLaVersionDelAviso } from '../../infraestructura/api/aviso.ts';
 import { traerElCatalogo, type CategoriaDelCatalogo } from '../../infraestructura/api/catalogo.ts';
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
 import { darDeAltaLaCuenta, type Cuenta } from '../../infraestructura/api/cuenta.ts';
-import { VERSION_DEL_AVISO } from '../../sesion/consentimiento.ts';
 
 /**
  * En que punto esta la carga del panel.
@@ -50,6 +50,11 @@ function explicar(error: unknown): string {
   switch (error.codigo) {
     case 'CONSENTIMIENTO_NO_REGISTRADO':
       return 'No se pudo crear tu cuenta porque falta la aceptación del aviso de tratamiento de datos.';
+
+    // Solo ocurre si el aviso cambio entre pedir la version y darse de alta.
+    // Reintentar vuelve a pedirla, asi que es exactamente lo que hay que hacer.
+    case 'VERSION_DEL_AVISO_NO_VIGENTE':
+      return 'El aviso de tratamiento de datos acaba de actualizarse. Vuelve a intentarlo para aceptar la versión actual.';
 
     case 'CORREO_YA_REGISTRADO':
       return 'Ese correo ya pertenece a una cuenta creada con otro método de acceso. Entra con el método que usaste la primera vez.';
@@ -109,8 +114,13 @@ export function useDatosDelPanel(): {
         // En paralelo porque no dependen una de otra: el alta necesita la
         // sesion y el catalogo es una ruta publica. En serie la pantalla
         // tardaria el doble sin ganar nada.
+        //
+        // El alta si va detras de la version del aviso, porque la necesita: la
+        // version la dice la API, que es su unica fuente.
         const [cuenta, catalogo] = await Promise.all([
-          darDeAltaLaCuenta(VERSION_DEL_AVISO, control.signal),
+          consultarLaVersionDelAviso(control.signal).then((version) =>
+            darDeAltaLaCuenta(version, control.signal),
+          ),
           traerElCatalogo(control.signal),
         ]);
 

@@ -7,7 +7,7 @@ import {
 } from '../infraestructura/supabase/almacenamiento.ts';
 import { supabase } from '../infraestructura/supabase/cliente.ts';
 import { RUTAS } from '../rutas/rutas.ts';
-import { VERSION_DEL_AVISO } from './consentimiento.ts';
+import { consultarLaVersionDelAviso } from '../infraestructura/api/aviso.ts';
 import {
   SesionContexto,
   type DatosDeAcceso,
@@ -31,6 +31,12 @@ const BIEN: ResultadoDeAcceso = { ok: true };
 const SIN_CONFIGURAR: ResultadoDeAcceso = {
   ok: false,
   mensaje: 'La aplicación no tiene configurado el acceso. Avisa a quien la administra.',
+};
+
+const SIN_SERVIDOR: ResultadoDeAcceso = {
+  ok: false,
+  mensaje:
+    'No se pudo conectar con el servidor para crear tu cuenta. Revisa tu conexión y vuelve a intentarlo.',
 };
 
 /**
@@ -203,12 +209,24 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
         return SIN_CONFIGURAR;
       }
 
+      // La version del aviso se pide a la API, que es su unica fuente
+      // (SCRUM-85). Si no se puede saber cual esta vigente no se crea la
+      // cuenta: registrarla con una version supuesta seria guardar un
+      // consentimiento que nadie puede demostrar.
+      let versionDelAviso: string;
+
+      try {
+        versionDelAviso = await consultarLaVersionDelAviso();
+      } catch {
+        return SIN_SERVIDOR;
+      }
+
       const { error } = await cliente.auth.signUp({
         email: correo,
         password: contrasena,
         options: {
           data: {
-            version_aviso: VERSION_DEL_AVISO,
+            version_aviso: versionDelAviso,
             acepto_en: new Date().toISOString(),
           },
           emailRedirectTo: `${window.location.origin}${RUTAS.PANEL}`,
