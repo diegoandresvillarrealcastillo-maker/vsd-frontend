@@ -1,58 +1,68 @@
 import type { Session } from '@supabase/supabase-js';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
+import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
+import type { ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { Panel } from './Panel.tsx';
 
 /**
- * El panel, con la API simulada y el resto de verdad.
+ * El dashboard, con la API simulada y el resto de verdad.
  *
- * Se simulan los dos modulos de API y **no** el gancho que los usa: asi la
- * prueba recorre lo que de verdad puede fallar —el orden de las llamadas, los
- * tres estados, el reintento— en lugar de comprobar que un doble devuelve lo
- * que se le dijo que devolviera.
+ * Se simulan los modulos de API y **no** el gancho que los usa: asi la prueba
+ * recorre lo que de verdad puede fallar —el orden de las llamadas, los tres
+ * estados, el reintento— en lugar de comprobar que un doble devuelve lo que se
+ * le dijo que devolviera.
  */
-const { consultarLaVersionDelAviso, darDeAltaLaCuenta, traerElCatalogo } = vi.hoisted(() => ({
-  consultarLaVersionDelAviso: vi.fn(),
-  darDeAltaLaCuenta: vi.fn(),
-  traerElCatalogo: vi.fn(),
-}));
+const { consultarLaVersionDelAviso, darDeAltaLaCuenta, cambiarPreferencias, consultarElProgreso } =
+  vi.hoisted(() => ({
+    consultarLaVersionDelAviso: vi.fn(),
+    darDeAltaLaCuenta: vi.fn(),
+    cambiarPreferencias: vi.fn(),
+    consultarElProgreso: vi.fn(),
+  }));
 
 vi.mock('../../infraestructura/api/aviso.ts', () => ({ consultarLaVersionDelAviso }));
-vi.mock('../../infraestructura/api/cuenta.ts', () => ({ darDeAltaLaCuenta }));
-vi.mock('../../infraestructura/api/catalogo.ts', () => ({ traerElCatalogo }));
+vi.mock('../../infraestructura/api/cuenta.ts', () => ({ darDeAltaLaCuenta, cambiarPreferencias }));
+vi.mock('../../infraestructura/api/progreso.ts', () => ({ consultarElProgreso }));
 
-const CUENTA = {
+const CUENTA: Cuenta = {
   id: '11111111-1111-4111-8111-111111111111',
   correo: 'alguien@ucundinamarca.edu.co',
   rol: 'usuario',
+  nombre: 'Marina',
   consentimiento: { versionPolitica: '2026-09-1', aceptadoEn: '2026-09-26T15:00:00.000Z' },
   registradoEn: '2026-09-26T15:00:00.000Z',
+  modulosActivos: ['cognicion', 'bienestar'],
+  mascota: null,
 };
 
-const CATALOGO = [
+const PROGRESO: ProgresoDelModulo[] = [
   {
-    id: '0cat0000-0000-4000-8000-000000000001',
-    nombre: 'Cognición',
-    descripcion: 'Ejercicios breves de memoria y atención.',
-    actividades: [
-      {
-        id: '0acd0000-0000-4000-8000-000000000001',
-        nombre: 'Parejas de cartas',
-        tipo: 'juego',
-        descripcion: 'Encuentra las parejas iguales.',
-        produceNivel: true,
-      },
+    modulo: 'cognicion',
+    sesiones: 7,
+    etapa: { numero: 2, esTemporada: false, sesionesHechas: 2, sesionesDeLaEtapa: 10 },
+    hoy: [
+      { id: '0acd0000-0000-4000-8000-000000000001', nombre: 'Parejas', tipo: 'juego', hecha: true },
+    ],
+  },
+  {
+    modulo: 'bienestar',
+    sesiones: 3,
+    etapa: { numero: 1, esTemporada: false, sesionesHechas: 3, sesionesDeLaEtapa: 5 },
+    hoy: [
       {
         id: '0acd0000-0000-4000-8000-000000000002',
-        nombre: 'Secuencia de números',
-        tipo: 'juego',
-        produceNivel: true,
+        nombre: 'Cómo dormiste anoche',
+        tipo: 'bitacora',
+        descripcion: 'Anota cuánto y cómo dormiste.',
+        hecha: false,
       },
+      { id: '0acd0000-0000-4000-8000-000000000003', nombre: 'Movimiento del día', hecha: false },
     ],
   },
 ];
@@ -61,9 +71,9 @@ function estado(parcial: Partial<EstadoDeSesion>): EstadoDeSesion {
   const vacio = vi.fn();
 
   return {
-    sesion: { user: { email: 'alguien@ucundinamarca.edu.co' } } as Session,
+    sesion: { user: { email: CUENTA.correo } } as Session,
     cargando: false,
-    correo: 'alguien@ucundinamarca.edu.co',
+    correo: CUENTA.correo,
     registrarse: vacio,
     entrar: vacio,
     entrarConGoogle: vacio,
@@ -74,9 +84,9 @@ function estado(parcial: Partial<EstadoDeSesion>): EstadoDeSesion {
   };
 }
 
-function pintar() {
+function pintar(sesion: Partial<EstadoDeSesion> = {}) {
   return render(
-    <SesionContexto.Provider value={estado({})}>
+    <SesionContexto.Provider value={estado(sesion)}>
       <MemoryRouter>
         <Panel />
       </MemoryRouter>
@@ -84,145 +94,261 @@ function pintar() {
   );
 }
 
+function tarjeta(nombre: RegExp) {
+  return screen.getByRole('button', { name: nombre });
+}
+
 beforeEach(() => {
   consultarLaVersionDelAviso.mockResolvedValue('version-de-la-api');
   darDeAltaLaCuenta.mockResolvedValue(CUENTA);
-  traerElCatalogo.mockResolvedValue(CATALOGO);
+  consultarElProgreso.mockResolvedValue(PROGRESO);
 });
 
 afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('Panel', () => {
-  it('da de alta la cuenta al entrar, con la version del aviso vigente', async () => {
-    pintar();
+describe('Dashboard', () => {
+  describe('la carga', () => {
+    it('da de alta la cuenta con la version del aviso vigente y despues pide el progreso', async () => {
+      pintar();
 
-    await screen.findByText('Tu cuenta');
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
 
-    // La version no la conoce el frontend: la dice la API, que es su unica
-    // fuente (SCRUM-85). El alta tiene que mandar exactamente esa, y no otra.
-    expect(darDeAltaLaCuenta).toHaveBeenCalledWith('version-de-la-api', expect.anything());
+      // La version no la conoce el frontend: la dice la API (SCRUM-85).
+      expect(darDeAltaLaCuenta).toHaveBeenCalledWith('version-de-la-api', expect.anything());
+      // El progreso necesita la cuenta, asi que va despues del alta.
+      expect(darDeAltaLaCuenta.mock.invocationCallOrder[0]).toBeLessThan(
+        consultarElProgreso.mock.invocationCallOrder[0] ?? 0,
+      );
+    });
+
+    it('mientras carga lo dice, en lugar de dejar la pantalla vacia', () => {
+      darDeAltaLaCuenta.mockReturnValue(
+        new Promise(function sinResolver() {
+          // A proposito: la peticion se queda en el aire.
+        }),
+      );
+
+      pintar();
+
+      expect(screen.getByRole('status')).toHaveTextContent(/Cargando tu espacio/);
+    });
+
+    it('si no se puede conectar, lo explica y deja reintentar', async () => {
+      darDeAltaLaCuenta.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+      pintar();
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/No se pudo conectar/);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+
+      expect(await screen.findByRole('heading', { name: /Hola, Marina/ })).toBeInTheDocument();
+    });
+
+    it('si el aviso cambio justo antes del alta, reintentar vuelve a pedir la version', async () => {
+      darDeAltaLaCuenta.mockRejectedValueOnce(
+        new ErrorDeLaApi(409, 'da igual', undefined, 'VERSION_DEL_AVISO_NO_VIGENTE'),
+      );
+
+      pintar();
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/acaba de actualizarse/);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      expect(consultarLaVersionDelAviso).toHaveBeenCalledTimes(2);
+    });
+
+    it('el correo ya registrado se explica por su codigo', async () => {
+      darDeAltaLaCuenta.mockRejectedValue(
+        new ErrorDeLaApi(409, 'da igual', undefined, 'CORREO_YA_REGISTRADO'),
+      );
+
+      pintar();
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/otro método de acceso/);
+    });
+
+    it('la sesion caducada manda a entrar otra vez', async () => {
+      consultarElProgreso.mockRejectedValue(new ErrorDeLaApi(401, 'Tu sesion caduco.'));
+
+      pintar();
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/Tu sesión caducó/);
+    });
   });
 
-  it('muestra el rol y el consentimiento que devuelve la API', async () => {
-    pintar();
+  describe('lo que se ve', () => {
+    it('saluda con el nombre de la cuenta', async () => {
+      pintar();
 
-    expect(await screen.findByText('usuario')).toBeInTheDocument();
-    expect(screen.getByText(/Versión 2026-09-1/)).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: /Hola, Marina\./ })).toBeInTheDocument();
+    });
+
+    it('sin nombre saluda igual, sin inventar uno', async () => {
+      darDeAltaLaCuenta.mockResolvedValue({ ...CUENTA, nombre: undefined });
+
+      pintar();
+
+      expect(await screen.findByRole('heading', { name: /^Hola\./ })).toBeInTheDocument();
+    });
+
+    it('el avance de hoy sale de lo que dice la API: 1 de 3', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      expect(screen.getByText('33%')).toBeInTheDocument();
+      expect(
+        screen.getByRole('progressbar', { name: 'Actividades de hoy hechas' }),
+      ).toHaveAttribute('aria-valuenow', '1');
+    });
+
+    it('cada modulo activo muestra su etapa real', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      expect(tarjeta(/Cognición/)).toHaveTextContent('Etapa 2 · 2 de 10 sesiones');
+      expect(tarjeta(/Cognición/)).toHaveTextContent('20%');
+      expect(tarjeta(/Bienestar/)).toHaveTextContent('Etapa 1 · 3 de 5 sesiones');
+    });
+
+    it('el modulo que no esta activo se ofrece para añadirlo', async () => {
+      pintar();
+
+      expect(await screen.findByRole('button', { name: /Añadir Emociones/ })).toBeInTheDocument();
+    });
+
+    it('el plan diario lista lo que toca hoy, con lo hecho marcado', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: 'Tu plan diario' });
+
+      expect(screen.getByText('Hecha hoy')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Empezar Cómo dormiste anoche' })).toHaveAttribute(
+        'href',
+        '/actividad/0acd0000-0000-4000-8000-000000000002',
+      );
+    });
+
+    it('recomienda la siguiente actividad pendiente, no un texto fijo', async () => {
+      pintar();
+
+      const recomendado = await screen.findByRole('complementary');
+
+      expect(within(recomendado).getByRole('heading')).toHaveTextContent('Cómo dormiste anoche');
+      expect(within(recomendado).getByRole('link', { name: /Comenzar/ })).toBeInTheDocument();
+    });
+
+    it('con todo hecho, lo celebra en lugar de recomendar mas', async () => {
+      consultarElProgreso.mockResolvedValue(
+        PROGRESO.map((uno) => ({ ...uno, hoy: uno.hoy.map((a) => ({ ...a, hecha: true })) })),
+      );
+
+      pintar();
+
+      const recomendado = await screen.findByRole('complementary');
+
+      expect(within(recomendado).getByRole('heading')).toHaveTextContent(
+        'Hoy ya hiciste todo tu plan',
+      );
+    });
+
+    it('sin modulos elegidos invita a empezar y no muestra porcentajes', async () => {
+      darDeAltaLaCuenta.mockResolvedValue({ ...CUENTA, modulosActivos: [] });
+      consultarElProgreso.mockResolvedValue([]);
+
+      pintar();
+
+      expect(await screen.findByText(/Elige un módulo para empezar/)).toBeInTheDocument();
+      expect(screen.queryByText(/%$/)).not.toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: /^Añadir/ })).toHaveLength(3);
+    });
   });
 
-  it('lista las actividades del catalogo', async () => {
-    pintar();
+  describe('lo que se puede hacer', () => {
+    it('elegir un modulo filtra el plan, y volver a pulsarlo lo quita', async () => {
+      pintar();
 
-    expect(await screen.findByText('Parejas de cartas')).toBeInTheDocument();
-    expect(screen.getByText('Secuencia de números')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Cognición' })).toBeInTheDocument();
-  });
+      await screen.findByRole('heading', { name: 'Tu plan diario' });
+      await userEvent.click(tarjeta(/Cognición/));
 
-  it('mientras carga lo dice, en lugar de dejar la caja vacia', () => {
-    // Una promesa que nunca se resuelve deja la pantalla en el estado
-    // intermedio, que sin esto solo se ve un instante y nunca se comprueba.
-    const nuncaTermina = <T,>(): Promise<T> =>
-      new Promise<T>(function sinResolver() {
-        // A proposito: la peticion se queda en el aire.
+      // Solo dentro del plan: la tarjeta "Recomendado" sigue sugiriendo lo
+      // siguiente de cualquier modulo, y eso es correcto.
+      const plan = () => screen.getByRole('list');
+
+      expect(tarjeta(/Cognición/)).toHaveAttribute('aria-pressed', 'true');
+      expect(within(plan()).queryByText('Cómo dormiste anoche')).not.toBeInTheDocument();
+      expect(within(plan()).getByText('Parejas')).toBeInTheDocument();
+
+      await userEvent.click(tarjeta(/Cognición/));
+
+      expect(within(plan()).getByText('Cómo dormiste anoche')).toBeInTheDocument();
+    });
+
+    it('añadir un modulo lo activa y lo pinta sin recargar', async () => {
+      const conEmociones: ProgresoDelModulo = {
+        modulo: 'emociones',
+        sesiones: 0,
+        etapa: { numero: 1, esTemporada: false, sesionesHechas: 0, sesionesDeLaEtapa: 5 },
+        hoy: [],
+      };
+
+      cambiarPreferencias.mockResolvedValue({
+        ...CUENTA,
+        modulosActivos: ['cognicion', 'bienestar', 'emociones'],
       });
+      // La primera llamada es la de la carga; la segunda, la de despues de
+      // activar el modulo.
+      consultarElProgreso
+        .mockResolvedValueOnce(PROGRESO)
+        .mockResolvedValueOnce([...PROGRESO, conEmociones]);
 
-    darDeAltaLaCuenta.mockReturnValue(nuncaTermina());
-    traerElCatalogo.mockReturnValue(nuncaTermina());
+      pintar();
 
-    pintar();
+      await userEvent.click(await screen.findByRole('button', { name: /Añadir Emociones/ }));
 
-    expect(screen.getByRole('status')).toHaveTextContent(/Cargando tu cuenta/);
-  });
+      expect(cambiarPreferencias).toHaveBeenCalledWith({
+        modulosActivos: ['cognicion', 'bienestar', 'emociones'],
+      });
+      expect(await screen.findByRole('button', { name: /Emociones/ })).toHaveTextContent(
+        'Etapa 1 · 0 de 5 sesiones',
+      );
+      expect(screen.queryByRole('button', { name: /Añadir Emociones/ })).not.toBeInTheDocument();
+    });
 
-  it('si no se puede conectar, lo explica y deja reintentar', async () => {
-    // Lo que lanza `fetch` cuando no hay nadie escuchando no es un ErrorDeLaApi,
-    // porque no llego a haber respuesta. Ese es el caso de tener el backend
-    // apagado, y es el que define esta tarea.
-    darDeAltaLaCuenta.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    it('si añadir falla, lo dice en la propia tarjeta', async () => {
+      cambiarPreferencias.mockRejectedValue(new TypeError('Failed to fetch'));
 
-    pintar();
+      pintar();
 
-    const aviso = await screen.findByRole('alert');
+      await userEvent.click(await screen.findByRole('button', { name: /Añadir Emociones/ }));
 
-    expect(aviso).toHaveTextContent(/No se pudo conectar con el servidor/);
+      expect(await screen.findByText(/No se pudo añadir/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Añadir Emociones/ })).toBeEnabled();
+    });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+    it('el menu de la cuenta muestra el correo, deja salir y se cierra con Escape', async () => {
+      const salir = vi.fn();
 
-    expect(await screen.findByText('Tu cuenta')).toBeInTheDocument();
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-  });
+      pintar({ salir });
 
-  it('el correo ya registrado se explica con su propio mensaje', async () => {
-    darDeAltaLaCuenta.mockRejectedValue(
-      new ErrorDeLaApi(409, 'da igual lo que diga', undefined, 'CORREO_YA_REGISTRADO'),
-    );
+      await userEvent.click(await screen.findByRole('button', { name: /menú de tu cuenta/ }));
 
-    pintar();
+      expect(screen.getByText(CUENTA.correo)).toBeInTheDocument();
 
-    // El texto sale del codigo de la API y no de su mensaje: por eso el mensaje
-    // del doble es irrelevante y aun asi la pantalla dice lo correcto.
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      /ya pertenece a una cuenta creada con otro método/,
-    );
-  });
+      await userEvent.keyboard('{Escape}');
 
-  it('el consentimiento que falta se explica por su codigo, no por ser un 400', async () => {
-    darDeAltaLaCuenta.mockRejectedValue(
-      new ErrorDeLaApi(400, 'da igual', undefined, 'CONSENTIMIENTO_NO_REGISTRADO'),
-    );
+      expect(screen.queryByText(CUENTA.correo)).not.toBeInTheDocument();
 
-    pintar();
+      await userEvent.click(screen.getByRole('button', { name: /menú de tu cuenta/ }));
+      await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/falta la aceptación del aviso/);
-  });
-
-  it('otro 400 no se explica como si fuera el consentimiento', async () => {
-    // Es el motivo de mirar el codigo y no solo el estado. Dar por hecho que
-    // todo 400 es el consentimiento mandaria a la persona a revisar algo que
-    // estaba bien.
-    darDeAltaLaCuenta.mockRejectedValue(
-      new ErrorDeLaApi(400, 'otra cosa', undefined, 'IDENTIFICADOR_INVALIDO'),
-    );
-
-    pintar();
-
-    const aviso = await screen.findByRole('alert');
-
-    expect(aviso).not.toHaveTextContent(/aviso de tratamiento/);
-    expect(aviso).toHaveTextContent(/error 400/);
-  });
-
-  it('si el aviso cambio justo antes del alta, lo explica y reintentar lo arregla', async () => {
-    darDeAltaLaCuenta.mockRejectedValueOnce(
-      new ErrorDeLaApi(409, 'da igual', undefined, 'VERSION_DEL_AVISO_NO_VIGENTE'),
-    );
-
-    pintar();
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(/acaba de actualizarse/);
-
-    // Reintentar vuelve a pedir la version, que es justo lo que hace falta.
-    await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
-
-    expect(await screen.findByText('Tu cuenta')).toBeInTheDocument();
-    expect(consultarLaVersionDelAviso).toHaveBeenCalledTimes(2);
-  });
-
-  it('la sesion caducada manda a entrar otra vez', async () => {
-    darDeAltaLaCuenta.mockRejectedValue(new ErrorDeLaApi(401, 'Tu sesion caduco.'));
-
-    pintar();
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(/Tu sesión caducó/);
-  });
-
-  it('no promete actividades cuando el catalogo llega vacio', async () => {
-    traerElCatalogo.mockResolvedValue([]);
-
-    pintar();
-
-    expect(await screen.findByText('Todavía no hay actividades disponibles.')).toBeInTheDocument();
+      expect(salir).toHaveBeenCalled();
+    });
   });
 });

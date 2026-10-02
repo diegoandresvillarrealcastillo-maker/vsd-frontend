@@ -1,200 +1,595 @@
+import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 
-import { Logo } from '../../componentes/Logo.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
-import '../../estilos/panel.css';
-import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
-import type { CategoriaDelCatalogo } from '../../infraestructura/api/catalogo.ts';
+import '../../estilos/aplicacion.css';
+import type { Cuenta, Modulo } from '../../infraestructura/api/cuenta.ts';
+import type { ActividadDeHoy, ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { RUTAS, rutaDeActividad } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
-import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
+import { Icono, type NombreDeIcono } from './Icono.tsx';
 import { useDatosDelPanel } from './useDatosDelPanel.ts';
 
 /**
- * Primera pantalla despues de entrar.
+ * El dashboard, con el diseño de Figma Make "Aplicación de salud integral"
+ * (SCRUM-89).
  *
- * Sigue siendo provisional como panel —el de verdad es la epica SCRUM-12— pero
- * ya no es un andamio: es el primer sitio donde la aplicacion **habla con
- * nuestra API**. Al entrar da de alta la cuenta de VSD Health y trae el
- * catalogo, y lo que pinta son los datos que devuelve el servidor.
+ * La estructura, los colores y la tipografia son los del diseño. Lo que cambia
+ * es de donde salen los datos: **ningun numero esta escrito aqui**. El saludo
+ * usa el nombre de la cuenta, el avance de hoy y el de cada modulo salen de
+ * `GET /api/progreso`, y el plan diario es lo que el servidor dice que toca.
  *
- * Eso importa mas de lo que parece. Hasta ahora el frontend solo hablaba con
- * Supabase para autenticar, asi que quien se registraba tenia identidad y no
- * tenia cuenta, y cualquier operacion suya habria respondido 403.
- *
- * La barra de arriba no es provisional: la marca a la izquierda y el selector
- * de tema a la derecha son lo que va a quedar cuando esta pantalla se llene.
- * El logo lleva al panel y no a la portada: estando dentro, pulsar la marca
- * tiene que devolver a casa, no sacar de la cuenta.
+ * Lo que el diseño trae y aqui todavia no esta:
+ * - El semaforo de pendientes va flotante, en su propio ticket (SCRUM-98).
+ * - La mascota y VSD IA, tambien flotantes (SCRUM-99 y SCRUM-100).
+ * - La etiqueta "Vista de prueba", que era del prototipo.
  */
+
+interface DatosDeModulo {
+  readonly titulo: string;
+  readonly descripcion: string;
+  readonly icono: NombreDeIcono;
+  readonly fondo: string;
+  readonly acento: string;
+}
+
+/** El orden y los textos son los del diseño. */
+const ORDEN: readonly Modulo[] = ['bienestar', 'cognicion', 'emociones'];
+
+const MODULOS: Readonly<Record<Modulo, DatosDeModulo>> = {
+  bienestar: {
+    titulo: 'Bienestar',
+    descripcion: 'Hábitos que cuidan tu cuerpo y energía.',
+    icono: 'leaf',
+    fondo: 'var(--app-bienestar)',
+    acento: 'var(--app-bienestar-acento)',
+  },
+  cognicion: {
+    titulo: 'Cognición',
+    descripcion: 'Entrena tu memoria, atención y enfoque.',
+    icono: 'brain',
+    fondo: 'var(--app-cognicion)',
+    acento: 'var(--app-cognicion-acento)',
+  },
+  emociones: {
+    titulo: 'Emociones',
+    descripcion: 'Conecta, comprende y regula lo que sientes.',
+    icono: 'heart',
+    fondo: 'var(--app-emociones)',
+    acento: 'var(--app-emociones-acento)',
+  },
+};
+
+/** "Viernes, 2 de octubre", siempre en hora de Colombia, como el servidor. */
+function hoyEnCastellano(): string {
+  const texto = new Intl.DateTimeFormat('es-CO', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'America/Bogota',
+  }).format(new Date());
+
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+function porcentaje(parte: number, total: number): number {
+  return total === 0 ? 0 : Math.round((parte / total) * 100);
+}
+
 export function Panel() {
-  const { correo, salir } = useSesion();
-  const { estado, reintentar } = useDatosDelPanel();
+  return <VistaDelPanel {...useDatosDelPanel()} />;
+}
+
+/**
+ * Lo que se pinta, separado de donde salen los datos.
+ *
+ * Asi la pantalla se puede ver con datos de ejemplo —para compararla con el
+ * diseño— sin sesion ni servidor, y el gancho de datos se prueba aparte.
+ */
+export function VistaDelPanel({
+  estado,
+  reintentar,
+  activarModulo,
+}: ReturnType<typeof useDatosDelPanel>) {
+  return (
+    <div className="app">
+      <BarraSuperior />
+
+      <main id={ID_DEL_CONTENIDO} tabIndex={-1} className="app__contenido">
+        {estado.fase === 'cargando' && (
+          // `role="status"` lo anuncia un lector de pantalla sin interrumpir.
+          <p className="app__aviso" role="status">
+            Cargando tu espacio…
+          </p>
+        )}
+
+        {estado.fase === 'error' && (
+          // `role="alert"` si interrumpe: la persona tiene que enterarse de
+          // que algo fallo para poder reintentar.
+          <div className="app__aviso app__aviso--fallo" role="alert">
+            <p>{estado.mensaje}</p>
+
+            <button type="button" className="app__boton" onClick={reintentar}>
+              Reintentar
+            </button>
+          </div>
+        )}
+
+        {estado.fase === 'listo' && (
+          <Dashboard
+            cuenta={estado.cuenta}
+            progreso={estado.progreso}
+            activarModulo={activarModulo}
+          />
+        )}
+      </main>
+
+      <NavegacionInferior />
+    </div>
+  );
+}
+
+function Dashboard({
+  cuenta,
+  progreso,
+  activarModulo,
+}: {
+  cuenta: Cuenta;
+  progreso: readonly ProgresoDelModulo[];
+  activarModulo: (modulo: Modulo) => Promise<void>;
+}) {
+  // El modulo elegido filtra el plan. Sin ninguno elegido se ve todo.
+  const [elegido, setElegido] = useState<Modulo | null>(null);
+
+  const porModulo = new Map(progreso.map((uno) => [uno.modulo, uno]));
+  const deHoy = progreso.flatMap((uno) =>
+    uno.hoy.map((actividad) => ({ modulo: uno.modulo, actividad })),
+  );
+  const hechas = deHoy.filter(({ actividad }) => actividad.hecha).length;
+  const plan = elegido === null ? deHoy : deHoy.filter(({ modulo }) => modulo === elegido);
+  const siguiente = deHoy.find(({ actividad }) => !actividad.hecha);
 
   return (
-    <div className="panel">
-      <header className="panel__barra">
-        <Logo to={RUTAS.PANEL} className="panel__marca" />
-
-        {/* El logo lleva al panel, que estando dentro es la casa. La portada
-            es otro sitio y necesita su propio enlace: sin el, entrar a la
-            cuenta es un camino de ida. */}
-        <Link className="panel__salida" to={RUTAS.INICIO}>
-          Ir a la página principal
-        </Link>
-
-        {/* Incrustado en la barra, no flotando sobre la ventana: aqui si hay
-            una barra a la que pertenecer, y queda igual de arriba y a la
-            derecha sin tener que tapar el contenido. */}
-        <SelectorDeTema variante="incrustado" />
-      </header>
-
-      <main id={ID_DEL_CONTENIDO} tabIndex={-1} className="panel__contenido">
-        <div className="panel__caja">
-          <h1>Ya estás dentro</h1>
-          <p className="panel__correo">{correo}</p>
-
-          {/* `role="status"` lo anuncia un lector de pantalla sin interrumpir.
-              Sin esto, quien no ve la pantalla no sabe que se esta cargando
-              algo y solo encuentra una caja vacia. */}
-          {estado.fase === 'cargando' && (
-            <p className="panel__cargando" role="status">
-              Cargando tu cuenta y las actividades…
-            </p>
-          )}
-
-          {/* `role="alert"` si interrumpe, y aqui corresponde: la persona tiene
-              que enterarse de que algo fallo para poder reintentar. */}
-          {estado.fase === 'error' && (
-            <div className="panel__fallo" role="alert">
-              <p className="panel__fallo-texto">{estado.mensaje}</p>
-
-              <button type="button" className="pildora" onClick={reintentar}>
-                Reintentar
-              </button>
-            </div>
-          )}
-
-          {estado.fase === 'listo' && (
-            <>
-              <TuCuenta cuenta={estado.cuenta} />
-              <Actividades catalogo={estado.catalogo} />
-            </>
-          )}
-
-          <button type="button" className="pildora pildora--fantasma" onClick={() => void salir()}>
-            Cerrar sesión
-          </button>
+    <>
+      <section id="inicio" className="app__portada" aria-labelledby="saludo">
+        <div>
+          <p className="app__fecha">{hoyEnCastellano()}</p>
+          <h1 id="saludo" className="app__saludo">
+            {cuenta.nombre === undefined ? 'Hola.' : `Hola, ${cuenta.nombre}.`}
+            <br />
+            <span className="app__saludo-pregunta">¿Cómo te cuidas hoy?</span>
+          </h1>
         </div>
-      </main>
+
+        <div className="app__caja app__avance">
+          <div className="app__avance-cabecera">
+            <span>Tu actividad de hoy</span>
+            {deHoy.length > 0 && (
+              <span className="app__avance-cifra">{porcentaje(hechas, deHoy.length)}%</span>
+            )}
+          </div>
+
+          <div
+            className="app__barra-progreso"
+            role="progressbar"
+            aria-label="Actividades de hoy hechas"
+            aria-valuemin={0}
+            aria-valuemax={deHoy.length}
+            aria-valuenow={hechas}
+          >
+            <div style={{ width: `${porcentaje(hechas, deHoy.length)}%` }} />
+          </div>
+
+          <p className="app__nota">
+            {deHoy.length === 0
+              ? 'Elige un módulo para empezar tu plan de hoy.'
+              : `${hechas} de ${deHoy.length} actividades de hoy. Refleja actividades, no una valoración de tu salud.`}
+          </p>
+        </div>
+      </section>
+
+      <section id="programas" className="app__seccion" aria-labelledby="titulo-modulos">
+        <div className="app__seccion-cabecera">
+          <div>
+            <p className="app__antetitulo">Tu espacio de salud</p>
+            <h2 id="titulo-modulos" className="app__titulo">
+              Elige dónde enfocarte
+            </h2>
+          </div>
+        </div>
+
+        <div className="app__modulos">
+          {ORDEN.map((modulo) => {
+            const suyo = porModulo.get(modulo);
+
+            return suyo === undefined ? (
+              <ModuloPorActivar key={modulo} modulo={modulo} activar={activarModulo} />
+            ) : (
+              <TarjetaDeModulo
+                key={modulo}
+                progreso={suyo}
+                elegido={elegido === modulo}
+                alElegir={() => setElegido((actual) => (actual === modulo ? null : modulo))}
+              />
+            );
+          })}
+        </div>
+      </section>
+
+      <section id="progreso" className="app__seccion app__plan-y-recomendado">
+        <PlanDiario plan={plan} filtro={elegido} />
+        <Recomendado siguiente={siguiente} hayPlan={deHoy.length > 0} />
+      </section>
+    </>
+  );
+}
+
+function TarjetaDeModulo({
+  progreso,
+  elegido,
+  alElegir,
+}: {
+  progreso: ProgresoDelModulo;
+  elegido: boolean;
+  alElegir: () => void;
+}) {
+  const datos = MODULOS[progreso.modulo];
+  const { etapa } = progreso;
+  const avance = porcentaje(etapa.sesionesHechas, etapa.sesionesDeLaEtapa);
+  const nombreDeEtapa = `${etapa.esTemporada ? 'Temporada' : 'Etapa'} ${etapa.numero}`;
+
+  return (
+    <button
+      type="button"
+      className={`tarjeta-modulo${elegido ? ' tarjeta-modulo--elegida' : ''}`}
+      style={{ '--modulo-fondo': datos.fondo, '--modulo-acento': datos.acento } as CSSProperties}
+      aria-pressed={elegido}
+      onClick={alElegir}
+    >
+      <span className="tarjeta-modulo__arriba">
+        <span className="tarjeta-modulo__icono">
+          <Icono nombre={datos.icono} tamano={24} />
+        </span>
+        <span className="tarjeta-modulo__cifra">{avance}%</span>
+      </span>
+
+      <span className="tarjeta-modulo__cuerpo">
+        <span className="tarjeta-modulo__titulo">{datos.titulo}</span>
+        <span className="tarjeta-modulo__texto">{datos.descripcion}</span>
+
+        <span className="tarjeta-modulo__barra" aria-hidden="true">
+          <span style={{ width: `${avance}%` }} />
+        </span>
+
+        <span className="tarjeta-modulo__pie">
+          <span>
+            {nombreDeEtapa} · {etapa.sesionesHechas} de {etapa.sesionesDeLaEtapa} sesiones
+          </span>
+          <Icono nombre="arrow" tamano={16} />
+        </span>
+      </span>
+    </button>
+  );
+}
+
+/**
+ * Un modulo que la persona no tiene activo.
+ *
+ * Activarlo es un clic. La celebracion al desbloquearlo llega con SCRUM-90;
+ * aqui solo se activa y aparece en su sitio sin recargar.
+ */
+function ModuloPorActivar({
+  modulo,
+  activar,
+}: {
+  modulo: Modulo;
+  activar: (modulo: Modulo) => Promise<void>;
+}) {
+  const datos = MODULOS[modulo];
+  const [ocupado, setOcupado] = useState(false);
+  const [fallo, setFallo] = useState(false);
+
+  async function alPulsar() {
+    setOcupado(true);
+    setFallo(false);
+
+    try {
+      await activar(modulo);
+    } catch {
+      setFallo(true);
+      setOcupado(false);
+    }
+  }
+
+  return (
+    <div
+      className="tarjeta-modulo tarjeta-modulo--por-activar"
+      style={{ '--modulo-fondo': datos.fondo, '--modulo-acento': datos.acento } as CSSProperties}
+    >
+      <span className="tarjeta-modulo__arriba">
+        <span className="tarjeta-modulo__icono">
+          <Icono nombre={datos.icono} tamano={24} />
+        </span>
+      </span>
+
+      <span className="tarjeta-modulo__cuerpo">
+        <span className="tarjeta-modulo__titulo">{datos.titulo}</span>
+        <span className="tarjeta-modulo__texto">{datos.descripcion}</span>
+
+        <button
+          type="button"
+          className="app__boton tarjeta-modulo__activar"
+          onClick={() => void alPulsar()}
+          disabled={ocupado}
+        >
+          <Icono nombre="plus" tamano={16} />
+          {ocupado ? 'Añadiendo…' : `Añadir ${datos.titulo}`}
+        </button>
+
+        {fallo && (
+          <span className="tarjeta-modulo__fallo" role="alert">
+            No se pudo añadir. Inténtalo de nuevo.
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
+
+function PlanDiario({
+  plan,
+  filtro,
+}: {
+  plan: readonly { modulo: Modulo; actividad: ActividadDeHoy }[];
+  filtro: Modulo | null;
+}) {
+  const hechas = plan.filter(({ actividad }) => actividad.hecha).length;
+
+  return (
+    <div className="app__caja app__plan">
+      <div className="app__plan-cabecera">
+        <div>
+          <p className="app__antetitulo">
+            Para hoy{filtro === null ? '' : ` · ${MODULOS[filtro].titulo}`}
+          </p>
+          <h2 className="app__titulo app__titulo--mediano">Tu plan diario</h2>
+        </div>
+
+        {plan.length > 0 && (
+          <span className="app__contador">
+            {hechas} de {plan.length}
+          </span>
+        )}
+      </div>
+
+      {plan.length === 0 ? (
+        <p className="app__nota">
+          {filtro === null
+            ? 'Cuando elijas un módulo, aquí aparecerá lo que te toca cada día.'
+            : 'Hoy no hay nada más en este módulo.'}
+        </p>
+      ) : (
+        <ul className="app__actividades">
+          {plan.map(({ modulo, actividad }) => (
+            <li
+              key={actividad.id}
+              className={`fila-actividad${actividad.hecha ? ' fila-actividad--hecha' : ''}`}
+            >
+              <span className="fila-actividad__icono" style={{ background: MODULOS[modulo].fondo }}>
+                <Icono nombre={MODULOS[modulo].icono} />
+              </span>
+
+              <span className="fila-actividad__texto">
+                <span className="fila-actividad__nombre">{actividad.nombre}</span>
+                <span className="fila-actividad__meta">
+                  {actividad.tipo === undefined ? '' : `${actividad.tipo} · `}
+                  {MODULOS[modulo].titulo}
+                </span>
+              </span>
+
+              {actividad.hecha ? (
+                <span className="fila-actividad__estado fila-actividad__estado--hecha">
+                  <Icono nombre="check" tamano={16} />
+                  <span className="solo-lectores">Hecha hoy</span>
+                </span>
+              ) : (
+                <Link
+                  className="fila-actividad__estado"
+                  to={rutaDeActividad(actividad.id)}
+                  aria-label={`Empezar ${actividad.nombre}`}
+                >
+                  <Icono nombre="play" tamano={16} />
+                </Link>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
 
 /**
- * Da formato a una fecha que llego como texto ISO.
- *
- * Si no se puede interpretar se devuelve tal cual en lugar de ensenar
- * "Invalid Date": un dato raro es mejor que una palabra en ingles que no
- * significa nada para quien la lee.
+ * La tarjeta "Recomendado" del diseño, con algo que de verdad toca: la
+ * siguiente actividad pendiente de hoy. En el diseño era un texto fijo.
  */
-function enCastellano(iso: string): string {
-  const fecha = new Date(iso);
+function Recomendado({
+  siguiente,
+  hayPlan,
+}: {
+  siguiente: { modulo: Modulo; actividad: ActividadDeHoy } | undefined;
+  hayPlan: boolean;
+}) {
+  return (
+    <aside className="app__recomendado" aria-labelledby="titulo-recomendado">
+      <span
+        className="app__recomendado-adorno app__recomendado-adorno--grande"
+        aria-hidden="true"
+      />
+      <span
+        className="app__recomendado-adorno app__recomendado-adorno--pequeno"
+        aria-hidden="true"
+      />
 
-  if (Number.isNaN(fecha.getTime())) {
-    return iso;
-  }
+      <span className="app__recomendado-icono">
+        <Icono nombre="moon" />
+      </span>
 
-  return fecha.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
+      <p className="app__antetitulo app__antetitulo--salvia">Recomendado</p>
+
+      {siguiente !== undefined ? (
+        <>
+          <h2 id="titulo-recomendado" className="app__recomendado-titulo">
+            {siguiente.actividad.nombre}
+          </h2>
+          <p className="app__recomendado-texto">
+            {siguiente.actividad.descripcion ??
+              `Lo siguiente de tu plan en ${MODULOS[siguiente.modulo].titulo}.`}
+          </p>
+          <Link className="app__recomendado-boton" to={rutaDeActividad(siguiente.actividad.id)}>
+            Comenzar
+            <Icono nombre="arrow" tamano={16} />
+          </Link>
+        </>
+      ) : hayPlan ? (
+        <>
+          <h2 id="titulo-recomendado" className="app__recomendado-titulo">
+            Hoy ya hiciste todo tu plan
+          </h2>
+          <p className="app__recomendado-texto">Descansar también es cuidarte.</p>
+        </>
+      ) : (
+        <>
+          <h2 id="titulo-recomendado" className="app__recomendado-titulo">
+            Empieza por un módulo
+          </h2>
+          <p className="app__recomendado-texto">
+            Elige dónde quieres enfocarte y aquí te diremos por dónde seguir.
+          </p>
+          <a className="app__recomendado-boton" href="#programas">
+            Ver los módulos
+            <Icono nombre="arrow" tamano={16} />
+          </a>
+        </>
+      )}
+    </aside>
+  );
 }
 
-/**
- * La cuenta, tal como la devuelve la API.
- *
- * Se ensena el consentimiento con su version y su fecha porque es la prueba de
- * lo que la persona acepto y cuando, y tiene derecho a poder verla.
- */
-function TuCuenta({ cuenta }: { cuenta: Cuenta }) {
+const SECCIONES: readonly { href: string; texto: string; icono: NombreDeIcono }[] = [
+  { href: '#inicio', texto: 'Inicio', icono: 'home' },
+  { href: '#programas', texto: 'Explorar', icono: 'book' },
+  { href: '#progreso', texto: 'Progreso', icono: 'activity' },
+];
+
+function BarraSuperior() {
   return (
-    <section className="panel__seccion">
-      <h2 className="panel__titulo">Tu cuenta</h2>
+    <header className="app__barra">
+      <div className="app__barra-interior">
+        <Link to={RUTAS.PANEL} className="app__marca" aria-label="VSD-H, inicio">
+          <span className="app__marca-icono">
+            <Icono nombre="sparkles" />
+          </span>
+          <span className="app__marca-texto">VSD-H</span>
+        </Link>
 
-      <dl className="panel__datos">
-        <dt>Correo</dt>
-        <dd>{cuenta.correo}</dd>
+        <nav className="app__nav" aria-label="Secciones">
+          {SECCIONES.map((seccion, indice) => (
+            <a
+              key={seccion.href}
+              className={`app__enlace${indice === 0 ? ' app__enlace--activo' : ''}`}
+              href={seccion.href}
+            >
+              <Icono nombre={seccion.icono} tamano={18} />
+              {seccion.texto}
+            </a>
+          ))}
+        </nav>
 
-        <dt>Rol</dt>
-        <dd>{cuenta.rol}</dd>
-
-        {cuenta.nombre !== undefined && (
-          <>
-            <dt>Nombre</dt>
-            <dd>{cuenta.nombre}</dd>
-          </>
-        )}
-
-        <dt>Aviso aceptado</dt>
-        <dd>
-          Versión {cuenta.consentimiento.versionPolitica}, el{' '}
-          {enCastellano(cuenta.consentimiento.aceptadoEn)}
-        </dd>
-      </dl>
-    </section>
+        <MenuDeCuenta />
+      </div>
+    </header>
   );
 }
 
 /**
- * El catalogo.
- *
- * Desde SCRUM-83 cada actividad **lleva a su pantalla**. Las que todavia no
- * tienen mecanica lo dicen alli en lugar de fingir que se pueden hacer: es
- * preferible a un enlace que no lleva a nada, y a esconderlas del catalogo,
- * porque forman parte de lo que el producto ofrece.
+ * El boton redondo de la derecha. En el diseño abria un perfil que todavia no
+ * existe (SCRUM-101); mientras tanto ofrece lo que si existe: ver con que
+ * correo se entro, volver a la portada y salir.
  */
-function Actividades({ catalogo }: { catalogo: readonly CategoriaDelCatalogo[] }) {
-  if (catalogo.length === 0) {
-    return (
-      <section className="panel__seccion">
-        <h2 className="panel__titulo">Actividades</h2>
-        <p className="panel__vacio">Todavía no hay actividades disponibles.</p>
-      </section>
-    );
-  }
+function MenuDeCuenta() {
+  const { correo, salir } = useSesion();
+  const [abierto, setAbierto] = useState(false);
+  const idDelMenu = useId();
+  const contenedor = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!abierto) {
+      return;
+    }
+
+    function alPulsarFuera(evento: MouseEvent) {
+      if (!contenedor.current?.contains(evento.target as Node)) {
+        setAbierto(false);
+      }
+    }
+
+    function alPulsarTecla(evento: KeyboardEvent) {
+      if (evento.key === 'Escape') {
+        setAbierto(false);
+      }
+    }
+
+    document.addEventListener('mousedown', alPulsarFuera);
+    document.addEventListener('keydown', alPulsarTecla);
+
+    return () => {
+      document.removeEventListener('mousedown', alPulsarFuera);
+      document.removeEventListener('keydown', alPulsarTecla);
+    };
+  }, [abierto]);
 
   return (
-    <section className="panel__seccion">
-      <h2 className="panel__titulo">Actividades disponibles</h2>
+    <div className="app__cuenta" ref={contenedor}>
+      <button
+        type="button"
+        className="app__avatar"
+        aria-label="Abrir el menú de tu cuenta"
+        aria-expanded={abierto}
+        aria-controls={idDelMenu}
+        onClick={() => setAbierto((antes) => !antes)}
+      >
+        <Icono nombre="user" />
+      </button>
 
-      {catalogo.map((categoria) => (
-        <div key={categoria.id} className="panel__categoria">
-          <h3 className="panel__categoria-nombre">{categoria.nombre}</h3>
-
-          {categoria.descripcion !== undefined && (
-            <p className="panel__categoria-texto">{categoria.descripcion}</p>
-          )}
-
-          <ul className="panel__actividades">
-            {categoria.actividades.map((actividad) => (
-              <li key={actividad.id}>
-                {/* El enlace envuelve la tarjeta entera y no solo el nombre:
-                    en un movil, acertarle a un texto de una linea con el dedo
-                    es mas dificil de lo que parece. */}
-                <Link className="panel__actividad" to={rutaDeActividad(actividad.id)}>
-                  <span className="panel__actividad-nombre">{actividad.nombre}</span>
-
-                  {actividad.tipo !== undefined && (
-                    <span className="panel__actividad-tipo">{actividad.tipo}</span>
-                  )}
-
-                  {actividad.descripcion !== undefined && (
-                    <span className="panel__actividad-texto">{actividad.descripcion}</span>
-                  )}
-                </Link>
-              </li>
-            ))}
-          </ul>
+      {abierto && (
+        <div id={idDelMenu} className="app__menu">
+          <p className="app__menu-correo">{correo}</p>
+          <Link className="app__menu-opcion" to={RUTAS.INICIO}>
+            Ir a la página principal
+          </Link>
+          <button type="button" className="app__menu-opcion" onClick={() => void salir()}>
+            Cerrar sesión
+          </button>
         </div>
+      )}
+    </div>
+  );
+}
+
+function NavegacionInferior() {
+  return (
+    <nav className="app__nav-inferior" aria-label="Secciones">
+      {SECCIONES.map((seccion, indice) => (
+        <a
+          key={seccion.href}
+          className={`app__nav-inferior-enlace${indice === 0 ? ' app__nav-inferior-enlace--activo' : ''}`}
+          href={seccion.href}
+        >
+          <Icono nombre={seccion.icono} tamano={19} />
+          {seccion.texto}
+        </a>
       ))}
-    </section>
+    </nav>
   );
 }

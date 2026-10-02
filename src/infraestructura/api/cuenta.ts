@@ -22,6 +22,17 @@ export interface Consentimiento {
   readonly aceptadoEn: string;
 }
 
+/** Los tres modulos, con la clave estable que usa la API. */
+export type Modulo = 'cognicion' | 'bienestar' | 'emociones';
+
+/** Como es la mascota de la persona (SCRUM-88). */
+export interface Mascota {
+  readonly forma: string;
+  readonly color: string;
+  readonly accesorio: string;
+  readonly nombre: string;
+}
+
 /**
  * La cuenta propia.
  *
@@ -36,6 +47,17 @@ export interface Cuenta {
   readonly nombre?: string;
   readonly consentimiento: Consentimiento;
   readonly registradoEn: string;
+  /** Vacio mientras la persona no ha elegido con que modulos empezar. */
+  readonly modulosActivos: readonly Modulo[];
+  /** `null` usa la mascota de siempre. */
+  readonly mascota: Mascota | null;
+}
+
+/** Lo que se puede cambiar de las preferencias. Lo que no venga, se queda igual. */
+export interface CambiosDePreferencias {
+  readonly nombre?: string;
+  readonly modulosActivos?: readonly Modulo[];
+  readonly mascota?: Mascota;
 }
 
 const RUTA = '/api/cuenta';
@@ -75,4 +97,22 @@ export function darDeAltaLaCuenta(versionPolitica: string, senal?: AbortSignal):
  */
 export function consultarLaCuentaPropia(senal?: AbortSignal): Promise<Cuenta> {
   return llamarALaApi<Cuenta>(RUTA, senal ? { senal } : {});
+}
+
+/**
+ * Cambia el nombre, los modulos activos o la mascota de la cuenta propia.
+ *
+ * Devuelve la cuenta como quedo, que es lo que hay que pintar: la API ordena
+ * los modulos y normaliza la mascota, asi que lo enviado y lo guardado no
+ * siempre coinciden letra por letra.
+ */
+export function cambiarPreferencias(
+  cambios: CambiosDePreferencias,
+  senal?: AbortSignal,
+): Promise<Cuenta> {
+  return llamarALaApi<Cuenta>(`${RUTA}/preferencias`, {
+    metodo: 'PATCH',
+    cuerpo: cambios,
+    ...(senal ? { senal } : {}),
+  });
 }

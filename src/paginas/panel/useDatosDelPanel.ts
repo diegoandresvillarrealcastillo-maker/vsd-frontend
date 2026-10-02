@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { consultarLaVersionDelAviso } from '../../infraestructura/api/aviso.ts';
-import { traerElCatalogo, type CategoriaDelCatalogo } from '../../infraestructura/api/catalogo.ts';
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
-import { darDeAltaLaCuenta, type Cuenta } from '../../infraestructura/api/cuenta.ts';
+import {
+  cambiarPreferencias,
+  darDeAltaLaCuenta,
+  type Cuenta,
+  type Modulo,
+} from '../../infraestructura/api/cuenta.ts';
+import { consultarElProgreso, type ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 
 /**
  * En que punto esta la carga del panel.
@@ -18,7 +23,7 @@ export type EstadoDelPanel =
   | {
       readonly fase: 'listo';
       readonly cuenta: Cuenta;
-      readonly catalogo: readonly CategoriaDelCatalogo[];
+      readonly progreso: readonly ProgresoDelModulo[];
     }
   | { readonly fase: 'error'; readonly mensaje: string };
 
@@ -40,7 +45,7 @@ export type EstadoDelPanel =
  * porque esta pantalla sabe algo que el servidor no: que lo que fallo fue
  * entrar al panel.
  */
-function explicar(error: unknown): string {
+export function explicar(error: unknown): string {
   if (!(error instanceof ErrorDeLaApi)) {
     // Aqui cae que no haya red, o que la API no este arrancada. `fetch` no
     // lanza un ErrorDeLaApi en ese caso porque no llego a haber respuesta.
@@ -83,7 +88,7 @@ function explicar(error: unknown): string {
 }
 
 /**
- * Trae lo que el panel necesita: la cuenta y el catalogo.
+ * Trae lo que el panel necesita: la cuenta y el progreso de cada modulo.
  *
  * El alta de cuenta va aqui y no en el inicio de sesion a proposito. Supabase
  * autentica, pero la cuenta de VSD Health es una entidad propia que alguien
@@ -93,10 +98,15 @@ function explicar(error: unknown): string {
  *
  * Que la llamada sea idempotente en el servidor es lo que lo hace seguro:
  * entrar diez veces no crea diez cuentas ni sobrescribe el consentimiento.
+ *
+ * El progreso va **despues** del alta, en serie y no en paralelo: es una ruta
+ * con cuenta, y la primera vez que alguien entra esa cuenta todavia no existe
+ * hasta que el alta termina.
  */
 export function useDatosDelPanel(): {
   readonly estado: EstadoDelPanel;
   readonly reintentar: () => void;
+  readonly activarModulo: (modulo: Modulo) => Promise<void>;
 } {
   const [estado, setEstado] = useState<EstadoDelPanel>({ fase: 'cargando' });
   const [intento, setIntento] = useState(0);
@@ -111,24 +121,16 @@ export function useDatosDelPanel(): {
 
     async function cargar(): Promise<void> {
       try {
-        // En paralelo porque no dependen una de otra: el alta necesita la
-        // sesion y el catalogo es una ruta publica. En serie la pantalla
-        // tardaria el doble sin ganar nada.
-        //
-        // El alta si va detras de la version del aviso, porque la necesita: la
-        // version la dice la API, que es su unica fuente.
-        const [cuenta, catalogo] = await Promise.all([
-          consultarLaVersionDelAviso(control.signal).then((version) =>
-            darDeAltaLaCuenta(version, control.signal),
-          ),
-          traerElCatalogo(control.signal),
-        ]);
+        // La version del aviso la dice la API, que es su unica fuente.
+        const version = await consultarLaVersionDelAviso(control.signal);
+        const cuenta = await darDeAltaLaCuenta(version, control.signal);
+        const progreso = await consultarElProgreso(control.signal);
 
         if (control.signal.aborted) {
           return;
         }
 
-        setEstado({ fase: 'listo', cuenta, catalogo });
+        setEstado({ fase: 'listo', cuenta, progreso });
       } catch (error) {
         // Abortar es lo que pasa al desmontar, y no es un fallo que contar:
         // pintar un error aqui dejaria un mensaje sobre una pantalla que la
@@ -148,5 +150,30 @@ export function useDatosDelPanel(): {
     };
   }, [intento]);
 
-  return { estado, reintentar };
+  /**
+   * Activa un modulo mas y vuelve a pedir el progreso.
+   *
+   * Se pide de nuevo en lugar de inventar el del modulo nuevo aqui: lo que le
+   * toca hoy lo decide el servidor, y adivinarlo en el cliente daria una
+   * pantalla que cambia al recargar.
+   *
+   * Si falla, lanza: quien pulso el boton es quien tiene que contarlo.
+   */
+  const activarModulo = useCallback(
+    async (modulo: Modulo): Promise<void> => {
+      if (estado.fase !== 'listo') {
+        return;
+      }
+
+      const cuenta = await cambiarPreferencias({
+        modulosActivos: [...estado.cuenta.modulosActivos, modulo],
+      });
+      const progreso = await consultarElProgreso();
+
+      setEstado({ fase: 'listo', cuenta, progreso });
+    },
+    [estado],
+  );
+
+  return { estado, reintentar, activarModulo };
 }
