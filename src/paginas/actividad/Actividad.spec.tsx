@@ -24,9 +24,10 @@ const { buscarActividad, registrarResultado } = vi.hoisted(() => ({
 vi.mock('../../infraestructura/api/catalogo.ts', () => ({ buscarActividad }));
 vi.mock('../../infraestructura/api/resultados.ts', () => ({ registrarResultado }));
 
-/** "Como dormiste anoche": la unica con mecanica hoy. Bitacora que si puntua. */
+/** "Como dormiste anoche": una bitacora que si puntua. */
 const SUENO = '0acd0000-0000-4000-8000-000000000004';
-const SIN_MECANICA = '0acd0000-0000-4000-8000-000000000001';
+// "Como te sientes hoy": sin mecanica hasta que llegue Emociones (SCRUM-94).
+const SIN_MECANICA = '0acd0000-0000-4000-8000-000000000007';
 
 function fichaDe(id: string, nombre: string, tipo = 'bitacora') {
   return {
@@ -210,7 +211,7 @@ describe('Actividad, cuando algo falla', () => {
 
 describe('Actividad, las que todavia no tienen mecanica', () => {
   it('lo dice en lugar de fingir que se puede hacer', async () => {
-    buscarActividad.mockResolvedValue(fichaDe(SIN_MECANICA, 'Parejas de cartas', 'juego'));
+    buscarActividad.mockResolvedValue(fichaDe(SIN_MECANICA, 'Cómo te sientes hoy', 'preguntas'));
 
     pintar(SIN_MECANICA);
 
