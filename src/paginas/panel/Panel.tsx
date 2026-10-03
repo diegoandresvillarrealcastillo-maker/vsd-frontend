@@ -7,7 +7,10 @@ import type { Cuenta, Modulo } from '../../infraestructura/api/cuenta.ts';
 import type { ActividadDeHoy, ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { RUTAS, rutaDeActividad } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
+import { Bienvenida } from './Bienvenida.tsx';
+import { Celebracion } from './Celebracion.tsx';
 import { Icono, type NombreDeIcono } from './Icono.tsx';
+import { MODULOS, ORDEN } from './modulos.ts';
 import { useDatosDelPanel } from './useDatosDelPanel.ts';
 
 /**
@@ -24,41 +27,6 @@ import { useDatosDelPanel } from './useDatosDelPanel.ts';
  * - La mascota y VSD IA, tambien flotantes (SCRUM-99 y SCRUM-100).
  * - La etiqueta "Vista de prueba", que era del prototipo.
  */
-
-interface DatosDeModulo {
-  readonly titulo: string;
-  readonly descripcion: string;
-  readonly icono: NombreDeIcono;
-  readonly fondo: string;
-  readonly acento: string;
-}
-
-/** El orden y los textos son los del diseño. */
-const ORDEN: readonly Modulo[] = ['bienestar', 'cognicion', 'emociones'];
-
-const MODULOS: Readonly<Record<Modulo, DatosDeModulo>> = {
-  bienestar: {
-    titulo: 'Bienestar',
-    descripcion: 'Hábitos que cuidan tu cuerpo y energía.',
-    icono: 'leaf',
-    fondo: 'var(--app-bienestar)',
-    acento: 'var(--app-bienestar-acento)',
-  },
-  cognicion: {
-    titulo: 'Cognición',
-    descripcion: 'Entrena tu memoria, atención y enfoque.',
-    icono: 'brain',
-    fondo: 'var(--app-cognicion)',
-    acento: 'var(--app-cognicion-acento)',
-  },
-  emociones: {
-    titulo: 'Emociones',
-    descripcion: 'Conecta, comprende y regula lo que sientes.',
-    icono: 'heart',
-    fondo: 'var(--app-emociones)',
-    acento: 'var(--app-emociones-acento)',
-  },
-};
 
 /** "Viernes, 2 de octubre", siempre en hora de Colombia, como el servidor. */
 function hoyEnCastellano(): string {
@@ -90,10 +58,16 @@ export function VistaDelPanel({
   estado,
   reintentar,
   activarModulo,
+  completarBienvenida,
 }: ReturnType<typeof useDatosDelPanel>) {
+  // Las secciones (Inicio, Explorar, Progreso) solo existen en el dashboard.
+  // En la bienvenida, en la carga o en un error, sus enlaces no llevarian a
+  // ningun sitio.
+  const enDashboard = estado.fase === 'listo' && estado.cuenta.modulosActivos.length > 0;
+
   return (
     <div className="app">
-      <BarraSuperior />
+      <BarraSuperior conSecciones={enDashboard} />
 
       <main id={ID_DEL_CONTENIDO} tabIndex={-1} className="app__contenido">
         {estado.fase === 'cargando' && (
@@ -115,7 +89,14 @@ export function VistaDelPanel({
           </div>
         )}
 
-        {estado.fase === 'listo' && (
+        {/* Una cuenta que todavia no eligio modulos no llega al dashboard:
+            primero la bienvenida (SCRUM-90). Se ve una sola vez, porque al
+            elegir la lista deja de estar vacia. */}
+        {estado.fase === 'listo' && estado.cuenta.modulosActivos.length === 0 && (
+          <Bienvenida cuenta={estado.cuenta} alTerminar={completarBienvenida} />
+        )}
+
+        {estado.fase === 'listo' && estado.cuenta.modulosActivos.length > 0 && (
           <Dashboard
             cuenta={estado.cuenta}
             progreso={estado.progreso}
@@ -124,7 +105,7 @@ export function VistaDelPanel({
         )}
       </main>
 
-      <NavegacionInferior />
+      {enDashboard && <NavegacionInferior />}
     </div>
   );
 }
@@ -140,6 +121,13 @@ function Dashboard({
 }) {
   // El modulo elegido filtra el plan. Sin ninguno elegido se ve todo.
   const [elegido, setElegido] = useState<Modulo | null>(null);
+  // El modulo recien desbloqueado y cuantos tiene ahora, para celebrarlo.
+  const [celebracion, setCelebracion] = useState<{ modulo: Modulo; total: number } | null>(null);
+
+  async function activarYCelebrar(modulo: Modulo): Promise<void> {
+    await activarModulo(modulo);
+    setCelebracion({ modulo, total: cuenta.modulosActivos.length + 1 });
+  }
 
   const porModulo = new Map(progreso.map((uno) => [uno.modulo, uno]));
   const deHoy = progreso.flatMap((uno) =>
@@ -203,7 +191,7 @@ function Dashboard({
             const suyo = porModulo.get(modulo);
 
             return suyo === undefined ? (
-              <ModuloPorActivar key={modulo} modulo={modulo} activar={activarModulo} />
+              <ModuloPorActivar key={modulo} modulo={modulo} activar={activarYCelebrar} />
             ) : (
               <TarjetaDeModulo
                 key={modulo}
@@ -220,6 +208,14 @@ function Dashboard({
         <PlanDiario plan={plan} filtro={elegido} />
         <Recomendado siguiente={siguiente} hayPlan={deHoy.length > 0} />
       </section>
+
+      {celebracion !== null && (
+        <Celebracion
+          modulo={celebracion.modulo}
+          total={celebracion.total}
+          alCerrar={() => setCelebracion(null)}
+        />
+      )}
     </>
   );
 }
@@ -482,7 +478,7 @@ const SECCIONES: readonly { href: string; texto: string; icono: NombreDeIcono }[
   { href: '#progreso', texto: 'Progreso', icono: 'activity' },
 ];
 
-function BarraSuperior() {
+function BarraSuperior({ conSecciones }: { conSecciones: boolean }) {
   return (
     <header className="app__barra">
       <div className="app__barra-interior">
@@ -493,18 +489,23 @@ function BarraSuperior() {
           <span className="app__marca-texto">VSD-H</span>
         </Link>
 
-        <nav className="app__nav" aria-label="Secciones">
-          {SECCIONES.map((seccion, indice) => (
-            <a
-              key={seccion.href}
-              className={`app__enlace${indice === 0 ? ' app__enlace--activo' : ''}`}
-              href={seccion.href}
-            >
-              <Icono nombre={seccion.icono} tamano={18} />
-              {seccion.texto}
-            </a>
-          ))}
-        </nav>
+        {conSecciones ? (
+          <nav className="app__nav" aria-label="Secciones">
+            {SECCIONES.map((seccion, indice) => (
+              <a
+                key={seccion.href}
+                className={`app__enlace${indice === 0 ? ' app__enlace--activo' : ''}`}
+                href={seccion.href}
+              >
+                <Icono nombre={seccion.icono} tamano={18} />
+                {seccion.texto}
+              </a>
+            ))}
+          </nav>
+        ) : (
+          // Mantiene la marca a la izquierda y la cuenta a la derecha.
+          <span aria-hidden="true" />
+        )}
 
         <MenuDeCuenta />
       </div>

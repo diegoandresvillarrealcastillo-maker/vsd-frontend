@@ -711,6 +711,150 @@
   color: var(--app-salvia);
 }
 
+/* ---------- Bienvenida (SCRUM-90) ---------- */
+
+.bienvenida {
+  display: grid;
+  gap: 2rem;
+  max-width: 64rem;
+}
+
+.bienvenida__formulario {
+  display: grid;
+  gap: 1.75rem;
+}
+
+.bienvenida__campo {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 28rem;
+}
+
+.bienvenida__etiqueta {
+  padding: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.bienvenida__entrada {
+  padding: 0.75rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 0.75rem;
+  background: var(--app-lienzo);
+  color: var(--app-tinta);
+  font: inherit;
+  font-size: 0.9375rem;
+}
+
+.bienvenida__entrada::placeholder {
+  color: var(--app-tenue);
+  opacity: 0.7;
+}
+
+.bienvenida__modulos {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.bienvenida__modulos .app__nota {
+  margin-top: 0;
+}
+
+.bienvenida__opcion {
+  min-height: 0;
+}
+
+.bienvenida__marca {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 9999px;
+  background: rgb(0 0 0 / 0.15);
+}
+
+.bienvenida__marca--activa {
+  border-color: var(--modulo-acento);
+  background: var(--modulo-acento);
+  color: var(--app-sobre-primario);
+}
+
+.bienvenida__fallo {
+  margin: 0;
+  color: var(--app-emociones-acento);
+  font-size: 0.875rem;
+}
+
+.bienvenida__empezar {
+  justify-self: start;
+  padding: 0.875rem 1.5rem;
+  font-size: 0.9375rem;
+}
+
+/* ---------- Celebracion al desbloquear un modulo (SCRUM-90) ---------- */
+
+.celebracion {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 0.55);
+}
+
+.celebracion__caja {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  width: min(26rem, 100%);
+  padding: 2rem 1.5rem 1.5rem;
+  border: 1px solid var(--modulo-acento);
+  border-radius: 28px;
+  background: var(--modulo-fondo);
+  color: var(--app-tinta);
+  text-align: center;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 0.45);
+}
+
+.celebracion__icono {
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  margin-bottom: 0.5rem;
+  border-radius: 1.25rem;
+  background: rgb(0 0 0 / 0.18);
+  color: var(--modulo-acento);
+}
+
+.celebracion__modulo {
+  margin: 0;
+  color: var(--modulo-acento);
+}
+
+.celebracion__titulo {
+  font-family: var(--app-fuente-titulos);
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.celebracion__texto {
+  color: rgb(240 238 229 / 0.85);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.celebracion__boton {
+  margin-top: 1rem;
+}
 /* ---------- Puntos de quiebre del diseño (sm 640, md 768, lg 1024) ---------- */
 
 @media (min-width: 640px) {
