@@ -2,11 +2,14 @@ import type { ReactElement } from 'react';
 
 import type { LoQueProduceLaActividad } from '../useCompletarActividad.ts';
 import { ComoDormisteAnoche } from './ComoDormisteAnoche.tsx';
+import { ComoTeSientesHoy } from './ComoTeSientesHoy.tsx';
 import { EncuentraLaDiferencia } from './EncuentraLaDiferencia.tsx';
 import { LaCargaDeTuSemana } from './LaCargaDeTuSemana.tsx';
 import { MovimientoDelDia } from './MovimientoDelDia.tsx';
 import { ParejasDeCartas } from './ParejasDeCartas.tsx';
+import { QueTeEstaPesando } from './QueTeEstaPesando.tsx';
 import { SecuenciaDeNumeros } from './SecuenciaDeNumeros.tsx';
+import { UnMomentoBueno } from './UnMomentoBueno.tsx';
 
 /**
  * Que pantalla corresponde a cada actividad.
@@ -37,12 +40,12 @@ import { SecuenciaDeNumeros } from './SecuenciaDeNumeros.tsx';
  * y no hay nada dinamico que vigilar.
  *
  * ---------------------------------------------------------------------------
- * Las que faltan
+ * Las que falten
  * ---------------------------------------------------------------------------
  *
- * Cognicion esta completo desde SCRUM-84 y Bienestar desde SCRUM-93. Las tres
- * de Emociones llegan con SCRUM-94. Hasta entonces, la pantalla dice que
- * todavia no esta disponible en lugar de fingir que si.
+ * Desde SCRUM-94 las nueve actividades del catalogo tienen su mecanica. Si se
+ * siembra una nueva en la base antes de tener pantalla, no aparece aqui, y la
+ * pantalla dice que todavia no esta disponible en lugar de fingir que si.
  * Prometer una actividad que no se puede hacer es peor que decir que falta.
  */
 export interface PropsDeMecanica {
@@ -68,6 +71,14 @@ const MECANICAS: Readonly<Record<string, Mecanica>> = {
   '0acd0000-0000-4000-8000-000000000005': (props) => <LaCargaDeTuSemana {...props} />,
   // Movimiento del dia
   '0acd0000-0000-4000-8000-000000000006': (props) => <MovimientoDelDia {...props} />,
+
+  // Emociones
+  // Como te sientes hoy
+  '0acd0000-0000-4000-8000-000000000007': (props) => <ComoTeSientesHoy {...props} />,
+  // Que te esta pesando
+  '0acd0000-0000-4000-8000-000000000008': (props) => <QueTeEstaPesando {...props} />,
+  // Un momento bueno del dia
+  '0acd0000-0000-4000-8000-000000000009': (props) => <UnMomentoBueno {...props} />,
 };
 
 /** La mecanica de esa actividad, o `undefined` si todavia no existe. */
