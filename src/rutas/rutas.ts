@@ -18,6 +18,23 @@ export const RUTAS = {
 
   /** Primera pantalla despues de entrar. */
   PANEL: '/panel',
+
+  /**
+   * Una actividad concreta. Lleva parametro, asi que no se navega a esta
+   * cadena tal cual: se usa `rutaDeActividad`.
+   */
+  ACTIVIDAD: '/actividad/:id',
 } as const;
 
 export type Ruta = (typeof RUTAS)[keyof typeof RUTAS];
+
+/**
+ * La direccion de una actividad concreta.
+ *
+ * Existe para que el identificador se incruste en un solo sitio. Escribir
+ * `` `/actividad/${id}` `` en cada enlace funciona hasta que la ruta cambia y
+ * hay que encontrarlos todos.
+ */
+export function rutaDeActividad(id: string): string {
+  return RUTAS.ACTIVIDAD.replace(':id', encodeURIComponent(id));
+}

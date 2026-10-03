@@ -31,6 +31,32 @@ function estado(parcial: Partial<EstadoDeSesion> = {}): EstadoDeSesion {
   };
 }
 
+/**
+ * Escribe sin pausa entre tecla y tecla.
+ *
+ * Por defecto `userEvent` espera entre cada pulsacion, y una contrasena larga
+ * costaba casi un segundo por campo. Con la suite entera en paralelo, algunas
+ * pruebas pasaban del limite de 5 s y fallaban sin que nada estuviera roto
+ * (SCRUM-103). Lo que se comprueba no depende de esa pausa.
+ */
+let usuario: ReturnType<typeof userEvent.setup>;
+
+beforeEach(() => {
+  usuario = userEvent.setup({ delay: null });
+});
+
+/**
+ * Rellena un campo de una vez, como al pegar.
+ *
+ * Tecla a tecla, cada pulsacion vuelve a pintar el formulario, y eso es lo que
+ * hacia lentas estas pruebas. Lo que se comprueba —que valida, que avisa, que
+ * no envia— depende del valor final del campo, no de como se llego a el.
+ */
+async function escribir(campo: HTMLElement, valor: string): Promise<void> {
+  await usuario.click(campo);
+  await usuario.paste(valor);
+}
+
 function pintar(pantalla: React.ReactNode, valor: EstadoDeSesion) {
   return render(
     <SesionContexto.Provider value={valor}>
@@ -50,11 +76,11 @@ describe('Registro', () => {
     const registrarse = vi.fn().mockResolvedValue({ ok: true });
     pintar(<Registro />, estado({ registrarse }));
 
-    await userEvent.type(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
-    await userEvent.type(screen.getByLabelText('Contraseña'), 'unaContrasenaLarga');
-    await userEvent.type(screen.getByLabelText('Repite la contraseña'), 'unaContrasenaLarga');
+    await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
+    await escribir(screen.getByLabelText('Contraseña'), 'unaContrasenaLarga');
+    await escribir(screen.getByLabelText('Repite la contraseña'), 'unaContrasenaLarga');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+    await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
     expect(registrarse).not.toHaveBeenCalled();
     expect(screen.getByText(/hace falta aceptar el aviso/i)).toBeInTheDocument();
@@ -64,12 +90,12 @@ describe('Registro', () => {
     const registrarse = vi.fn().mockResolvedValue({ ok: true });
     pintar(<Registro />, estado({ registrarse }));
 
-    await userEvent.type(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
-    await userEvent.type(screen.getByLabelText('Contraseña'), 'unaContrasenaLarga');
-    await userEvent.type(screen.getByLabelText('Repite la contraseña'), 'otraDistinta');
-    await userEvent.click(screen.getByLabelText(/Acepto el tratamiento/));
+    await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
+    await escribir(screen.getByLabelText('Contraseña'), 'unaContrasenaLarga');
+    await escribir(screen.getByLabelText('Repite la contraseña'), 'otraDistinta');
+    await usuario.click(screen.getByLabelText(/Acepto el tratamiento/));
 
-    await userEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+    await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
     expect(registrarse).not.toHaveBeenCalled();
     expect(await screen.findByText(/no coinciden/i)).toBeInTheDocument();
@@ -79,12 +105,12 @@ describe('Registro', () => {
     const registrarse = vi.fn().mockResolvedValue({ ok: true });
     pintar(<Registro />, estado({ registrarse }));
 
-    await userEvent.type(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
-    await userEvent.type(screen.getByLabelText('Contraseña'), 'corta');
-    await userEvent.type(screen.getByLabelText('Repite la contraseña'), 'corta');
-    await userEvent.click(screen.getByLabelText(/Acepto el tratamiento/));
+    await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
+    await escribir(screen.getByLabelText('Contraseña'), 'corta');
+    await escribir(screen.getByLabelText('Repite la contraseña'), 'corta');
+    await usuario.click(screen.getByLabelText(/Acepto el tratamiento/));
 
-    await userEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+    await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
     expect(registrarse).not.toHaveBeenCalled();
 
@@ -98,12 +124,12 @@ describe('Registro', () => {
     const registrarse = vi.fn().mockResolvedValue({ ok: true });
     pintar(<Registro />, estado({ registrarse }));
 
-    await userEvent.type(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
-    await userEvent.type(screen.getByLabelText('Contraseña'), 'unaContrasenaLarga');
-    await userEvent.type(screen.getByLabelText('Repite la contraseña'), 'unaContrasenaLarga');
-    await userEvent.click(screen.getByLabelText(/Acepto el tratamiento/));
+    await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
+    await escribir(screen.getByLabelText('Contraseña'), 'unaContrasenaLarga');
+    await escribir(screen.getByLabelText('Repite la contraseña'), 'unaContrasenaLarga');
+    await usuario.click(screen.getByLabelText(/Acepto el tratamiento/));
 
-    await userEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+    await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
     expect(registrarse).toHaveBeenCalledWith({
       correo: 'alguien@ejemplo.com',
@@ -124,10 +150,10 @@ describe('Acceso', () => {
     const entrar = vi.fn().mockResolvedValue({ ok: true });
     pintar(<Acceso />, estado({ entrar }));
 
-    await userEvent.type(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
-    await userEvent.type(screen.getByLabelText('Contraseña'), 'loQueSea123');
+    await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
+    await escribir(screen.getByLabelText('Contraseña'), 'loQueSea123');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+    await usuario.click(screen.getByRole('button', { name: 'Entrar' }));
 
     expect(entrar).toHaveBeenCalledWith({
       correo: 'alguien@ejemplo.com',
@@ -142,11 +168,11 @@ describe('Acceso', () => {
     const entrar = vi.fn().mockResolvedValue({ ok: true });
     pintar(<Acceso />, estado({ entrar }));
 
-    await userEvent.type(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
-    await userEvent.type(screen.getByLabelText('Contraseña'), 'loQueSea123');
-    await userEvent.click(screen.getByLabelText(/Recordar en este dispositivo/));
+    await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
+    await escribir(screen.getByLabelText('Contraseña'), 'loQueSea123');
+    await usuario.click(screen.getByLabelText(/Recordar en este dispositivo/));
 
-    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+    await usuario.click(screen.getByRole('button', { name: 'Entrar' }));
 
     expect(entrar).toHaveBeenCalledWith(
       expect.objectContaining({ recordar: false }) as Record<string, unknown>,
@@ -168,9 +194,9 @@ describe('Acceso', () => {
 
     pintar(<Acceso />, estado({ entrar }));
 
-    await userEvent.type(screen.getByLabelText('Correo'), 'noexiste@ejemplo.test');
-    await userEvent.type(screen.getByLabelText('Contraseña'), 'loQueSea123');
-    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+    await escribir(screen.getByLabelText('Correo'), 'noexiste@ejemplo.test');
+    await escribir(screen.getByLabelText('Contraseña'), 'loQueSea123');
+    await usuario.click(screen.getByRole('button', { name: 'Entrar' }));
 
     const aviso = await screen.findByRole('alert');
 
@@ -186,8 +212,8 @@ describe('Recuperar', () => {
     const pedirRecuperacion = vi.fn().mockResolvedValue({ ok: true });
     pintar(<Recuperar />, estado({ pedirRecuperacion }));
 
-    await userEvent.type(screen.getByLabelText('Correo'), 'quiensabe@ejemplo.test');
-    await userEvent.click(screen.getByRole('button', { name: 'Enviarme el enlace' }));
+    await escribir(screen.getByLabelText('Correo'), 'quiensabe@ejemplo.test');
+    await usuario.click(screen.getByRole('button', { name: 'Enviarme el enlace' }));
 
     // "Si existe una cuenta" es deliberado: confirmar que un correo esta
     // registrado convertiria esta pantalla en un directorio de usuarios.

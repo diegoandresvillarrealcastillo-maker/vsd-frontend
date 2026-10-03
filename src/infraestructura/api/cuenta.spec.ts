@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ErrorDeLaApi } from './clienteHttp.ts';
-import { consultarLaCuentaPropia, darDeAltaLaCuenta } from './cuenta.ts';
+import { cambiarPreferencias, consultarLaCuentaPropia, darDeAltaLaCuenta } from './cuenta.ts';
 
 /**
  * El alta y la consulta de cuenta, comprobadas sobre la peticion que sale.
@@ -135,5 +135,34 @@ describe('consultarLaCuentaPropia', () => {
     // Es el caso de consultar antes de darse de alta. Se distingue del 401 a
     // proposito: el token es autentico, lo que falta es la cuenta.
     await expect(consultarLaCuentaPropia()).rejects.toMatchObject({ estado: 403 });
+  });
+});
+
+describe('cambiarPreferencias', () => {
+  it('va por PATCH a la ruta de preferencias con solo lo que cambia', async () => {
+    await cambiarPreferencias({ modulosActivos: ['cognicion', 'emociones'] });
+
+    const peticion = peticionEnviada();
+
+    expect(peticion.method).toBe('PATCH');
+    expect(peticion.url).toBe('http://localhost:3000/api/cuenta/preferencias');
+    await expect(peticion.json()).resolves.toEqual({ modulosActivos: ['cognicion', 'emociones'] });
+  });
+
+  it('lleva el token en la cabecera de autorizacion', async () => {
+    await cambiarPreferencias({ nombre: 'Marina' });
+
+    expect(peticionEnviada().headers.get('Authorization')).toBe('Bearer token-de-prueba');
+  });
+
+  it('un modulo que no existe llega con su codigo, para poder explicarlo', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      respuesta({ codigo: 'SIN_MODULOS_ACTIVOS', mensaje: 'x' }, 400),
+    );
+
+    await expect(cambiarPreferencias({ modulosActivos: [] })).rejects.toMatchObject({
+      estado: 400,
+      codigo: 'SIN_MODULOS_ACTIVOS',
+    });
   });
 });
