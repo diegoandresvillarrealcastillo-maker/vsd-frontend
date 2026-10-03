@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
 import { App } from './App.tsx';
-import { RUTAS } from './rutas/rutas.ts';
+import { RUTAS, rutaDeModulo } from './rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from './sesion/SesionContexto.ts';
 
 /**
@@ -154,6 +154,7 @@ describe('Guardas de ruta', () => {
   it.each([
     ['el panel', RUTAS.PANEL],
     ['el perfil', RUTAS.PERFIL],
+    ['el sendero de un modulo', rutaDeModulo('cognicion')],
   ])('manda al acceso a quien pide %s sin sesion', (_nombre, ruta) => {
     pintar(ruta);
 
