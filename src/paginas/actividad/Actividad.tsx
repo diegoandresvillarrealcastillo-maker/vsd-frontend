@@ -160,10 +160,12 @@ function Terminada({
         </p>
       )}
 
+      {/* Las lineas de atencion llegan con SCRUM-94; hasta entonces no se
+          promete un sitio donde no estan. */}
       {resultado.sugiereAcompanamiento && (
         <p className="actividad__apoyo">
-          Si esto se repite y te está pesando, hablar con alguien ayuda. En el panel tienes las
-          líneas de atención.
+          Si esto se repite y te está pesando, contarlo a alguien de confianza ayuda más que
+          aguantarlo en silencio.
         </p>
       )}
 
