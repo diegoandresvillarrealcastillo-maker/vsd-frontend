@@ -17,6 +17,15 @@ export interface Etapa {
   readonly sesionesDeLaEtapa: number;
 }
 
+/**
+ * Cada cuanto toca una actividad: todos los dias, ciertos dias de la semana
+ * (1 es lunes y 7 domingo) o una sola vez.
+ */
+export type Frecuencia =
+  | { readonly tipo: 'diaria' }
+  | { readonly tipo: 'semanal'; readonly dias: readonly number[] }
+  | { readonly tipo: 'unica' };
+
 /** Una actividad que toca hoy. */
 export interface ActividadDeHoy {
   readonly id: string;
@@ -24,6 +33,11 @@ export interface ActividadDeHoy {
   readonly tipo?: string;
   readonly descripcion?: string;
   readonly hecha: boolean;
+  /**
+   * Para la etiqueta del sendero (SCRUM-92). Opcional porque una API anterior
+   * a ese cambio no la manda; sin ella simplemente no se pinta la etiqueta.
+   */
+  readonly frecuencia?: Frecuencia;
 }
 
 /** El progreso de un modulo activo. */

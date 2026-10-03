@@ -23,6 +23,12 @@ export const RUTAS = {
   PERFIL: '/perfil',
 
   /**
+   * El sendero de un modulo (SCRUM-92). Lleva parametro: se usa
+   * `rutaDeModulo`.
+   */
+  MODULO: '/modulo/:modulo',
+
+  /**
    * Una actividad concreta. Lleva parametro, asi que no se navega a esta
    * cadena tal cual: se usa `rutaDeActividad`.
    */
@@ -40,4 +46,9 @@ export type Ruta = (typeof RUTAS)[keyof typeof RUTAS];
  */
 export function rutaDeActividad(id: string): string {
   return RUTAS.ACTIVIDAD.replace(':id', encodeURIComponent(id));
+}
+
+/** La direccion del sendero de un modulo. */
+export function rutaDeModulo(modulo: string): string {
+  return RUTAS.MODULO.replace(':modulo', encodeURIComponent(modulo));
 }

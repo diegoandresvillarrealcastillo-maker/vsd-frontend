@@ -5,6 +5,7 @@ import { SaltoAlContenido } from './componentes/SaltoAlContenido.tsx';
 import { Actividad } from './paginas/actividad/Actividad.tsx';
 import { Panel } from './paginas/panel/Panel.tsx';
 import { Perfil } from './paginas/perfil/Perfil.tsx';
+import { Sendero } from './paginas/sendero/Sendero.tsx';
 import { Acceso } from './paginas/autenticacion/Acceso.tsx';
 import { ContrasenaNueva } from './paginas/autenticacion/ContrasenaNueva.tsx';
 import { Recuperar } from './paginas/autenticacion/Recuperar.tsx';
@@ -104,6 +105,14 @@ export function App() {
             element={
               <RutaProtegida>
                 <Perfil />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path={RUTAS.MODULO}
+            element={
+              <RutaProtegida>
+                <Sendero />
               </RutaProtegida>
             }
           />
