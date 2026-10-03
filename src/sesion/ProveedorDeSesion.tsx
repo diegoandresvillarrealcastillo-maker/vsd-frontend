@@ -72,6 +72,11 @@ const MENSAJES: Readonly<Record<string, string>> = {
   // Estos dos no son culpa de quien esta delante de la pantalla: son
   // configuracion que falta en Supabase. Decirle "el correo o la contrasena no
   // coinciden" la mandaria a revisar algo que esta bien.
+  // El cambio de contrasena desde el perfil (SCRUM-101).
+  same_password: 'La contraseña nueva tiene que ser distinta de la actual.',
+  reauthentication_needed: 'Para cambiar la contraseña primero pide el código de verificación.',
+  reauthentication_not_valid: 'El código no es válido o ya venció. Pide uno nuevo.',
+
   email_provider_disabled: 'El acceso por correo no está habilitado todavía. Avisa al equipo.',
   signup_disabled: 'El registro está cerrado ahora mismo. Avisa al equipo.',
 };
@@ -310,6 +315,42 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     return traducir(error);
   }, []);
 
+  /**
+   * Primer paso del cambio de contrasena desde el perfil: Supabase manda un
+   * codigo al correo de la cuenta. Con "Secure password change" activado en
+   * el proyecto, la contrasena nueva solo se acepta con ese codigo.
+   */
+  const pedirCodigoDeVerificacion = useCallback(async (): Promise<ResultadoDeAcceso> => {
+    const cliente = clienteONulo();
+
+    if (!cliente) {
+      return SIN_CONFIGURAR;
+    }
+
+    const { error } = await cliente.auth.reauthenticate();
+
+    return traducir(error);
+  }, []);
+
+  /**
+   * Segundo paso: la contrasena nueva con el codigo. Va directo a Supabase,
+   * como en el registro: nuestra API nunca la ve.
+   */
+  const cambiarContrasenaConCodigo = useCallback(
+    async (nueva: string, codigo: string): Promise<ResultadoDeAcceso> => {
+      const cliente = clienteONulo();
+
+      if (!cliente) {
+        return SIN_CONFIGURAR;
+      }
+
+      const { error } = await cliente.auth.updateUser({ password: nueva, nonce: codigo.trim() });
+
+      return traducir(error);
+    },
+    [],
+  );
+
   const salir = useCallback(async (): Promise<void> => {
     await clienteONulo()?.auth.signOut();
     olvidarPreferenciaDePestana();
@@ -326,6 +367,8 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
       entrarConGoogle,
       pedirRecuperacion,
       cambiarContrasena,
+      pedirCodigoDeVerificacion,
+      cambiarContrasenaConCodigo,
       salir,
     }),
     [
@@ -336,6 +379,8 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
       entrarConGoogle,
       pedirRecuperacion,
       cambiarContrasena,
+      pedirCodigoDeVerificacion,
+      cambiarContrasenaConCodigo,
       salir,
     ],
   );

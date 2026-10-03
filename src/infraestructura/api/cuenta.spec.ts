@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ErrorDeLaApi } from './clienteHttp.ts';
-import { cambiarPreferencias, consultarLaCuentaPropia, darDeAltaLaCuenta } from './cuenta.ts';
+import {
+  borrarMiCuenta,
+  cambiarPreferencias,
+  consultarLaCuentaPropia,
+  darDeAltaLaCuenta,
+  exportarMisDatos,
+  FRASE_PARA_BORRAR,
+} from './cuenta.ts';
 
 /**
  * El alta y la consulta de cuenta, comprobadas sobre la peticion que sale.
@@ -163,6 +170,45 @@ describe('cambiarPreferencias', () => {
     await expect(cambiarPreferencias({ modulosActivos: [] })).rejects.toMatchObject({
       estado: 400,
       codigo: 'SIN_MODULOS_ACTIVOS',
+    });
+  });
+});
+
+describe('exportarMisDatos', () => {
+  it('va por GET a la ruta de exportacion, con el token', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(respuesta({ cuenta: CUENTA, resultados: [] }));
+
+    await expect(exportarMisDatos()).resolves.toEqual({ cuenta: CUENTA, resultados: [] });
+
+    const peticion = peticionEnviada();
+
+    expect(peticion.method).toBe('GET');
+    expect(peticion.url).toBe('http://localhost:3000/api/cuenta/exportacion');
+    expect(peticion.headers.get('Authorization')).toBe('Bearer token-de-prueba');
+  });
+});
+
+describe('borrarMiCuenta', () => {
+  it('va por DELETE con la frase de confirmacion en el cuerpo', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(new Response(null, { status: 204 }));
+
+    await expect(borrarMiCuenta(FRASE_PARA_BORRAR)).resolves.toBeUndefined();
+
+    const peticion = peticionEnviada();
+
+    expect(peticion.method).toBe('DELETE');
+    expect(peticion.url).toBe('http://localhost:3000/api/cuenta');
+    await expect(peticion.json()).resolves.toEqual({ confirmacion: 'BORRAR MI CUENTA' });
+  });
+
+  it('si el proveedor falla, el codigo llega para poder explicarlo', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      respuesta({ codigo: 'BORRADO_NO_COMPLETADO', mensaje: 'x' }, 503),
+    );
+
+    await expect(borrarMiCuenta(FRASE_PARA_BORRAR)).rejects.toMatchObject({
+      estado: 503,
+      codigo: 'BORRADO_NO_COMPLETADO',
     });
   });
 });

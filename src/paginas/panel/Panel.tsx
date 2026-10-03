@@ -1,15 +1,15 @@
-import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/aplicacion.css';
 import type { Cuenta, Modulo } from '../../infraestructura/api/cuenta.ts';
 import type { ActividadDeHoy, ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
-import { RUTAS, rutaDeActividad } from '../../rutas/rutas.ts';
-import { useSesion } from '../../sesion/useSesion.ts';
+import { rutaDeActividad } from '../../rutas/rutas.ts';
 import { Bienvenida } from './Bienvenida.tsx';
 import { Celebracion } from './Celebracion.tsx';
-import { Icono, type NombreDeIcono } from './Icono.tsx';
+import { BarraSuperior, NavegacionInferior } from './Estructura.tsx';
+import { Icono } from './Icono.tsx';
 import { MODULOS, ORDEN } from './modulos.ts';
 import { useDatosDelPanel } from './useDatosDelPanel.ts';
 
@@ -469,128 +469,5 @@ function Recomendado({
         </>
       )}
     </aside>
-  );
-}
-
-const SECCIONES: readonly { href: string; texto: string; icono: NombreDeIcono }[] = [
-  { href: '#inicio', texto: 'Inicio', icono: 'home' },
-  { href: '#programas', texto: 'Explorar', icono: 'book' },
-  { href: '#progreso', texto: 'Progreso', icono: 'activity' },
-];
-
-function BarraSuperior({ conSecciones }: { conSecciones: boolean }) {
-  return (
-    <header className="app__barra">
-      <div className="app__barra-interior">
-        <Link to={RUTAS.PANEL} className="app__marca" aria-label="VSD-H, inicio">
-          <span className="app__marca-icono">
-            <Icono nombre="sparkles" />
-          </span>
-          <span className="app__marca-texto">VSD-H</span>
-        </Link>
-
-        {conSecciones ? (
-          <nav className="app__nav" aria-label="Secciones">
-            {SECCIONES.map((seccion, indice) => (
-              <a
-                key={seccion.href}
-                className={`app__enlace${indice === 0 ? ' app__enlace--activo' : ''}`}
-                href={seccion.href}
-              >
-                <Icono nombre={seccion.icono} tamano={18} />
-                {seccion.texto}
-              </a>
-            ))}
-          </nav>
-        ) : (
-          // Mantiene la marca a la izquierda y la cuenta a la derecha.
-          <span aria-hidden="true" />
-        )}
-
-        <MenuDeCuenta />
-      </div>
-    </header>
-  );
-}
-
-/**
- * El boton redondo de la derecha. En el diseño abria un perfil que todavia no
- * existe (SCRUM-101); mientras tanto ofrece lo que si existe: ver con que
- * correo se entro, volver a la portada y salir.
- */
-function MenuDeCuenta() {
-  const { correo, salir } = useSesion();
-  const [abierto, setAbierto] = useState(false);
-  const idDelMenu = useId();
-  const contenedor = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!abierto) {
-      return;
-    }
-
-    function alPulsarFuera(evento: MouseEvent) {
-      if (!contenedor.current?.contains(evento.target as Node)) {
-        setAbierto(false);
-      }
-    }
-
-    function alPulsarTecla(evento: KeyboardEvent) {
-      if (evento.key === 'Escape') {
-        setAbierto(false);
-      }
-    }
-
-    document.addEventListener('mousedown', alPulsarFuera);
-    document.addEventListener('keydown', alPulsarTecla);
-
-    return () => {
-      document.removeEventListener('mousedown', alPulsarFuera);
-      document.removeEventListener('keydown', alPulsarTecla);
-    };
-  }, [abierto]);
-
-  return (
-    <div className="app__cuenta" ref={contenedor}>
-      <button
-        type="button"
-        className="app__avatar"
-        aria-label="Abrir el menú de tu cuenta"
-        aria-expanded={abierto}
-        aria-controls={idDelMenu}
-        onClick={() => setAbierto((antes) => !antes)}
-      >
-        <Icono nombre="user" />
-      </button>
-
-      {abierto && (
-        <div id={idDelMenu} className="app__menu">
-          <p className="app__menu-correo">{correo}</p>
-          <Link className="app__menu-opcion" to={RUTAS.INICIO}>
-            Ir a la página principal
-          </Link>
-          <button type="button" className="app__menu-opcion" onClick={() => void salir()}>
-            Cerrar sesión
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function NavegacionInferior() {
-  return (
-    <nav className="app__nav-inferior" aria-label="Secciones">
-      {SECCIONES.map((seccion, indice) => (
-        <a
-          key={seccion.href}
-          className={`app__nav-inferior-enlace${indice === 0 ? ' app__nav-inferior-enlace--activo' : ''}`}
-          href={seccion.href}
-        >
-          <Icono nombre={seccion.icono} tamano={19} />
-          {seccion.texto}
-        </a>
-      ))}
-    </nav>
   );
 }
