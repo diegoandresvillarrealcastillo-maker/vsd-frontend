@@ -251,6 +251,9 @@ describe('Actividad, el nivel', () => {
     pintar(SUENO);
     await terminarLaActividad();
 
-    expect(await screen.findByText(/hablar con alguien ayuda/)).toBeInTheDocument();
+    expect(await screen.findByText(/alguien de confianza ayuda/)).toBeInTheDocument();
+    // Las lineas llegan con SCRUM-94: hasta entonces no se promete un sitio
+    // donde no estan.
+    expect(screen.queryByText(/En el panel tienes/)).not.toBeInTheDocument();
   });
 });

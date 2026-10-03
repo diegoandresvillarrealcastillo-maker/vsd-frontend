@@ -257,6 +257,36 @@ describe('Sendero', () => {
     });
   });
 
+  describe('la mascota (SCRUM-99)', () => {
+    function expresion(): string | undefined {
+      return document.querySelector<HTMLElement>('.mascota')?.dataset.expresion;
+    }
+
+    it('acompaña en el sendero, y celebra cuando lo de hoy esta hecho', async () => {
+      darDeAltaLaCuenta.mockResolvedValue({
+        ...CUENTA,
+        mascota: { forma: 'trama', nombre: 'Hilo' },
+      });
+      conProgreso({
+        sesiones: 4,
+        hoy: BIENESTAR.hoy.map((actividad) => ({ ...actividad, hecha: true })),
+      });
+
+      pintar();
+
+      expect(await screen.findByRole('button', { name: 'Hilo, tu mascota' })).toBeInTheDocument();
+      expect(expresion()).toBe('celebrando');
+    });
+
+    it('con lo de hoy a medias no celebra', async () => {
+      pintar();
+
+      await screen.findByRole('button', { name: 'Fungito, tu mascota' });
+
+      expect(expresion()).not.toBe('celebrando');
+    });
+  });
+
   describe('lo que no sale bien', () => {
     it('un modulo que no tiene activo lo dice y lleva al panel', async () => {
       consultarElProgreso.mockResolvedValue([{ ...BIENESTAR, modulo: 'cognicion' }]);

@@ -5,6 +5,7 @@ import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/aplicacion.css';
 import type { Cuenta, Modulo } from '../../infraestructura/api/cuenta.ts';
 import type { ActividadDeHoy, ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
+import { MascotaFlotante } from '../../mascota/MascotaFlotante.tsx';
 import { rutaDeActividad, rutaDeModulo } from '../../rutas/rutas.ts';
 import { Bienvenida } from './Bienvenida.tsx';
 import { Celebracion } from './Celebracion.tsx';
@@ -22,9 +23,12 @@ import { useDatosDelPanel } from './useDatosDelPanel.ts';
  * usa el nombre de la cuenta, el avance de hoy y el de cada modulo salen de
  * `GET /api/progreso`, y el plan diario es lo que el servidor dice que toca.
  *
+ * La mascota flota sobre el dashboard (SCRUM-99) y celebra cuando el plan del
+ * dia queda completo o se desbloquea un modulo.
+ *
  * Lo que el diseño trae y aqui todavia no esta:
  * - El semaforo de pendientes va flotante, en su propio ticket (SCRUM-98).
- * - La mascota y VSD IA, tambien flotantes (SCRUM-99 y SCRUM-100).
+ * - VSD IA, que se abre desde la mascota (SCRUM-100).
  * - La etiqueta "Vista de prueba", que era del prototipo.
  */
 
@@ -133,6 +137,7 @@ function Dashboard({
   );
   const hechas = deHoy.filter(({ actividad }) => actividad.hecha).length;
   const siguiente = deHoy.find(({ actividad }) => !actividad.hecha);
+  const planCompleto = deHoy.length > 0 && hechas === deHoy.length;
 
   return (
     <>
@@ -208,6 +213,8 @@ function Dashboard({
           alCerrar={() => setCelebracion(null)}
         />
       )}
+
+      <MascotaFlotante mascota={cuenta.mascota} celebrar={planCompleto || celebracion !== null} />
     </>
   );
 }

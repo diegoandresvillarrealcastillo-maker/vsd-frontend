@@ -12,6 +12,14 @@ import {
   type Cuenta,
   type Modulo,
 } from '../../infraestructura/api/cuenta.ts';
+import { MascotaFlotante } from '../../mascota/MascotaFlotante.tsx';
+import {
+  mascotaParaMostrar,
+  PERSONAJES,
+  PERSONAJES_EN_ORDEN,
+  type Personaje,
+} from '../../mascota/personajes.ts';
+import { sprite } from '../../mascota/sprites.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { BarraSuperior } from '../panel/Estructura.tsx';
@@ -27,10 +35,9 @@ import { usePerfil } from './usePerfil.ts';
  *   en Supabase.
  * - La contrasena se cambia con un codigo que llega al correo. Va directo a
  *   Supabase y nunca pasa por nuestra API.
+ * - La mascota se elige entre los seis personajes y se le pone nombre
+ *   (SCRUM-99).
  * - Los datos se descargan y la cuenta se borra (SCRUM-75).
- *
- * La personalizacion de la mascota llega con la mascota (SCRUM-99), en esta
- * misma pantalla.
  */
 export function Perfil() {
   const { estado, reintentar, guardar } = usePerfil();
@@ -71,10 +78,12 @@ export function Perfil() {
           <>
             <Nombre cuenta={estado.cuenta} guardar={guardar} />
             <Modulos cuenta={estado.cuenta} guardar={guardar} />
+            <TuMascota cuenta={estado.cuenta} guardar={guardar} />
             <Correo correo={estado.cuenta.correo} />
             <Contrasena correo={estado.cuenta.correo} />
             <TusDatos />
             <BorrarCuenta />
+            <MascotaFlotante mascota={estado.cuenta.mascota} />
           </>
         )}
       </main>
@@ -276,6 +285,141 @@ function Modulos({
       >
         {ocupado ? 'Guardando…' : 'Guardar módulos'}
       </button>
+      <MensajeDeAviso aviso={aviso} />
+    </Apartado>
+  );
+}
+
+const LARGO_MAXIMO_DEL_NOMBRE_DE_LA_MASCOTA = 30;
+
+/**
+ * Elegir el personaje y su nombre.
+ *
+ * Cada personaje llega con su propio nombre. Si la persona no lo ha cambiado,
+ * al elegir otro personaje el nombre cambia con el; si ya le puso uno suyo, se
+ * respeta.
+ */
+function TuMascota({
+  cuenta,
+  guardar,
+}: {
+  cuenta: Cuenta;
+  guardar: (cambios: CambiosDePreferencias) => Promise<void>;
+}) {
+  const actual = mascotaParaMostrar(cuenta.mascota);
+  const [personaje, setPersonaje] = useState<Personaje>(actual.personaje);
+  const [nombre, setNombre] = useState(actual.nombre);
+  const [ocupado, setOcupado] = useState(false);
+  const [aviso, setAviso] = useState<Aviso>(null);
+  const grupo = useId();
+  const idDelNombre = useId();
+
+  // Sin mascota guardada todavia, guardar la de siempre tambien es un cambio.
+  const cambio =
+    cuenta.mascota === null || personaje !== actual.personaje || nombre.trim() !== actual.nombre;
+
+  function elegir(nuevo: Personaje) {
+    setAviso(null);
+
+    if (nombre.trim() === '' || nombre.trim() === PERSONAJES[personaje].nombre) {
+      setNombre(PERSONAJES[nuevo].nombre);
+    }
+
+    setPersonaje(nuevo);
+  }
+
+  async function alGuardar(evento: FormEvent) {
+    evento.preventDefault();
+
+    const limpio = nombre.trim();
+
+    if (limpio === '') {
+      setAviso({ tipo: 'fallo', texto: 'Ponle un nombre a tu mascota.' });
+      return;
+    }
+
+    setOcupado(true);
+    setAviso(null);
+
+    try {
+      await guardar({ mascota: { forma: personaje, nombre: limpio } });
+      setNombre(limpio);
+      setAviso({ tipo: 'bien', texto: `Listo, ${limpio} te acompaña.` });
+    } catch (error) {
+      setAviso({
+        tipo: 'fallo',
+        texto:
+          error instanceof ErrorDeLaApi && error.codigo === 'MASCOTA_INVALIDA'
+            ? `Ese nombre no se puede guardar: usa entre 1 y ${LARGO_MAXIMO_DEL_NOMBRE_DE_LA_MASCOTA} caracteres, sin saltos de línea.`
+            : SIN_CONEXION,
+      });
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  return (
+    <Apartado
+      titulo="Tu mascota"
+      ayuda="Te acompaña flotando por la aplicación. Elige quién es y cómo se llama."
+    >
+      <form
+        className="perfil__formulario perfil__mascota"
+        onSubmit={(evento) => void alGuardar(evento)}
+        noValidate
+      >
+        <fieldset className="perfil__personajes">
+          <legend className="solo-lectores">Personaje</legend>
+          {PERSONAJES_EN_ORDEN.map((id) => (
+            <label
+              key={id}
+              className={`perfil__personaje${id === personaje ? ' perfil__personaje--elegido' : ''}`}
+            >
+              <input
+                type="radio"
+                name={grupo}
+                value={id}
+                checked={id === personaje}
+                onChange={() => elegir(id)}
+                className="solo-lectores"
+              />
+              <img
+                className="perfil__personaje-dibujo"
+                src={sprite(id, 'normal')}
+                alt=""
+                width={72}
+                height={72}
+                loading="lazy"
+              />
+              <span className="perfil__personaje-nombre">{PERSONAJES[id].nombre}</span>
+              <span className="perfil__personaje-rasgo">{PERSONAJES[id].rasgo}</span>
+            </label>
+          ))}
+        </fieldset>
+
+        <p className="app__nota perfil__ayuda">{PERSONAJES[personaje].presentacion}</p>
+
+        <div className="bienvenida__campo">
+          <label htmlFor={idDelNombre} className="bienvenida__etiqueta">
+            Cómo se llama
+          </label>
+          <input
+            id={idDelNombre}
+            className="bienvenida__entrada"
+            value={nombre}
+            onChange={(evento) => {
+              setAviso(null);
+              setNombre(evento.target.value);
+            }}
+            maxLength={LARGO_MAXIMO_DEL_NOMBRE_DE_LA_MASCOTA}
+            autoComplete="off"
+          />
+        </div>
+
+        <button type="submit" className="app__boton perfil__accion" disabled={ocupado || !cambio}>
+          {ocupado ? 'Guardando…' : 'Guardar mascota'}
+        </button>
+      </form>
       <MensajeDeAviso aviso={aviso} />
     </Apartado>
   );

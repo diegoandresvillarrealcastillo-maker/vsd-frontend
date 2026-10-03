@@ -117,6 +117,77 @@
   outline-offset: 2px;
 }
 
+/* ---------- Preguntas con opciones (SCRUM-93) ---------- */
+
+.actividad__indicacion {
+  margin: 0;
+}
+
+.actividad__pregunta {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.actividad__pregunta legend {
+  margin-bottom: 10px;
+  padding: 0;
+  color: var(--texto);
+  font-size: 0.9375rem;
+}
+
+.actividad__opciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Cada opcion es una pildora con su radio o casilla dentro: se pulsa en
+   todo el rectangulo, y con teclado funciona como un control nativo. */
+.actividad__opcion {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  color: var(--texto);
+  background: var(--fondo-sutil);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-pildora);
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition:
+    border-color var(--rapido) var(--curva),
+    background var(--rapido) var(--curva);
+}
+
+.actividad__opcion:hover {
+  border-color: var(--texto-tenue);
+}
+
+.actividad__opcion--elegida {
+  border-color: var(--texto);
+}
+
+.actividad__opcion input {
+  margin: 0;
+  accent-color: var(--texto);
+}
+
+.actividad__opcion:has(input:focus-visible) {
+  outline: 2px solid var(--texto);
+  outline-offset: 2px;
+}
+
+/* El token del tema y no un color fijo: cambia con el tema claro y oscuro y
+   mantiene el contraste en los dos. */
+.actividad__falta {
+  margin: 0;
+  color: var(--error);
+  font-size: 0.9375rem;
+}
+
 /* ---------- Al terminar ---------- */
 
 /* El nivel se ve, pero sin gritar. Un resultado sobre el propio
