@@ -102,7 +102,8 @@
 }
 
 .actividad__campo input,
-.actividad__campo select {
+.actividad__campo select,
+.actividad__campo textarea {
   padding: 10px 12px;
   color: var(--texto);
   background: var(--fondo-sutil);
@@ -112,9 +113,20 @@
 }
 
 .actividad__campo input:focus-visible,
-.actividad__campo select:focus-visible {
+.actividad__campo select:focus-visible,
+.actividad__campo textarea:focus-visible {
   outline: 2px solid var(--texto);
   outline-offset: 2px;
+}
+
+/* Solo crece hacia abajo: estirarlo a lo ancho rompe la columna a 320 px. */
+.actividad__texto-libre {
+  min-height: 6.5rem;
+  resize: vertical;
+}
+
+.actividad__texto-libre::placeholder {
+  color: var(--texto-tenue);
 }
 
 /* ---------- Preguntas con opciones (SCRUM-93) ---------- */
@@ -218,6 +230,74 @@
   margin: 0 0 20px;
   color: var(--texto-tenue);
   font-size: 0.9375rem;
+}
+
+/* ---------- Lineas de atencion (SCRUM-94) ----------
+   Se ofrecen sin alarma: los mismos tonos neutros que el resto de la
+   pantalla, sin rojo y sin iconos de aviso. Un telefono apuntado por
+   si hace falta, no un cartel de emergencia. */
+
+.actividad__lineas {
+  margin: 0 0 24px;
+}
+
+.actividad__lineas-titulo {
+  margin: 0 0 8px;
+  color: var(--texto);
+  font-size: 1.0625rem;
+}
+
+.actividad__lista-de-lineas {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.actividad__linea {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  background: var(--fondo-sutil);
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+}
+
+.actividad__linea-titulo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  margin: 0;
+  color: var(--texto);
+}
+
+.actividad__linea-cobertura {
+  padding: 2px 10px;
+  color: var(--texto-tenue);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-pildora);
+  font-size: 0.8125rem;
+}
+
+.actividad__linea-descripcion {
+  margin: 0;
+  color: var(--texto-tenue);
+  font-size: 0.9375rem;
+}
+
+.actividad__linea-enlace {
+  justify-self: start;
+  color: var(--texto);
+  font-size: 0.9375rem;
+  text-underline-offset: 3px;
+}
+
+.actividad__linea-enlace:focus-visible {
+  outline: 2px solid var(--texto);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .actividad__pendiente {

@@ -6,6 +6,7 @@ import '../../estilos/actividad.css';
 import type { ResultadoRegistrado } from '../../infraestructura/api/resultados.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
+import { LineasDeAtencion } from './LineasDeAtencion.tsx';
 import { mecanicaDe } from './mecanicas/registro.tsx';
 import { useCompletarActividad, type LoQueProduceLaActividad } from './useCompletarActividad.ts';
 
@@ -160,14 +161,9 @@ function Terminada({
         </p>
       )}
 
-      {/* Las lineas de atencion llegan con SCRUM-94; hasta entonces no se
-          promete un sitio donde no estan. */}
-      {resultado.sugiereAcompanamiento && (
-        <p className="actividad__apoyo">
-          Si esto se repite y te está pesando, contarlo a alguien de confianza ayuda más que
-          aguantarlo en silencio.
-        </p>
-      )}
+      {/* Lo decide el servidor, por el nivel o por una senal en el texto
+          libre. Aqui solo se ensena lo que dice. */}
+      {resultado.sugiereAcompanamiento && <LineasDeAtencion lineas={resultado.lineasDeAtencion} />}
 
       <div className="actividad__acciones">
         <button type="button" className="pildora pildora--fantasma" onClick={alRepetir}>
