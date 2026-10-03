@@ -25,6 +25,8 @@ function estado(parcial: Partial<EstadoDeSesion> = {}): EstadoDeSesion {
     entrarConGoogle: vacio,
     pedirRecuperacion: vacio,
     cambiarContrasena: vacio,
+    pedirCodigoDeVerificacion: vacio,
+    cambiarContrasenaConCodigo: vacio,
     salir: vi.fn(),
     ...parcial,
   };
@@ -133,6 +135,8 @@ describe('Volver a la portada', () => {
       'href',
       RUTAS.INICIO,
     );
+    // Y el perfil, desde SCRUM-101.
+    expect(screen.getByRole('link', { name: 'Tu perfil' })).toHaveAttribute('href', RUTAS.PERFIL);
   });
 
   it('a quien ya entró no se le ofrece crear cuenta, se le dice que sigue dentro', () => {
@@ -147,8 +151,11 @@ describe('Volver a la portada', () => {
 });
 
 describe('Guardas de ruta', () => {
-  it('manda al acceso a quien pide el panel sin sesion', () => {
-    pintar(RUTAS.PANEL);
+  it.each([
+    ['el panel', RUTAS.PANEL],
+    ['el perfil', RUTAS.PERFIL],
+  ])('manda al acceso a quien pide %s sin sesion', (_nombre, ruta) => {
+    pintar(ruta);
 
     expect(screen.getByRole('heading', { name: 'Hola de nuevo' })).toBeInTheDocument();
   });

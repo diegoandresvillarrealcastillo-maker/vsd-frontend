@@ -47,6 +47,8 @@ function estadoDeSesion(): EstadoDeSesion {
     entrarConGoogle: vacio,
     pedirRecuperacion: vacio,
     cambiarContrasena: vacio,
+    pedirCodigoDeVerificacion: vacio,
+    cambiarContrasenaConCodigo: vacio,
     salir: vacio,
   };
 }
