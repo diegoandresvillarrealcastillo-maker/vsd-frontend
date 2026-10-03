@@ -2,6 +2,9 @@ import type { ReactElement } from 'react';
 
 import type { LoQueProduceLaActividad } from '../useCompletarActividad.ts';
 import { ComoDormisteAnoche } from './ComoDormisteAnoche.tsx';
+import { EncuentraLaDiferencia } from './EncuentraLaDiferencia.tsx';
+import { ParejasDeCartas } from './ParejasDeCartas.tsx';
+import { SecuenciaDeNumeros } from './SecuenciaDeNumeros.tsx';
 
 /**
  * Que pantalla corresponde a cada actividad.
@@ -35,10 +38,10 @@ import { ComoDormisteAnoche } from './ComoDormisteAnoche.tsx';
  * Las que faltan
  * ---------------------------------------------------------------------------
  *
- * Las ocho restantes llegan con sus modulos: Cognicion es SCRUM-84, y despues
- * Bienestar y Emociones. Hasta entonces, la pantalla dice que todavia no esta
- * disponible en lugar de fingir que si. Prometer una actividad que no se puede
- * hacer es peor que decir que falta.
+ * Cognicion esta completo desde SCRUM-84. Las que faltan llegan con sus
+ * modulos: Bienestar con SCRUM-93 y Emociones con SCRUM-94. Hasta entonces, la
+ * pantalla dice que todavia no esta disponible en lugar de fingir que si.
+ * Prometer una actividad que no se puede hacer es peor que decir que falta.
  */
 export interface PropsDeMecanica {
   readonly alTerminar: (produjo: LoQueProduceLaActividad) => void;
@@ -48,6 +51,14 @@ export interface PropsDeMecanica {
 type Mecanica = (props: PropsDeMecanica) => ReactElement;
 
 const MECANICAS: Readonly<Record<string, Mecanica>> = {
+  // Cognicion
+  // Parejas de cartas
+  '0acd0000-0000-4000-8000-000000000001': (props) => <ParejasDeCartas {...props} />,
+  // Secuencia de numeros
+  '0acd0000-0000-4000-8000-000000000002': (props) => <SecuenciaDeNumeros {...props} />,
+  // Encuentra la diferencia
+  '0acd0000-0000-4000-8000-000000000003': (props) => <EncuentraLaDiferencia {...props} />,
+
   // Como dormiste anoche
   '0acd0000-0000-4000-8000-000000000004': (props) => <ComoDormisteAnoche {...props} />,
 };
