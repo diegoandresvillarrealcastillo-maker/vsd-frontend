@@ -173,6 +173,90 @@ describe('Perfil', () => {
     });
   });
 
+  describe('la mascota (SCRUM-99)', () => {
+    it('ofrece los seis personajes; sin mascota guardada, Fungito', async () => {
+      pintar();
+
+      const seccion = await screen.findByRole('region', { name: 'Tu mascota' });
+
+      expect(within(seccion).getAllByRole('radio')).toHaveLength(6);
+      expect(within(seccion).getByRole('radio', { name: /Fungito/ })).toBeChecked();
+      expect(within(seccion).getByRole('textbox', { name: 'Cómo se llama' })).toHaveValue(
+        'Fungito',
+      );
+      // Sin mascota guardada todavia, guardar la de siempre tambien cuenta.
+      expect(within(seccion).getByRole('button', { name: 'Guardar mascota' })).toBeEnabled();
+    });
+
+    it('al elegir otro personaje, el nombre cambia con el y se guarda', async () => {
+      cambiarPreferencias.mockResolvedValue({
+        ...CUENTA,
+        mascota: { forma: 'sparky', nombre: 'Sparky' },
+      });
+
+      pintar();
+
+      const seccion = await screen.findByRole('region', { name: 'Tu mascota' });
+
+      await usuario.click(within(seccion).getByRole('radio', { name: /Sparky/ }));
+
+      expect(within(seccion).getByRole('textbox', { name: 'Cómo se llama' })).toHaveValue('Sparky');
+
+      await usuario.click(within(seccion).getByRole('button', { name: 'Guardar mascota' }));
+
+      expect(cambiarPreferencias).toHaveBeenCalledWith({
+        mascota: { forma: 'sparky', nombre: 'Sparky' },
+      });
+      expect(within(seccion).getByRole('status')).toHaveTextContent('Sparky te acompaña');
+      // La que flota cambia sin recargar.
+      expect(screen.getByRole('button', { name: 'Sparky, tu mascota' })).toBeInTheDocument();
+    });
+
+    it('un nombre propio se respeta al cambiar de personaje', async () => {
+      darDeAltaLaCuenta.mockResolvedValue({
+        ...CUENTA,
+        mascota: { forma: 'ori', nombre: 'Papelito' },
+      });
+
+      pintar();
+
+      const seccion = await screen.findByRole('region', { name: 'Tu mascota' });
+
+      expect(within(seccion).getByRole('radio', { name: /Ori/ })).toBeChecked();
+      // Ya guardada y sin cambios: no hay nada que guardar.
+      expect(within(seccion).getByRole('button', { name: 'Guardar mascota' })).toBeDisabled();
+
+      await usuario.click(within(seccion).getByRole('radio', { name: /Trama/ }));
+
+      expect(within(seccion).getByRole('textbox', { name: 'Cómo se llama' })).toHaveValue(
+        'Papelito',
+      );
+    });
+
+    it('sin nombre no se guarda, y un nombre invalido se explica', async () => {
+      cambiarPreferencias.mockRejectedValue(
+        new ErrorDeLaApi(400, 'da igual', undefined, 'MASCOTA_INVALIDA'),
+      );
+
+      pintar();
+
+      const seccion = await screen.findByRole('region', { name: 'Tu mascota' });
+      const campo = within(seccion).getByRole('textbox', { name: 'Cómo se llama' });
+      const guardarMascota = within(seccion).getByRole('button', { name: 'Guardar mascota' });
+
+      await usuario.clear(campo);
+      await usuario.click(guardarMascota);
+
+      expect(cambiarPreferencias).not.toHaveBeenCalled();
+      expect(within(seccion).getByRole('alert')).toHaveTextContent('Ponle un nombre');
+
+      await usuario.type(campo, 'Luz');
+      await usuario.click(guardarMascota);
+
+      expect(within(seccion).getByRole('alert')).toHaveTextContent('entre 1 y 30 caracteres');
+    });
+  });
+
   it('el correo se muestra y no hay forma de editarlo', async () => {
     pintar();
 

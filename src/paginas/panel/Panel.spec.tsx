@@ -97,7 +97,7 @@ function pintar(sesion: Partial<EstadoDeSesion> = {}) {
 }
 
 function tarjeta(nombre: RegExp) {
-  return screen.getByRole('button', { name: nombre });
+  return screen.getByRole('link', { name: nombre });
 }
 
 beforeEach(() => {
@@ -246,6 +246,34 @@ describe('Dashboard', () => {
       expect(within(recomendado).getByRole('link', { name: /Comenzar/ })).toBeInTheDocument();
     });
 
+    it('la mascota acompaña en el dashboard y no celebra con el plan a medias', async () => {
+      darDeAltaLaCuenta.mockResolvedValue({
+        ...CUENTA,
+        mascota: { forma: 'gato', nombre: 'Bigotes' },
+      });
+
+      pintar();
+
+      expect(
+        await screen.findByRole('button', { name: 'Bigotes, tu mascota' }),
+      ).toBeInTheDocument();
+      expect(document.querySelector<HTMLElement>('.mascota')?.dataset.expresion).not.toBe(
+        'celebrando',
+      );
+    });
+
+    it('con el plan del dia completo, la mascota celebra', async () => {
+      consultarElProgreso.mockResolvedValue(
+        PROGRESO.map((uno) => ({ ...uno, hoy: uno.hoy.map((a) => ({ ...a, hecha: true })) })),
+      );
+
+      pintar();
+
+      await screen.findByRole('button', { name: 'Fungito, tu mascota' });
+
+      expect(document.querySelector<HTMLElement>('.mascota')?.dataset.expresion).toBe('celebrando');
+    });
+
     it('con todo hecho, lo celebra en lugar de recomendar mas', async () => {
       consultarElProgreso.mockResolvedValue(
         PROGRESO.map((uno) => ({ ...uno, hoy: uno.hoy.map((a) => ({ ...a, hecha: true })) })),
@@ -353,23 +381,18 @@ describe('Dashboard', () => {
   });
 
   describe('lo que se puede hacer', () => {
-    it('elegir un modulo filtra el plan, y volver a pulsarlo lo quita', async () => {
+    it('cada modulo activo lleva a su sendero (SCRUM-92)', async () => {
       pintar();
 
       await screen.findByRole('heading', { name: 'Tu plan diario' });
-      await userEvent.click(tarjeta(/Cognición/));
 
-      // Solo dentro del plan: la tarjeta "Recomendado" sigue sugiriendo lo
-      // siguiente de cualquier modulo, y eso es correcto.
-      const plan = () => screen.getByRole('list');
-
-      expect(tarjeta(/Cognición/)).toHaveAttribute('aria-pressed', 'true');
-      expect(within(plan()).queryByText('Cómo dormiste anoche')).not.toBeInTheDocument();
-      expect(within(plan()).getByText('Parejas')).toBeInTheDocument();
-
-      await userEvent.click(tarjeta(/Cognición/));
-
-      expect(within(plan()).getByText('Cómo dormiste anoche')).toBeInTheDocument();
+      expect(tarjeta(/Cognición/)).toHaveAttribute('href', '/modulo/cognicion');
+      expect(tarjeta(/Bienestar/)).toHaveAttribute('href', '/modulo/bienestar');
+      // El plan diario sigue mostrando lo de todos los modulos.
+      expect(within(screen.getByRole('list')).getByText('Parejas')).toBeInTheDocument();
+      expect(
+        within(screen.getByRole('list')).getByText('Cómo dormiste anoche'),
+      ).toBeInTheDocument();
     });
 
     it('añadir un modulo lo activa y lo pinta sin recargar', async () => {
@@ -397,7 +420,7 @@ describe('Dashboard', () => {
       expect(cambiarPreferencias).toHaveBeenCalledWith({
         modulosActivos: ['cognicion', 'bienestar', 'emociones'],
       });
-      expect(await screen.findByRole('button', { name: /Emociones/ })).toHaveTextContent(
+      expect(await screen.findByRole('link', { name: /Emociones/ })).toHaveTextContent(
         'Etapa 1 · 0 de 5 sesiones',
       );
       expect(screen.queryByRole('button', { name: /Añadir Emociones/ })).not.toBeInTheDocument();

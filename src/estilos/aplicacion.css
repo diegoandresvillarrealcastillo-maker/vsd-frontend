@@ -374,6 +374,7 @@
   color: var(--app-tinta);
   font: inherit;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
   transition:
     transform 0.2s,
@@ -384,11 +385,6 @@
 .tarjeta-modulo:hover {
   transform: translateY(-3px);
   box-shadow: 0 18px 40px rgb(0 0 0 / 0.2);
-}
-
-.tarjeta-modulo--elegida {
-  border-color: var(--modulo-acento);
-  box-shadow: 0 14px 34px rgb(0 0 0 / 0.16);
 }
 
 .tarjeta-modulo--por-activar {
@@ -1034,6 +1030,68 @@
   cursor: not-allowed;
 }
 
+.perfil__mascota {
+  max-width: none;
+}
+
+/* Seis personajes: tres por fila en el movil y los seis en fila desde 768 px,
+   para que ninguno quede solo en una fila. */
+.perfil__personajes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.perfil__personaje {
+  display: grid;
+  justify-items: center;
+  gap: 0.125rem;
+  padding: 0.75rem 0.5rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 18px;
+  background: var(--app-lienzo);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background 0.18s,
+    border-color 0.18s;
+}
+
+.perfil__personaje:hover {
+  border-color: var(--app-tenue);
+}
+
+.perfil__personaje--elegido {
+  border-color: var(--app-salvia);
+  background: var(--app-superficie-alta);
+}
+
+/* El radio esta oculto: el foco se ve en la tarjeta. */
+.perfil__personaje:has(input:focus-visible) {
+  outline: 2px solid var(--app-salvia);
+  outline-offset: 3px;
+}
+
+.perfil__personaje-dibujo {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 0.25rem;
+}
+
+.perfil__personaje-nombre {
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.perfil__personaje-rasgo {
+  color: var(--app-tenue);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
 .perfil__bien,
 .perfil__fallo {
   margin: 0;
@@ -1046,6 +1104,508 @@
 
 .perfil__fallo {
   color: var(--app-emociones-acento);
+}
+
+/* ---------- Sendero de un modulo (SCRUM-92) ---------- */
+
+.sendero {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 40rem;
+}
+
+.sendero__cuerpo {
+  display: grid;
+  gap: 1rem;
+}
+
+.sendero__cabecera {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.sendero__cabecera .tarjeta-modulo__icono {
+  flex-shrink: 0;
+  background: var(--modulo-fondo);
+}
+
+.sendero__anteriores {
+  border-radius: 18px;
+  background: var(--modulo-fondo);
+}
+
+.sendero__anteriores summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3.5rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: 18px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.sendero__anteriores summary::-webkit-details-marker {
+  display: none;
+}
+
+.sendero__anteriores strong {
+  display: block;
+  font-size: 0.875rem;
+}
+
+.sendero__resumen {
+  display: block;
+  color: var(--app-tenue);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.sendero__sello {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background: var(--modulo-acento);
+  color: var(--app-lienzo);
+}
+
+.sendero__chevron {
+  display: inline-grid;
+  margin-left: auto;
+  color: var(--app-tenue);
+  transition: transform 0.2s;
+}
+
+.sendero__anteriores[open] .sendero__chevron {
+  transform: rotate(90deg);
+}
+
+.sendero__lista-anteriores {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0 1rem 1rem 3.625rem;
+  color: var(--app-tenue);
+  font-size: 0.8125rem;
+  list-style: none;
+}
+
+.sendero__lista-anteriores li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sendero__lista-anteriores svg {
+  color: var(--modulo-acento);
+}
+
+.sendero__etapa {
+  display: grid;
+  padding: 1.25rem;
+  border-radius: 24px;
+}
+
+.sendero__etapa-cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.sendero__ceja {
+  margin-bottom: 0.25rem;
+  color: var(--modulo-acento);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.sendero__explicacion {
+  margin-top: 0.5rem;
+}
+
+.sendero__tramo {
+  position: relative;
+  margin-top: 1rem;
+}
+
+/* El SVG mide un pixel de ancho y se dibuja desde el centro: cada punto se
+   desplaza `--x` desde ahi, y la traza usa esas mismas cifras. */
+.sendero__traza {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.sendero__traza path {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.sendero__tramo--hecho {
+  stroke: var(--modulo-acento);
+  stroke-width: 6;
+}
+
+.sendero__tramo--pendiente {
+  stroke: var(--app-borde);
+  stroke-width: 4;
+  stroke-dasharray: 2 11;
+}
+
+.sendero__puntos {
+  position: relative;
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Las alturas tienen que coincidir con ALTO_DE_FILA y ALTO_DE_FILA_DE_HOY de
+   Sendero.tsx, que es con lo que se dibuja la traza. */
+.sendero__fila {
+  display: grid;
+  place-items: center;
+  height: 96px;
+}
+
+/* Se desplaza el punto y no la fila: una fila desplazada se saldria de la
+   pantalla por un lado y daria desplazamiento horizontal en el movil. */
+.sendero__fila > * {
+  transform: translateX(var(--x, 0px));
+}
+
+.sendero__fila--hoy {
+  height: 132px;
+}
+
+.sendero__envoltura {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.sendero__punto {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  border: 2px solid var(--app-borde);
+  border-radius: 9999px;
+  background: var(--app-superficie);
+  color: var(--app-tenue);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  box-shadow: 0 5px 0 var(--app-borde);
+}
+
+.sendero__punto--hecho {
+  border-color: var(--modulo-acento);
+  background: var(--modulo-acento);
+  color: var(--app-lienzo);
+  box-shadow: 0 5px 0 color-mix(in srgb, var(--modulo-acento) 55%, black);
+}
+
+.sendero__punto--futuro {
+  border-style: dashed;
+  background: var(--app-lienzo);
+  box-shadow: none;
+}
+
+.sendero__punto--meta {
+  width: 70px;
+  height: 70px;
+  border-width: 3px;
+}
+
+.sendero__punto--meta.sendero__punto--hecho {
+  background: var(--app-superficie);
+  color: var(--modulo-acento);
+}
+
+.sendero__punto--hoy {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  border-color: var(--modulo-acento);
+  background: var(--modulo-fondo);
+  color: var(--modulo-acento);
+  cursor: pointer;
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
+}
+
+.sendero__punto--hoy:active {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 var(--app-borde);
+}
+
+.sendero__punto--completo {
+  background: var(--modulo-acento);
+  color: var(--app-lienzo);
+  box-shadow: 0 5px 0 color-mix(in srgb, var(--modulo-acento) 55%, black);
+}
+
+/* Mientras hoy no cuente, el punto respira para invitar a pulsarlo. */
+.sendero__punto--respira::after {
+  position: absolute;
+  inset: -12px;
+  border: 3px solid var(--modulo-acento);
+  border-radius: 9999px;
+  content: '';
+  opacity: 0.3;
+  pointer-events: none;
+  animation: sendero-respiro 2.6s ease-in-out infinite;
+}
+
+@keyframes sendero-respiro {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.96);
+  }
+
+  50% {
+    opacity: 0.08;
+    transform: scale(1.08);
+  }
+}
+
+.sendero__anillo {
+  position: absolute;
+  inset: -12px;
+  width: calc(100% + 24px);
+  height: calc(100% + 24px);
+  pointer-events: none;
+  transform: rotate(-90deg);
+}
+
+.sendero__anillo circle {
+  fill: none;
+  stroke-width: 5;
+}
+
+.sendero__anillo-fondo {
+  stroke: var(--app-borde);
+}
+
+.sendero__anillo-avance {
+  stroke: var(--modulo-acento);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.4s;
+}
+
+.sendero__etiqueta {
+  position: absolute;
+  top: calc(100% + 16px);
+  color: var(--app-tinta);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.sendero__ver-hoy {
+  justify-self: start;
+  margin-top: 1rem;
+}
+
+.sendero__bloqueada {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px dashed var(--app-borde);
+  border-radius: 18px;
+  color: var(--app-tenue);
+}
+
+.sendero__candado {
+  display: inline-grid;
+  flex-shrink: 0;
+}
+
+.sendero__bloqueada-titulo {
+  color: var(--app-tinta);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.sendero__bloqueada-texto {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* ---------- Lo de hoy, al pulsar el punto de hoy ---------- */
+
+.hoja {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: grid;
+  align-items: end;
+  background: rgb(0 0 0 / 0.55);
+}
+
+.hoja__caja {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 1.5rem 1.25rem 1.25rem;
+  border: 1px solid var(--app-borde);
+  border-bottom: 0;
+  border-radius: 28px 28px 0 0;
+  background: var(--app-superficie);
+  box-shadow: 0 -12px 60px rgb(0 0 0 / 0.4);
+}
+
+.hoja__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.hoja__modulo {
+  margin: 0;
+  color: var(--modulo-acento);
+}
+
+.hoja__frecuencia {
+  display: inline-block;
+  margin-right: 0.5rem;
+  padding: 0.0625rem 0.5rem;
+  border-radius: 9999px;
+  background: var(--modulo-fondo);
+  color: var(--modulo-acento);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.hoja__cerrar {
+  justify-self: stretch;
+}
+
+/* ---------- Mascota flotante (SCRUM-99) ---------- */
+
+/* Ocupa toda la ventana pero no recibe toques: solo la mascota y su globo. Por
+   debajo de los dialogos (z-index 60) y por encima del contenido. */
+.mascota {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  pointer-events: none;
+}
+
+.mascota__cuerpo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: auto;
+}
+
+.mascota__boton {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 24px;
+  background: transparent;
+  cursor: grab;
+  /* El navegador no desplaza la pagina al arrastrarla con el dedo. */
+  touch-action: none;
+  transition:
+    transform 0.2s,
+    opacity 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mascota--arrastrando .mascota__boton {
+  cursor: grabbing;
+}
+
+.mascota__dibujo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.35));
+  user-select: none;
+  pointer-events: none;
+}
+
+.mascota--encogida .mascota__boton {
+  opacity: 0.7;
+  transform: scale(0.75);
+}
+
+/* Mientras se escribe, se aparta: casi transparente y sin recibir toques, para
+   no tapar nunca el campo. */
+.mascota--apartada .mascota__cuerpo {
+  pointer-events: none;
+}
+
+.mascota--apartada .mascota__boton {
+  opacity: 0.3;
+  transform: scale(0.6);
+}
+
+.mascota__globo {
+  position: absolute;
+  width: min(280px, calc(100vw - 24px));
+  padding: 0.875rem 1rem 1rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 20px;
+  background: var(--app-superficie-alta);
+  box-shadow: 0 18px 40px rgb(0 0 0 / 0.35);
+  pointer-events: auto;
+}
+
+.mascota__quien {
+  color: var(--app-salvia);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.mascota__frase {
+  margin-top: 0.375rem;
+  padding-right: 1rem;
+  font-family: var(--app-fuente-titulos);
+  font-size: 1.0625rem;
+  line-height: 1.35;
+}
+
+.mascota__cerrar {
+  position: absolute;
+  top: 0.375rem;
+  right: 0.5rem;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--app-tenue);
+  font: inherit;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mascota__cerrar:hover {
+  color: var(--app-tinta);
 }
 
 /* ---------- Puntos de quiebre del diseño (sm 640, md 768, lg 1024) ---------- */
@@ -1067,6 +1627,23 @@
   .app__plan {
     padding: 1.75rem;
   }
+
+  .sendero__etapa {
+    padding: 1.75rem;
+  }
+
+  /* Fuera del movil, lo de hoy se abre en el centro y no como hoja. */
+  .hoja {
+    align-items: center;
+    justify-items: center;
+    padding: 1rem;
+  }
+
+  .hoja__caja {
+    width: min(30rem, 100%);
+    border-bottom: 1px solid var(--app-borde);
+    border-radius: 28px;
+  }
 }
 
 @media (min-width: 768px) {
@@ -1080,6 +1657,10 @@
 
   .tarjeta-modulo {
     min-height: 292px;
+  }
+
+  .perfil__personajes {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
   .app__nav-inferior {
@@ -1123,5 +1704,9 @@
 
   .tarjeta-modulo:hover {
     transform: none;
+  }
+
+  .sendero__punto--respira::after {
+    animation: none;
   }
 }

@@ -5,7 +5,8 @@ import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/aplicacion.css';
 import type { Cuenta, Modulo } from '../../infraestructura/api/cuenta.ts';
 import type { ActividadDeHoy, ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
-import { rutaDeActividad } from '../../rutas/rutas.ts';
+import { MascotaFlotante } from '../../mascota/MascotaFlotante.tsx';
+import { rutaDeActividad, rutaDeModulo } from '../../rutas/rutas.ts';
 import { Bienvenida } from './Bienvenida.tsx';
 import { Celebracion } from './Celebracion.tsx';
 import { BarraSuperior, NavegacionInferior } from './Estructura.tsx';
@@ -22,9 +23,12 @@ import { useDatosDelPanel } from './useDatosDelPanel.ts';
  * usa el nombre de la cuenta, el avance de hoy y el de cada modulo salen de
  * `GET /api/progreso`, y el plan diario es lo que el servidor dice que toca.
  *
+ * La mascota flota sobre el dashboard (SCRUM-99) y celebra cuando el plan del
+ * dia queda completo o se desbloquea un modulo.
+ *
  * Lo que el diseño trae y aqui todavia no esta:
  * - El semaforo de pendientes va flotante, en su propio ticket (SCRUM-98).
- * - La mascota y VSD IA, tambien flotantes (SCRUM-99 y SCRUM-100).
+ * - VSD IA, que se abre desde la mascota (SCRUM-100).
  * - La etiqueta "Vista de prueba", que era del prototipo.
  */
 
@@ -119,8 +123,6 @@ function Dashboard({
   progreso: readonly ProgresoDelModulo[];
   activarModulo: (modulo: Modulo) => Promise<void>;
 }) {
-  // El modulo elegido filtra el plan. Sin ninguno elegido se ve todo.
-  const [elegido, setElegido] = useState<Modulo | null>(null);
   // El modulo recien desbloqueado y cuantos tiene ahora, para celebrarlo.
   const [celebracion, setCelebracion] = useState<{ modulo: Modulo; total: number } | null>(null);
 
@@ -134,8 +136,8 @@ function Dashboard({
     uno.hoy.map((actividad) => ({ modulo: uno.modulo, actividad })),
   );
   const hechas = deHoy.filter(({ actividad }) => actividad.hecha).length;
-  const plan = elegido === null ? deHoy : deHoy.filter(({ modulo }) => modulo === elegido);
   const siguiente = deHoy.find(({ actividad }) => !actividad.hecha);
+  const planCompleto = deHoy.length > 0 && hechas === deHoy.length;
 
   return (
     <>
@@ -193,19 +195,14 @@ function Dashboard({
             return suyo === undefined ? (
               <ModuloPorActivar key={modulo} modulo={modulo} activar={activarYCelebrar} />
             ) : (
-              <TarjetaDeModulo
-                key={modulo}
-                progreso={suyo}
-                elegido={elegido === modulo}
-                alElegir={() => setElegido((actual) => (actual === modulo ? null : modulo))}
-              />
+              <TarjetaDeModulo key={modulo} progreso={suyo} />
             );
           })}
         </div>
       </section>
 
       <section id="progreso" className="app__seccion app__plan-y-recomendado">
-        <PlanDiario plan={plan} filtro={elegido} />
+        <PlanDiario plan={deHoy} />
         <Recomendado siguiente={siguiente} hayPlan={deHoy.length > 0} />
       </section>
 
@@ -216,31 +213,24 @@ function Dashboard({
           alCerrar={() => setCelebracion(null)}
         />
       )}
+
+      <MascotaFlotante mascota={cuenta.mascota} celebrar={planCompleto || celebracion !== null} />
     </>
   );
 }
 
-function TarjetaDeModulo({
-  progreso,
-  elegido,
-  alElegir,
-}: {
-  progreso: ProgresoDelModulo;
-  elegido: boolean;
-  alElegir: () => void;
-}) {
+/** Un modulo activo. Lleva a su sendero (SCRUM-92). */
+function TarjetaDeModulo({ progreso }: { progreso: ProgresoDelModulo }) {
   const datos = MODULOS[progreso.modulo];
   const { etapa } = progreso;
   const avance = porcentaje(etapa.sesionesHechas, etapa.sesionesDeLaEtapa);
   const nombreDeEtapa = `${etapa.esTemporada ? 'Temporada' : 'Etapa'} ${etapa.numero}`;
 
   return (
-    <button
-      type="button"
-      className={`tarjeta-modulo${elegido ? ' tarjeta-modulo--elegida' : ''}`}
+    <Link
+      to={rutaDeModulo(progreso.modulo)}
+      className="tarjeta-modulo"
       style={{ '--modulo-fondo': datos.fondo, '--modulo-acento': datos.acento } as CSSProperties}
-      aria-pressed={elegido}
-      onClick={alElegir}
     >
       <span className="tarjeta-modulo__arriba">
         <span className="tarjeta-modulo__icono">
@@ -264,7 +254,7 @@ function TarjetaDeModulo({
           <Icono nombre="arrow" tamano={16} />
         </span>
       </span>
-    </button>
+    </Link>
   );
 }
 
@@ -332,22 +322,14 @@ function ModuloPorActivar({
   );
 }
 
-function PlanDiario({
-  plan,
-  filtro,
-}: {
-  plan: readonly { modulo: Modulo; actividad: ActividadDeHoy }[];
-  filtro: Modulo | null;
-}) {
+function PlanDiario({ plan }: { plan: readonly { modulo: Modulo; actividad: ActividadDeHoy }[] }) {
   const hechas = plan.filter(({ actividad }) => actividad.hecha).length;
 
   return (
     <div className="app__caja app__plan">
       <div className="app__plan-cabecera">
         <div>
-          <p className="app__antetitulo">
-            Para hoy{filtro === null ? '' : ` · ${MODULOS[filtro].titulo}`}
-          </p>
+          <p className="app__antetitulo">Para hoy</p>
           <h2 className="app__titulo app__titulo--mediano">Tu plan diario</h2>
         </div>
 
@@ -360,9 +342,7 @@ function PlanDiario({
 
       {plan.length === 0 ? (
         <p className="app__nota">
-          {filtro === null
-            ? 'Cuando elijas un módulo, aquí aparecerá lo que te toca cada día.'
-            : 'Hoy no hay nada más en este módulo.'}
+          Cuando elijas un módulo, aquí aparecerá lo que te toca cada día.
         </p>
       ) : (
         <ul className="app__actividades">
