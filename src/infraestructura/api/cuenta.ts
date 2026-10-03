@@ -25,12 +25,17 @@ export interface Consentimiento {
 /** Los tres modulos, con la clave estable que usa la API. */
 export type Modulo = 'cognicion' | 'bienestar' | 'emociones';
 
-/** Como es la mascota de la persona (SCRUM-88). */
+/**
+ * La mascota de la persona: el personaje (`forma`) y su nombre (SCRUM-99).
+ *
+ * Color y accesorio son del modelo anterior y pueden venir en cuentas que ya
+ * los tenian guardados; los personajes no los usan.
+ */
 export interface Mascota {
   readonly forma: string;
-  readonly color: string;
-  readonly accesorio: string;
   readonly nombre: string;
+  readonly color?: string;
+  readonly accesorio?: string;
 }
 
 /**

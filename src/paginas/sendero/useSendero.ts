@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { consultarLaVersionDelAviso } from '../../infraestructura/api/aviso.ts';
-import { darDeAltaLaCuenta, type Modulo } from '../../infraestructura/api/cuenta.ts';
+import { darDeAltaLaCuenta, type Mascota, type Modulo } from '../../infraestructura/api/cuenta.ts';
 import { consultarElProgreso, type ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { explicar } from '../panel/useDatosDelPanel.ts';
 
 export type EstadoDelSendero =
   | { readonly fase: 'cargando' }
-  | { readonly fase: 'listo'; readonly progreso: ProgresoDelModulo }
+  | {
+      readonly fase: 'listo';
+      readonly progreso: ProgresoDelModulo;
+      readonly mascota: Mascota | null;
+    }
   /** El modulo existe pero la persona no lo tiene activo. */
-  | { readonly fase: 'inactivo' }
+  | { readonly fase: 'inactivo'; readonly mascota: Mascota | null }
   | { readonly fase: 'error'; readonly mensaje: string };
 
 /**
@@ -37,7 +41,7 @@ export function useSendero(modulo: Modulo): {
     async function cargar(): Promise<void> {
       try {
         const version = await consultarLaVersionDelAviso(control.signal);
-        await darDeAltaLaCuenta(version, control.signal);
+        const { mascota } = await darDeAltaLaCuenta(version, control.signal);
         const progreso = await consultarElProgreso(control.signal);
 
         if (control.signal.aborted) {
@@ -46,7 +50,11 @@ export function useSendero(modulo: Modulo): {
 
         const suyo = progreso.find((uno) => uno.modulo === modulo);
 
-        setEstado(suyo === undefined ? { fase: 'inactivo' } : { fase: 'listo', progreso: suyo });
+        setEstado(
+          suyo === undefined
+            ? { fase: 'inactivo', mascota }
+            : { fase: 'listo', progreso: suyo, mascota },
+        );
       } catch (error) {
         if (!control.signal.aborted) {
           setEstado({ fase: 'error', mensaje: explicar(error) });

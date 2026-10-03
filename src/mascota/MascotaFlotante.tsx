@@ -1,0 +1,443 @@
+import { motion, useReducedMotion, type TargetAndTransition } from 'framer-motion';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+} from 'react';
+
+import type { Mascota } from '../infraestructura/api/cuenta.ts';
+import { mascotaParaMostrar, PERSONAJES, type Expresion } from './personajes.ts';
+import { sprite } from './sprites.ts';
+import { useExpresion } from './useExpresion.ts';
+
+/**
+ * La mascota que flota sobre la aplicacion (SCRUM-99).
+ *
+ * - Se arrastra con el raton o el dedo y, al soltarla, se pega al borde
+ *   izquierdo o derecho, el mas cercano.
+ * - Con teclado: las flechas arriba y abajo la mueven, y izquierda y derecha la
+ *   cambian de lado. Enter muestra una frase.
+ * - Al tocarla dice una frase de su personaje.
+ * - Nunca baja de la barra superior ni pisa la navegacion inferior del movil.
+ *   Mientras se escribe se aparta y deja de recibir toques, para no tapar el
+ *   campo; mientras se desplaza la pantalla, se encoge.
+ * - Con `prefers-reduced-motion` no se anima: cambia de cara y de sitio sin
+ *   transiciones.
+ *
+ * Mantenerla pulsada para abrir VSD IA llega con SCRUM-100.
+ */
+
+type Lado = 'izquierda' | 'derecha';
+
+/** `y` va de 0 (arriba del todo) a 1 (abajo del todo) del espacio libre. */
+interface Posicion {
+  readonly lado: Lado;
+  readonly y: number;
+}
+
+interface Punto {
+  readonly x: number;
+  readonly y: number;
+}
+
+/** Donde la deja cada persona. Es una comodidad de este navegador, no un dato personal. */
+const CLAVE_DE_POSICION = 'vsd-h:mascota-posicion';
+const POSICION_INICIAL: Posicion = { lado: 'izquierda', y: 0.85 };
+
+const MARGEN = 12;
+/** Debajo de la barra superior, que mide 76 px. */
+const ARRIBA = 84;
+/** Se considera arrastre a partir de este desplazamiento; menos es un toque. */
+const UMBRAL_DE_ARRASTRE = 6;
+const PASO_DE_TECLADO = 40;
+const FRASE_MS = 8_000;
+const QUIETUD_TRAS_DESPLAZAR_MS = 700;
+
+const ES_MOVIL = '(max-width: 767px)';
+
+function limites() {
+  const movil = window.matchMedia(ES_MOVIL).matches;
+  const lado = movil ? 72 : 96;
+  // En el movil, abajo flota la navegacion de secciones: se deja libre.
+  const abajo = movil ? 96 : 16;
+
+  return {
+    lado,
+    minX: MARGEN,
+    maxX: Math.max(MARGEN, window.innerWidth - lado - MARGEN),
+    minY: ARRIBA,
+    maxY: Math.max(ARRIBA, window.innerHeight - lado - abajo),
+  };
+}
+
+function entre(valor: number, minimo: number, maximo: number): number {
+  return Math.min(maximo, Math.max(minimo, valor));
+}
+
+function aPixeles(posicion: Posicion): Punto {
+  const { minX, maxX, minY, maxY } = limites();
+
+  return {
+    x: posicion.lado === 'izquierda' ? minX : maxX,
+    y: minY + posicion.y * (maxY - minY),
+  };
+}
+
+function leerPosicion(): Posicion {
+  try {
+    const guardada = JSON.parse(localStorage.getItem(CLAVE_DE_POSICION) ?? 'null') as unknown;
+
+    if (
+      typeof guardada === 'object' &&
+      guardada !== null &&
+      'lado' in guardada &&
+      'y' in guardada &&
+      (guardada.lado === 'izquierda' || guardada.lado === 'derecha') &&
+      typeof guardada.y === 'number'
+    ) {
+      return { lado: guardada.lado, y: entre(guardada.y, 0, 1) };
+    }
+  } catch {
+    // Sin almacenamiento, o con algo raro guardado: se usa la de siempre.
+  }
+
+  return POSICION_INICIAL;
+}
+
+function guardarPosicion(posicion: Posicion): void {
+  try {
+    localStorage.setItem(CLAVE_DE_POSICION, JSON.stringify(posicion));
+  } catch {
+    // No poder recordarla no impide moverla.
+  }
+}
+
+const TIPOS_QUE_NO_SE_ESCRIBEN = new Set([
+  'button',
+  'checkbox',
+  'color',
+  'file',
+  'radio',
+  'range',
+  'reset',
+  'submit',
+]);
+
+function esCampoDeTexto(elemento: Element | null): boolean {
+  if (elemento instanceof HTMLInputElement) {
+    return !TIPOS_QUE_NO_SE_ESCRIBEN.has(elemento.type);
+  }
+
+  return (
+    elemento instanceof HTMLTextAreaElement ||
+    elemento instanceof HTMLSelectElement ||
+    (elemento instanceof HTMLElement && elemento.isContentEditable)
+  );
+}
+
+/** Si hay un campo de texto con el foco. */
+function useEscribiendo(): boolean {
+  const [escribiendo, setEscribiendo] = useState(false);
+
+  useEffect(() => {
+    function revisar() {
+      setEscribiendo(esCampoDeTexto(document.activeElement));
+    }
+
+    document.addEventListener('focusin', revisar);
+    document.addEventListener('focusout', revisar);
+
+    return () => {
+      document.removeEventListener('focusin', revisar);
+      document.removeEventListener('focusout', revisar);
+    };
+  }, []);
+
+  return escribiendo;
+}
+
+/** Si la pantalla se esta desplazando ahora mismo. */
+function useDesplazando(): boolean {
+  const [desplazando, setDesplazando] = useState(false);
+
+  useEffect(() => {
+    let temporizador: ReturnType<typeof setTimeout> | undefined;
+
+    function alDesplazar() {
+      setDesplazando(true);
+      clearTimeout(temporizador);
+      temporizador = setTimeout(() => setDesplazando(false), QUIETUD_TRAS_DESPLAZAR_MS);
+    }
+
+    window.addEventListener('scroll', alDesplazar, { passive: true, capture: true });
+
+    return () => {
+      clearTimeout(temporizador);
+      window.removeEventListener('scroll', alDesplazar, { capture: true });
+    };
+  }, []);
+
+  return desplazando;
+}
+
+/** Vuelve a pintar al cambiar el tamano de la ventana, para recolocarla. */
+function useTamanoDeVentana(): void {
+  const [, setVersion] = useState(0);
+
+  useEffect(() => {
+    function alCambiar() {
+      setVersion((antes) => antes + 1);
+    }
+
+    window.addEventListener('resize', alCambiar);
+
+    return () => window.removeEventListener('resize', alCambiar);
+  }, []);
+}
+
+/** El movimiento de reposo de cada cara. Sin movimiento pedido, ninguno. */
+function animacion(expresion: Expresion, sinMovimiento: boolean): TargetAndTransition {
+  if (sinMovimiento) {
+    return { y: 0, scale: 1 };
+  }
+
+  switch (expresion) {
+    case 'celebrando':
+      return {
+        y: [0, -14, 0, -7, 0],
+        scale: 1,
+        transition: { duration: 1.1, repeat: Infinity, repeatDelay: 0.4, ease: 'easeOut' },
+      };
+    case 'dormida':
+      return {
+        y: 0,
+        scale: [1, 1.03, 1],
+        transition: { duration: 4.5, repeat: Infinity, ease: 'easeInOut' },
+      };
+    default:
+      return {
+        y: [0, -3, 0],
+        scale: 1,
+        transition: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' },
+      };
+  }
+}
+
+export function MascotaFlotante({
+  mascota,
+  celebrar = false,
+}: {
+  mascota: Mascota | null;
+  /** La pantalla pide celebrar: plan del dia completo, modulo desbloqueado. */
+  celebrar?: boolean;
+}) {
+  const { personaje, nombre } = mascotaParaMostrar(mascota);
+  const { frases } = PERSONAJES[personaje];
+  const { expresion, alTocar } = useExpresion(celebrar);
+  const sinMovimiento = useReducedMotion() ?? false;
+  const escribiendo = useEscribiendo();
+  const desplazando = useDesplazando();
+  useTamanoDeVentana();
+
+  const [posicion, setPosicion] = useState<Posicion>(leerPosicion);
+  const [arrastre, setArrastre] = useState<Punto | null>(null);
+  const [frase, setFrase] = useState<string | null>(null);
+  const siguienteFrase = useRef(0);
+  const gesto = useRef<{ id: number; inicio: Punto; origen: Punto; movido: boolean } | null>(null);
+  const ignorarClic = useRef(false);
+  const idDeInstrucciones = useId();
+
+  useEffect(() => {
+    if (frase === null) {
+      return undefined;
+    }
+
+    const temporizador = setTimeout(() => setFrase(null), FRASE_MS);
+
+    return () => clearTimeout(temporizador);
+  }, [frase]);
+
+  function moverA(nueva: Posicion) {
+    setPosicion(nueva);
+    guardarPosicion(nueva);
+  }
+
+  function decirFrase() {
+    alTocar();
+    setFrase(frases[siguienteFrase.current % frases.length] ?? null);
+    siguienteFrase.current += 1;
+  }
+
+  function alPresionar(evento: PointerEvent<HTMLButtonElement>) {
+    if (!evento.isPrimary || evento.button !== 0) {
+      return;
+    }
+
+    evento.currentTarget.setPointerCapture?.(evento.pointerId);
+    ignorarClic.current = false;
+    gesto.current = {
+      id: evento.pointerId,
+      inicio: { x: evento.clientX, y: evento.clientY },
+      origen: aPixeles(posicion),
+      movido: false,
+    };
+  }
+
+  function alMover(evento: PointerEvent<HTMLButtonElement>) {
+    const actual = gesto.current;
+
+    if (actual?.id !== evento.pointerId) {
+      return;
+    }
+
+    const dx = evento.clientX - actual.inicio.x;
+    const dy = evento.clientY - actual.inicio.y;
+
+    if (!actual.movido && Math.hypot(dx, dy) < UMBRAL_DE_ARRASTRE) {
+      return;
+    }
+
+    actual.movido = true;
+    ignorarClic.current = true;
+    setFrase(null);
+
+    const { minX, maxX, minY, maxY } = limites();
+
+    setArrastre({
+      x: entre(actual.origen.x + dx, minX, maxX),
+      y: entre(actual.origen.y + dy, minY, maxY),
+    });
+  }
+
+  function alSoltar() {
+    const actual = gesto.current;
+
+    gesto.current = null;
+
+    if (actual === null || !actual.movido || arrastre === null) {
+      setArrastre(null);
+      return;
+    }
+
+    const { lado, minY, maxY } = limites();
+
+    moverA({
+      lado: arrastre.x + lado / 2 < window.innerWidth / 2 ? 'izquierda' : 'derecha',
+      y: maxY === minY ? 0 : entre((arrastre.y - minY) / (maxY - minY), 0, 1),
+    });
+    setArrastre(null);
+  }
+
+  function alPulsarTecla(evento: KeyboardEvent<HTMLButtonElement>) {
+    const { minY, maxY } = limites();
+    const paso = maxY === minY ? 0 : PASO_DE_TECLADO / (maxY - minY);
+    const cambios: Partial<Record<string, Posicion>> = {
+      ArrowUp: { ...posicion, y: entre(posicion.y - paso, 0, 1) },
+      ArrowDown: { ...posicion, y: entre(posicion.y + paso, 0, 1) },
+      ArrowLeft: { ...posicion, lado: 'izquierda' },
+      ArrowRight: { ...posicion, lado: 'derecha' },
+    };
+    const nueva = cambios[evento.key];
+
+    if (nueva !== undefined) {
+      evento.preventDefault();
+      moverA(nueva);
+    }
+  }
+
+  function alPulsar() {
+    // Un arrastre termina con un clic que no es un toque.
+    if (ignorarClic.current) {
+      ignorarClic.current = false;
+      return;
+    }
+
+    decirFrase();
+  }
+
+  const { lado } = limites();
+  const punto = arrastre ?? aPixeles(posicion);
+  const globoArriba = punto.y > 220;
+  const estiloDelGlobo: CSSProperties = {
+    ...(posicion.lado === 'izquierda' ? { left: MARGEN } : { right: MARGEN }),
+    ...(globoArriba ? { bottom: window.innerHeight - punto.y + 8 } : { top: punto.y + lado + 8 }),
+  };
+
+  const clases = [
+    'mascota',
+    escribiendo ? 'mascota--apartada' : '',
+    desplazando ? 'mascota--encogida' : '',
+    arrastre === null ? '' : 'mascota--arrastrando',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <div className={clases} data-personaje={personaje} data-expresion={expresion}>
+      <motion.div
+        className="mascota__cuerpo"
+        style={{ width: lado, height: lado }}
+        initial={false}
+        animate={{ x: punto.x, y: punto.y }}
+        transition={
+          arrastre !== null || sinMovimiento
+            ? { duration: 0 }
+            : { type: 'spring', stiffness: 380, damping: 32 }
+        }
+      >
+        <button
+          type="button"
+          className="mascota__boton"
+          aria-label={`${nombre}, tu mascota`}
+          aria-describedby={idDeInstrucciones}
+          onPointerDown={alPresionar}
+          onPointerMove={alMover}
+          onPointerUp={alSoltar}
+          onPointerCancel={alSoltar}
+          onKeyDown={alPulsarTecla}
+          onClick={alPulsar}
+          onContextMenu={(evento) => evento.preventDefault()}
+        >
+          <motion.img
+            className="mascota__dibujo"
+            src={sprite(personaje, expresion)}
+            alt=""
+            draggable={false}
+            animate={animacion(expresion, sinMovimiento)}
+            {...(sinMovimiento ? {} : { whileTap: { scale: 0.92 } })}
+          />
+        </button>
+      </motion.div>
+
+      <span id={idDeInstrucciones} className="solo-lectores">
+        Tócala para leer una frase. Arrástrala, o usa las flechas, para moverla.
+      </span>
+
+      {/* Siempre montada: una region viva que aparece ya llena no siempre se
+          anuncia. Con aria-live y sin role="status", para no confundirse con
+          los avisos de la pantalla. */}
+      <p className="solo-lectores" aria-live="polite">
+        {frase === null ? '' : `${nombre}: ${frase}`}
+      </p>
+
+      {frase !== null && (
+        <div className="mascota__globo" style={estiloDelGlobo}>
+          <button
+            type="button"
+            className="mascota__cerrar"
+            aria-label="Cerrar la frase"
+            onClick={() => setFrase(null)}
+          >
+            ×
+          </button>
+          <p className="mascota__quien">{nombre} te acompaña</p>
+          <p className="mascota__frase">{frase}</p>
+        </div>
+      )}
+    </div>
+  );
+}
