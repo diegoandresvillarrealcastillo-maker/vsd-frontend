@@ -6,6 +6,7 @@ import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/aplicacion.css';
 import type { Modulo } from '../../infraestructura/api/cuenta.ts';
 import type { ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
+import { MascotaFlotante } from '../../mascota/MascotaFlotante.tsx';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { BarraSuperior } from '../panel/Estructura.tsx';
 import { Icono } from '../panel/Icono.tsx';
@@ -121,6 +122,17 @@ export function VistaDelSendero({
       )}
 
       {estado.fase === 'listo' && <Camino progreso={estado.progreso} titulo={datos.titulo} />}
+
+      {(estado.fase === 'listo' || estado.fase === 'inactivo') && (
+        <MascotaFlotante
+          mascota={estado.mascota}
+          celebrar={
+            estado.fase === 'listo' &&
+            estado.progreso.hoy.length > 0 &&
+            estado.progreso.hoy.every((actividad) => actividad.hecha)
+          }
+        />
+      )}
     </div>
   );
 }

@@ -246,6 +246,34 @@ describe('Dashboard', () => {
       expect(within(recomendado).getByRole('link', { name: /Comenzar/ })).toBeInTheDocument();
     });
 
+    it('la mascota acompaña en el dashboard y no celebra con el plan a medias', async () => {
+      darDeAltaLaCuenta.mockResolvedValue({
+        ...CUENTA,
+        mascota: { forma: 'gato', nombre: 'Bigotes' },
+      });
+
+      pintar();
+
+      expect(
+        await screen.findByRole('button', { name: 'Bigotes, tu mascota' }),
+      ).toBeInTheDocument();
+      expect(document.querySelector<HTMLElement>('.mascota')?.dataset.expresion).not.toBe(
+        'celebrando',
+      );
+    });
+
+    it('con el plan del dia completo, la mascota celebra', async () => {
+      consultarElProgreso.mockResolvedValue(
+        PROGRESO.map((uno) => ({ ...uno, hoy: uno.hoy.map((a) => ({ ...a, hecha: true })) })),
+      );
+
+      pintar();
+
+      await screen.findByRole('button', { name: 'Fungito, tu mascota' });
+
+      expect(document.querySelector<HTMLElement>('.mascota')?.dataset.expresion).toBe('celebrando');
+    });
+
     it('con todo hecho, lo celebra en lugar de recomendar mas', async () => {
       consultarElProgreso.mockResolvedValue(
         PROGRESO.map((uno) => ({ ...uno, hoy: uno.hoy.map((a) => ({ ...a, hecha: true })) })),
