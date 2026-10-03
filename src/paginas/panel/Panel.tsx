@@ -1,13 +1,16 @@
-import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/aplicacion.css';
 import type { Cuenta, Modulo } from '../../infraestructura/api/cuenta.ts';
 import type { ActividadDeHoy, ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
-import { RUTAS, rutaDeActividad } from '../../rutas/rutas.ts';
-import { useSesion } from '../../sesion/useSesion.ts';
-import { Icono, type NombreDeIcono } from './Icono.tsx';
+import { rutaDeActividad } from '../../rutas/rutas.ts';
+import { Bienvenida } from './Bienvenida.tsx';
+import { Celebracion } from './Celebracion.tsx';
+import { BarraSuperior, NavegacionInferior } from './Estructura.tsx';
+import { Icono } from './Icono.tsx';
+import { MODULOS, ORDEN } from './modulos.ts';
 import { useDatosDelPanel } from './useDatosDelPanel.ts';
 
 /**
@@ -24,41 +27,6 @@ import { useDatosDelPanel } from './useDatosDelPanel.ts';
  * - La mascota y VSD IA, tambien flotantes (SCRUM-99 y SCRUM-100).
  * - La etiqueta "Vista de prueba", que era del prototipo.
  */
-
-interface DatosDeModulo {
-  readonly titulo: string;
-  readonly descripcion: string;
-  readonly icono: NombreDeIcono;
-  readonly fondo: string;
-  readonly acento: string;
-}
-
-/** El orden y los textos son los del diseño. */
-const ORDEN: readonly Modulo[] = ['bienestar', 'cognicion', 'emociones'];
-
-const MODULOS: Readonly<Record<Modulo, DatosDeModulo>> = {
-  bienestar: {
-    titulo: 'Bienestar',
-    descripcion: 'Hábitos que cuidan tu cuerpo y energía.',
-    icono: 'leaf',
-    fondo: 'var(--app-bienestar)',
-    acento: 'var(--app-bienestar-acento)',
-  },
-  cognicion: {
-    titulo: 'Cognición',
-    descripcion: 'Entrena tu memoria, atención y enfoque.',
-    icono: 'brain',
-    fondo: 'var(--app-cognicion)',
-    acento: 'var(--app-cognicion-acento)',
-  },
-  emociones: {
-    titulo: 'Emociones',
-    descripcion: 'Conecta, comprende y regula lo que sientes.',
-    icono: 'heart',
-    fondo: 'var(--app-emociones)',
-    acento: 'var(--app-emociones-acento)',
-  },
-};
 
 /** "Viernes, 2 de octubre", siempre en hora de Colombia, como el servidor. */
 function hoyEnCastellano(): string {
@@ -90,10 +58,16 @@ export function VistaDelPanel({
   estado,
   reintentar,
   activarModulo,
+  completarBienvenida,
 }: ReturnType<typeof useDatosDelPanel>) {
+  // Las secciones (Inicio, Explorar, Progreso) solo existen en el dashboard.
+  // En la bienvenida, en la carga o en un error, sus enlaces no llevarian a
+  // ningun sitio.
+  const enDashboard = estado.fase === 'listo' && estado.cuenta.modulosActivos.length > 0;
+
   return (
     <div className="app">
-      <BarraSuperior />
+      <BarraSuperior conSecciones={enDashboard} />
 
       <main id={ID_DEL_CONTENIDO} tabIndex={-1} className="app__contenido">
         {estado.fase === 'cargando' && (
@@ -115,7 +89,14 @@ export function VistaDelPanel({
           </div>
         )}
 
-        {estado.fase === 'listo' && (
+        {/* Una cuenta que todavia no eligio modulos no llega al dashboard:
+            primero la bienvenida (SCRUM-90). Se ve una sola vez, porque al
+            elegir la lista deja de estar vacia. */}
+        {estado.fase === 'listo' && estado.cuenta.modulosActivos.length === 0 && (
+          <Bienvenida cuenta={estado.cuenta} alTerminar={completarBienvenida} />
+        )}
+
+        {estado.fase === 'listo' && estado.cuenta.modulosActivos.length > 0 && (
           <Dashboard
             cuenta={estado.cuenta}
             progreso={estado.progreso}
@@ -124,7 +105,7 @@ export function VistaDelPanel({
         )}
       </main>
 
-      <NavegacionInferior />
+      {enDashboard && <NavegacionInferior />}
     </div>
   );
 }
@@ -140,6 +121,13 @@ function Dashboard({
 }) {
   // El modulo elegido filtra el plan. Sin ninguno elegido se ve todo.
   const [elegido, setElegido] = useState<Modulo | null>(null);
+  // El modulo recien desbloqueado y cuantos tiene ahora, para celebrarlo.
+  const [celebracion, setCelebracion] = useState<{ modulo: Modulo; total: number } | null>(null);
+
+  async function activarYCelebrar(modulo: Modulo): Promise<void> {
+    await activarModulo(modulo);
+    setCelebracion({ modulo, total: cuenta.modulosActivos.length + 1 });
+  }
 
   const porModulo = new Map(progreso.map((uno) => [uno.modulo, uno]));
   const deHoy = progreso.flatMap((uno) =>
@@ -203,7 +191,7 @@ function Dashboard({
             const suyo = porModulo.get(modulo);
 
             return suyo === undefined ? (
-              <ModuloPorActivar key={modulo} modulo={modulo} activar={activarModulo} />
+              <ModuloPorActivar key={modulo} modulo={modulo} activar={activarYCelebrar} />
             ) : (
               <TarjetaDeModulo
                 key={modulo}
@@ -220,6 +208,14 @@ function Dashboard({
         <PlanDiario plan={plan} filtro={elegido} />
         <Recomendado siguiente={siguiente} hayPlan={deHoy.length > 0} />
       </section>
+
+      {celebracion !== null && (
+        <Celebracion
+          modulo={celebracion.modulo}
+          total={celebracion.total}
+          alCerrar={() => setCelebracion(null)}
+        />
+      )}
     </>
   );
 }
@@ -473,123 +469,5 @@ function Recomendado({
         </>
       )}
     </aside>
-  );
-}
-
-const SECCIONES: readonly { href: string; texto: string; icono: NombreDeIcono }[] = [
-  { href: '#inicio', texto: 'Inicio', icono: 'home' },
-  { href: '#programas', texto: 'Explorar', icono: 'book' },
-  { href: '#progreso', texto: 'Progreso', icono: 'activity' },
-];
-
-function BarraSuperior() {
-  return (
-    <header className="app__barra">
-      <div className="app__barra-interior">
-        <Link to={RUTAS.PANEL} className="app__marca" aria-label="VSD-H, inicio">
-          <span className="app__marca-icono">
-            <Icono nombre="sparkles" />
-          </span>
-          <span className="app__marca-texto">VSD-H</span>
-        </Link>
-
-        <nav className="app__nav" aria-label="Secciones">
-          {SECCIONES.map((seccion, indice) => (
-            <a
-              key={seccion.href}
-              className={`app__enlace${indice === 0 ? ' app__enlace--activo' : ''}`}
-              href={seccion.href}
-            >
-              <Icono nombre={seccion.icono} tamano={18} />
-              {seccion.texto}
-            </a>
-          ))}
-        </nav>
-
-        <MenuDeCuenta />
-      </div>
-    </header>
-  );
-}
-
-/**
- * El boton redondo de la derecha. En el diseño abria un perfil que todavia no
- * existe (SCRUM-101); mientras tanto ofrece lo que si existe: ver con que
- * correo se entro, volver a la portada y salir.
- */
-function MenuDeCuenta() {
-  const { correo, salir } = useSesion();
-  const [abierto, setAbierto] = useState(false);
-  const idDelMenu = useId();
-  const contenedor = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!abierto) {
-      return;
-    }
-
-    function alPulsarFuera(evento: MouseEvent) {
-      if (!contenedor.current?.contains(evento.target as Node)) {
-        setAbierto(false);
-      }
-    }
-
-    function alPulsarTecla(evento: KeyboardEvent) {
-      if (evento.key === 'Escape') {
-        setAbierto(false);
-      }
-    }
-
-    document.addEventListener('mousedown', alPulsarFuera);
-    document.addEventListener('keydown', alPulsarTecla);
-
-    return () => {
-      document.removeEventListener('mousedown', alPulsarFuera);
-      document.removeEventListener('keydown', alPulsarTecla);
-    };
-  }, [abierto]);
-
-  return (
-    <div className="app__cuenta" ref={contenedor}>
-      <button
-        type="button"
-        className="app__avatar"
-        aria-label="Abrir el menú de tu cuenta"
-        aria-expanded={abierto}
-        aria-controls={idDelMenu}
-        onClick={() => setAbierto((antes) => !antes)}
-      >
-        <Icono nombre="user" />
-      </button>
-
-      {abierto && (
-        <div id={idDelMenu} className="app__menu">
-          <p className="app__menu-correo">{correo}</p>
-          <Link className="app__menu-opcion" to={RUTAS.INICIO}>
-            Ir a la página principal
-          </Link>
-          <button type="button" className="app__menu-opcion" onClick={() => void salir()}>
-            Cerrar sesión
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function NavegacionInferior() {
-  return (
-    <nav className="app__nav-inferior" aria-label="Secciones">
-      {SECCIONES.map((seccion, indice) => (
-        <a
-          key={seccion.href}
-          className={`app__nav-inferior-enlace${indice === 0 ? ' app__nav-inferior-enlace--activo' : ''}`}
-          href={seccion.href}
-        >
-          <Icono nombre={seccion.icono} tamano={19} />
-          {seccion.texto}
-        </a>
-      ))}
-    </nav>
   );
 }

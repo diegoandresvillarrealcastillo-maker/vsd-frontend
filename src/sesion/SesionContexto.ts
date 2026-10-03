@@ -31,6 +31,20 @@ export interface EstadoDeSesion {
   readonly entrarConGoogle: (recordar: boolean) => Promise<ResultadoDeAcceso>;
   readonly pedirRecuperacion: (correo: string) => Promise<ResultadoDeAcceso>;
   readonly cambiarContrasena: (nueva: string) => Promise<ResultadoDeAcceso>;
+  /**
+   * Pide a Supabase que mande un codigo de verificacion al correo de la
+   * cuenta. Es el primer paso para cambiar la contrasena desde el perfil.
+   */
+  readonly pedirCodigoDeVerificacion: () => Promise<ResultadoDeAcceso>;
+  /**
+   * Cambia la contrasena con el codigo que llego al correo. Sin un codigo
+   * valido, Supabase la rechaza. La contrasena va directo a Supabase: nunca
+   * pasa por nuestra API.
+   */
+  readonly cambiarContrasenaConCodigo: (
+    nueva: string,
+    codigo: string,
+  ) => Promise<ResultadoDeAcceso>;
   readonly salir: () => Promise<void>;
 }
 

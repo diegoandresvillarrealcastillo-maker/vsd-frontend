@@ -24,6 +24,8 @@ function estado(parcial: Partial<EstadoDeSesion>): EstadoDeSesion {
     entrarConGoogle: vacio,
     pedirRecuperacion: vacio,
     cambiarContrasena: vacio,
+    pedirCodigoDeVerificacion: vacio,
+    cambiarContrasenaConCodigo: vacio,
     salir: vacio,
     ...parcial,
   };

@@ -79,6 +79,8 @@ function estado(parcial: Partial<EstadoDeSesion>): EstadoDeSesion {
     entrarConGoogle: vacio,
     pedirRecuperacion: vacio,
     cambiarContrasena: vacio,
+    pedirCodigoDeVerificacion: vacio,
+    cambiarContrasenaConCodigo: vacio,
     salir: vacio,
     ...parcial,
   };
@@ -257,16 +259,96 @@ describe('Dashboard', () => {
         'Hoy ya hiciste todo tu plan',
       );
     });
+  });
 
-    it('sin modulos elegidos invita a empezar y no muestra porcentajes', async () => {
-      darDeAltaLaCuenta.mockResolvedValue({ ...CUENTA, modulosActivos: [] });
+  describe('la bienvenida (SCRUM-90)', () => {
+    // Una cuenta recien creada: sin nombre y sin modulos.
+    const { nombre: _sinNombre, ...sinNombre } = CUENTA;
+    const NUEVA: Cuenta = { ...sinNombre, modulosActivos: [] };
+
+    beforeEach(() => {
+      darDeAltaLaCuenta.mockResolvedValue(NUEVA);
       consultarElProgreso.mockResolvedValue([]);
+    });
+
+    it('una cuenta sin modulos ve la bienvenida y no el dashboard', async () => {
+      pintar();
+
+      expect(
+        await screen.findByRole('heading', { name: /Te damos la bienvenida/ }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Tu plan diario' })).not.toBeInTheDocument();
+      expect(screen.getAllByRole('checkbox')).toHaveLength(3);
+      // Las secciones son del dashboard: aqui no llevarian a ningun sitio.
+      expect(screen.queryByRole('navigation', { name: 'Secciones' })).not.toBeInTheDocument();
+      // Salir de la cuenta, en cambio, sigue disponible.
+      expect(screen.getByRole('button', { name: /menú de tu cuenta/ })).toBeInTheDocument();
+    });
+
+    it('sin elegir ningun modulo no deja empezar, y lo dice', async () => {
+      pintar();
+
+      await userEvent.click(await screen.findByRole('button', { name: /Empezar/ }));
+
+      expect(screen.getByRole('alert')).toHaveTextContent('Elige al menos un módulo');
+      expect(cambiarPreferencias).not.toHaveBeenCalled();
+    });
+
+    it('guarda el nombre y los modulos elegidos, en orden, y pasa al dashboard', async () => {
+      cambiarPreferencias.mockResolvedValue({
+        ...NUEVA,
+        nombre: 'Marina',
+        modulosActivos: ['bienestar', 'emociones'],
+      });
+      consultarElProgreso.mockResolvedValueOnce([]).mockResolvedValueOnce(PROGRESO);
 
       pintar();
 
-      expect(await screen.findByText(/Elige un módulo para empezar/)).toBeInTheDocument();
-      expect(screen.queryByText(/%$/)).not.toBeInTheDocument();
-      expect(screen.getAllByRole('button', { name: /^Añadir/ })).toHaveLength(3);
+      await userEvent.type(await screen.findByLabelText(/Cómo quieres que te llamemos/), 'Marina');
+      await userEvent.click(screen.getByRole('checkbox', { name: /Emociones/ }));
+      await userEvent.click(screen.getByRole('checkbox', { name: /Bienestar/ }));
+      await userEvent.click(screen.getByRole('button', { name: /Empezar/ }));
+
+      expect(cambiarPreferencias).toHaveBeenCalledWith({
+        nombre: 'Marina',
+        modulosActivos: ['bienestar', 'emociones'],
+      });
+      expect(await screen.findByRole('heading', { name: /Hola, Marina/ })).toBeInTheDocument();
+    });
+
+    it('si no escribe nombre, no lo manda', async () => {
+      cambiarPreferencias.mockResolvedValue({ ...NUEVA, modulosActivos: ['cognicion'] });
+
+      pintar();
+
+      await userEvent.click(await screen.findByRole('checkbox', { name: /Cognición/ }));
+      await userEvent.click(screen.getByRole('button', { name: /Empezar/ }));
+
+      expect(cambiarPreferencias).toHaveBeenCalledWith({ modulosActivos: ['cognicion'] });
+    });
+
+    it('marcar y desmarcar un modulo se refleja en la casilla', async () => {
+      pintar();
+
+      const emociones = await screen.findByRole('checkbox', { name: /Emociones/ });
+
+      await userEvent.click(emociones);
+      expect(emociones).toHaveAttribute('aria-checked', 'true');
+
+      await userEvent.click(emociones);
+      expect(emociones).toHaveAttribute('aria-checked', 'false');
+    });
+
+    it('si guardar falla, lo dice y deja intentarlo otra vez', async () => {
+      cambiarPreferencias.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      pintar();
+
+      await userEvent.click(await screen.findByRole('checkbox', { name: /Bienestar/ }));
+      await userEvent.click(screen.getByRole('button', { name: /Empezar/ }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo guardar');
+      expect(screen.getByRole('button', { name: /Empezar/ })).toBeEnabled();
     });
   });
 
@@ -319,6 +401,46 @@ describe('Dashboard', () => {
         'Etapa 1 · 0 de 5 sesiones',
       );
       expect(screen.queryByRole('button', { name: /Añadir Emociones/ })).not.toBeInTheDocument();
+    });
+
+    it('al añadir el tercer modulo lo celebra, y el aviso se cierra con Escape', async () => {
+      cambiarPreferencias.mockResolvedValue({
+        ...CUENTA,
+        modulosActivos: ['cognicion', 'bienestar', 'emociones'],
+      });
+
+      pintar();
+
+      await userEvent.click(await screen.findByRole('button', { name: /Añadir Emociones/ }));
+
+      const aviso = await screen.findByRole('dialog');
+
+      expect(aviso).toHaveTextContent('Ya tienes los tres módulos');
+      // El foco entra al aviso, para que con teclado se pueda cerrar enseguida.
+      expect(within(aviso).getByRole('button', { name: /Seguir/ })).toHaveFocus();
+
+      await userEvent.keyboard('{Escape}');
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('con el segundo modulo el texto es otro', async () => {
+      darDeAltaLaCuenta.mockResolvedValue({ ...CUENTA, modulosActivos: ['cognicion'] });
+      consultarElProgreso.mockResolvedValue([PROGRESO[0]]);
+      cambiarPreferencias.mockResolvedValue({
+        ...CUENTA,
+        modulosActivos: ['cognicion', 'bienestar'],
+      });
+
+      pintar();
+
+      await userEvent.click(await screen.findByRole('button', { name: /Añadir Bienestar/ }));
+
+      expect(await screen.findByRole('dialog')).toHaveTextContent('tu segundo módulo');
+
+      await userEvent.click(screen.getByRole('button', { name: /Seguir/ }));
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
     it('si añadir falla, lo dice en la propia tarjeta', async () => {

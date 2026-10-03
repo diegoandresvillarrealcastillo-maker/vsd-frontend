@@ -711,6 +711,343 @@
   color: var(--app-salvia);
 }
 
+/* ---------- Bienvenida (SCRUM-90) ---------- */
+
+.bienvenida {
+  display: grid;
+  gap: 2rem;
+  max-width: 64rem;
+}
+
+.bienvenida__formulario {
+  display: grid;
+  gap: 1.75rem;
+}
+
+.bienvenida__campo {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 28rem;
+}
+
+.bienvenida__etiqueta {
+  padding: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.bienvenida__entrada {
+  padding: 0.75rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 0.75rem;
+  background: var(--app-lienzo);
+  color: var(--app-tinta);
+  font: inherit;
+  font-size: 0.9375rem;
+}
+
+.bienvenida__entrada::placeholder {
+  color: var(--app-tenue);
+  opacity: 0.7;
+}
+
+.bienvenida__modulos {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.bienvenida__modulos .app__nota {
+  margin-top: 0;
+}
+
+.bienvenida__opcion {
+  min-height: 0;
+}
+
+.bienvenida__marca {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 9999px;
+  background: rgb(0 0 0 / 0.15);
+}
+
+.bienvenida__marca--activa {
+  border-color: var(--modulo-acento);
+  background: var(--modulo-acento);
+  color: var(--app-sobre-primario);
+}
+
+.bienvenida__fallo {
+  margin: 0;
+  color: var(--app-emociones-acento);
+  font-size: 0.875rem;
+}
+
+.bienvenida__empezar {
+  justify-self: start;
+  padding: 0.875rem 1.5rem;
+  font-size: 0.9375rem;
+}
+
+/* ---------- Celebracion al desbloquear un modulo (SCRUM-90) ---------- */
+
+.celebracion {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 0.55);
+}
+
+.celebracion__caja {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  width: min(26rem, 100%);
+  padding: 2rem 1.5rem 1.5rem;
+  border: 1px solid var(--modulo-acento);
+  border-radius: 28px;
+  background: var(--modulo-fondo);
+  color: var(--app-tinta);
+  text-align: center;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 0.45);
+}
+
+.celebracion__icono {
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  margin-bottom: 0.5rem;
+  border-radius: 1.25rem;
+  background: rgb(0 0 0 / 0.18);
+  color: var(--modulo-acento);
+}
+
+.celebracion__modulo {
+  margin: 0;
+  color: var(--modulo-acento);
+}
+
+.celebracion__titulo {
+  font-family: var(--app-fuente-titulos);
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.celebracion__texto {
+  color: rgb(240 238 229 / 0.85);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.celebracion__boton {
+  margin-top: 1rem;
+}
+/* ---------- Perfil (SCRUM-101) ---------- */
+
+.perfil {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 48rem;
+}
+
+.perfil__volver {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  justify-self: start;
+  color: var(--app-tenue);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.perfil__volver:hover {
+  color: var(--app-salvia);
+}
+
+.perfil__volver-flecha {
+  display: inline-grid;
+  transform: rotate(180deg);
+}
+
+.perfil__titulo {
+  font-size: 2.25rem;
+}
+
+.perfil__apartado {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  border-radius: 24px;
+}
+
+.perfil__apartado--peligro {
+  border-color: color-mix(in srgb, var(--app-emociones-acento) 45%, var(--app-borde));
+}
+
+.perfil__apartado-titulo {
+  font-family: var(--app-fuente-titulos);
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.perfil__ayuda {
+  margin-top: 0;
+}
+
+.perfil__fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.perfil__entrada {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.perfil__formulario {
+  display: grid;
+  gap: 1rem;
+  max-width: 28rem;
+}
+
+.perfil__accion {
+  justify-self: start;
+}
+
+.perfil__correo {
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.perfil__modulos {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.perfil__modulo {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 18px;
+  background: var(--app-lienzo);
+  color: var(--app-tinta);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.18s,
+    border-color 0.18s;
+}
+
+.perfil__modulo--activo {
+  border-color: var(--modulo-acento);
+  background: var(--modulo-fondo);
+}
+
+.perfil__modulo-nombre {
+  flex: 1;
+  font-weight: 600;
+}
+
+.perfil__interruptor {
+  position: relative;
+  width: 2.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  background: var(--app-borde);
+  transition: background 0.18s;
+}
+
+.perfil__interruptor > span {
+  position: absolute;
+  top: 0.1875rem;
+  left: 0.1875rem;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 9999px;
+  background: var(--app-tinta);
+  transition: transform 0.18s;
+}
+
+.perfil__modulo--activo .perfil__interruptor {
+  background: var(--modulo-acento);
+}
+
+.perfil__modulo--activo .perfil__interruptor > span {
+  background: var(--app-sobre-primario);
+  transform: translateX(1rem);
+}
+
+.perfil__secundario {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 0.875rem;
+  background: transparent;
+  color: var(--app-tinta);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.perfil__peligro {
+  justify-self: start;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--app-emociones-acento);
+  border-radius: 0.875rem;
+  background: transparent;
+  color: var(--app-emociones-acento);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.perfil__peligro:hover:not(:disabled) {
+  background: var(--app-emociones);
+}
+
+.perfil__peligro:disabled,
+.perfil__secundario:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.perfil__bien,
+.perfil__fallo {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.perfil__bien {
+  color: var(--app-salvia);
+}
+
+.perfil__fallo {
+  color: var(--app-emociones-acento);
+}
+
 /* ---------- Puntos de quiebre del diseño (sm 640, md 768, lg 1024) ---------- */
 
 @media (min-width: 640px) {

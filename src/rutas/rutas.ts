@@ -19,6 +19,9 @@ export const RUTAS = {
   /** Primera pantalla despues de entrar. */
   PANEL: '/panel',
 
+  /** Lo que la persona configura de su cuenta (SCRUM-101). */
+  PERFIL: '/perfil',
+
   /**
    * Una actividad concreta. Lleva parametro, asi que no se navega a esta
    * cadena tal cual: se usa `rutaDeActividad`.

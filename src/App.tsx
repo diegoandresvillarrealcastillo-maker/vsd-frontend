@@ -4,6 +4,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { SaltoAlContenido } from './componentes/SaltoAlContenido.tsx';
 import { Actividad } from './paginas/actividad/Actividad.tsx';
 import { Panel } from './paginas/panel/Panel.tsx';
+import { Perfil } from './paginas/perfil/Perfil.tsx';
 import { Acceso } from './paginas/autenticacion/Acceso.tsx';
 import { ContrasenaNueva } from './paginas/autenticacion/ContrasenaNueva.tsx';
 import { Recuperar } from './paginas/autenticacion/Recuperar.tsx';
@@ -95,6 +96,14 @@ export function App() {
             element={
               <RutaProtegida>
                 <Panel />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path={RUTAS.PERFIL}
+            element={
+              <RutaProtegida>
+                <Perfil />
               </RutaProtegida>
             }
           />

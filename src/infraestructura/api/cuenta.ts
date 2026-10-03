@@ -99,6 +99,30 @@ export function consultarLaCuentaPropia(senal?: AbortSignal): Promise<Cuenta> {
   return llamarALaApi<Cuenta>(RUTA, senal ? { senal } : {});
 }
 
+/** La frase que la API exige para borrar la cuenta. */
+export const FRASE_PARA_BORRAR = 'BORRAR MI CUENTA';
+
+/**
+ * Todo lo que VSD Health guarda de la persona (derecho de acceso, SCRUM-75).
+ *
+ * Se trata como datos opacos: esta pantalla no los interpreta, solo los
+ * entrega a la persona en un archivo.
+ */
+export function exportarMisDatos(senal?: AbortSignal): Promise<unknown> {
+  return llamarALaApi<unknown>(`${RUTA}/exportacion`, senal ? { senal } : {});
+}
+
+/**
+ * Borra la cuenta con todo lo suyo y su identidad en el proveedor
+ * (derecho de supresion, SCRUM-75). No tiene vuelta atras.
+ *
+ * La API exige la frase exacta en el cuerpo. La pide la pantalla a la persona;
+ * aqui solo se envia.
+ */
+export function borrarMiCuenta(confirmacion: string): Promise<void> {
+  return llamarALaApi<void>(RUTA, { metodo: 'DELETE', cuerpo: { confirmacion } });
+}
+
 /**
  * Cambia el nombre, los modulos activos o la mascota de la cuenta propia.
  *

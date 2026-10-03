@@ -107,6 +107,10 @@ export function useDatosDelPanel(): {
   readonly estado: EstadoDelPanel;
   readonly reintentar: () => void;
   readonly activarModulo: (modulo: Modulo) => Promise<void>;
+  readonly completarBienvenida: (eleccion: {
+    nombre: string;
+    modulos: readonly Modulo[];
+  }) => Promise<void>;
 } {
   const [estado, setEstado] = useState<EstadoDelPanel>({ fase: 'cargando' });
   const [intento, setIntento] = useState(0);
@@ -175,5 +179,25 @@ export function useDatosDelPanel(): {
     [estado],
   );
 
-  return { estado, reintentar, activarModulo };
+  /**
+   * Guarda lo que la persona eligio en la bienvenida y pasa al dashboard.
+   *
+   * El nombre va solo si escribio uno: dejarlo vacio no borra el que hubiera.
+   * Si falla, lanza, para que la bienvenida lo cuente y deje reintentar.
+   */
+  const completarBienvenida = useCallback(
+    async (eleccion: { nombre: string; modulos: readonly Modulo[] }): Promise<void> => {
+      const nombre = eleccion.nombre.trim();
+      const cuenta = await cambiarPreferencias({
+        ...(nombre === '' ? {} : { nombre }),
+        modulosActivos: eleccion.modulos,
+      });
+      const progreso = await consultarElProgreso();
+
+      setEstado({ fase: 'listo', cuenta, progreso });
+    },
+    [],
+  );
+
+  return { estado, reintentar, activarModulo, completarBienvenida };
 }
