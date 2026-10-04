@@ -1,0 +1,846 @@
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+
+import { useEscribiendo } from '../componentes/useEscribiendo.ts';
+import '../estilos/semaforo.css';
+import type { NivelDePendiente, Pendiente } from '../infraestructura/api/pendientes.ts';
+import {
+  agrupar,
+  DIAS_AL_POSPONER,
+  dentroDeDias,
+  diasDesde,
+  edad,
+  LARGO_MAXIMO_DEL_TEXTO,
+  NIVEL,
+  NIVELES,
+  PASOS_DE_LA_INDUCCION,
+  textoDelRecordatorio,
+} from './niveles.ts';
+import { useDialogo } from './useDialogo.ts';
+import { useSemaforo } from './useSemaforo.ts';
+
+/**
+ * El semaforo de pendientes, flotante (SCRUM-98).
+ *
+ * - Un boton en la esquina de abajo a la derecha, con cuantos urgentes hay.
+ *   Abre la ventana: en el movil, una hoja desde abajo; fuera, un panel a la
+ *   derecha.
+ * - La primera vez, antes de la ventana, una induccion de cuatro pasos.
+ * - En la ventana se anade, se marca hecho (con deshacer), se sube de nivel
+ *   y se elimina (con confirmacion).
+ * - Si el backend manda un recordatorio, sale junto al boton, con calma: se
+ *   puede revisar, dejar para dentro de una semana o para luego.
+ * - No estorba: va por encima de la navegacion del movil y de la zona segura
+ *   del iPhone, se aparta mientras se escribe, y la mascota no baja hasta su
+ *   esquina (ver `medidas.ts`).
+ * - Se maneja entero con teclado y se cierra con Escape.
+ */
+
+/** Que ya vio la induccion. Una comodidad de este navegador, no un dato personal. */
+const CLAVE_DE_LA_INDUCCION = 'vsd-h:semaforo-induccion-vista';
+
+function vioLaInduccion(): boolean {
+  try {
+    return localStorage.getItem(CLAVE_DE_LA_INDUCCION) === 'si';
+  } catch {
+    return false;
+  }
+}
+
+function recordarQueLaVio(): void {
+  try {
+    localStorage.setItem(CLAVE_DE_LA_INDUCCION, 'si');
+  } catch {
+    // Sin almacenamiento, se vuelve a ver la proxima vez. No es grave.
+  }
+}
+
+const SIN_CONEXION = 'No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.';
+
+/** El dibujo del semaforo. Con `encendida`, solo esa luz tiene color. */
+function IconoSemaforo({
+  encendida,
+  ancho = 22,
+}: {
+  encendida?: NivelDePendiente | null;
+  ancho?: number;
+}) {
+  return (
+    <svg
+      className="semaforo-icono"
+      viewBox="0 0 24 40"
+      width={ancho}
+      height={(ancho * 40) / 24}
+      aria-hidden="true"
+    >
+      <rect x="2" y="1" width="20" height="38" rx="8" className="semaforo-icono__caja" />
+      {NIVELES.map((nivel, indice) => (
+        <circle
+          key={nivel}
+          cx="12"
+          cy={10 + indice * 10}
+          r="5"
+          className={
+            encendida === undefined || encendida === null || encendida === nivel
+              ? `semaforo-luz semaforo-luz--${nivel}`
+              : 'semaforo-luz semaforo-luz--apagada'
+          }
+        />
+      ))}
+    </svg>
+  );
+}
+
+type Vista = 'cerrado' | 'induccion' | 'ventana';
+
+export function Semaforo() {
+  const semaforo = useSemaforo();
+  const escribiendo = useEscribiendo();
+  const [vista, setVista] = useState<Vista>('cerrado');
+  const [resaltado, setResaltado] = useState<string | null>(null);
+  const volverAlBoton = useRef(false);
+  const boton = useRef<HTMLButtonElement>(null);
+  const { estado } = semaforo;
+
+  // Al cerrar la ventana o atender el recordatorio, lo que tenia el foco ya
+  // no esta. El boton si: sigue ahi pase lo que pase. Se enfoca despues de
+  // pintar, que es cuando ya se fue lo otro.
+  useEffect(() => {
+    if (volverAlBoton.current) {
+      volverAlBoton.current = false;
+      boton.current?.focus();
+    }
+  });
+
+  const urgentes =
+    estado.fase === 'listo'
+      ? estado.pendientes.filter((uno) => !uno.hecho && uno.nivel === 'urgente').length
+      : 0;
+
+  function abrir(conResaltado: string | null = null) {
+    setResaltado(conResaltado);
+    setVista(vioLaInduccion() ? 'ventana' : 'induccion');
+  }
+
+  function cerrar() {
+    volverAlBoton.current = true;
+    setVista('cerrado');
+    setResaltado(null);
+  }
+
+  return (
+    <div className={`semaforo${escribiendo && vista === 'cerrado' ? ' semaforo--apartado' : ''}`}>
+      <button
+        ref={boton}
+        type="button"
+        className="semaforo__boton"
+        aria-label={
+          urgentes === 0
+            ? 'Abrir tu semáforo de pendientes'
+            : `Abrir tu semáforo de pendientes: ${urgentes} ${urgentes === 1 ? 'urgente' : 'urgentes'}`
+        }
+        aria-haspopup="dialog"
+        onClick={() => abrir()}
+      >
+        <IconoSemaforo />
+        {urgentes > 0 && (
+          <span className="semaforo__cuenta" aria-hidden="true">
+            {urgentes}
+          </span>
+        )}
+      </button>
+
+      {/* Siempre montada: una region viva que aparece ya llena no siempre se
+          anuncia. */}
+      <div aria-live="polite">
+        {vista === 'cerrado' && estado.fase === 'listo' && estado.recordatorio !== null && (
+          <RecordatorioJuntoAlBoton
+            semaforo={semaforo}
+            pendientes={estado.pendientes}
+            alRevisar={(id) => abrir(id)}
+            alAtender={() => {
+              volverAlBoton.current = true;
+            }}
+          />
+        )}
+      </div>
+
+      {vista === 'induccion' && (
+        <Induccion
+          alTerminar={() => {
+            recordarQueLaVio();
+            setVista('ventana');
+          }}
+          alCerrar={() => {
+            recordarQueLaVio();
+            cerrar();
+          }}
+        />
+      )}
+
+      {vista === 'ventana' && (
+        <Ventana semaforo={semaforo} resaltado={resaltado} alCerrar={cerrar} />
+      )}
+    </div>
+  );
+}
+
+type UsoDelSemaforo = ReturnType<typeof useSemaforo>;
+
+function RecordatorioJuntoAlBoton({
+  semaforo,
+  pendientes,
+  alRevisar,
+  alAtender,
+}: {
+  semaforo: UsoDelSemaforo;
+  pendientes: readonly Pendiente[];
+  alRevisar: (id: string) => void;
+  /** Se pospuso o se dejo para luego: el recordatorio se va. */
+  alAtender: () => void;
+}) {
+  const [ocupado, setOcupado] = useState(false);
+  const [fallo, setFallo] = useState(false);
+  const idDelTexto = useId();
+  const { estado, editar, dejarParaLuego } = semaforo;
+  const recordatorio = estado.fase === 'listo' ? estado.recordatorio : null;
+  const pendiente = pendientes.find((uno) => uno.id === recordatorio?.pendienteId);
+
+  if (recordatorio === null || pendiente === undefined) {
+    return null;
+  }
+
+  async function posponer(id: string) {
+    setOcupado(true);
+    setFallo(false);
+
+    try {
+      await editar(id, { posponerHasta: dentroDeDias(DIAS_AL_POSPONER, new Date()) });
+      alAtender();
+    } catch {
+      setFallo(true);
+      setOcupado(false);
+    }
+  }
+
+  return (
+    <section
+      className={`semaforo__recordatorio semaforo__recordatorio--${recordatorio.nivel}`}
+      aria-labelledby={idDelTexto}
+    >
+      <p className="semaforo__recordatorio-ceja">
+        <IconoSemaforo encendida={recordatorio.nivel} ancho={12} />
+        Tu semáforo · {NIVEL[recordatorio.nivel].nombre}
+      </p>
+      <p id={idDelTexto} className="semaforo__recordatorio-texto">
+        {textoDelRecordatorio(recordatorio)}
+      </p>
+      <p className="semaforo__recordatorio-pendiente">
+        «{pendiente.texto}»<span> · {edad(recordatorio.dias)}</span>
+      </p>
+
+      {fallo && (
+        <p className="semaforo__fallo" role="alert">
+          {SIN_CONEXION}
+        </p>
+      )}
+
+      <div className="semaforo__acciones">
+        <button
+          type="button"
+          className="semaforo__accion semaforo__accion--principal"
+          onClick={() => alRevisar(pendiente.id)}
+        >
+          Revisarlo
+        </button>
+        <button
+          type="button"
+          className="semaforo__accion"
+          disabled={ocupado}
+          onClick={() => void posponer(pendiente.id)}
+        >
+          En una semana
+        </button>
+        <button
+          type="button"
+          className="semaforo__accion"
+          onClick={() => {
+            dejarParaLuego();
+            alAtender();
+          }}
+        >
+          Ahora no
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function Induccion({ alTerminar, alCerrar }: { alTerminar: () => void; alCerrar: () => void }) {
+  const [paso, setPaso] = useState(0);
+  const siguiente = useRef<HTMLButtonElement>(null);
+  const caja = useDialogo<HTMLDivElement>(alCerrar, siguiente);
+  const idDelTitulo = useId();
+  const idDelTexto = useId();
+  const datos = PASOS_DE_LA_INDUCCION[paso];
+  const ultimo = paso === PASOS_DE_LA_INDUCCION.length - 1;
+
+  if (datos === undefined) {
+    return null;
+  }
+
+  return (
+    <div className="semaforo-velo semaforo-velo--centro" onClick={alCerrar}>
+      <div
+        ref={caja}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={idDelTitulo}
+        aria-describedby={idDelTexto}
+        className="semaforo-induccion"
+        onClick={(evento) => evento.stopPropagation()}
+      >
+        <IconoSemaforo encendida={datos.nivel} ancho={40} />
+        <p className="semaforo-induccion__paso">
+          Paso {paso + 1} de {PASOS_DE_LA_INDUCCION.length}
+        </p>
+        <h2 id={idDelTitulo} className="semaforo-induccion__titulo">
+          {datos.titulo}
+        </h2>
+        <p id={idDelTexto}>{datos.texto}</p>
+        <p className="semaforo-induccion__ejemplo">{datos.ejemplo}</p>
+
+        <div className="semaforo-induccion__acciones">
+          <button type="button" className="semaforo__accion" onClick={alCerrar}>
+            {ultimo ? 'Cerrar' : 'Saltar'}
+          </button>
+          <button
+            ref={siguiente}
+            type="button"
+            className="semaforo__accion semaforo__accion--principal"
+            onClick={() => {
+              if (ultimo) {
+                alTerminar();
+                return;
+              }
+
+              setPaso(paso + 1);
+              // El boton es el mismo: el foco se queda y se lee el paso nuevo
+              // por la descripcion del dialogo.
+              siguiente.current?.focus();
+            }}
+          >
+            {ultimo ? 'Empezar' : 'Siguiente'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** El resultado de una accion dentro de la ventana. */
+type Aviso =
+  | { readonly tipo: 'bien'; readonly texto: string; readonly deshacer?: () => Promise<void> }
+  | { readonly tipo: 'fallo'; readonly texto: string }
+  | null;
+
+function Ventana({
+  semaforo,
+  resaltado,
+  alCerrar,
+}: {
+  semaforo: UsoDelSemaforo;
+  resaltado: string | null;
+  alCerrar: () => void;
+}) {
+  const titulo = useRef<HTMLHeadingElement>(null);
+  const caja = useDialogo<HTMLDivElement>(alCerrar, titulo);
+  const idDelTitulo = useId();
+  const [aviso, setAviso] = useState<Aviso>(null);
+  const [confirmando, setConfirmando] = useState<string | null>(null);
+  const [ocupado, setOcupado] = useState<string | null>(null);
+  const enfocar = useRef<'deshacer' | 'titulo' | null>(null);
+  const deshacer = useRef<HTMLButtonElement>(null);
+  const { estado, reintentar, editar, borrar } = semaforo;
+
+  useEffect(() => {
+    if (resaltado !== null) {
+      document.getElementById(`pendiente-${resaltado}`)?.scrollIntoView({ block: 'center' });
+    }
+  }, [resaltado]);
+
+  // Lo que tenia el foco (el boton de un pendiente que se fue, o se movio de
+  // color) ya no esta: se lleva a algo que siga ahi, una vez pintado.
+  useEffect(() => {
+    const destino = enfocar.current;
+
+    if (destino === null) {
+      return;
+    }
+
+    enfocar.current = null;
+    (destino === 'deshacer' ? (deshacer.current ?? titulo.current) : titulo.current)?.focus();
+  });
+
+  /** Hace algo con un pendiente. Si falla, lo dice y no cambia nada. */
+  async function hacer(id: string, accion: () => Promise<Aviso>, foco: 'deshacer' | 'titulo') {
+    setOcupado(id);
+    setAviso(null);
+
+    try {
+      const resultado = await accion();
+
+      enfocar.current = foco;
+      setAviso(resultado);
+      setConfirmando(null);
+    } catch {
+      setAviso({ tipo: 'fallo', texto: SIN_CONEXION });
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  function marcarHecho(pendiente: Pendiente) {
+    void hacer(
+      pendiente.id,
+      async () => {
+        await editar(pendiente.id, { hecho: true });
+
+        return {
+          tipo: 'bien',
+          texto: `Hecho: «${pendiente.texto}».`,
+          deshacer: async () => {
+            await editar(pendiente.id, { hecho: false });
+          },
+        };
+      },
+      'deshacer',
+    );
+  }
+
+  function subir(pendiente: Pendiente, nivel: NivelDePendiente) {
+    void hacer(
+      pendiente.id,
+      async () => {
+        await editar(pendiente.id, { nivel });
+
+        return { tipo: 'bien', texto: `«${pendiente.texto}» pasó a ${NIVEL[nivel].nombre}.` };
+      },
+      'titulo',
+    );
+  }
+
+  function eliminar(pendiente: Pendiente) {
+    void hacer(
+      pendiente.id,
+      async () => {
+        await borrar(pendiente.id);
+
+        return { tipo: 'bien', texto: `«${pendiente.texto}» se eliminó.` };
+      },
+      'titulo',
+    );
+  }
+
+  function volverAPendientes(pendiente: Pendiente) {
+    void hacer(
+      pendiente.id,
+      async () => {
+        await editar(pendiente.id, { hecho: false });
+
+        return { tipo: 'bien', texto: `«${pendiente.texto}» vuelve a tus pendientes.` };
+      },
+      'titulo',
+    );
+  }
+
+  async function alDeshacer(accion: () => Promise<void>) {
+    // El boton de deshacer se va con el aviso: el foco pasa al titulo.
+    enfocar.current = 'titulo';
+    setAviso(null);
+
+    try {
+      await accion();
+      setAviso({ tipo: 'bien', texto: 'Listo, vuelve a estar pendiente.' });
+    } catch {
+      setAviso({ tipo: 'fallo', texto: SIN_CONEXION });
+    }
+  }
+
+  const ahora = new Date();
+  const grupos = estado.fase === 'listo' ? agrupar(estado.pendientes) : null;
+
+  return (
+    <div className="semaforo-velo" onClick={alCerrar}>
+      <div
+        ref={caja}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={idDelTitulo}
+        className="semaforo-ventana"
+        onClick={(evento) => evento.stopPropagation()}
+      >
+        <div className="semaforo-ventana__asa" aria-hidden="true" />
+
+        <div className="semaforo-ventana__cabecera">
+          <IconoSemaforo ancho={18} />
+          <h2 id={idDelTitulo} ref={titulo} tabIndex={-1} className="semaforo-ventana__titulo">
+            Tu semáforo
+          </h2>
+          <button
+            type="button"
+            className="semaforo-ventana__cerrar"
+            aria-label="Cerrar el semáforo"
+            onClick={alCerrar}
+          >
+            ×
+          </button>
+        </div>
+
+        {estado.fase === 'cargando' && (
+          <p className="semaforo__nota" role="status">
+            Cargando tu semáforo…
+          </p>
+        )}
+
+        {estado.fase === 'error' && (
+          <div className="semaforo__nota" role="alert">
+            <p>No se pudo cargar tu semáforo.</p>
+            <button type="button" className="semaforo__accion" onClick={reintentar}>
+              Reintentar
+            </button>
+          </div>
+        )}
+
+        {grupos !== null && (
+          <>
+            {NIVELES.map((nivel) => (
+              <Nivel
+                key={nivel}
+                nivel={nivel}
+                pendientes={grupos.porNivel[nivel]}
+                ahora={ahora}
+                resaltado={resaltado}
+                confirmando={confirmando}
+                ocupado={ocupado}
+                alMarcarHecho={marcarHecho}
+                alSubir={subir}
+                alPedirEliminar={(id) => {
+                  setAviso(null);
+                  setConfirmando(id);
+                }}
+                alCancelarEliminar={() => setConfirmando(null)}
+                alEliminar={eliminar}
+              />
+            ))}
+
+            <Hechos hechos={grupos.hechos} ocupado={ocupado} alVolver={volverAPendientes} />
+
+            <Nuevo semaforo={semaforo} alGuardar={setAviso} />
+          </>
+        )}
+
+        <div className="semaforo-ventana__aviso">
+          {aviso?.tipo === 'fallo' ? (
+            <p className="semaforo__fallo" role="alert">
+              {aviso.texto}
+            </p>
+          ) : (
+            <p className="semaforo__bien" role="status">
+              {aviso?.texto}
+              {aviso?.deshacer !== undefined && (
+                <button
+                  ref={deshacer}
+                  type="button"
+                  className="semaforo__deshacer"
+                  onClick={() => {
+                    const accion = aviso.deshacer;
+
+                    if (accion !== undefined) {
+                      void alDeshacer(accion);
+                    }
+                  }}
+                >
+                  Deshacer
+                </button>
+              )}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Nivel({
+  nivel,
+  pendientes,
+  ahora,
+  resaltado,
+  confirmando,
+  ocupado,
+  alMarcarHecho,
+  alSubir,
+  alPedirEliminar,
+  alCancelarEliminar,
+  alEliminar,
+}: {
+  nivel: NivelDePendiente;
+  pendientes: readonly Pendiente[];
+  ahora: Date;
+  resaltado: string | null;
+  confirmando: string | null;
+  ocupado: string | null;
+  alMarcarHecho: (pendiente: Pendiente) => void;
+  alSubir: (pendiente: Pendiente, nivel: NivelDePendiente) => void;
+  alPedirEliminar: (id: string) => void;
+  alCancelarEliminar: () => void;
+  alEliminar: (pendiente: Pendiente) => void;
+}) {
+  const idDelNivel = useId();
+  const { nombre, plazo, sube } = NIVEL[nivel];
+
+  return (
+    <section className="semaforo-nivel" aria-labelledby={idDelNivel}>
+      <h3 id={idDelNivel} className="semaforo-nivel__cabeza">
+        <span className={`semaforo-punto semaforo-punto--${nivel}`} aria-hidden="true" />
+        <span className="semaforo-nivel__nombre">{nombre}</span>
+        <span className="semaforo-nivel__plazo">{plazo}</span>
+      </h3>
+
+      {pendientes.length === 0 ? (
+        <p className="semaforo__nota">Nada aquí.</p>
+      ) : (
+        <ul className="semaforo-nivel__lista">
+          {pendientes.map((pendiente) => {
+            const idDelTexto = `pendiente-${pendiente.id}-texto`;
+
+            return (
+              <li
+                key={pendiente.id}
+                id={`pendiente-${pendiente.id}`}
+                className={`semaforo-tarea semaforo-tarea--${nivel}${
+                  pendiente.id === resaltado ? ' semaforo-tarea--resaltada' : ''
+                }`}
+              >
+                <p id={idDelTexto} className="semaforo-tarea__texto">
+                  {pendiente.texto}
+                </p>
+                <p className="semaforo-tarea__edad">{edad(diasDesde(pendiente.creadoEn, ahora))}</p>
+
+                {confirmando === pendiente.id ? (
+                  <ConfirmarEliminar
+                    pendiente={pendiente}
+                    ocupado={ocupado === pendiente.id}
+                    alCancelar={alCancelarEliminar}
+                    alEliminar={() => alEliminar(pendiente)}
+                  />
+                ) : (
+                  <div className="semaforo__acciones">
+                    <button
+                      type="button"
+                      className="semaforo__accion"
+                      aria-describedby={idDelTexto}
+                      disabled={ocupado === pendiente.id}
+                      onClick={() => alMarcarHecho(pendiente)}
+                    >
+                      Hecho
+                    </button>
+                    {sube !== null && (
+                      <button
+                        type="button"
+                        className="semaforo__accion"
+                        aria-describedby={idDelTexto}
+                        disabled={ocupado === pendiente.id}
+                        onClick={() => alSubir(pendiente, sube)}
+                      >
+                        Subir a {NIVEL[sube].nombre}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="semaforo__accion"
+                      aria-describedby={idDelTexto}
+                      disabled={ocupado === pendiente.id}
+                      onClick={() => alPedirEliminar(pendiente.id)}
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** Eliminar no tiene vuelta atras: se pide confirmarlo en el mismo sitio. */
+function ConfirmarEliminar({
+  pendiente,
+  ocupado,
+  alCancelar,
+  alEliminar,
+}: {
+  pendiente: Pendiente;
+  ocupado: boolean;
+  alCancelar: () => void;
+  alEliminar: () => void;
+}) {
+  const cancelar = useRef<HTMLButtonElement>(null);
+  const idDeLaPregunta = useId();
+
+  useEffect(() => {
+    cancelar.current?.focus();
+  }, []);
+
+  return (
+    <div className="semaforo-confirmar" role="group" aria-labelledby={idDeLaPregunta}>
+      <p id={idDeLaPregunta} className="semaforo-confirmar__pregunta">
+        ¿Eliminar «{pendiente.texto}»? No se puede deshacer.
+      </p>
+      <div className="semaforo__acciones">
+        <button ref={cancelar} type="button" className="semaforo__accion" onClick={alCancelar}>
+          Cancelar
+        </button>
+        <button
+          type="button"
+          className="semaforo__accion semaforo__accion--peligro"
+          disabled={ocupado}
+          onClick={alEliminar}
+        >
+          {ocupado ? 'Eliminando…' : 'Eliminar'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Lo hecho en los ultimos 7 dias, plegado: se puede devolver a pendientes. */
+function Hechos({
+  hechos,
+  ocupado,
+  alVolver,
+}: {
+  hechos: readonly Pendiente[];
+  ocupado: string | null;
+  alVolver: (pendiente: Pendiente) => void;
+}) {
+  if (hechos.length === 0) {
+    return null;
+  }
+
+  return (
+    <details className="semaforo-hechos">
+      <summary>Hechos esta semana ({hechos.length})</summary>
+      <ul className="semaforo-hechos__lista">
+        {hechos.map((pendiente) => {
+          const idDelTexto = `pendiente-${pendiente.id}-hecho`;
+
+          return (
+            <li key={pendiente.id} className="semaforo-hechos__fila">
+              <span id={idDelTexto} className="semaforo-hechos__texto">
+                {pendiente.texto}
+              </span>
+              <button
+                type="button"
+                className="semaforo__accion"
+                aria-describedby={idDelTexto}
+                disabled={ocupado === pendiente.id}
+                onClick={() => alVolver(pendiente)}
+              >
+                Volver a pendientes
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </details>
+  );
+}
+
+function Nuevo({
+  semaforo,
+  alGuardar,
+}: {
+  semaforo: UsoDelSemaforo;
+  alGuardar: (aviso: Aviso) => void;
+}) {
+  const [texto, setTexto] = useState('');
+  const [nivel, setNivel] = useState<NivelDePendiente>('aplazable');
+  const [ocupado, setOcupado] = useState(false);
+  const idDelCampo = useId();
+  const grupo = useId();
+
+  async function alAnadir(evento: FormEvent) {
+    evento.preventDefault();
+
+    const limpio = texto.trim();
+
+    if (limpio === '') {
+      alGuardar({ tipo: 'fallo', texto: 'Escribe qué tienes pendiente.' });
+      return;
+    }
+
+    setOcupado(true);
+    alGuardar(null);
+
+    try {
+      await semaforo.crear(limpio, nivel);
+      setTexto('');
+      alGuardar({ tipo: 'bien', texto: `Anotado en ${NIVEL[nivel].nombre}.` });
+    } catch {
+      alGuardar({ tipo: 'fallo', texto: SIN_CONEXION });
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  return (
+    <form className="semaforo-nuevo" onSubmit={(evento) => void alAnadir(evento)} noValidate>
+      <label htmlFor={idDelCampo} className="semaforo-nuevo__etiqueta">
+        Añadir algo
+      </label>
+      <input
+        id={idDelCampo}
+        className="semaforo-nuevo__campo"
+        value={texto}
+        onChange={(evento) => setTexto(evento.target.value)}
+        maxLength={LARGO_MAXIMO_DEL_TEXTO}
+        placeholder="Ej.: Pedir cita en la EPS"
+        autoComplete="off"
+        enterKeyHint="done"
+      />
+
+      <fieldset className="semaforo-nuevo__niveles">
+        <legend className="solo-lectores">¿Para cuándo?</legend>
+        {NIVELES.map((uno) => (
+          <label
+            key={uno}
+            className={`semaforo-nuevo__nivel${uno === nivel ? ' semaforo-nuevo__nivel--elegido' : ''}`}
+          >
+            <input
+              type="radio"
+              name={grupo}
+              value={uno}
+              checked={uno === nivel}
+              onChange={() => setNivel(uno)}
+              className="solo-lectores"
+            />
+            <span className={`semaforo-punto semaforo-punto--${uno}`} aria-hidden="true" />
+            {NIVEL[uno].nombre}
+          </label>
+        ))}
+      </fieldset>
+
+      <button
+        type="submit"
+        className="semaforo__accion semaforo__accion--principal"
+        disabled={ocupado}
+      >
+        {ocupado ? 'Añadiendo…' : 'Añadir'}
+      </button>
+    </form>
+  );
+}

@@ -27,6 +27,10 @@ const {
   borrarMiCuenta: vi.fn(),
 }));
 
+// El semaforo flota en esta pantalla (SCRUM-98); aqui no se prueba.
+vi.mock('../../infraestructura/api/pendientes.ts', () => ({
+  consultarElSemaforo: () => Promise.resolve({ pendientes: [], recordatorio: null }),
+}));
 vi.mock('../../infraestructura/api/aviso.ts', () => ({ consultarLaVersionDelAviso }));
 vi.mock('../../infraestructura/api/cuenta.ts', () => ({
   darDeAltaLaCuenta,

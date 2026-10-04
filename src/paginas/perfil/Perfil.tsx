@@ -21,6 +21,7 @@ import {
 } from '../../mascota/personajes.ts';
 import { sprite } from '../../mascota/sprites.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
+import { Semaforo } from '../../semaforo/Semaforo.tsx';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { BarraSuperior } from '../panel/Estructura.tsx';
 import { Icono } from '../panel/Icono.tsx';
@@ -86,6 +87,7 @@ export function Perfil() {
             <TusDatos />
             <BorrarCuenta />
             <MascotaFlotante mascota={estado.cuenta.mascota} />
+            <Semaforo />
           </>
         )}
       </main>

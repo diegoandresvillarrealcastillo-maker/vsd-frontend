@@ -21,6 +21,10 @@ const { api, cargasDelEditorDeDiagramas } = vi.hoisted(() => ({
   cargasDelEditorDeDiagramas: { veces: 0 },
 }));
 
+// El semaforo flota en esta pantalla (SCRUM-98); aqui no se prueba.
+vi.mock('../../infraestructura/api/pendientes.ts', () => ({
+  consultarElSemaforo: () => Promise.resolve({ pendientes: [], recordatorio: null }),
+}));
 vi.mock('../../infraestructura/api/aviso.ts', () => ({
   consultarLaVersionDelAviso: () => Promise.resolve('1.0'),
 }));
