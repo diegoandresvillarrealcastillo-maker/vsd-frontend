@@ -46,6 +46,10 @@ export function BarraSuperior({ conSecciones }: { conSecciones: boolean }) {
                 {seccion.texto}
               </a>
             ))}
+            <Link className="app__enlace" to={RUTAS.DIARIO}>
+              <Icono nombre="calendar" tamano={18} />
+              Mi diario
+            </Link>
           </nav>
         ) : (
           // Mantiene la marca a la izquierda y la cuenta a la derecha.
@@ -113,6 +117,9 @@ function MenuDeCuenta() {
           <Link className="app__menu-opcion" to={RUTAS.PERFIL}>
             Tu perfil
           </Link>
+          <Link className="app__menu-opcion" to={RUTAS.DIARIO}>
+            Mi diario
+          </Link>
           <Link className="app__menu-opcion" to={RUTAS.INICIO}>
             Ir a la página principal
           </Link>
@@ -139,6 +146,10 @@ export function NavegacionInferior() {
           {seccion.texto}
         </a>
       ))}
+      <Link className="app__nav-inferior-enlace" to={RUTAS.DIARIO}>
+        <Icono nombre="calendar" tamano={19} />
+        Mi diario
+      </Link>
     </nav>
   );
 }

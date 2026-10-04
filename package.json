@@ -22,7 +22,14 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@excalidraw/excalidraw": "0.18.1",
     "@supabase/supabase-js": "^2.116.0",
+    "@tiptap/core": "3.31.4",
+    "@tiptap/extension-text-style": "3.31.4",
+    "@tiptap/extensions": "3.31.4",
+    "@tiptap/pm": "3.31.4",
+    "@tiptap/react": "3.31.4",
+    "@tiptap/starter-kit": "3.31.4",
     "framer-motion": "^13.4.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
