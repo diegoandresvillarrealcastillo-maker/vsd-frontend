@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 
 import { App } from './App.tsx';
+import { despertarElApi } from './infraestructura/api/despertar.ts';
 import { ProveedorDeSesion } from './sesion/ProveedorDeSesion.tsx';
 import { seguirAlSistema } from './tema/tema.ts';
 import './estilos/global.css';
@@ -11,6 +12,10 @@ import './estilos/global.css';
 // pintado. Lo unico que queda es seguir al sistema si cambia y nadie habia
 // elegido nada.
 seguirAlSistema();
+
+// Lo antes posible: si el API dormia, que vaya despertando mientras la
+// persona lee la portada o escribe su correo (SCRUM-111).
+despertarElApi();
 
 const raiz = document.getElementById('raiz');
 
