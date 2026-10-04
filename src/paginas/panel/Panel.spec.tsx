@@ -195,6 +195,25 @@ describe('Dashboard', () => {
       expect(await screen.findByRole('heading', { name: /Hola, Marina\./ })).toBeInTheDocument();
     });
 
+    it('el selector de tema esta en la barra y cambia el tema (SCRUM-112)', async () => {
+      document.documentElement.dataset.tema = 'oscuro';
+
+      pintar();
+
+      const tema = await screen.findByRole('group', { name: 'Tema de la aplicación' });
+
+      await userEvent.click(within(tema).getByRole('button', { name: 'Tema claro' }));
+
+      expect(document.documentElement.dataset.tema).toBe('claro');
+      expect(within(tema).getByRole('button', { name: 'Tema claro' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+      expect(localStorage.getItem('vsd.tema')).toBe('claro');
+
+      localStorage.removeItem('vsd.tema');
+    });
+
     it('sin nombre saluda igual, sin inventar uno', async () => {
       darDeAltaLaCuenta.mockResolvedValue({ ...CUENTA, nombre: undefined });
 
