@@ -1,4 +1,5 @@
 import { AnimatePresence } from 'framer-motion';
+import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import { SaltoAlContenido } from './componentes/SaltoAlContenido.tsx';
@@ -14,6 +15,14 @@ import { Portada } from './paginas/portada/Portada.tsx';
 import { RutaDeInvitado } from './rutas/RutaDeInvitado.tsx';
 import { RutaProtegida } from './rutas/RutaProtegida.tsx';
 import { RUTAS } from './rutas/rutas.ts';
+
+/**
+ * El diario se carga aparte (SCRUM-96): su editor pesa, y quien no lo abre no
+ * tiene por que descargarlo.
+ */
+const Diario = lazy(() =>
+  import('./paginas/diario/Diario.tsx').then((modulo) => ({ default: modulo.Diario })),
+);
 
 /**
  * El mapa de la aplicacion.
@@ -105,6 +114,22 @@ export function App() {
             element={
               <RutaProtegida>
                 <Perfil />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path={RUTAS.DIARIO}
+            element={
+              <RutaProtegida>
+                <Suspense
+                  fallback={
+                    <p className="solo-lectores" role="status">
+                      Cargando tu diario…
+                    </p>
+                  }
+                >
+                  <Diario />
+                </Suspense>
               </RutaProtegida>
             }
           />

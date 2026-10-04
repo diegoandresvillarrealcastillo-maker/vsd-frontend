@@ -1,0 +1,470 @@
+/* ============================================================
+   Mi diario (SCRUM-96)
+   ============================================================
+   Vive dentro de `.app`, la estructura del panel, que siempre es
+   oscura. Las tintas del texto se definen para los dos temas: asi
+   lo escrito se lee bien aqui y en cualquier pantalla clara donde
+   llegue a mostrarse una anotacion.
+   ============================================================ */
+
+/* ---------- Las tintas y las letras del texto ----------
+   Lo que se guarda es `var(--tinta-verde)`, no un color fijo
+   (`formato.ts`). Cada tono cumple contraste 4,5:1 sobre el fondo
+   de su tema. */
+
+:root {
+  --tinta-verde: #2f7d57;
+  --tinta-azul: #2d63b3;
+  --tinta-morado: #6b4bb3;
+  --tinta-ambar: #8a5a00;
+  --tinta-rojo: #b23c2e;
+  --letra-diario-serifa: Newsreader, Georgia, serif;
+  --letra-diario-mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
+:root[data-tema='oscuro'],
+.app {
+  --tinta-verde: #8fd4ac;
+  --tinta-azul: #9cc3f5;
+  --tinta-morado: #c9b2f2;
+  --tinta-ambar: #f0c674;
+  --tinta-rojo: #f2a39a;
+}
+
+/* ---------- La pagina ---------- */
+
+.diario {
+  display: grid;
+  gap: 1.5rem;
+  max-width: 780px;
+}
+
+.diario__titulo {
+  margin: 0;
+  font-family: var(--app-fuente-titulos);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 2.25rem;
+  color: var(--app-tinta);
+}
+
+.diario__aviso {
+  margin: 0;
+  padding: 0.875rem 1rem;
+  color: var(--app-tinta);
+  background: var(--app-superficie);
+  border: 1px solid var(--app-borde);
+  border-radius: 12px;
+}
+
+.diario__apoyo {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
+  padding: 1rem;
+  background: var(--app-superficie);
+  border: 1px solid var(--app-borde);
+  border-radius: 16px;
+}
+
+/* Las lineas de atencion traen los tokens de la pantalla de actividad;
+   aqui se les dan los del panel. */
+.diario__apoyo {
+  --texto: var(--app-tinta);
+  --texto-tenue: var(--app-tenue);
+  --borde: var(--app-borde);
+  --fondo-sutil: var(--app-superficie-alta);
+}
+
+/* ---------- El lienzo ---------- */
+
+.lienzo {
+  display: grid;
+  gap: 0.875rem;
+  padding: 1.25rem;
+  background: var(--app-superficie);
+  border: 1px solid var(--app-borde);
+  border-radius: 20px;
+}
+
+.lienzo__modo {
+  margin: 0;
+  color: var(--app-salvia);
+  font-size: 0.875rem;
+}
+
+.lienzo__datos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.lienzo__campo {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--app-tenue);
+  font-size: 0.8125rem;
+}
+
+.lienzo__campo--titulo {
+  flex: 1 1 14rem;
+}
+
+.lienzo__campo input {
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--app-tinta);
+  background: var(--app-lienzo);
+  border: 1px solid var(--app-borde);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 0.9375rem;
+  color-scheme: dark;
+}
+
+.lienzo__campo input:focus-visible,
+.lienzo__selector:focus-visible,
+.lienzo__boton:focus-visible,
+.lienzo__color:focus-visible,
+.diario__editar:focus-visible,
+.diario__reintentar:focus-visible {
+  outline: 2px solid var(--app-salvia);
+  outline-offset: 2px;
+}
+
+/* La barra se parte en grupos que bajan de linea enteros a 375 px. */
+.lienzo__barra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--app-borde);
+}
+
+.lienzo__grupo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.lienzo__boton {
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  padding: 0 0.5rem;
+  color: var(--app-tinta);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+
+.lienzo__boton:hover {
+  background: var(--app-superficie-alta);
+}
+
+.lienzo__boton[aria-pressed='true'] {
+  background: var(--app-superficie-alta);
+  border-color: var(--app-salvia);
+}
+
+.lienzo__boton--negrita {
+  font-weight: 700;
+}
+
+.lienzo__boton--cursiva {
+  font-style: italic;
+}
+
+.lienzo__boton--subrayado {
+  text-decoration: underline;
+}
+
+.lienzo__selector {
+  min-height: 2.25rem;
+  padding: 0 0.5rem;
+  color: var(--app-tinta);
+  background: var(--app-lienzo);
+  border: 1px solid var(--app-borde);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.875rem;
+  color-scheme: dark;
+}
+
+.lienzo__color {
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 2px solid var(--app-borde);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.lienzo__color[aria-pressed='true'] {
+  border-color: var(--app-tinta);
+  box-shadow: 0 0 0 2px var(--app-superficie);
+}
+
+/* "Sin color": una raya sobre el fondo. */
+.lienzo__color--ninguno {
+  background: linear-gradient(
+    135deg,
+    transparent 45%,
+    var(--app-tenue) 45%,
+    var(--app-tenue) 55%,
+    transparent 55%
+  );
+}
+
+/* La hoja: amplia, sin caja, para escribir largo. */
+.lienzo__hoja {
+  min-height: 45vh;
+}
+
+.lienzo__texto {
+  min-height: 45vh;
+  padding: 0.25rem 0.125rem;
+  color: var(--app-tinta);
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  outline: none;
+  overflow-wrap: anywhere;
+}
+
+.lienzo__texto:focus-visible {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--app-salvia) 45%, transparent);
+  border-radius: 8px;
+}
+
+/* El aviso de la hoja vacia. La extension Placeholder marca el primer
+   parrafo vacio y le deja el texto en `data-placeholder`. */
+.lienzo__texto p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--app-tenue);
+  pointer-events: none;
+}
+
+.lienzo__texto :is(h2, h3) {
+  margin: 1rem 0 0.25rem;
+  font-family: var(--app-fuente-titulos);
+}
+
+.lienzo__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.lienzo .pildora:disabled {
+  opacity: 0.5;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* La tarjeta de un diagrama dentro del texto. */
+.lienzo__diagrama,
+.documento__diagrama {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.75rem 0;
+  padding: 0.75rem 1rem;
+  background: var(--app-superficie-alta);
+  border: 1px dashed var(--app-borde);
+  border-radius: 12px;
+}
+
+.lienzo__diagrama-nombre {
+  margin-right: auto;
+  color: var(--app-tenue);
+}
+
+/* ---------- El historial ---------- */
+
+.diario__historial {
+  display: grid;
+  gap: 1rem;
+}
+
+.diario__historial h2 {
+  margin: 0;
+  font-family: var(--app-fuente-titulos);
+  font-weight: 500;
+  color: var(--app-tinta);
+}
+
+.diario__vacio {
+  margin: 0;
+  color: var(--app-tenue);
+}
+
+.diario__dia {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.diario__dia-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.diario__dia-cabecera h3 {
+  margin: 0;
+  color: var(--app-salvia);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.diario__anotaciones {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.diario__anotacion {
+  display: grid;
+  gap: 0.375rem;
+  padding: 1rem;
+  background: var(--app-superficie);
+  border: 1px solid var(--app-borde);
+  border-radius: 14px;
+}
+
+.diario__anotacion--guardando {
+  opacity: 0.75;
+}
+
+.diario__anotacion--error {
+  border-color: var(--tinta-rojo);
+}
+
+.diario__anotacion-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+}
+
+.diario__hora {
+  color: var(--app-tenue);
+  font-size: 0.8125rem;
+}
+
+.diario__estado {
+  color: var(--app-tenue);
+  font-size: 0.8125rem;
+}
+
+.diario__estado--error {
+  color: var(--tinta-rojo);
+}
+
+.diario__editar,
+.diario__reintentar {
+  min-height: 2rem;
+  padding: 0 0.625rem;
+  color: var(--app-salvia);
+  background: transparent;
+  border: 1px solid var(--app-borde);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.diario__editar {
+  margin-left: auto;
+}
+
+.diario__anotacion-titulo {
+  margin: 0;
+  color: var(--app-tinta);
+  font-weight: 600;
+}
+
+.diario__mas {
+  justify-self: center;
+}
+
+/* ---------- Una anotacion para leer ---------- */
+
+.documento {
+  color: var(--app-tinta);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.documento > :first-child {
+  margin-top: 0;
+}
+
+.documento > :last-child {
+  margin-bottom: 0;
+}
+
+.documento p {
+  margin: 0 0 0.5rem;
+}
+
+.documento :is(h3, h4) {
+  margin: 0.75rem 0 0.25rem;
+  font-family: var(--app-fuente-titulos);
+}
+
+/* ---------- El editor de diagramas ---------- */
+
+.diagrama {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: var(--app-lienzo, #151c19);
+}
+
+.diagrama__barra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--app-borde, #35463b);
+}
+
+.diagrama__titulo {
+  color: var(--app-tinta, #f0eee5);
+  font-weight: 600;
+}
+
+.diagrama__acciones {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.diagrama__lienzo {
+  flex: 1;
+  min-height: 0;
+}
+
+.diagrama__cargando {
+  position: fixed;
+  inset: auto 1rem 1rem auto;
+  z-index: 61;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  color: var(--app-tinta, #f0eee5);
+  background: var(--app-superficie, #1d2722);
+  border-radius: 10px;
+}
