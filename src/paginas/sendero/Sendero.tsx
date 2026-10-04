@@ -8,6 +8,7 @@ import type { Modulo } from '../../infraestructura/api/cuenta.ts';
 import type { ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { MascotaFlotante } from '../../mascota/MascotaFlotante.tsx';
 import { RUTAS } from '../../rutas/rutas.ts';
+import { Semaforo } from '../../semaforo/Semaforo.tsx';
 import { BarraSuperior } from '../panel/Estructura.tsx';
 import { Icono } from '../panel/Icono.tsx';
 import { MODULOS, ORDEN } from '../panel/modulos.ts';
@@ -63,6 +64,8 @@ export function Sendero() {
           </p>
         )}
       </main>
+
+      <Semaforo />
     </div>
   );
 }

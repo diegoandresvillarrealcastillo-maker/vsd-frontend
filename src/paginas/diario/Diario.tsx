@@ -7,6 +7,7 @@ import '../../estilos/aplicacion.css';
 import '../../estilos/diario.css';
 import type { Anotacion } from '../../infraestructura/api/diario.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
+import { Semaforo } from '../../semaforo/Semaforo.tsx';
 import { LineasDeAtencion } from '../actividad/LineasDeAtencion.tsx';
 import { BarraSuperior } from '../panel/Estructura.tsx';
 import { Icono } from '../panel/Icono.tsx';
@@ -232,6 +233,8 @@ export function Diario() {
           )}
         </section>
       </main>
+
+      <Semaforo />
 
       {diagramaParaVer !== null && (
         <Suspense

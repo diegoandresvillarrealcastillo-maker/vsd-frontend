@@ -156,6 +156,12 @@ describe('cambiarPreferencias', () => {
     await expect(peticion.json()).resolves.toEqual({ modulosActivos: ['cognicion', 'emociones'] });
   });
 
+  it('el permiso del diario viaja solo, sin arrastrar lo demas (SCRUM-108)', async () => {
+    await cambiarPreferencias({ diarioConRecomendaciones: true });
+
+    await expect(peticionEnviada().json()).resolves.toEqual({ diarioConRecomendaciones: true });
+  });
+
   it('lleva el token en la cabecera de autorizacion', async () => {
     await cambiarPreferencias({ nombre: 'Marina' });
 

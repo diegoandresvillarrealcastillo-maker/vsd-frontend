@@ -7,6 +7,7 @@ import type { Cuenta, Modulo } from '../../infraestructura/api/cuenta.ts';
 import type { ActividadDeHoy, ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { MascotaFlotante } from '../../mascota/MascotaFlotante.tsx';
 import { rutaDeActividad, rutaDeModulo } from '../../rutas/rutas.ts';
+import { Semaforo } from '../../semaforo/Semaforo.tsx';
 import { Bienvenida } from './Bienvenida.tsx';
 import { Celebracion } from './Celebracion.tsx';
 import { BarraSuperior, NavegacionInferior } from './Estructura.tsx';
@@ -27,7 +28,6 @@ import { useDatosDelPanel } from './useDatosDelPanel.ts';
  * dia queda completo o se desbloquea un modulo.
  *
  * Lo que el diseño trae y aqui todavia no esta:
- * - El semaforo de pendientes va flotante, en su propio ticket (SCRUM-98).
  * - VSD IA, que se abre desde la mascota (SCRUM-100).
  * - La etiqueta "Vista de prueba", que era del prototipo.
  */
@@ -215,6 +215,7 @@ function Dashboard({
       )}
 
       <MascotaFlotante mascota={cuenta.mascota} celebrar={planCompleto || celebracion !== null} />
+      <Semaforo />
     </>
   );
 }

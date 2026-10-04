@@ -19,6 +19,10 @@ const { consultarLaVersionDelAviso, darDeAltaLaCuenta, consultarElProgreso } = v
   consultarElProgreso: vi.fn(),
 }));
 
+// El semaforo flota en esta pantalla (SCRUM-98); aqui no se prueba.
+vi.mock('../../infraestructura/api/pendientes.ts', () => ({
+  consultarElSemaforo: () => Promise.resolve({ pendientes: [], recordatorio: null }),
+}));
 vi.mock('../../infraestructura/api/aviso.ts', () => ({ consultarLaVersionDelAviso }));
 vi.mock('../../infraestructura/api/cuenta.ts', () => ({ darDeAltaLaCuenta }));
 vi.mock('../../infraestructura/api/progreso.ts', () => ({ consultarElProgreso }));
@@ -32,6 +36,7 @@ const CUENTA: Cuenta = {
   registradoEn: '2026-09-26T15:00:00.000Z',
   modulosActivos: ['bienestar'],
   mascota: null,
+  diarioConRecomendaciones: false,
 };
 
 /** Tres sesiones hechas y nada todavia hoy. */
