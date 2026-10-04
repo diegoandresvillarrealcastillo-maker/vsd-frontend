@@ -311,6 +311,28 @@
   background: var(--fondo-sutil);
 }
 
+/* El boton principal de la actividad (SCRUM-106). `.pildora` sola no
+   tiene fondo propio, y aqui se veia con el gris nativo del navegador.
+   Se le da el estilo de accion de la aplicacion solo dentro de la
+   actividad: la portada, el acceso y el registro no cambian. Los de
+   `--fantasma` siguen como estaban, con borde y sin fondo. */
+.actividad .pildora:not(.pildora--fantasma) {
+  color: var(--acento-contraste);
+  background: var(--acento);
+  box-shadow: var(--resplandor-accion);
+}
+
+.actividad .pildora:not(.pildora--fantasma):hover:not(:disabled) {
+  background: var(--acento-claro);
+}
+
+/* Mientras guarda: se nota que no responde, sin perder el color. */
+.actividad .pildora:disabled {
+  opacity: 0.55;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
 .actividad__acciones {
   display: flex;
   flex-wrap: wrap;
