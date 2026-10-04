@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { RUTAS } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
+import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
 import { Icono, type NombreDeIcono } from './Icono.tsx';
 
 /**
@@ -56,7 +57,11 @@ export function BarraSuperior({ conSecciones }: { conSecciones: boolean }) {
           <span aria-hidden="true" />
         )}
 
-        <MenuDeCuenta />
+        <div className="app__acciones">
+          {/* Volvio con el modo claro (SCRUM-112). */}
+          <SelectorDeTema variante="barra" />
+          <MenuDeCuenta />
+        </div>
       </div>
     </header>
   );

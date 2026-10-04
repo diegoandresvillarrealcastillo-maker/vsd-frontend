@@ -22,8 +22,9 @@
   --letra-diario-mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
 }
 
-:root[data-tema='oscuro'],
-.app {
+/* Dentro de la aplicacion siguen el tema elegido, como todo lo demas
+   (SCRUM-112). */
+:root[data-tema='oscuro'] {
   --tinta-verde: #8fd4ac;
   --tinta-azul: #9cc3f5;
   --tinta-morado: #c9b2f2;
