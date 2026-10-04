@@ -1,8 +1,10 @@
+import { motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { RUTAS } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
+import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
 import { Icono, type NombreDeIcono } from './Icono.tsx';
 
 /**
@@ -56,7 +58,11 @@ export function BarraSuperior({ conSecciones }: { conSecciones: boolean }) {
           <span aria-hidden="true" />
         )}
 
-        <MenuDeCuenta />
+        <div className="app__acciones">
+          {/* Volvio con el modo claro (SCRUM-112). */}
+          <SelectorDeTema variante="barra" />
+          <MenuDeCuenta />
+        </div>
       </div>
     </header>
   );
@@ -132,23 +138,140 @@ function MenuDeCuenta() {
   );
 }
 
-/** La navegacion flotante del movil. Solo tiene sentido en el dashboard. */
+/** Cuanto hay que desplazarse de una vez para que cuente como bajar o subir. */
+const UMBRAL_DE_DESPLAZAMIENTO = 6;
+/** Por encima de esto el dock no se esconde: arriba del todo siempre esta. */
+const ALTURA_SIEMPRE_VISIBLE = 80;
+/** Al dejar de desplazarse, el dock vuelve. */
+const VUELVE_AL_DETENERSE_MS = 700;
+
+/**
+ * Si el dock deberia esconderse ahora: al bajar se aparta para dejar ver el
+ * contenido, y vuelve al subir o al detenerse.
+ */
+function useOcultarAlBajar(): [boolean, (oculto: boolean) => void] {
+  const [oculto, setOculto] = useState(false);
+
+  useEffect(() => {
+    let anterior = window.scrollY;
+    let quieto: ReturnType<typeof setTimeout> | undefined;
+
+    function alDesplazar() {
+      const actual = window.scrollY;
+
+      if (actual > anterior + UMBRAL_DE_DESPLAZAMIENTO && actual > ALTURA_SIEMPRE_VISIBLE) {
+        setOculto(true);
+      } else if (actual < anterior - UMBRAL_DE_DESPLAZAMIENTO) {
+        setOculto(false);
+      }
+
+      anterior = actual;
+      clearTimeout(quieto);
+      quieto = setTimeout(() => setOculto(false), VUELVE_AL_DETENERSE_MS);
+    }
+
+    window.addEventListener('scroll', alDesplazar, { passive: true });
+
+    return () => {
+      clearTimeout(quieto);
+      window.removeEventListener('scroll', alDesplazar);
+    };
+  }, []);
+
+  return [oculto, setOculto];
+}
+
+/** La seccion del dashboard que esta a la vista, la que cruza el centro. */
+function useSeccionALaVista(ids: readonly string[]): [string, (id: string) => void] {
+  const [activa, setActiva] = useState(ids[0] ?? '');
+
+  useEffect(() => {
+    const secciones = ids
+      .map((id) => document.getElementById(id))
+      .filter((seccion): seccion is HTMLElement => seccion !== null);
+
+    if (secciones.length === 0) {
+      return undefined;
+    }
+
+    const observador = new IntersectionObserver(
+      (entradas) => {
+        const visible = entradas.find((entrada) => entrada.isIntersecting);
+
+        if (visible !== undefined) {
+          setActiva(visible.target.id);
+        }
+      },
+      // Una franja en el centro de la pantalla: cuenta la seccion que la cruza.
+      { rootMargin: '-45% 0px -50% 0px' },
+    );
+
+    secciones.forEach((seccion) => observador.observe(seccion));
+
+    return () => observador.disconnect();
+  }, [ids]);
+
+  return [activa, setActiva];
+}
+
+const IDS_DE_SECCIONES = SECCIONES.map((seccion) => seccion.href.slice(1));
+
+/**
+ * El dock flotante del movil (SCRUM-114). Solo tiene sentido en el
+ * dashboard.
+ *
+ * - Una pildora compacta y centrada, despegada del borde y de la zona segura
+ *   del iPhone, de vidrio como lo demas que flota (SCRUM-113).
+ * - La seccion a la vista se marca con una pastilla que se desliza de una a
+ *   otra.
+ * - Al bajar se aparta, y vuelve al subir, al detenerse o si recibe el foco.
+ * - Con `prefers-reduced-motion`, sin deslizamientos.
+ */
 export function NavegacionInferior() {
+  const [activa, setActiva] = useSeccionALaVista(IDS_DE_SECCIONES);
+  const [oculto, setOculto] = useOcultarAlBajar();
+  const sinMovimiento = useReducedMotion() ?? false;
+
   return (
-    <nav className="app__nav-inferior" aria-label="Secciones">
-      {SECCIONES.map((seccion, indice) => (
-        <a
-          key={seccion.href}
-          className={`app__nav-inferior-enlace${indice === 0 ? ' app__nav-inferior-enlace--activo' : ''}`}
-          href={seccion.href}
-        >
-          <Icono nombre={seccion.icono} tamano={19} />
-          {seccion.texto}
-        </a>
-      ))}
+    <nav
+      className={`app__nav-inferior${oculto ? ' app__nav-inferior--oculto' : ''}`}
+      aria-label="Secciones"
+      // Quien llega con el teclado no tiene que desplazarse para verlo.
+      onFocus={() => setOculto(false)}
+    >
+      {SECCIONES.map((seccion) => {
+        const id = seccion.href.slice(1);
+        const esLaActiva = id === activa;
+
+        return (
+          <a
+            key={seccion.href}
+            className={`app__nav-inferior-enlace${esLaActiva ? ' app__nav-inferior-enlace--activo' : ''}`}
+            href={seccion.href}
+            aria-current={esLaActiva ? 'location' : undefined}
+            onClick={() => setActiva(id)}
+          >
+            {esLaActiva && (
+              <motion.span
+                className="app__nav-inferior-pastilla"
+                layoutId="pastilla-del-dock"
+                transition={
+                  sinMovimiento ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 34 }
+                }
+              />
+            )}
+            <span className="app__nav-inferior-icono">
+              <Icono nombre={seccion.icono} tamano={19} />
+            </span>
+            <span className="app__nav-inferior-texto">{seccion.texto}</span>
+          </a>
+        );
+      })}
       <Link className="app__nav-inferior-enlace" to={RUTAS.DIARIO}>
-        <Icono nombre="calendar" tamano={19} />
-        Mi diario
+        <span className="app__nav-inferior-icono">
+          <Icono nombre="calendar" tamano={19} />
+        </span>
+        <span className="app__nav-inferior-texto">Mi diario</span>
       </Link>
     </nav>
   );

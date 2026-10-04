@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -188,11 +188,103 @@ describe('Dashboard', () => {
     });
   });
 
+  describe('el dock del movil (SCRUM-114)', () => {
+    function dock(): HTMLElement {
+      const elemento = document.querySelector<HTMLElement>('.app__nav-inferior');
+
+      if (elemento === null) {
+        throw new Error('El dock no esta en pantalla');
+      }
+
+      return elemento;
+    }
+
+    function desplazarA(y: number) {
+      Object.defineProperty(window, 'scrollY', { configurable: true, value: y });
+      fireEvent.scroll(window);
+    }
+
+    // Cada prueba empieza arriba del todo.
+    beforeEach(() => {
+      Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 });
+    });
+
+    it('marca la seccion en la que se esta, y cambia al pulsar otra', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      const inicio = within(dock()).getByRole('link', { name: 'Inicio' });
+      const progreso = within(dock()).getByRole('link', { name: 'Progreso' });
+
+      expect(inicio).toHaveAttribute('aria-current', 'location');
+
+      await userEvent.click(progreso);
+
+      expect(progreso).toHaveAttribute('aria-current', 'location');
+      expect(inicio).not.toHaveAttribute('aria-current');
+    });
+
+    it('se aparta al bajar y vuelve al subir', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      desplazarA(300);
+      expect(dock()).toHaveClass('app__nav-inferior--oculto');
+
+      desplazarA(200);
+      expect(dock()).not.toHaveClass('app__nav-inferior--oculto');
+    });
+
+    it('arriba del todo no se aparta, y vuelve si recibe el foco', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      desplazarA(40);
+      expect(dock()).not.toHaveClass('app__nav-inferior--oculto');
+
+      desplazarA(400);
+      expect(dock()).toHaveClass('app__nav-inferior--oculto');
+
+      fireEvent.focus(within(dock()).getByRole('link', { name: 'Explorar' }));
+      expect(dock()).not.toHaveClass('app__nav-inferior--oculto');
+    });
+  });
+
   describe('lo que se ve', () => {
     it('saluda con el nombre de la cuenta', async () => {
       pintar();
 
       expect(await screen.findByRole('heading', { name: /Hola, Marina\./ })).toBeInTheDocument();
+    });
+
+    it('y pregunta por donde empezar, sin genero gramatical (SCRUM-109)', async () => {
+      pintar();
+
+      expect(await screen.findByRole('heading', { name: /Hola, Marina/ })).toHaveTextContent(
+        '¿Por dónde empezamos hoy?',
+      );
+    });
+
+    it('el selector de tema esta en la barra y cambia el tema (SCRUM-112)', async () => {
+      document.documentElement.dataset.tema = 'oscuro';
+
+      pintar();
+
+      const tema = await screen.findByRole('group', { name: 'Tema de la aplicación' });
+
+      await userEvent.click(within(tema).getByRole('button', { name: 'Tema claro' }));
+
+      expect(document.documentElement.dataset.tema).toBe('claro');
+      expect(within(tema).getByRole('button', { name: 'Tema claro' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+      expect(localStorage.getItem('vsd.tema')).toBe('claro');
+
+      localStorage.removeItem('vsd.tema');
     });
 
     it('sin nombre saluda igual, sin inventar uno', async () => {

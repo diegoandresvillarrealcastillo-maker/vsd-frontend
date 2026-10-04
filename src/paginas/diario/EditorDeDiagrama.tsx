@@ -27,9 +27,8 @@ export default function EditorDeDiagrama({
 }) {
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
   const primerBoton = useRef<HTMLButtonElement>(null);
-  // El diario vive dentro del panel, que siempre es oscuro.
-  const oscuro =
-    document.documentElement.dataset.tema === 'oscuro' || document.querySelector('.app') !== null;
+  // El lienzo sigue el tema de la aplicacion (SCRUM-112).
+  const oscuro = document.documentElement.dataset.tema === 'oscuro';
 
   useEffect(() => {
     primerBoton.current?.focus();

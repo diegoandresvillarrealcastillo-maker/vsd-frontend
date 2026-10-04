@@ -20,6 +20,17 @@
   --semaforo-caja: #0e1013;
 }
 
+/* El tema claro (SCRUM-112), con la variante clara de la misma propuesta. */
+:root[data-tema='claro'] .app {
+  --semaforo-urgente: #b8503f;
+  --semaforo-urgente-suave: #f5e1dc;
+  --semaforo-prioridad: #9a6b1c;
+  --semaforo-prioridad-suave: #f3e7cf;
+  --semaforo-aplazable: #3d7a6b;
+  --semaforo-aplazable-suave: #d8e8e3;
+  --semaforo-caja: #2a2f36;
+}
+
 /* ---------- El dibujo ---------- */
 
 .semaforo-icono {

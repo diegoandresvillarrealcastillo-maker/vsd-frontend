@@ -67,9 +67,17 @@ interface Props {
    * - `incrustado`: dentro de la tarjeta de acceso, en su esquina. Flotando
    *   sobre esas pantallas quedaba suelto en mitad de la nada, porque ahi lo
    *   unico que hay es la tarjeta.
+   * - `barra`: en la barra superior de la aplicacion, junto a la cuenta
+   *   (SCRUM-112), con sus colores.
    */
-  readonly variante?: 'flotante' | 'incrustado';
+  readonly variante?: 'flotante' | 'incrustado' | 'barra';
 }
+
+const CLASE: Readonly<Record<NonNullable<Props['variante']>, string>> = {
+  flotante: 'tema',
+  incrustado: 'tema tema--incrustado',
+  barra: 'tema tema--barra',
+};
 
 export function SelectorDeTema({ variante = 'flotante' }: Props) {
   // Se lee una sola vez al montar. A partir de ahi el estado de aqui y la
@@ -82,11 +90,7 @@ export function SelectorDeTema({ variante = 'flotante' }: Props) {
   }
 
   return (
-    <div
-      className={variante === 'incrustado' ? 'tema tema--incrustado' : 'tema'}
-      role="group"
-      aria-label="Tema de la aplicación"
-    >
+    <div className={CLASE[variante]} role="group" aria-label="Tema de la aplicación">
       {OPCIONES.map((opcion) => {
         const activo = tema === opcion.tema;
 
