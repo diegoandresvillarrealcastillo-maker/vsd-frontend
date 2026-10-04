@@ -41,6 +41,14 @@
   --app-hundido: rgb(0 0 0 / 0.15);
   --app-carril: rgb(0 0 0 / 0.2);
 
+  /* El vidrio de lo que flota (SCRUM-113). Ver "Vidrio" al final. */
+  --vidrio-fondo: color-mix(in srgb, var(--app-superficie) 68%, transparent);
+  --vidrio-fondo-denso: color-mix(in srgb, var(--app-superficie) 86%, transparent);
+  --vidrio-borde: rgb(255 255 255 / 0.1);
+  --vidrio-brillo: inset 0 1px 0 rgb(255 255 255 / 0.08);
+  --vidrio-sombra: 0 18px 40px -12px rgb(0 0 0 / 0.5);
+  --vidrio-filtro: blur(18px) saturate(160%);
+
   --app-fuente: 'DM Sans', sans-serif;
   --app-fuente-titulos: Newsreader, Georgia, serif;
 
@@ -81,6 +89,12 @@
   --app-tinta-suave: rgb(29 36 32 / 0.78);
   --app-hundido: rgb(255 255 255 / 0.7);
   --app-carril: rgb(0 0 0 / 0.08);
+
+  --vidrio-fondo: color-mix(in srgb, #ffffff 62%, transparent);
+  --vidrio-fondo-denso: color-mix(in srgb, #ffffff 84%, transparent);
+  --vidrio-borde: rgb(255 255 255 / 0.75);
+  --vidrio-brillo: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 0 0 1px rgb(29 36 32 / 0.06);
+  --vidrio-sombra: 0 18px 40px -16px rgb(29 36 32 / 0.25);
 
   color-scheme: light;
 }
@@ -1819,5 +1833,89 @@
 
   .sendero__punto--respira::after {
     animation: none;
+  }
+}
+
+/* ==========================================================================
+   Vidrio (SCRUM-113)
+
+   Lo que flota sobre el contenido es de vidrio esmerilado: deja ver lo de
+   detras, desenfocado, con un borde y un brillo sutiles en el canto.
+
+   - Safari, y con el todo iOS, solo entiende `-webkit-backdrop-filter`:
+     van los dos, el prefijado primero.
+   - El fondo nunca es del todo transparente. Sobre el desenfoque queda una
+     capa de la superficie del tema, mas densa donde hay texto que leer, y
+     el contraste se mide contra esa capa.
+   - Rendimiento: el desenfoque va en capas fijas y pequenas, nunca se
+     anima, y el radio es moderado. Es lo que el iPhone compone en la GPU
+     sin perder fotogramas al desplazarse.
+   - Sin `backdrop-filter`, o con "reducir transparencia" en el sistema, el
+     fondo pasa a ser solido.
+
+   Los selectores llevan `.app` delante para ganar a la regla propia de
+   cada pieza, este donde este su hoja.
+   ========================================================================== */
+
+/* La barra superior se queda arriba al desplazar: es la que mas vidrio luce. */
+.app .app__barra {
+  position: sticky;
+  z-index: 40;
+  top: 0;
+  border-bottom-color: color-mix(in srgb, var(--app-borde) 60%, transparent);
+  background: var(--vidrio-fondo-denso);
+  -webkit-backdrop-filter: var(--vidrio-filtro);
+  backdrop-filter: var(--vidrio-filtro);
+}
+
+.app .app__nav-inferior,
+.app .app__menu,
+.app .semaforo__boton,
+.app .semaforo__recordatorio,
+.app .mascota__globo {
+  border-color: var(--vidrio-borde);
+  background: var(--vidrio-fondo);
+  -webkit-backdrop-filter: var(--vidrio-filtro);
+  backdrop-filter: var(--vidrio-filtro);
+  box-shadow: var(--vidrio-brillo), var(--vidrio-sombra);
+}
+
+/* Donde hay que leer un parrafo, una capa mas densa. */
+.app .app__menu,
+.app .semaforo__recordatorio,
+.app .mascota__globo {
+  background: var(--vidrio-fondo-denso);
+}
+
+/* El recordatorio conserva el color de su nivel en el canto. */
+.app .semaforo__recordatorio {
+  border-left-color: var(--semaforo-nivel, var(--vidrio-borde));
+}
+
+/* Las hojas y los dialogos: grandes, asi que densos, y quietos mientras
+   estan abiertos. */
+.app .semaforo-ventana,
+.app .asistente,
+.app .hoja__caja {
+  background: var(--vidrio-fondo-denso);
+  -webkit-backdrop-filter: var(--vidrio-filtro);
+  backdrop-filter: var(--vidrio-filtro);
+  box-shadow: var(--vidrio-brillo), var(--vidrio-sombra);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .app,
+  :root[data-tema='claro'] .app {
+    --vidrio-fondo: var(--app-superficie);
+    --vidrio-fondo-denso: var(--app-superficie);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .app,
+  :root[data-tema='claro'] .app {
+    --vidrio-fondo: var(--app-superficie);
+    --vidrio-fondo-denso: var(--app-superficie);
+    --vidrio-filtro: none;
   }
 }
