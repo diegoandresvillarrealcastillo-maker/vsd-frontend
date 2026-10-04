@@ -147,7 +147,7 @@ function Dashboard({
           <h1 id="saludo" className="app__saludo">
             {cuenta.nombre === undefined ? 'Hola.' : `Hola, ${cuenta.nombre}.`}
             <br />
-            <span className="app__saludo-pregunta">¿Cómo te cuidas hoy?</span>
+            <span className="app__saludo-pregunta">¿Por dónde empezamos hoy?</span>
           </h1>
         </div>
 
