@@ -22,6 +22,9 @@ export const RUTAS = {
   /** Lo que la persona configura de su cuenta (SCRUM-101). */
   PERFIL: '/perfil',
 
+  /** Mi diario: el lienzo para escribir y el historial por dias (SCRUM-96). */
+  DIARIO: '/diario',
+
   /**
    * El sendero de un modulo (SCRUM-92). Lleva parametro: se usa
    * `rutaDeModulo`.
