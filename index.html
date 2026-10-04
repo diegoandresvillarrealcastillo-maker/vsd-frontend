@@ -37,7 +37,24 @@
       avisos solo llegan a una aplicacion instalada.
     -->
     <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!--
+      iOS no lee los iconos del manifiesto: sin estas etiquetas, al agregar la
+      app a la pantalla de inicio inventa un icono con la inicial ("V") o usa
+      una captura (SCRUM-110). 180 es el del iPhone; 167 y 152, los del iPad.
+      El de 180 sin `sizes` va de respaldo para versiones viejas.
+    -->
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/apple-touch-icon-167.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon-152.png" />
+
+    <!-- Instalada: el nombre bajo el icono, sin la barra de Safari, y la barra
+         de estado con el color de `theme-color` de cada tema. -->
+    <meta name="apple-mobile-web-app-title" content="VSD Health" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
     <!--
       El tema se decide aqui, antes de que se pinte nada.

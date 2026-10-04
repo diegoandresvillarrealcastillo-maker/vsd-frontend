@@ -195,6 +195,14 @@ describe('Dashboard', () => {
       expect(await screen.findByRole('heading', { name: /Hola, Marina\./ })).toBeInTheDocument();
     });
 
+    it('y pregunta por donde empezar, sin genero gramatical (SCRUM-109)', async () => {
+      pintar();
+
+      expect(await screen.findByRole('heading', { name: /Hola, Marina/ })).toHaveTextContent(
+        '¿Por dónde empezamos hoy?',
+      );
+    });
+
     it('el selector de tema esta en la barra y cambia el tema (SCRUM-112)', async () => {
       document.documentElement.dataset.tema = 'oscuro';
 
