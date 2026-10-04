@@ -1,4 +1,5 @@
 {
+  "id": "/",
   "name": "VSD Health",
   "short_name": "VSD Health",
   "description": "Acompañamiento del bienestar emocional y cognitivo. No diagnostica ni reemplaza la atención profesional.",
@@ -20,6 +21,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
