@@ -63,11 +63,38 @@ export interface ResultadoRegistrado {
   /** Ausente en las actividades que registran sin valorar. */
   readonly nivelOrientativo?: 'favorable' | 'en_seguimiento' | 'requiere_atencion';
 
-  /** Si conviene acompanar el resultado con recursos de apoyo. */
+  /**
+   * Si conviene acompanar el resultado con recursos de apoyo.
+   *
+   * Lo marca el nivel o, desde SCRUM-94, una senal de riesgo en el texto
+   * libre de `metadata`. Esa deteccion vive solo en el servidor: es la misma
+   * lista revisable del asistente, y repetirla aqui seria tener dos.
+   */
   readonly sugiereAcompanamiento: boolean;
+
+  /**
+   * Las lineas de atencion, ordenadas por alcance: lo nacional primero.
+   *
+   * Llegan en la misma respuesta cuando `sugiereAcompanamiento` es cierto, y
+   * vacias en otro caso. Es opcional porque un servidor anterior a SCRUM-94
+   * no las manda.
+   */
+  readonly lineasDeAtencion?: readonly LineaDeAtencion[];
 
   readonly metadata: Metadata;
   readonly completedAt: string;
+}
+
+/** Un telefono o servicio al que acudir, tal como lo publica la API. */
+export interface LineaDeAtencion {
+  readonly id: string;
+  readonly titulo: string;
+  readonly descripcion?: string;
+  readonly tipo: string;
+
+  /** Donde sirve: `nacional`, `bogota`, `universidad`. Hay que mostrarlo. */
+  readonly cobertura?: string;
+  readonly enlace?: string;
 }
 
 /**

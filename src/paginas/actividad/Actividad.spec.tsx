@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -26,8 +26,9 @@ vi.mock('../../infraestructura/api/resultados.ts', () => ({ registrarResultado }
 
 /** "Como dormiste anoche": una bitacora que si puntua. */
 const SUENO = '0acd0000-0000-4000-8000-000000000004';
-// "Como te sientes hoy": sin mecanica hasta que llegue Emociones (SCRUM-94).
-const SIN_MECANICA = '0acd0000-0000-4000-8000-000000000007';
+// Desde SCRUM-94 las nueve del catalogo tienen mecanica. Esta seria una
+// sembrada en la base antes de tener pantalla.
+const SIN_MECANICA = '0acd0000-0000-4000-8000-0000000000aa';
 
 function fichaDe(id: string, nombre: string, tipo = 'bitacora') {
   return {
@@ -211,7 +212,7 @@ describe('Actividad, cuando algo falla', () => {
 
 describe('Actividad, las que todavia no tienen mecanica', () => {
   it('lo dice en lugar de fingir que se puede hacer', async () => {
-    buscarActividad.mockResolvedValue(fichaDe(SIN_MECANICA, 'Cómo te sientes hoy', 'preguntas'));
+    buscarActividad.mockResolvedValue(fichaDe(SIN_MECANICA, 'Una que aún no existe', 'preguntas'));
 
     pintar(SIN_MECANICA);
 
@@ -237,23 +238,100 @@ describe('Actividad, el nivel', () => {
 
     expect(await screen.findByText(/Quedó registrado/)).toBeInTheDocument();
   });
+});
 
-  it('ofrece acompanamiento cuando el servidor lo sugiere', async () => {
+describe('Actividad, las lineas de atencion (SCRUM-94)', () => {
+  const NACIONAL = {
+    id: 'l-192',
+    titulo: 'Línea 192, opción 4',
+    descripcion: 'Funciona en todo el país.',
+    tipo: 'contacto',
+    cobertura: 'nacional',
+    enlace: 'https://www.minsalud.gov.co',
+  };
+  const BOGOTA = {
+    id: 'l-106',
+    titulo: 'Línea 106, el poder de ser escuchado',
+    tipo: 'contacto',
+    cobertura: 'bogota',
+  };
+
+  function responder(sugiereAcompanamiento: boolean, lineasDeAtencion?: unknown[]) {
     registrarResultado.mockResolvedValue({
       id: 'res-3',
       activityId: SUENO,
-      nivelOrientativo: 'requiere_atencion',
-      sugiereAcompanamiento: true,
+      nivelOrientativo: sugiereAcompanamiento ? 'requiere_atencion' : 'favorable',
+      sugiereAcompanamiento,
+      ...(lineasDeAtencion === undefined ? {} : { lineasDeAtencion }),
       metadata: {},
       completedAt: '2026-09-30T11:00:00.000Z',
     });
+  }
+
+  it('cuando el servidor sugiere acompanamiento, ensena sus lineas en su orden', async () => {
+    responder(true, [NACIONAL, BOGOTA]);
 
     pintar(SUENO);
     await terminarLaActividad();
 
-    expect(await screen.findByText(/alguien de confianza ayuda/)).toBeInTheDocument();
-    // Las lineas llegan con SCRUM-94: hasta entonces no se promete un sitio
-    // donde no estan.
-    expect(screen.queryByText(/En el panel tienes/)).not.toBeInTheDocument();
+    const seccion = await screen.findByRole('region', { name: 'Si te sirve hablarlo con alguien' });
+    const titulos = within(seccion)
+      .getAllByRole('listitem')
+      .map((linea) => linea.querySelector('strong')?.textContent);
+
+    // Lo nacional primero: el servidor ya las ordena y aqui no se reordenan.
+    expect(titulos).toEqual([NACIONAL.titulo, BOGOTA.titulo]);
+    expect(within(seccion).getByText('Todo el país')).toBeInTheDocument();
+    expect(within(seccion).getByText('Desde Bogotá')).toBeInTheDocument();
+    expect(within(seccion).getByText(/alguien de confianza ayuda/)).toBeInTheDocument();
+  });
+
+  it('el enlace abre en otra pestana y lo dice', async () => {
+    responder(true, [NACIONAL]);
+
+    pintar(SUENO);
+    await terminarLaActividad();
+
+    const enlace = await screen.findByRole('link', { name: /Más información sobre Línea 192/ });
+
+    expect(enlace).toHaveAttribute('href', NACIONAL.enlace);
+    expect(enlace).toHaveAttribute('target', '_blank');
+    expect(enlace).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(enlace).toHaveAccessibleName(/se abre en otra pestaña/);
+  });
+
+  it('si el servidor no manda ninguna, ensena las nacionales de respaldo', async () => {
+    // Un servidor anterior a SCRUM-94, o la tabla vacia por error. Justo ese
+    // momento no puede quedarse sin un telefono.
+    responder(true);
+
+    pintar(SUENO);
+    await terminarLaActividad();
+
+    const seccion = await screen.findByRole('region', { name: 'Si te sirve hablarlo con alguien' });
+
+    expect(within(seccion).getByText('Línea 192, opción 4')).toBeInTheDocument();
+    expect(within(seccion).getByText('Línea 123')).toBeInTheDocument();
+  });
+
+  it('una lista vacia tambien cae al respaldo', async () => {
+    responder(true, []);
+
+    pintar(SUENO);
+    await terminarLaActividad();
+
+    expect(await screen.findByText('Línea 192, opción 4')).toBeInTheDocument();
+  });
+
+  it('sin sugerencia no hay lineas', async () => {
+    responder(false, []);
+
+    pintar(SUENO);
+    await terminarLaActividad();
+
+    await screen.findByRole('heading', { name: 'Listo' });
+
+    expect(screen.queryByRole('region', { name: /hablarlo con alguien/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Línea/)).not.toBeInTheDocument();
   });
 });
