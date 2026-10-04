@@ -37,6 +37,7 @@ import { usePerfil } from './usePerfil.ts';
  *   Supabase y nunca pasa por nuestra API.
  * - La mascota se elige entre los seis personajes y se le pone nombre
  *   (SCRUM-99).
+ * - El diario solo se revisa si la persona lo permite (SCRUM-108).
  * - Los datos se descargan y la cuenta se borra (SCRUM-75).
  */
 export function Perfil() {
@@ -79,6 +80,7 @@ export function Perfil() {
             <Nombre cuenta={estado.cuenta} guardar={guardar} />
             <Modulos cuenta={estado.cuenta} guardar={guardar} />
             <TuMascota cuenta={estado.cuenta} guardar={guardar} />
+            <TuDiario cuenta={estado.cuenta} guardar={guardar} />
             <Correo correo={estado.cuenta.correo} />
             <Contrasena correo={estado.cuenta.correo} />
             <TusDatos />
@@ -420,6 +422,88 @@ function TuMascota({
           {ocupado ? 'Guardando…' : 'Guardar mascota'}
         </button>
       </form>
+      <MensajeDeAviso aviso={aviso} />
+    </Apartado>
+  );
+}
+
+/**
+ * El permiso para revisar el diario (SCRUM-108).
+ *
+ * Lo que la persona escribe en su diario no pasa por ninguna deteccion salvo
+ * que ella lo encienda aqui. Es un interruptor y se guarda al pulsarlo; el
+ * estado que se pinta es el que devuelve la API, no el que se pidio.
+ *
+ * Mientras guarda no se deshabilita: un boton deshabilitado pierde el foco, y
+ * quien usa el teclado tendria que volver a buscarlo. Los clics de mas se
+ * ignoran.
+ */
+function TuDiario({
+  cuenta,
+  guardar,
+}: {
+  cuenta: Cuenta;
+  guardar: (cambios: CambiosDePreferencias) => Promise<void>;
+}) {
+  const encendido = cuenta.diarioConRecomendaciones;
+  const [ocupado, setOcupado] = useState(false);
+  const [aviso, setAviso] = useState<Aviso>(null);
+  const datos = MODULOS.emociones;
+  const idDeLaExplicacion = useId();
+
+  async function alternar() {
+    if (ocupado) {
+      return;
+    }
+
+    const nuevo = !encendido;
+
+    setOcupado(true);
+    setAviso(null);
+
+    try {
+      await guardar({ diarioConRecomendaciones: nuevo });
+      setAviso({
+        tipo: 'bien',
+        texto: nuevo
+          ? 'Listo. Si algo de lo que escribes suena a que lo estás pasando mal, te mostraremos a dónde acudir.'
+          : 'Listo. Tu diario ya no se revisa.',
+      });
+    } catch {
+      setAviso({ tipo: 'fallo', texto: SIN_CONEXION });
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  return (
+    <Apartado
+      titulo="Tu diario"
+      ayuda="Lo que escribes en tu diario es tuyo. Mientras esto esté apagado, se guarda tal cual y nada lo revisa."
+    >
+      <button
+        type="button"
+        role="switch"
+        aria-checked={encendido}
+        aria-describedby={idDeLaExplicacion}
+        className={`perfil__modulo${encendido ? ' perfil__modulo--activo' : ''}`}
+        style={{ '--modulo-fondo': datos.fondo, '--modulo-acento': datos.acento } as CSSProperties}
+        onClick={() => void alternar()}
+      >
+        <span className="tarjeta-modulo__icono">
+          <Icono nombre="book" />
+        </span>
+        <span className="perfil__modulo-nombre">Recomendaciones según mi diario</span>
+        <span className="perfil__interruptor" aria-hidden="true">
+          <span />
+        </span>
+      </button>
+
+      <p id={idDeLaExplicacion} className="app__nota perfil__ayuda">
+        Si lo enciendes, la aplicación revisa de forma automática lo que escribes y, si algo suena a
+        que lo estás pasando mal, te muestra líneas de atención a las que puedes acudir. Encenderlo
+        no hace que ninguna persona lo lea. Puedes apagarlo cuando quieras.
+      </p>
       <MensajeDeAviso aviso={aviso} />
     </Apartado>
   );

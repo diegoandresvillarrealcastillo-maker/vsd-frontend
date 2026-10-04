@@ -56,6 +56,12 @@ export interface Cuenta {
   readonly modulosActivos: readonly Modulo[];
   /** `null` usa la mascota de siempre. */
   readonly mascota: Mascota | null;
+  /**
+   * Si la persona permite que se revise lo que escribe en su diario para
+   * mostrarle lineas de atencion (SCRUM-108). Apagado salvo que ella lo
+   * encienda en su perfil.
+   */
+  readonly diarioConRecomendaciones: boolean;
 }
 
 /** Lo que se puede cambiar de las preferencias. Lo que no venga, se queda igual. */
@@ -63,6 +69,7 @@ export interface CambiosDePreferencias {
   readonly nombre?: string;
   readonly modulosActivos?: readonly Modulo[];
   readonly mascota?: Mascota;
+  readonly diarioConRecomendaciones?: boolean;
 }
 
 const RUTA = '/api/cuenta';
@@ -129,7 +136,8 @@ export function borrarMiCuenta(confirmacion: string): Promise<void> {
 }
 
 /**
- * Cambia el nombre, los modulos activos o la mascota de la cuenta propia.
+ * Cambia el nombre, los modulos activos, la mascota o el permiso del diario de
+ * la cuenta propia.
  *
  * Devuelve la cuenta como quedo, que es lo que hay que pintar: la API ordena
  * los modulos y normaliza la mascota, asi que lo enviado y lo guardado no

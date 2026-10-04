@@ -45,6 +45,7 @@ const CUENTA: Cuenta = {
   registradoEn: '2026-09-26T15:00:00.000Z',
   modulosActivos: ['cognicion', 'bienestar'],
   mascota: null,
+  diarioConRecomendaciones: false,
 };
 
 const usuario = userEvent.setup({ delay: null });
@@ -265,6 +266,70 @@ describe('Perfil', () => {
     expect(correo).toHaveTextContent(CUENTA.correo);
     expect(within(correo).queryByRole('textbox')).not.toBeInTheDocument();
     expect(within(correo).queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  describe('el permiso del diario (SCRUM-108)', () => {
+    async function interruptor() {
+      const seccion = await screen.findByRole('region', { name: 'Tu diario' });
+
+      return {
+        seccion,
+        boton: within(seccion).getByRole('switch', { name: 'Recomendaciones según mi diario' }),
+      };
+    }
+
+    it('esta apagado y explica que se puede apagar cuando se quiera', async () => {
+      pintar();
+
+      const { boton } = await interruptor();
+
+      expect(boton).toHaveAttribute('aria-checked', 'false');
+      expect(boton).toHaveAccessibleDescription(/Puedes apagarlo cuando quieras/);
+    });
+
+    it('se enciende al pulsarlo, sin boton de guardar', async () => {
+      cambiarPreferencias.mockResolvedValue({ ...CUENTA, diarioConRecomendaciones: true });
+
+      pintar();
+
+      const { seccion, boton } = await interruptor();
+
+      await usuario.click(boton);
+
+      expect(cambiarPreferencias).toHaveBeenCalledWith({ diarioConRecomendaciones: true });
+      expect(boton).toHaveAttribute('aria-checked', 'true');
+      expect(within(seccion).getByRole('status')).toHaveTextContent('a dónde acudir');
+    });
+
+    it('se apaga igual', async () => {
+      darDeAltaLaCuenta.mockResolvedValue({ ...CUENTA, diarioConRecomendaciones: true });
+      cambiarPreferencias.mockResolvedValue({ ...CUENTA, diarioConRecomendaciones: false });
+
+      pintar();
+
+      const { seccion, boton } = await interruptor();
+
+      expect(boton).toHaveAttribute('aria-checked', 'true');
+
+      await usuario.click(boton);
+
+      expect(cambiarPreferencias).toHaveBeenCalledWith({ diarioConRecomendaciones: false });
+      expect(boton).toHaveAttribute('aria-checked', 'false');
+      expect(within(seccion).getByRole('status')).toHaveTextContent('ya no se revisa');
+    });
+
+    it('si no se pudo guardar, sigue como estaba y lo dice', async () => {
+      cambiarPreferencias.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      pintar();
+
+      const { seccion, boton } = await interruptor();
+
+      await usuario.click(boton);
+
+      expect(boton).toHaveAttribute('aria-checked', 'false');
+      expect(within(seccion).getByRole('alert')).toHaveTextContent('No se pudo guardar');
+    });
   });
 
   describe('la contrasena', () => {
