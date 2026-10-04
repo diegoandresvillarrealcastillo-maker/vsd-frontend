@@ -9,7 +9,9 @@ import {
   type PointerEvent,
 } from 'react';
 
+import { useEscribiendo } from '../componentes/useEscribiendo.ts';
 import type { Mascota } from '../infraestructura/api/cuenta.ts';
+import { ESPACIO_DEL_SEMAFORO } from '../semaforo/medidas.ts';
 import { mascotaParaMostrar, PERSONAJES, type Expresion } from './personajes.ts';
 import { sprite } from './sprites.ts';
 import { useExpresion } from './useExpresion.ts';
@@ -23,6 +25,8 @@ import { useExpresion } from './useExpresion.ts';
  *   cambian de lado. Enter muestra una frase.
  * - Al tocarla dice una frase de su personaje.
  * - Nunca baja de la barra superior ni pisa la navegacion inferior del movil.
+ *   A la derecha tampoco baja hasta el boton del semaforo (SCRUM-98): comparten
+ *   esquina sin solaparse.
  *   Mientras se escribe se aparta y deja de recibir toques, para no tapar el
  *   campo; mientras se desplaza la pantalla, se encoge.
  * - Con `prefers-reduced-motion` no se anima: cambia de cara y de sitio sin
@@ -59,11 +63,18 @@ const QUIETUD_TRAS_DESPLAZAR_MS = 700;
 
 const ES_MOVIL = '(max-width: 767px)';
 
-function limites() {
+/**
+ * El espacio por el que se mueve. Con `ladoElegido` a la derecha, el de abajo
+ * se queda tambien sin la esquina del semaforo; sin lado, vale el mas amplio,
+ * que es el que se usa mientras se arrastra.
+ */
+function limites(ladoElegido?: Lado) {
   const movil = window.matchMedia(ES_MOVIL).matches;
   const lado = movil ? 72 : 96;
   // En el movil, abajo flota la navegacion de secciones: se deja libre.
-  const abajo = movil ? 96 : 16;
+  const libre = movil ? 96 : 16;
+  const semaforo = movil ? ESPACIO_DEL_SEMAFORO.movil : ESPACIO_DEL_SEMAFORO.escritorio;
+  const abajo = ladoElegido === 'derecha' ? Math.max(libre, semaforo) : libre;
 
   return {
     lado,
@@ -79,7 +90,7 @@ function entre(valor: number, minimo: number, maximo: number): number {
 }
 
 function aPixeles(posicion: Posicion): Punto {
-  const { minX, maxX, minY, maxY } = limites();
+  const { minX, maxX, minY, maxY } = limites(posicion.lado);
 
   return {
     x: posicion.lado === 'izquierda' ? minX : maxX,
@@ -114,50 +125,6 @@ function guardarPosicion(posicion: Posicion): void {
   } catch {
     // No poder recordarla no impide moverla.
   }
-}
-
-const TIPOS_QUE_NO_SE_ESCRIBEN = new Set([
-  'button',
-  'checkbox',
-  'color',
-  'file',
-  'radio',
-  'range',
-  'reset',
-  'submit',
-]);
-
-function esCampoDeTexto(elemento: Element | null): boolean {
-  if (elemento instanceof HTMLInputElement) {
-    return !TIPOS_QUE_NO_SE_ESCRIBEN.has(elemento.type);
-  }
-
-  return (
-    elemento instanceof HTMLTextAreaElement ||
-    elemento instanceof HTMLSelectElement ||
-    (elemento instanceof HTMLElement && elemento.isContentEditable)
-  );
-}
-
-/** Si hay un campo de texto con el foco. */
-function useEscribiendo(): boolean {
-  const [escribiendo, setEscribiendo] = useState(false);
-
-  useEffect(() => {
-    function revisar() {
-      setEscribiendo(esCampoDeTexto(document.activeElement));
-    }
-
-    document.addEventListener('focusin', revisar);
-    document.addEventListener('focusout', revisar);
-
-    return () => {
-      document.removeEventListener('focusin', revisar);
-      document.removeEventListener('focusout', revisar);
-    };
-  }, []);
-
-  return escribiendo;
 }
 
 /** Si la pantalla se esta desplazando ahora mismo. */
@@ -323,17 +290,19 @@ export function MascotaFlotante({
       return;
     }
 
-    const { lado, minY, maxY } = limites();
+    const ladoNuevo: Lado =
+      arrastre.x + limites().lado / 2 < window.innerWidth / 2 ? 'izquierda' : 'derecha';
+    const { minY, maxY } = limites(ladoNuevo);
 
     moverA({
-      lado: arrastre.x + lado / 2 < window.innerWidth / 2 ? 'izquierda' : 'derecha',
+      lado: ladoNuevo,
       y: maxY === minY ? 0 : entre((arrastre.y - minY) / (maxY - minY), 0, 1),
     });
     setArrastre(null);
   }
 
   function alPulsarTecla(evento: KeyboardEvent<HTMLButtonElement>) {
-    const { minY, maxY } = limites();
+    const { minY, maxY } = limites(posicion.lado);
     const paso = maxY === minY ? 0 : PASO_DE_TECLADO / (maxY - minY);
     const cambios: Partial<Record<string, Posicion>> = {
       ArrowUp: { ...posicion, y: entre(posicion.y - paso, 0, 1) },

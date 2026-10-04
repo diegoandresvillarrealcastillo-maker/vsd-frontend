@@ -1,0 +1,81 @@
+import { llamarALaApi } from './clienteHttp.ts';
+
+/**
+ * El semaforo de pendientes, por HTTP (SCRUM-97 en el backend, SCRUM-98 aqui).
+ *
+ * Como `diario.ts`, es la copia de este lado del contrato que publica el
+ * backend en `openapi.json`.
+ */
+
+export type NivelDePendiente = 'urgente' | 'prioridad' | 'aplazable';
+
+export interface Pendiente {
+  readonly id: string;
+  readonly texto: string;
+  readonly nivel: NivelDePendiente;
+  readonly hecho: boolean;
+  /** Mientras no llegue, no recuerda nada. */
+  readonly posponerHasta: string | null;
+  readonly creadoEn: string;
+  readonly editadoEn: string;
+}
+
+/**
+ * El recordatorio de esta visita. `tono` dice como suena: `plazo` cuando se
+ * acabo el tiempo que se le dio (urgente, prioridad) y `suave` cuando no es
+ * urgente pero conviene que no se acumule (aplazable). El texto lo pone la
+ * pantalla.
+ */
+export interface Recordatorio {
+  readonly pendienteId: string;
+  readonly nivel: NivelDePendiente;
+  /** Dias completos desde que se anoto. */
+  readonly dias: number;
+  /** El nivel que se sugiere subir, o `null` si ya es urgente. Nunca se aplica solo. */
+  readonly nivelSugerido: NivelDePendiente | null;
+  readonly tono: 'plazo' | 'suave';
+}
+
+/** Lo que responde `GET /api/pendientes`. */
+export interface Semaforo {
+  /** Primero los sin hacer; despues los hechos en los ultimos 7 dias. */
+  readonly pendientes: readonly Pendiente[];
+  /** Uno como mucho por visita. */
+  readonly recordatorio: Recordatorio | null;
+}
+
+export interface PendientePorCrear {
+  /** Lo genera el dispositivo: reenviarlo en un reintento no duplica. */
+  readonly clientOperationId: string;
+  readonly texto: string;
+  readonly nivel: NivelDePendiente;
+}
+
+/** Lo que no viene se queda como estaba; `posponerHasta: null` deja de posponer. */
+export interface CambiosDePendiente {
+  readonly texto?: string;
+  readonly nivel?: NivelDePendiente;
+  readonly hecho?: boolean;
+  readonly posponerHasta?: string | null;
+}
+
+const RUTA = '/api/pendientes';
+
+export function consultarElSemaforo(senal?: AbortSignal): Promise<Semaforo> {
+  return llamarALaApi<Semaforo>(RUTA, senal ? { senal } : {});
+}
+
+export function crearPendiente(pendiente: PendientePorCrear): Promise<Pendiente> {
+  return llamarALaApi<Pendiente>(RUTA, { metodo: 'POST', cuerpo: pendiente });
+}
+
+export function editarPendiente(id: string, cambios: CambiosDePendiente): Promise<Pendiente> {
+  return llamarALaApi<Pendiente>(`${RUTA}/${encodeURIComponent(id)}`, {
+    metodo: 'PATCH',
+    cuerpo: cambios,
+  });
+}
+
+export function borrarPendiente(id: string): Promise<void> {
+  return llamarALaApi<void>(`${RUTA}/${encodeURIComponent(id)}`, { metodo: 'DELETE' });
+}
