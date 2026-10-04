@@ -195,6 +195,14 @@ describe('Dashboard', () => {
       expect(await screen.findByRole('heading', { name: /Hola, Marina\./ })).toBeInTheDocument();
     });
 
+    it('y pregunta por donde empezar, sin genero gramatical (SCRUM-109)', async () => {
+      pintar();
+
+      expect(await screen.findByRole('heading', { name: /Hola, Marina/ })).toHaveTextContent(
+        '¿Por dónde empezamos hoy?',
+      );
+    });
+
     it('sin nombre saluda igual, sin inventar uno', async () => {
       darDeAltaLaCuenta.mockResolvedValue({ ...CUENTA, nombre: undefined });
 
