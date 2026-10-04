@@ -995,6 +995,19 @@
   transform: translateX(1rem);
 }
 
+/* Cada aviso del perfil: su interruptor, que hace y, encendido, su hora
+   (SCRUM-102). */
+.perfil__aviso {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.perfil__hora {
+  flex: none;
+  width: 8.5rem;
+  color-scheme: dark;
+}
+
 .perfil__secundario {
   padding: 0.75rem 1rem;
   border: 1px solid var(--app-borde);
@@ -1606,6 +1619,30 @@
 
 .mascota__cerrar:hover {
   color: var(--app-tinta);
+}
+
+.mascota__hablar {
+  margin-top: 0.75rem;
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--app-primario);
+  color: var(--app-sobre-primario);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* Con VSD IA abierto (SCRUM-100) se posa en la esquina del asistente, por
+   encima de su velo (z-index 60), y es solo un dibujo: no recibe toques. */
+.mascota--con-asistente {
+  z-index: 61;
+}
+
+.mascota--con-asistente .mascota__cuerpo {
+  pointer-events: none;
 }
 
 /* ---------- Puntos de quiebre del diseño (sm 640, md 768, lg 1024) ---------- */

@@ -6,6 +6,7 @@ import {
   recordarEnEsteEquipo,
 } from '../infraestructura/supabase/almacenamiento.ts';
 import { supabase } from '../infraestructura/supabase/cliente.ts';
+import { dejarDeAvisarAEsteNavegador } from '../notificaciones/navegador.ts';
 import { RUTAS } from '../rutas/rutas.ts';
 import { consultarLaVersionDelAviso } from '../infraestructura/api/aviso.ts';
 import {
@@ -352,6 +353,9 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
   );
 
   const salir = useCallback(async (): Promise<void> => {
+    // Antes de soltar el token: este navegador deja de recibir los avisos de
+    // quien sale (SCRUM-102). No bloquea la salida si falla.
+    await dejarDeAvisarAEsteNavegador();
     await clienteONulo()?.auth.signOut();
     olvidarPreferenciaDePestana();
     setSesion(null);

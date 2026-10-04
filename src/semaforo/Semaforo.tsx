@@ -15,7 +15,7 @@ import {
   PASOS_DE_LA_INDUCCION,
   textoDelRecordatorio,
 } from './niveles.ts';
-import { useDialogo } from './useDialogo.ts';
+import { useDialogo } from '../componentes/useDialogo.ts';
 import { useSemaforo } from './useSemaforo.ts';
 
 /**

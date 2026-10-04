@@ -1,4 +1,4 @@
-import { useId, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
+import { useId, useState, type CSSProperties, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
@@ -26,6 +26,8 @@ import { useSesion } from '../../sesion/useSesion.ts';
 import { BarraSuperior } from '../panel/Estructura.tsx';
 import { Icono } from '../panel/Icono.tsx';
 import { MODULOS, ORDEN } from '../panel/modulos.ts';
+import { Apartado, MensajeDeAviso, SIN_CONEXION, type Aviso } from './piezas.tsx';
+import { TusAvisos } from './TusAvisos.tsx';
 import { usePerfil } from './usePerfil.ts';
 
 /**
@@ -39,6 +41,8 @@ import { usePerfil } from './usePerfil.ts';
  * - La mascota se elige entre los seis personajes y se le pone nombre
  *   (SCRUM-99).
  * - El diario solo se revisa si la persona lo permite (SCRUM-108).
+ * - Los avisos: si llegan a este dispositivo y a que hora cada uno
+ *   (SCRUM-102).
  * - Los datos se descargan y la cuenta se borra (SCRUM-75).
  */
 export function Perfil() {
@@ -82,6 +86,7 @@ export function Perfil() {
             <Modulos cuenta={estado.cuenta} guardar={guardar} />
             <TuMascota cuenta={estado.cuenta} guardar={guardar} />
             <TuDiario cuenta={estado.cuenta} guardar={guardar} />
+            <TusAvisos />
             <Correo correo={estado.cuenta.correo} />
             <Contrasena correo={estado.cuenta.correo} />
             <TusDatos />
@@ -94,55 +99,6 @@ export function Perfil() {
     </div>
   );
 }
-
-/** Una tarjeta del perfil con su titulo y su texto de ayuda. */
-function Apartado({
-  titulo,
-  ayuda,
-  peligro = false,
-  children,
-}: {
-  titulo: string;
-  ayuda?: string;
-  peligro?: boolean;
-  children: ReactNode;
-}) {
-  const id = useId();
-
-  return (
-    <section
-      className={`app__caja perfil__apartado${peligro ? ' perfil__apartado--peligro' : ''}`}
-      aria-labelledby={id}
-    >
-      <h2 id={id} className="perfil__apartado-titulo">
-        {titulo}
-      </h2>
-      {ayuda !== undefined && <p className="app__nota perfil__ayuda">{ayuda}</p>}
-      {children}
-    </section>
-  );
-}
-
-/** El resultado de una accion: confirmacion discreta o fallo que interrumpe. */
-type Aviso = { tipo: 'bien' | 'fallo'; texto: string } | null;
-
-function MensajeDeAviso({ aviso }: { aviso: Aviso }) {
-  if (aviso === null) {
-    return null;
-  }
-
-  return aviso.tipo === 'bien' ? (
-    <p className="perfil__bien" role="status">
-      {aviso.texto}
-    </p>
-  ) : (
-    <p className="perfil__fallo" role="alert">
-      {aviso.texto}
-    </p>
-  );
-}
-
-const SIN_CONEXION = 'No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.';
 
 function Nombre({
   cuenta,
