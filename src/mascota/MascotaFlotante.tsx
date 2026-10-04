@@ -9,6 +9,8 @@ import {
   type PointerEvent,
 } from 'react';
 
+import { Asistente } from '../asistente/Asistente.tsx';
+import { marcoDelAsistente, puntoDeLaMascota } from '../asistente/marco.ts';
 import { useEscribiendo } from '../componentes/useEscribiendo.ts';
 import type { Mascota } from '../infraestructura/api/cuenta.ts';
 import { ESPACIO_DEL_SEMAFORO } from '../semaforo/medidas.ts';
@@ -32,7 +34,10 @@ import { useExpresion } from './useExpresion.ts';
  * - Con `prefers-reduced-motion` no se anima: cambia de cara y de sitio sin
  *   transiciones.
  *
- * Mantenerla pulsada para abrir VSD IA llega con SCRUM-100.
+ * Abre VSD IA (SCRUM-100) al mantenerla pulsada, o desde el boton de su globo,
+ * que es el camino para el teclado. Al abrirlo vuela a la esquina de arriba a
+ * la izquierda del asistente mientras este se despliega, y al cerrarlo vuelve
+ * a su sitio.
  */
 
 type Lado = 'izquierda' | 'derecha';
@@ -60,6 +65,8 @@ const UMBRAL_DE_ARRASTRE = 6;
 const PASO_DE_TECLADO = 40;
 const FRASE_MS = 8_000;
 const QUIETUD_TRAS_DESPLAZAR_MS = 700;
+/** Lo que hay que mantenerla pulsada para abrir VSD IA. */
+export const PULSACION_LARGA_MS = 500;
 
 const ES_MOVIL = '(max-width: 767px)';
 
@@ -216,6 +223,10 @@ export function MascotaFlotante({
   const siguienteFrase = useRef(0);
   const gesto = useRef<{ id: number; inicio: Punto; origen: Punto; movido: boolean } | null>(null);
   const ignorarClic = useRef(false);
+  const pulsacionLarga = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [conAsistente, setConAsistente] = useState(false);
+  const volverAlBoton = useRef(false);
+  const boton = useRef<HTMLButtonElement>(null);
   const idDeInstrucciones = useId();
 
   useEffect(() => {
@@ -227,6 +238,30 @@ export function MascotaFlotante({
 
     return () => clearTimeout(temporizador);
   }, [frase]);
+
+  useEffect(() => () => clearTimeout(pulsacionLarga.current), []);
+
+  // Al cerrar VSD IA el foco vuelve a la mascota, que es de donde se abrio.
+  useEffect(() => {
+    if (volverAlBoton.current && !conAsistente) {
+      volverAlBoton.current = false;
+      boton.current?.focus();
+    }
+  });
+
+  function abrirAsistente() {
+    clearTimeout(pulsacionLarga.current);
+    gesto.current = null;
+    setArrastre(null);
+    setFrase(null);
+    alTocar();
+    setConAsistente(true);
+  }
+
+  function cerrarAsistente() {
+    volverAlBoton.current = true;
+    setConAsistente(false);
+  }
 
   function moverA(nueva: Posicion) {
     setPosicion(nueva);
@@ -252,6 +287,16 @@ export function MascotaFlotante({
       origen: aPixeles(posicion),
       movido: false,
     };
+
+    // Mantenerla pulsada sin moverla abre VSD IA. El clic que llega al soltar
+    // no es un toque.
+    clearTimeout(pulsacionLarga.current);
+    pulsacionLarga.current = setTimeout(() => {
+      if (gesto.current !== null && !gesto.current.movido) {
+        ignorarClic.current = true;
+        abrirAsistente();
+      }
+    }, PULSACION_LARGA_MS);
   }
 
   function alMover(evento: PointerEvent<HTMLButtonElement>) {
@@ -270,6 +315,7 @@ export function MascotaFlotante({
 
     actual.movido = true;
     ignorarClic.current = true;
+    clearTimeout(pulsacionLarga.current);
     setFrase(null);
 
     const { minX, maxX, minY, maxY } = limites();
@@ -283,6 +329,7 @@ export function MascotaFlotante({
   function alSoltar() {
     const actual = gesto.current;
 
+    clearTimeout(pulsacionLarga.current);
     gesto.current = null;
 
     if (actual === null || !actual.movido || arrastre === null) {
@@ -329,84 +376,112 @@ export function MascotaFlotante({
   }
 
   const { lado } = limites();
-  const punto = arrastre ?? aPixeles(posicion);
+  const marco = marcoDelAsistente(
+    window.innerWidth,
+    window.innerHeight,
+    window.matchMedia(ES_MOVIL).matches,
+    lado,
+  );
+  const punto = conAsistente ? puntoDeLaMascota(marco, lado) : (arrastre ?? aPixeles(posicion));
   const globoArriba = punto.y > 220;
   const estiloDelGlobo: CSSProperties = {
     ...(posicion.lado === 'izquierda' ? { left: MARGEN } : { right: MARGEN }),
     ...(globoArriba ? { bottom: window.innerHeight - punto.y + 8 } : { top: punto.y + lado + 8 }),
   };
 
+  // Con VSD IA abierto va encima del asistente, posada en su esquina; ni se
+  // aparta al escribir en el chat ni se encoge.
   const clases = [
     'mascota',
-    escribiendo ? 'mascota--apartada' : '',
-    desplazando ? 'mascota--encogida' : '',
+    conAsistente ? 'mascota--con-asistente' : '',
+    escribiendo && !conAsistente ? 'mascota--apartada' : '',
+    desplazando && !conAsistente ? 'mascota--encogida' : '',
     arrastre === null ? '' : 'mascota--arrastrando',
   ]
     .filter(Boolean)
     .join(' ');
 
   return (
-    <div className={clases} data-personaje={personaje} data-expresion={expresion}>
-      <motion.div
-        className="mascota__cuerpo"
-        style={{ width: lado, height: lado }}
-        initial={false}
-        animate={{ x: punto.x, y: punto.y }}
-        transition={
-          arrastre !== null || sinMovimiento
-            ? { duration: 0 }
-            : { type: 'spring', stiffness: 380, damping: 32 }
-        }
-      >
-        <button
-          type="button"
-          className="mascota__boton"
-          aria-label={`${nombre}, tu mascota`}
-          aria-describedby={idDeInstrucciones}
-          onPointerDown={alPresionar}
-          onPointerMove={alMover}
-          onPointerUp={alSoltar}
-          onPointerCancel={alSoltar}
-          onKeyDown={alPulsarTecla}
-          onClick={alPulsar}
-          onContextMenu={(evento) => evento.preventDefault()}
+    <>
+      {conAsistente && (
+        <Asistente
+          marco={marco}
+          ladoDeLaMascota={lado}
+          nombreDeLaMascota={nombre}
+          alCerrar={cerrarAsistente}
+        />
+      )}
+
+      <div className={clases} data-personaje={personaje} data-expresion={expresion}>
+        <motion.div
+          className="mascota__cuerpo"
+          style={{ width: lado, height: lado }}
+          initial={false}
+          animate={{ x: punto.x, y: punto.y }}
+          transition={
+            arrastre !== null || sinMovimiento
+              ? { duration: 0 }
+              : { type: 'spring', stiffness: 380, damping: 32 }
+          }
+          // Mientras acompana al asistente es solo un dibujo.
+          aria-hidden={conAsistente || undefined}
         >
-          <motion.img
-            className="mascota__dibujo"
-            src={sprite(personaje, expresion)}
-            alt=""
-            draggable={false}
-            animate={animacion(expresion, sinMovimiento)}
-            {...(sinMovimiento ? {} : { whileTap: { scale: 0.92 } })}
-          />
-        </button>
-      </motion.div>
+          <button
+            ref={boton}
+            type="button"
+            className="mascota__boton"
+            tabIndex={conAsistente ? -1 : undefined}
+            aria-label={`${nombre}, tu mascota`}
+            aria-describedby={idDeInstrucciones}
+            onPointerDown={alPresionar}
+            onPointerMove={alMover}
+            onPointerUp={alSoltar}
+            onPointerCancel={alSoltar}
+            onKeyDown={alPulsarTecla}
+            onClick={alPulsar}
+            onContextMenu={(evento) => evento.preventDefault()}
+          >
+            <motion.img
+              className="mascota__dibujo"
+              src={sprite(personaje, expresion)}
+              alt=""
+              draggable={false}
+              animate={animacion(expresion, sinMovimiento)}
+              {...(sinMovimiento ? {} : { whileTap: { scale: 0.92 } })}
+            />
+          </button>
+        </motion.div>
 
-      <span id={idDeInstrucciones} className="solo-lectores">
-        Tócala para leer una frase. Arrástrala, o usa las flechas, para moverla.
-      </span>
+        <span id={idDeInstrucciones} className="solo-lectores">
+          Tócala para leer una frase; desde la frase puedes hablar con VSD IA. Arrástrala, o usa las
+          flechas, para moverla.
+        </span>
 
-      {/* Siempre montada: una region viva que aparece ya llena no siempre se
+        {/* Siempre montada: una region viva que aparece ya llena no siempre se
           anuncia. Con aria-live y sin role="status", para no confundirse con
           los avisos de la pantalla. */}
-      <p className="solo-lectores" aria-live="polite">
-        {frase === null ? '' : `${nombre}: ${frase}`}
-      </p>
+        <p className="solo-lectores" aria-live="polite">
+          {frase === null ? '' : `${nombre}: ${frase}`}
+        </p>
 
-      {frase !== null && (
-        <div className="mascota__globo" style={estiloDelGlobo}>
-          <button
-            type="button"
-            className="mascota__cerrar"
-            aria-label="Cerrar la frase"
-            onClick={() => setFrase(null)}
-          >
-            ×
-          </button>
-          <p className="mascota__quien">{nombre} te acompaña</p>
-          <p className="mascota__frase">{frase}</p>
-        </div>
-      )}
-    </div>
+        {frase !== null && (
+          <div className="mascota__globo" style={estiloDelGlobo}>
+            <button
+              type="button"
+              className="mascota__cerrar"
+              aria-label="Cerrar la frase"
+              onClick={() => setFrase(null)}
+            >
+              ×
+            </button>
+            <p className="mascota__quien">{nombre} te acompaña</p>
+            <p className="mascota__frase">{frase}</p>
+            <button type="button" className="mascota__hablar" onClick={abrirAsistente}>
+              Hablar con VSD IA
+            </button>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

@@ -20,7 +20,8 @@ function enfocablesDe(caja: HTMLElement): HTMLElement[] {
 }
 
 /**
- * Lo que necesita un dialogo para manejarse entero con teclado (SCRUM-98).
+ * Lo que necesita un dialogo para manejarse entero con teclado. Lo usan el
+ * semaforo (SCRUM-98) y VSD IA (SCRUM-100).
  *
  * - Al abrirse, el foco entra: a `inicial` si se da, o a lo primero que se
  *   pueda enfocar.

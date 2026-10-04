@@ -2,9 +2,16 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Mascota } from '../infraestructura/api/cuenta.ts';
-import { MascotaFlotante } from './MascotaFlotante.tsx';
+import { MascotaFlotante, PULSACION_LARGA_MS } from './MascotaFlotante.tsx';
 import { PERSONAJES } from './personajes.ts';
 import { INACTIVIDAD_MS } from './useExpresion.ts';
+
+// VSD IA se abre desde la mascota (SCRUM-100); sus respuestas se prueban en
+// `Asistente.spec.tsx`.
+vi.mock('../infraestructura/api/asistente.ts', () => ({
+  LARGO_MAXIMO_DE_LA_PREGUNTA: 1000,
+  preguntarAlAsistente: () => new Promise(() => undefined),
+}));
 
 /**
  * La mascota flotante, con relojes simulados.
@@ -265,6 +272,114 @@ describe('MascotaFlotante', () => {
       });
 
       expect(raiz()).not.toHaveClass('mascota--apartada');
+    });
+  });
+
+  describe('VSD IA (SCRUM-100)', () => {
+    function presionar(boton: HTMLElement) {
+      fireEvent.pointerDown(boton, {
+        pointerId: 1,
+        isPrimary: true,
+        button: 0,
+        clientX: 40,
+        clientY: 600,
+      });
+    }
+
+    function soltar(boton: HTMLElement) {
+      fireEvent.pointerUp(boton, { pointerId: 1, isPrimary: true, clientX: 40, clientY: 600 });
+      fireEvent.click(boton);
+    }
+
+    it('mantenerla pulsada abre VSD IA, y soltarla no cuenta como toque', () => {
+      render(<MascotaFlotante mascota={SPARKY} />);
+
+      const boton = mascota();
+
+      presionar(boton);
+      adelantar(PULSACION_LARGA_MS);
+      soltar(boton);
+
+      expect(screen.getByRole('dialog', { name: 'VSD IA' })).toHaveTextContent('Con Chispita');
+      expect(screen.queryByText('Chispita te acompaña')).not.toBeInTheDocument();
+      // Posada en la esquina del asistente, es solo un dibujo.
+      expect(raiz()).toHaveClass('mascota--con-asistente');
+    });
+
+    it('un toque corto sigue siendo una frase', () => {
+      render(<MascotaFlotante mascota={SPARKY} />);
+
+      const boton = mascota();
+
+      presionar(boton);
+      adelantar(PULSACION_LARGA_MS - 100);
+      soltar(boton);
+      adelantar(200);
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.getByText('Chispita te acompaña')).toBeInTheDocument();
+    });
+
+    it('arrastrarla no lo abre', () => {
+      render(<MascotaFlotante mascota={SPARKY} />);
+
+      const boton = mascota();
+
+      presionar(boton);
+      fireEvent.pointerMove(boton, { pointerId: 1, isPrimary: true, clientX: 60, clientY: 500 });
+      adelantar(PULSACION_LARGA_MS);
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('con teclado se abre desde su frase, y al cerrar vuelve a la mascota', () => {
+      render(<MascotaFlotante mascota={SPARKY} />);
+
+      fireEvent.click(mascota());
+      fireEvent.click(screen.getByRole('button', { name: 'Hablar con VSD IA' }));
+
+      expect(screen.getByRole('dialog', { name: 'VSD IA' })).toBeInTheDocument();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(raiz()).not.toHaveClass('mascota--con-asistente');
+      expect(mascota()).toHaveFocus();
+    });
+
+    it('con menos movimiento, se abre sin desplazarse', () => {
+      render(<MascotaFlotante mascota={SPARKY} />);
+
+      fireEvent.click(mascota());
+      fireEvent.click(screen.getByRole('button', { name: 'Hablar con VSD IA' }));
+
+      expect(screen.getByRole('dialog', { name: 'VSD IA' }).style.transform).not.toMatch(
+        /scale|translate/,
+      );
+    });
+
+    it('al cerrarlo se olvida lo escrito', () => {
+      render(<MascotaFlotante mascota={SPARKY} />);
+
+      const abrir = () => {
+        fireEvent.click(mascota());
+        fireEvent.click(screen.getByRole('button', { name: 'Hablar con VSD IA' }));
+      };
+
+      abrir();
+      fireEvent.change(screen.getByRole('textbox', { name: 'Escribe tu pregunta' }), {
+        target: { value: 'algo mío' },
+      });
+      fireEvent.submit(
+        screen.getByRole('textbox', { name: 'Escribe tu pregunta' }).closest('form')!,
+      );
+
+      expect(screen.getByRole('log')).toHaveTextContent('algo mío');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cerrar VSD IA' }));
+      abrir();
+
+      expect(screen.getByRole('log')).not.toHaveTextContent('algo mío');
     });
   });
 });
