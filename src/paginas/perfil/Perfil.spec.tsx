@@ -27,6 +27,11 @@ const {
   borrarMiCuenta: vi.fn(),
 }));
 
+// Los avisos (SCRUM-102) se prueban en `TusAvisos.spec.tsx`.
+vi.mock('../../infraestructura/api/notificaciones.ts', () => ({
+  consultarLasNotificaciones: () =>
+    Promise.resolve({ disponible: false, clavePublica: null, horaSemaforo: null, horaRacha: null }),
+}));
 // El semaforo flota en esta pantalla (SCRUM-98); aqui no se prueba.
 vi.mock('../../infraestructura/api/pendientes.ts', () => ({
   consultarElSemaforo: () => Promise.resolve({ pendientes: [], recordatorio: null }),

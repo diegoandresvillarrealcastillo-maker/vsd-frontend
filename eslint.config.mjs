@@ -6,7 +6,10 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'coverage/**', 'node_modules/**'],
+    // `public/` se sirve tal cual, sin compilar. Su unico codigo es el service
+    // worker (SCRUM-102), que corre fuera de la pagina y no entra en el
+    // proyecto de TypeScript que usan las reglas con tipos.
+    ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'public/**'],
   },
 
   js.configs.recommended,
