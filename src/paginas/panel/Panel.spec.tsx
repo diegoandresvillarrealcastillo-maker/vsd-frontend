@@ -39,6 +39,7 @@ const CUENTA: Cuenta = {
   registradoEn: '2026-09-26T15:00:00.000Z',
   modulosActivos: ['cognicion', 'bienestar'],
   mascota: null,
+  diarioConRecomendaciones: false,
 };
 
 const PROGRESO: ProgresoDelModulo[] = [
