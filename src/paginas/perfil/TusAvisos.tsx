@@ -1,11 +1,21 @@
-import { useCallback, useEffect, useId, useRef, useState, type CSSProperties } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 
 import {
   cambiarHorasDeAviso,
+  cambiarRecordatoriosDelDia,
   consultarLasNotificaciones,
   soltarEsteNavegadorDelServidor,
   suscribirEsteNavegador,
   type CambiosDeHoras,
+  type CambiosDeRecordatorios,
   type EstadoDeLasNotificaciones,
 } from '../../infraestructura/api/notificaciones.ts';
 import {
@@ -16,6 +26,7 @@ import {
   suscribirNavegador,
   suscripcionActual,
 } from '../../notificaciones/navegador.ts';
+import { nombreDeLaZona } from '../../tiempo/zonaHoraria.ts';
 import { Icono, type NombreDeIcono } from '../panel/Icono.tsx';
 import { MODULOS } from '../panel/modulos.ts';
 import { Apartado, MensajeDeAviso, SIN_CONEXION, type Aviso } from './piezas.tsx';
@@ -28,8 +39,16 @@ import { Apartado, MensajeDeAviso, SIN_CONEXION, type Aviso } from './piezas.tsx
  * - **Si este dispositivo los recibe.** Lo decide el navegador, que pide
  *   permiso. Sin permiso todo sigue funcionando. En iPhone solo funciona con
  *   la aplicacion instalada en la pantalla de inicio, y se explica como.
- * - **A que hora llega cada uno.** Es de la cuenta: vale para todos sus
- *   dispositivos. Cada aviso se enciende, cambia de hora y apaga por separado.
+ * - **Cuales llegan y a que hora.** Es de la cuenta: vale para todos sus
+ *   dispositivos. Cada aviso se enciende y apaga por separado, y todos se leen
+ *   en la zona horaria de la persona (SCRUM-123).
+ *
+ * Y dos grupos de avisos, porque se comportan distinto:
+ *
+ * - **Recordatorios del dia** (SCRUM-127): el de la manana y el de la noche,
+ *   con la hora fija en las 8:00 y las 20:00. Solo se encienden o apagan.
+ * - **A la hora que elijas:** el del semaforo y "un momento para ti", con hora
+ *   propia.
  */
 
 type ClaseDeAviso = 'semaforo' | 'racha';
@@ -55,7 +74,9 @@ const CLASES: Readonly<
   },
   racha: {
     nombre: 'Un momento para ti',
-    explicacion: 'Una invitación a tus actividades, solo si ese día todavía no hiciste ninguna.',
+    explicacion:
+      'Una invitación a tus actividades, solo si ese día todavía no hiciste ninguna. ' +
+      'Si también tienes encendido «Cierre del día», llega solo la que toque primero.',
     icono: 'sparkles',
     horaPorDefecto: '19:00',
     campo: 'horaRacha',
@@ -79,6 +100,7 @@ export function TusAvisos() {
   const [permiso, setPermiso] = useState<NotificationPermission>(permisoDeAvisos);
   const [ocupado, setOcupado] = useState(false);
   const [aviso, setAviso] = useState<Aviso>(null);
+  const idDeLasHoras = useId();
   const capacidad = capacidadDelNavegador();
 
   useEffect(() => {
@@ -112,6 +134,21 @@ export function TusAvisos() {
       setAviso({ tipo: 'fallo', texto: SIN_CONEXION });
     }
   }, []);
+
+  const cambiarRecordatorios = useCallback(
+    async (cambios: CambiosDeRecordatorios): Promise<void> => {
+      setAviso(null);
+
+      try {
+        const datos = await cambiarRecordatoriosDelDia(cambios);
+
+        setEstado({ fase: 'listo', datos });
+      } catch {
+        setAviso({ tipo: 'fallo', texto: SIN_CONEXION });
+      }
+    },
+    [],
+  );
 
   async function activarAqui(clavePublica: string) {
     setOcupado(true);
@@ -211,14 +248,30 @@ export function TusAvisos() {
             alDesactivar={() => void desactivarAqui()}
           />
 
-          {(['semaforo', 'racha'] as const).map((clase) => (
-            <HoraDeUnAviso
-              key={clase}
-              clase={clase}
-              hora={clase === 'semaforo' ? estado.datos.horaSemaforo : estado.datos.horaRacha}
-              alCambiar={cambiarHoras}
-            />
-          ))}
+          {/* Una API anterior a SCRUM-126 no manda estos campos: no se ofrece lo que no existe. */}
+          {typeof estado.datos.recordatorioManana === 'boolean' &&
+            typeof estado.datos.recordatorioNoche === 'boolean' && (
+              <RecordatoriosDelDia
+                manana={estado.datos.recordatorioManana}
+                noche={estado.datos.recordatorioNoche}
+                recibeEsteDispositivo={enEsteDispositivo}
+                alCambiar={cambiarRecordatorios}
+              />
+            )}
+
+          <div role="group" aria-labelledby={idDeLasHoras} className="perfil__grupo-de-avisos">
+            <h3 id={idDeLasHoras} className="perfil__subtitulo">
+              A la hora que elijas
+            </h3>
+            {(['semaforo', 'racha'] as const).map((clase) => (
+              <HoraDeUnAviso
+                key={clase}
+                clase={clase}
+                hora={clase === 'semaforo' ? estado.datos.horaSemaforo : estado.datos.horaRacha}
+                alCambiar={cambiarHoras}
+              />
+            ))}
+          </div>
         </>
       )}
 
@@ -309,13 +362,11 @@ function HoraDeUnAviso({
   alCambiar: (cambios: CambiosDeHoras) => Promise<void>;
 }) {
   const datos = CLASES[clase];
-  const colores = MODULOS.bienestar;
   const encendido = hora !== null;
   const [escrita, setEscrita] = useState(hora ?? datos.horaPorDefecto);
   const [ocupado, setOcupado] = useState(false);
   const temporizador = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const idDeLaHora = useId();
-  const idDeLaExplicacion = useId();
 
   useEffect(() => () => clearTimeout(temporizador.current), []);
 
@@ -349,31 +400,13 @@ function HoraDeUnAviso({
   }
 
   return (
-    <div className="perfil__aviso">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={encendido}
-        aria-describedby={idDeLaExplicacion}
-        className={`perfil__modulo${encendido ? ' perfil__modulo--activo' : ''}`}
-        style={
-          { '--modulo-fondo': colores.fondo, '--modulo-acento': colores.acento } as CSSProperties
-        }
-        onClick={alternar}
-      >
-        <span className="tarjeta-modulo__icono">
-          <Icono nombre={datos.icono} />
-        </span>
-        <span className="perfil__modulo-nombre">{datos.nombre}</span>
-        <span className="perfil__interruptor" aria-hidden="true">
-          <span />
-        </span>
-      </button>
-
-      <p id={idDeLaExplicacion} className="app__nota perfil__ayuda">
-        {datos.explicacion}
-      </p>
-
+    <InterruptorDeAviso
+      nombre={datos.nombre}
+      explicacion={datos.explicacion}
+      icono={datos.icono}
+      encendido={encendido}
+      alAlternar={alternar}
+    >
       {encendido && (
         <div className="perfil__fila">
           <label htmlFor={idDeLaHora} className="bienvenida__etiqueta">
@@ -388,8 +421,158 @@ function HoraDeUnAviso({
             onChange={(evento) => alEscribirHora(evento.target.value)}
             aria-label={`Hora del aviso: ${datos.nombre}`}
           />
-          <span className="app__nota">hora de Colombia</span>
+          {/* La hora se lee en la zona de la cuenta (SCRUM-123), no en la de Colombia. */}
+          <span className="app__nota">{nombreDeLaZona()}</span>
         </div>
+      )}
+    </InterruptorDeAviso>
+  );
+}
+
+/**
+ * Un aviso: su interruptor y lo que hace. Lo que va dentro (la hora, una nota)
+ * aparece debajo. Es un `switch`, asi que se maneja con teclado y se lee como
+ * "interruptor, activado" en un lector de pantalla.
+ */
+function InterruptorDeAviso({
+  nombre,
+  explicacion,
+  icono,
+  encendido,
+  alAlternar,
+  children,
+}: {
+  nombre: string;
+  explicacion: string;
+  icono: NombreDeIcono;
+  encendido: boolean;
+  alAlternar: () => void;
+  children?: ReactNode;
+}) {
+  const colores = MODULOS.bienestar;
+  const idDeLaExplicacion = useId();
+
+  return (
+    <div className="perfil__aviso">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={encendido}
+        aria-describedby={idDeLaExplicacion}
+        className={`perfil__modulo${encendido ? ' perfil__modulo--activo' : ''}`}
+        style={
+          { '--modulo-fondo': colores.fondo, '--modulo-acento': colores.acento } as CSSProperties
+        }
+        onClick={alAlternar}
+      >
+        <span className="tarjeta-modulo__icono">
+          <Icono nombre={icono} />
+        </span>
+        <span className="perfil__modulo-nombre">{nombre}</span>
+        <span className="perfil__interruptor" aria-hidden="true">
+          <span />
+        </span>
+      </button>
+
+      <p id={idDeLaExplicacion} className="app__nota perfil__ayuda">
+        {explicacion}
+      </p>
+
+      {children}
+    </div>
+  );
+}
+
+type MomentoDelDia = 'manana' | 'noche';
+
+const MOMENTOS: Readonly<
+  Record<
+    MomentoDelDia,
+    {
+      readonly nombre: string;
+      readonly explicacion: string;
+      readonly icono: NombreDeIcono;
+    }
+  >
+> = {
+  manana: {
+    nombre: 'Buenos días',
+    explicacion: 'A las 8:00 a. m., una invitación a empezar el día. Sin prisa, a tu ritmo.',
+    icono: 'leaf',
+  },
+  noche: {
+    nombre: 'Cierre del día',
+    explicacion:
+      'A las 8:00 p. m., solo si hoy aún no hiciste ninguna actividad. Si ya la hiciste, no llega nada. ' +
+      'Si también tienes encendido «Un momento para ti», llega solo la que toque primero.',
+    icono: 'moon',
+  },
+};
+
+/**
+ * Los recordatorios de la manana y de la noche (SCRUM-127): a las 8:00 y a las
+ * 20:00 de la persona, sin hora que elegir. Solo se encienden y se apagan.
+ *
+ * Avisan, con un tono de juego y sin culpa, lo que dicen: los textos viven en
+ * el servidor y rotan cada dia. Aqui se explica a que hora y en que zona llegan,
+ * y que hace falta que este dispositivo reciba avisos.
+ */
+function RecordatoriosDelDia({
+  manana,
+  noche,
+  recibeEsteDispositivo,
+  alCambiar,
+}: {
+  manana: boolean;
+  noche: boolean;
+  recibeEsteDispositivo: boolean;
+  alCambiar: (cambios: CambiosDeRecordatorios) => Promise<void>;
+}) {
+  const [ocupado, setOcupado] = useState(false);
+  const idDelTitulo = useId();
+  const zona = nombreDeLaZona();
+  const encendidos: Readonly<Record<MomentoDelDia, boolean>> = { manana, noche };
+
+  async function alternar(momento: MomentoDelDia) {
+    if (ocupado) {
+      return;
+    }
+
+    setOcupado(true);
+
+    try {
+      await alCambiar({ [momento]: !encendidos[momento] });
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  return (
+    <div role="group" aria-labelledby={idDelTitulo} className="perfil__grupo-de-avisos">
+      <h3 id={idDelTitulo} className="perfil__subtitulo">
+        Recordatorios del día
+      </h3>
+      <p className="app__nota perfil__ayuda">
+        Dos momentos fijos, a las 8:00 a. m. y a las 8:00 p. m. de tu zona horaria ({zona}). Si
+        viajas, se ajustan solos.
+      </p>
+
+      {(['manana', 'noche'] as const).map((momento) => (
+        <InterruptorDeAviso
+          key={momento}
+          nombre={MOMENTOS[momento].nombre}
+          explicacion={MOMENTOS[momento].explicacion}
+          icono={MOMENTOS[momento].icono}
+          encendido={encendidos[momento]}
+          alAlternar={() => void alternar(momento)}
+        />
+      ))}
+
+      {(manana || noche) && !recibeEsteDispositivo && (
+        <p className="app__nota">
+          Este dispositivo todavía no recibe avisos, así que aquí no llegarán. Actívalos arriba para
+          recibirlos.
+        </p>
       )}
     </div>
   );

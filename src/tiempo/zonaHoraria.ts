@@ -101,3 +101,23 @@ export function diaEnLaZona(instante: Date): string {
     day: '2-digit',
   }).format(instante);
 }
+
+/**
+ * Como se llama una zona en cristiano: "hora estandar de Colombia", "hora de
+ * verano de Europa central". Para decirle a la persona en que hora se leen sus
+ * avisos (SCRUM-127) sin ensenarle un identificador IANA como `America/Bogota`.
+ *
+ * Si el navegador no sabe nombrarla, se devuelve el identificador tal cual: es
+ * feo pero exacto, y mejor que inventar o dejar la frase sin zona.
+ */
+export function nombreDeLaZona(zona: string = zonaActual(), instante: Date = new Date()): string {
+  try {
+    const nombre = new Intl.DateTimeFormat('es', { timeZone: zona, timeZoneName: 'long' })
+      .formatToParts(instante)
+      .find((parte) => parte.type === 'timeZoneName')?.value;
+
+    return nombre === undefined || nombre === '' ? zona : nombre;
+  } catch {
+    return zona;
+  }
+}

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   fijarLaZonaDeLaCuenta,
   formatoEn,
+  nombreDeLaZona,
   olvidarLaZonaDeLaCuenta,
   ZONA_POR_DEFECTO,
   zonaActual,
@@ -88,5 +89,31 @@ describe('formatoEn', () => {
 
   it('una zona que el navegador no conoce cae en la de Colombia en lugar de lanzar', () => {
     expect(formatoEn('Marte/Olympus', 'en-CA', DIA).format(INSTANTE)).toBe('2026-10-02');
+  });
+});
+
+describe('nombreDeLaZona', () => {
+  const OCTUBRE = new Date('2026-10-06T15:00:00Z');
+
+  it('dice la zona en palabras, no como identificador', () => {
+    expect(nombreDeLaZona('America/Bogota', OCTUBRE)).toBe('hora estándar de Colombia');
+    expect(nombreDeLaZona('Asia/Tokyo', OCTUBRE)).toBe('hora estándar de Japón');
+  });
+
+  it('sigue el horario de verano de esa fecha', () => {
+    expect(nombreDeLaZona('Europe/Madrid', OCTUBRE)).toBe('hora de verano de Europa central');
+    expect(nombreDeLaZona('Europe/Madrid', new Date('2026-12-06T15:00:00Z'))).toBe(
+      'hora estándar de Europa central',
+    );
+  });
+
+  it('sin zona dada, usa la de la cuenta', () => {
+    fijarLaZonaDeLaCuenta('America/Bogota');
+
+    expect(nombreDeLaZona()).toBe('hora estándar de Colombia');
+  });
+
+  it('una zona que el navegador no conoce se devuelve tal cual, sin lanzar', () => {
+    expect(nombreDeLaZona('Marte/Olympus', OCTUBRE)).toBe('Marte/Olympus');
   });
 });
