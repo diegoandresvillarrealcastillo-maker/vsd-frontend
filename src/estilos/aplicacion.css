@@ -192,12 +192,16 @@
 }
 
 /* El selector de tema dentro de la barra (SCRUM-112): con los colores de
-   la aplicacion y sin flotar. */
+   la aplicacion y sin flotar.
+
+   Plano (SCRUM-118): una pista de un solo color y una pastilla encima. Sin
+   borde, sin brillo y sin sombra en reposo; el vidrio es del cambio y lo pone
+   `global.css`. */
 .tema--barra {
   position: static;
   width: auto;
-  padding: 2px;
-  border: 1px solid var(--app-borde);
+  padding: 3px;
+  background: var(--app-carril);
   border-radius: 9999px;
   translate: none;
   pointer-events: auto;
@@ -214,6 +218,11 @@
 
 .tema--barra .tema__pastilla {
   background: var(--app-superficie-alta);
+}
+
+:root[data-tema='claro'] .tema--barra .tema__pastilla {
+  background: var(--app-superficie);
+  box-shadow: 0 1px 2px rgb(29 36 32 / 12%);
 }
 
 .app__cuenta {
