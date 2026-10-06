@@ -1,6 +1,7 @@
 import { useId, useState, type CSSProperties, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import { MedidorDeContrasena } from '../../componentes/MedidorDeContrasena.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/aplicacion.css';
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
@@ -22,6 +23,7 @@ import {
 import { sprite } from '../../mascota/sprites.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { Semaforo } from '../../semaforo/Semaforo.tsx';
+import { mensajeSiNoCumple } from '../../sesion/reglaDeContrasena.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { BarraSuperior } from '../panel/Estructura.tsx';
 import { Icono } from '../panel/Icono.tsx';
@@ -475,8 +477,6 @@ function Correo({ correo }: { correo: string }) {
   );
 }
 
-const MINIMO_DE_CONTRASENA = 8;
-
 /**
  * El cambio de contrasena en dos pasos.
  *
@@ -496,6 +496,7 @@ function Contrasena({ correo }: { correo: string }) {
   const idCodigo = useId();
   const idNueva = useId();
   const idRepetida = useId();
+  const idMedidor = useId();
 
   async function pedirCodigo() {
     setOcupado(true);
@@ -522,11 +523,10 @@ function Contrasena({ correo }: { correo: string }) {
       return;
     }
 
-    if (nueva.length < MINIMO_DE_CONTRASENA) {
-      setAviso({
-        tipo: 'fallo',
-        texto: `La contraseña nueva necesita al menos ${MINIMO_DE_CONTRASENA} caracteres.`,
-      });
+    const faltaAlgo = mensajeSiNoCumple(nueva);
+
+    if (faltaAlgo !== null) {
+      setAviso({ tipo: 'fallo', texto: faltaAlgo });
       return;
     }
 
@@ -598,7 +598,9 @@ function Contrasena({ correo }: { correo: string }) {
               value={nueva}
               onChange={(evento) => setNueva(evento.target.value)}
               autoComplete="new-password"
+              aria-describedby={idMedidor}
             />
+            <MedidorDeContrasena contrasena={nueva} id={idMedidor} />
           </div>
           <div className="bienvenida__campo">
             <label htmlFor={idRepetida} className="bienvenida__etiqueta">

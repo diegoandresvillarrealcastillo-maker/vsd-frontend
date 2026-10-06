@@ -1,18 +1,17 @@
-import { useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 
 import { BotonDeEnvio, type EstadoDeEnvio } from '../../componentes/BotonDeEnvio.tsx';
 import { BotonDeGoogle } from '../../componentes/BotonDeGoogle.tsx';
 import { Campo } from '../../componentes/Campo.tsx';
 import { Casilla } from '../../componentes/Casilla.tsx';
+import { MedidorDeContrasena } from '../../componentes/MedidorDeContrasena.tsx';
 import { entorno } from '../../infraestructura/entorno.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
+import { mensajeSiNoCumple } from '../../sesion/reglaDeContrasena.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { Aparece, LienzoDeAcceso } from './LienzoDeAcceso.tsx';
 import { PistasDelCorreo } from './PistasDelCorreo.tsx';
-
-/** Minimo de caracteres. Supabase rechaza por debajo de ocho. */
-const MINIMO = 8;
 
 /**
  * Los dos unicos errores que esta pantalla comprueba por su cuenta.
@@ -36,6 +35,7 @@ export function Registro() {
   const [error, setError] = useState<string | null>(null);
   const [errorDeCampo, setErrorDeCampo] = useState<ErroresDeContrasena>({});
   const [enviado, setEnviado] = useState(false);
+  const idMedidor = useId();
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
@@ -54,8 +54,10 @@ export function Registro() {
     // siendo el servidor.
     const fallos: ErroresDeContrasena = {};
 
-    if (contrasena.length < MINIMO) {
-      fallos.contrasena = `Necesita al menos ${MINIMO} caracteres.`;
+    const faltaAlgo = mensajeSiNoCumple(contrasena);
+
+    if (faltaAlgo !== null) {
+      fallos.contrasena = faltaAlgo;
     }
 
     if (repetida !== contrasena) {
@@ -150,12 +152,13 @@ export function Registro() {
             name="new-password"
             autoComplete="new-password"
             required
-            ayuda={`Al menos ${MINIMO} caracteres.`}
+            descritoPor={idMedidor}
             error={errorDeCampo.contrasena}
             value={contrasena}
             disabled={ocupado}
             onChange={(e) => setContrasena(e.target.value)}
           />
+          <MedidorDeContrasena contrasena={contrasena} id={idMedidor} />
         </Aparece>
 
         <Aparece>
