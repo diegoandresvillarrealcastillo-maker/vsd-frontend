@@ -8,6 +8,7 @@ import {
 import { supabase } from '../infraestructura/supabase/cliente.ts';
 import { dejarDeAvisarAEsteNavegador } from '../notificaciones/navegador.ts';
 import { RUTAS } from '../rutas/rutas.ts';
+import { olvidarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
 import { consultarLaVersionDelAviso } from '../infraestructura/api/aviso.ts';
 import {
   SesionContexto,
@@ -359,6 +360,8 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     await dejarDeAvisarAEsteNavegador();
     await clienteONulo()?.auth.signOut();
     olvidarPreferenciaDePestana();
+    // La zona de esa cuenta no se queda para la siguiente persona.
+    olvidarLaZonaDeLaCuenta();
     setSesion(null);
   }, []);
 

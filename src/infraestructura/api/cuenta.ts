@@ -1,4 +1,5 @@
-import { llamarALaApi } from './clienteHttp.ts';
+import { fijarLaZonaDeLaCuenta, zonaDelDispositivo } from '../../tiempo/zonaHoraria.ts';
+import { ErrorDeLaApi, llamarALaApi } from './clienteHttp.ts';
 
 /**
  * La cuenta de VSD Health, por HTTP.
@@ -62,6 +63,11 @@ export interface Cuenta {
    * encienda en su perfil.
    */
   readonly diarioConRecomendaciones: boolean;
+  /**
+   * La zona horaria de la persona, la que informo su dispositivo. Decide que dia
+   * es para ella, tanto aqui como en el servidor (SCRUM-123).
+   */
+  readonly zonaHoraria: string;
 }
 
 /** Lo que se puede cambiar de las preferencias. Lo que no venga, se queda igual. */
@@ -88,17 +94,54 @@ const RUTA = '/api/cuenta';
  * invocar en cada inicio de sesion, y que no pase nada si React monta el
  * efecto dos veces en desarrollo.
  *
- * El cuerpo lleva **solo** la version del aviso. El correo y la identidad
- * salen del token que la API verifica, y el rol lo fija ella: mandarlo aqui
- * seria pedir una escalada de privilegios, y la API responde 400 porque el
- * campo no existe en su contrato.
+ * El cuerpo lleva la version del aviso y la zona horaria del dispositivo
+ * (SCRUM-123). El correo y la identidad salen del token que la API verifica, y
+ * el rol lo fija ella: mandarlo aqui seria pedir una escalada de privilegios, y
+ * la API responde 400 porque el campo no existe en su contrato.
+ *
+ * ## La zona viaja en cada entrada
+ *
+ * Es lo que hace que viajar no obligue a configurar nada: si la cuenta existe y
+ * la zona es otra, la API la actualiza. Y es lo que hace falta para que este
+ * lado cuente el dia con la misma zona que el servidor, que se fija al recibir
+ * la cuenta.
+ *
+ * ## Si la API no acepta la zona, se entra igual
+ *
+ * La zona es una comodidad, no una condicion para entrar. Si la API la rechaza
+ * (una zona que no reconoce, o una version de la API anterior que todavia no
+ * conoce el campo) la peticion se repite sin ella, y se entra con la zona que
+ * la cuenta ya tenia. Otros errores —sin conexion, sin consentimiento, correo
+ * repetido— no se reintentan: no tienen que ver con la zona.
  */
-export function darDeAltaLaCuenta(versionPolitica: string, senal?: AbortSignal): Promise<Cuenta> {
-  return llamarALaApi<Cuenta>(RUTA, {
-    metodo: 'POST',
-    cuerpo: { versionPolitica },
+export async function darDeAltaLaCuenta(
+  versionPolitica: string,
+  senal?: AbortSignal,
+): Promise<Cuenta> {
+  const opciones = (cuerpo: Record<string, string>) => ({
+    metodo: 'POST' as const,
+    cuerpo,
     ...(senal ? { senal } : {}),
   });
+
+  let cuenta: Cuenta;
+
+  try {
+    cuenta = await llamarALaApi<Cuenta>(
+      RUTA,
+      opciones({ versionPolitica, zonaHoraria: zonaDelDispositivo() }),
+    );
+  } catch (error) {
+    if (!(error instanceof ErrorDeLaApi) || error.estado !== 400) {
+      throw error;
+    }
+
+    cuenta = await llamarALaApi<Cuenta>(RUTA, opciones({ versionPolitica }));
+  }
+
+  fijarLaZonaDeLaCuenta(cuenta.zonaHoraria);
+
+  return cuenta;
 }
 
 /**
@@ -107,8 +150,12 @@ export function darDeAltaLaCuenta(versionPolitica: string, senal?: AbortSignal):
  * No hay parametro de persona ni podria haberlo: el identificador sale del
  * token y las politicas de la base filtran por el.
  */
-export function consultarLaCuentaPropia(senal?: AbortSignal): Promise<Cuenta> {
-  return llamarALaApi<Cuenta>(RUTA, senal ? { senal } : {});
+export async function consultarLaCuentaPropia(senal?: AbortSignal): Promise<Cuenta> {
+  const cuenta = await llamarALaApi<Cuenta>(RUTA, senal ? { senal } : {});
+
+  fijarLaZonaDeLaCuenta(cuenta.zonaHoraria);
+
+  return cuenta;
 }
 
 /** La frase que la API exige para borrar la cuenta. */

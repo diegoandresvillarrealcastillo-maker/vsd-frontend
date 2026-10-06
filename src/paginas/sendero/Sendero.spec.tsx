@@ -37,6 +37,7 @@ const CUENTA: Cuenta = {
   modulosActivos: ['bienestar'],
   mascota: null,
   diarioConRecomendaciones: false,
+  zonaHoraria: 'America/Bogota',
 };
 
 /** Tres sesiones hechas y nada todavia hoy. */

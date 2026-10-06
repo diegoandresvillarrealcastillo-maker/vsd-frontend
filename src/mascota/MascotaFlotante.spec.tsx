@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Mascota } from '../infraestructura/api/cuenta.ts';
+import { fijarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
 import { MascotaFlotante, PULSACION_LARGA_MS } from './MascotaFlotante.tsx';
 import { PERSONAJES } from './personajes.ts';
 import { INACTIVIDAD_MS } from './useExpresion.ts';
@@ -175,6 +176,16 @@ describe('MascotaFlotante', () => {
       adelantar(4_000);
 
       expect(expresion()).toBe('dormida');
+    });
+
+    it('de noche es de noche donde esta la persona, no en Colombia (SCRUM-123)', () => {
+      // 04:30 UTC son las 23:30 en Bogota, pero las 6:30 en Madrid: ya de dia.
+      fijarLaZonaDeLaCuenta('Europe/Madrid');
+      vi.setSystemTime(DE_NOCHE);
+
+      render(<MascotaFlotante mascota={SPARKY} />);
+
+      expect(expresion()).not.toBe('dormida');
     });
 
     it('se duerme tras un rato sin actividad, y una tecla la despierta', () => {

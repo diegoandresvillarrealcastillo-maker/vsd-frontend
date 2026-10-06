@@ -55,6 +55,7 @@ const CUENTA: Cuenta = {
   modulosActivos: ['cognicion', 'bienestar'],
   mascota: null,
   diarioConRecomendaciones: false,
+  zonaHoraria: 'America/Bogota',
 };
 
 const usuario = userEvent.setup({ delay: null });

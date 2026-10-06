@@ -1,18 +1,29 @@
 import { describe, expect, it } from 'vitest';
 
+import { fijarLaZonaDeLaCuenta } from '../../tiempo/zonaHoraria.ts';
 import {
   agruparPorDia,
-  diaEnColombia,
+  diaDe,
   diasAntes,
-  horaEnColombia,
+  horaDe,
   minutosParaEditar,
   nombreDelDia,
 } from './calendarioDelDiario.ts';
 
-describe('Los dias del diario, en hora de Colombia', () => {
+describe('Los dias del diario, en la zona de la persona', () => {
   it('a las 9 p. m. de Bogota todavia es el mismo dia, aunque en UTC ya sea el siguiente', () => {
-    expect(diaEnColombia(new Date('2026-10-03T02:00:00Z'))).toBe('2026-10-02');
-    expect(diaEnColombia(new Date('2026-10-03T05:00:00Z'))).toBe('2026-10-03');
+    expect(diaDe(new Date('2026-10-03T02:00:00Z'))).toBe('2026-10-02');
+    expect(diaDe(new Date('2026-10-03T05:00:00Z'))).toBe('2026-10-03');
+  });
+
+  it('el mismo instante es otro dia en la zona de otra cuenta (SCRUM-123)', () => {
+    // 9 p. m. del 2 en Bogota, y ya 4 a. m. del 3 en Madrid.
+    const instante = new Date('2026-10-03T02:00:00Z');
+
+    fijarLaZonaDeLaCuenta('Europe/Madrid');
+
+    expect(diaDe(instante)).toBe('2026-10-03');
+    expect(horaDe('2026-10-03T02:14:00Z')).toMatch(/^4:14\s?a/);
   });
 
   it('cuenta dias hacia atras, tambien cruzando meses', () => {
@@ -22,7 +33,7 @@ describe('Los dias del diario, en hora de Colombia', () => {
   });
 
   it('la hora se ensena en Colombia', () => {
-    expect(horaEnColombia('2026-10-03T01:14:00Z')).toMatch(/^8:14\s?p/);
+    expect(horaDe('2026-10-03T01:14:00Z')).toMatch(/^8:14\s?p/);
   });
 
   it('nombra hoy, ayer y los demas dias con su fecha', () => {

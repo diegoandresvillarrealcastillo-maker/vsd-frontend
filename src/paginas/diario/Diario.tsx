@@ -15,7 +15,7 @@ import { explicar } from '../panel/useDatosDelPanel.ts';
 import {
   agruparPorDia,
   ahoraMismo,
-  horaEnColombia,
+  horaDe,
   minutosParaEditar,
   nombreDelDia,
 } from './calendarioDelDiario.ts';
@@ -274,7 +274,7 @@ function AnotacionDelHistorial({
   return (
     <li className={`diario__anotacion diario__anotacion--${entrada.estado}`}>
       <div className="diario__anotacion-cabecera">
-        <span className="diario__hora">{horaEnColombia(entrada.creadaEn)}</span>
+        <span className="diario__hora">{horaDe(entrada.creadaEn)}</span>
 
         {entrada.estado === 'guardando' && (
           <span className="diario__estado" role="status">

@@ -1,13 +1,29 @@
 import '@testing-library/jest-dom/vitest';
 
 import { cleanup } from '@testing-library/react';
-import { afterEach } from 'vitest';
+import { afterEach, beforeEach } from 'vitest';
+
+import { fijarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
 
 // Sin esto, cada prueba deja su arbol montado y la siguiente encuentra dos
 // veces el mismo boton. El sintoma es una prueba que falla solo cuando se
 // ejecuta despues de otra, que es de las cosas mas molestas de diagnosticar.
 afterEach(() => {
   cleanup();
+});
+
+/**
+ * Las pruebas cuentan el dia en la zona de Colombia, cualquiera que sea la del
+ * equipo donde corran (SCRUM-123).
+ *
+ * Desde que la zona es la de cada persona, "hoy" depende de la zona del
+ * dispositivo, y las pruebas que comparan dias y horas concretas daban un
+ * resultado distinto en el CI, que esta en UTC, que en un portatil de
+ * Bogota. Fijarla aqui las hace iguales en todas partes. Una prueba que
+ * necesite otra zona la fija ella misma, o llama a `olvidarLaZonaDeLaCuenta`.
+ */
+beforeEach(() => {
+  fijarLaZonaDeLaCuenta('America/Bogota');
 });
 
 /**
