@@ -2,6 +2,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { MarcaDeLaApp } from '../../componentes/MarcaDeLaApp.tsx';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
@@ -29,12 +30,7 @@ export function BarraSuperior({ conSecciones }: { conSecciones: boolean }) {
   return (
     <header className="app__barra">
       <div className="app__barra-interior">
-        <Link to={RUTAS.PANEL} className="app__marca" aria-label="VSD-H, inicio">
-          <span className="app__marca-icono">
-            <Icono nombre="sparkles" />
-          </span>
-          <span className="app__marca-texto">VSD-H</span>
-        </Link>
+        <MarcaDeLaApp />
 
         {conSecciones ? (
           <nav className="app__nav" aria-label="Secciones">

@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 
-import { Logo } from '../../componentes/Logo.tsx';
+import { MarcaDeLaApp } from '../../componentes/MarcaDeLaApp.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/actividad.css';
 import type { ResultadoRegistrado } from '../../infraestructura/api/resultados.ts';
@@ -25,7 +25,9 @@ export function Actividad() {
   return (
     <div className="actividad">
       <header className="actividad__barra">
-        <Logo to={RUTAS.PANEL} className="actividad__marca" />
+        <div className="actividad__marca">
+          <MarcaDeLaApp />
+        </div>
 
         <Link className="actividad__volver" to={RUTAS.PANEL}>
           Volver al panel

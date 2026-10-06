@@ -30,10 +30,6 @@
   margin-right: auto;
 }
 
-.actividad__marca .logo__imagen {
-  height: 44px;
-}
-
 /* Deja hueco al selector de tema, que va en la esquina de esta misma barra. */
 .actividad__volver {
   margin-right: 88px;
