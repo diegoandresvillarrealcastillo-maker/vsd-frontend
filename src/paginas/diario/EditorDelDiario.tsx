@@ -5,7 +5,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { lazy, Suspense, useCallback, useId, useMemo, useState } from 'react';
 
 import type { Adjunto, Anotacion, NodoDelDocumento } from '../../infraestructura/api/diario.ts';
-import { horaEnColombia } from './calendarioDelDiario.ts';
+import { horaDe } from './calendarioDelDiario.ts';
 import { DiagramasContexto, idsDeDiagramas } from './diagramas.ts';
 import { Diagrama } from './extensionDiagrama.ts';
 import { COLORES, LETRAS, TAMANOS } from './formato.ts';
@@ -157,7 +157,7 @@ export function EditorDelDiario({
       <div className="lienzo">
         {editando !== undefined && (
           <p className="lienzo__modo" role="status">
-            Corrigiendo la anotación de las {horaEnColombia(editando.creadaEn)}
+            Corrigiendo la anotación de las {horaDe(editando.creadaEn)}
           </p>
         )}
 

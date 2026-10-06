@@ -14,7 +14,7 @@ import {
 } from '../../infraestructura/api/diario.ts';
 import type { LineaDeAtencion } from '../../infraestructura/api/resultados.ts';
 import { explicar } from '../panel/useDatosDelPanel.ts';
-import { ahoraMismo, diaEnColombia, diasAntes } from './calendarioDelDiario.ts';
+import { ahoraMismo, diaDe, diasAntes } from './calendarioDelDiario.ts';
 import type { LoQueSeEscribio } from './EditorDelDiario.tsx';
 
 /** Cuantos dias se cargan de una vez, hacia atras desde hoy. */
@@ -49,7 +49,7 @@ function guardada(anotacion: Anotacion): EntradaDelHistorial {
 }
 
 export function useDiario() {
-  const [hoy] = useState(() => diaEnColombia(ahoraMismo()));
+  const [hoy] = useState(() => diaDe(ahoraMismo()));
   const [desde, setDesde] = useState(() => diasAntes(hoy, DIAS_POR_TANDA - 1));
   const [fase, setFase] = useState<FaseDelDiario>({ fase: 'cargando' });
   const [entradas, setEntradas] = useState<readonly EntradaDelHistorial[]>([]);

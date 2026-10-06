@@ -6,7 +6,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
-import { diaEnColombia, diasAntes } from './calendarioDelDiario.ts';
+import { diaDe, diasAntes } from './calendarioDelDiario.ts';
 import { Diario } from './Diario.tsx';
 
 /**
@@ -55,7 +55,7 @@ vi.mock('./EditorDeDiagrama.tsx', () => {
 
 const usuario = userEvent.setup({ delay: null });
 
-const HOY = diaEnColombia(new Date());
+const HOY = diaDe(new Date());
 const AYER = diasAntes(HOY, 1);
 
 function haceMinutos(minutos: number): string {

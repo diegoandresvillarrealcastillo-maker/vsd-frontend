@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { olvidarLaZonaDeLaCuenta, zonaActual } from '../../tiempo/zonaHoraria.ts';
 import { ErrorDeLaApi } from './clienteHttp.ts';
 import {
   borrarMiCuenta,
@@ -33,7 +34,15 @@ const CUENTA = {
   rol: 'usuario',
   consentimiento: { versionPolitica: '2026-09-1', aceptadoEn: '2026-09-26T10:00:00.000Z' },
   registradoEn: '2026-09-26T10:00:00.000Z',
+  zonaHoraria: 'America/Bogota',
 };
+
+/** El dispositivo dice estar en Madrid, sea cual sea la zona de quien corre las pruebas. */
+function dispositivoEn(zona: string): void {
+  vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({
+    timeZone: zona,
+  } as Intl.ResolvedDateTimeFormatOptions);
+}
 
 function respuesta(cuerpo: unknown, estado = 200): Response {
   return new Response(JSON.stringify(cuerpo), {
@@ -43,8 +52,8 @@ function respuesta(cuerpo: unknown, estado = 200): Response {
 }
 
 /** La peticion que recibio `fetch`, para poder interrogarla. */
-function peticionEnviada(): Request {
-  const llamada = vi.mocked(globalThis.fetch).mock.calls[0];
+function peticionEnviada(cual = 0): Request {
+  const llamada = vi.mocked(globalThis.fetch).mock.calls[cual];
 
   if (!llamada) {
     throw new Error('No se llamo a fetch.');
@@ -56,13 +65,16 @@ function peticionEnviada(): Request {
 }
 
 beforeEach(() => {
+  dispositivoEn('Europe/Madrid');
   getSession.mockResolvedValue({ data: { session: { access_token: 'token-de-prueba' } } });
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respuesta(CUENTA)));
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   vi.clearAllMocks();
+  olvidarLaZonaDeLaCuenta();
 });
 
 describe('darDeAltaLaCuenta', () => {
@@ -75,12 +87,12 @@ describe('darDeAltaLaCuenta', () => {
     expect(enviada.url).toBe('http://localhost:3000/api/cuenta');
   });
 
-  it('manda la version del aviso, y nada mas', async () => {
+  it('manda la version del aviso y la zona del dispositivo, y nada mas', async () => {
     await darDeAltaLaCuenta('2026-09-1');
 
     const cuerpo = (await peticionEnviada().json()) as Record<string, unknown>;
 
-    expect(cuerpo).toEqual({ versionPolitica: '2026-09-1' });
+    expect(cuerpo).toEqual({ versionPolitica: '2026-09-1', zonaHoraria: 'Europe/Madrid' });
 
     // Lo que NO va es la parte que importa. El correo y la identidad salen del
     // token que verifica la API, y el rol lo fija ella: mandar `rol` aqui seria
@@ -117,7 +129,78 @@ describe('darDeAltaLaCuenta', () => {
   });
 });
 
+describe('la zona horaria al dar de alta la cuenta (SCRUM-123)', () => {
+  const ZONA_RECHAZADA = respuesta(
+    { codigo: 'ZONA_HORARIA_INVALIDA', mensaje: 'No es valida.' },
+    400,
+  );
+
+  it('desde que se recibe la cuenta, el dia se cuenta en la zona que tiene la cuenta', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      respuesta({ ...CUENTA, zonaHoraria: 'Asia/Tokyo' }),
+    );
+
+    await darDeAltaLaCuenta('2026-09-1');
+
+    expect(zonaActual()).toBe('Asia/Tokyo');
+  });
+
+  it('si la API no acepta la zona, se repite sin ella y se entra igual', async () => {
+    vi.mocked(globalThis.fetch)
+      .mockResolvedValueOnce(ZONA_RECHAZADA)
+      .mockResolvedValueOnce(respuesta(CUENTA));
+
+    const cuenta = await darDeAltaLaCuenta('2026-09-1');
+
+    expect(cuenta.correo).toBe('alguien@ucundinamarca.edu.co');
+    expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(2);
+
+    expect(await peticionEnviada(1).json()).toEqual({ versionPolitica: '2026-09-1' });
+    // Se queda con la zona que la cuenta ya tenia.
+    expect(zonaActual()).toBe('America/Bogota');
+  });
+
+  it('una API anterior que no conoce el campo tambien se tolera', async () => {
+    vi.mocked(globalThis.fetch)
+      .mockResolvedValueOnce(
+        respuesta({ codigo: 'VALIDACION', mensaje: 'property zonaHoraria should not exist' }, 400),
+      )
+      .mockResolvedValueOnce(respuesta(CUENTA));
+
+    await expect(darDeAltaLaCuenta('2026-09-1')).resolves.toMatchObject({ rol: 'usuario' });
+  });
+
+  it('los demas errores no se reintentan: no tienen que ver con la zona', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      respuesta({ codigo: 'CORREO_YA_REGISTRADO', mensaje: 'Ese correo ya...' }, 409),
+    );
+
+    await expect(darDeAltaLaCuenta('2026-09-1')).rejects.toMatchObject({ estado: 409 });
+    expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(1);
+  });
+
+  it('si el reintento tambien falla, el error llega', async () => {
+    vi.mocked(globalThis.fetch)
+      .mockResolvedValueOnce(ZONA_RECHAZADA)
+      .mockResolvedValueOnce(respuesta({ codigo: 'CONSENTIMIENTO_NO_REGISTRADO' }, 400));
+
+    await expect(darDeAltaLaCuenta('2026-09-1')).rejects.toMatchObject({
+      codigo: 'CONSENTIMIENTO_NO_REGISTRADO',
+    });
+  });
+});
+
 describe('consultarLaCuentaPropia', () => {
+  it('fija la zona de la cuenta, igual que el alta', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      respuesta({ ...CUENTA, zonaHoraria: 'Europe/Madrid' }),
+    );
+
+    await consultarLaCuentaPropia();
+
+    expect(zonaActual()).toBe('Europe/Madrid');
+  });
+
   it('va por GET y sin cuerpo', async () => {
     await consultarLaCuentaPropia();
 
