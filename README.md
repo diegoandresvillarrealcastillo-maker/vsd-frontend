@@ -42,16 +42,35 @@ decisiones de diseno (ADR) viven en
 
 ## Estado actual
 
-La aplicacion **ya arranca**. Lo que hay es el andamiaje y una portada
-provisional; las pantallas reales llegan con los ciclos siguientes.
+La aplicacion **esta publicada en PRE**, en
+[vsd-health-pre.vercel.app](https://vsd-health-pre.vercel.app), y trabaja
+contra el API de PRE. PROD todavia no tiene despliegue.
 
-| Ciclo | Que se incorpora                                  | Estado    |
-| ----- | ------------------------------------------------- | --------- |
-| 1     | Repositorio, ramas, CI, documentacion             | Terminado |
-| 5     | Andamiaje React + TypeScript + Vite               | Terminado |
-| 5     | Registro, inicio de sesion y recuperar contrasena | En curso  |
-| 6     | Landing page                                      | Pendiente |
-| 7     | PWA instalable y funcionamiento sin conexion      | Pendiente |
+Lo que ya tiene:
+
+- **Portada** y las pantallas de registro, inicio de sesion y recuperacion de
+  contrasena.
+- **Panel** con los tres modulos, la eleccion de modulos al empezar y el
+  sendero de cada uno.
+- **Las actividades** de cognicion, bienestar y emociones, con las lineas de
+  atencion a la vista.
+- **Diario** por dia, con editor enriquecido y diagramas.
+- **Semaforo de pendientes**, **avisos por Web Push** y la **mascota** con
+  VSD IA.
+- **Perfil**: preferencias, cambio de contrasena, exportar los datos y borrar
+  la cuenta.
+- Modo claro y oscuro, efecto vidrio y navegacion movil con dock flotante.
+- Se puede **instalar** en la pantalla de inicio, tambien en iOS.
+
+| Ciclo | Que se incorpora                                                    | Estado    |
+| ----- | ------------------------------------------------------------------- | --------- |
+| 1     | Repositorio, ramas, CI, documentacion                               | Terminado |
+| 5     | Andamiaje React + TypeScript + Vite                                 | Terminado |
+| 5     | Registro, inicio de sesion y recuperar contrasena                   | Terminado |
+| 5     | Entrar con Google (SCRUM-74)                                        | Pendiente |
+| 6     | Landing page                                                        | Terminado |
+| 6     | Panel, actividades, sendero, diario, semaforo, avisos, perfil y PRE | En curso  |
+| 7     | Funcionamiento sin conexion                                         | Pendiente |
 
 ---
 
@@ -74,6 +93,11 @@ cp .env.example .env.local
 Para ver la portada no hace falta configurar nada mas. Las credenciales de
 Supabase solo se piden cuando se usa la autenticacion, y si faltan el error
 dice cual es y donde ponerla.
+
+Del panel en adelante hace falta el API: desde SCRUM-79 el panel da de alta la
+cuenta y lee el catalogo contra `vsd-backend`. Arrancalo en local siguiendo su
+README; el de PRE no sirve desde `localhost`, porque su `CORS_ORIGIN` solo
+admite el dominio de la PWA de PRE.
 
 Arranca la aplicacion:
 
@@ -119,7 +143,10 @@ que se descarga cualquiera:
 - **Framer Motion** para las animaciones
 - **Vitest** + **Testing Library** para las pruebas
 - **Supabase Auth** para la identidad: correo con contrasena y Google
-- **PWA** instalable con Service Worker (pendiente)
+- **TipTap** como editor del diario y **Excalidraw** para sus diagramas,
+  cargado solo cuando se abre
+- **PWA** instalable, con un Service Worker que solo recibe los avisos por
+  Web Push: no guarda nada en cache
 - **IndexedDB** para el funcionamiento sin conexion (pendiente)
 - Despliegue en **Vercel**
 
