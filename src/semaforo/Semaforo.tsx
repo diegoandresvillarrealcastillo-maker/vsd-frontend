@@ -14,7 +14,9 @@ import {
   NIVELES,
   PASOS_DE_LA_INDUCCION,
   textoDelRecordatorio,
+  vencimiento,
 } from './niveles.ts';
+import { diaEnLaZona } from '../tiempo/zonaHoraria.ts';
 import { useDialogo } from '../componentes/useDialogo.ts';
 import { useSemaforo } from './useSemaforo.ts';
 
@@ -235,7 +237,14 @@ function RecordatorioJuntoAlBoton({
         {textoDelRecordatorio(recordatorio)}
       </p>
       <p className="semaforo__recordatorio-pendiente">
-        «{pendiente.texto}»<span> · {edad(recordatorio.dias)}</span>
+        «{pendiente.texto}»
+        <span>
+          {' '}
+          ·{' '}
+          {recordatorio.fechaLimite === null
+            ? edad(recordatorio.dias)
+            : vencimiento(recordatorio.fechaLimite, diaEnLaZona(new Date())).texto}
+        </span>
       </p>
 
       {fallo && (
@@ -357,6 +366,7 @@ function Ventana({
   const idDelTitulo = useId();
   const [aviso, setAviso] = useState<Aviso>(null);
   const [confirmando, setConfirmando] = useState<string | null>(null);
+  const [editandoFecha, setEditandoFecha] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const enfocar = useRef<'deshacer' | 'titulo' | null>(null);
   const deshacer = useRef<HTMLButtonElement>(null);
@@ -424,6 +434,26 @@ function Ventana({
         await editar(pendiente.id, { nivel });
 
         return { tipo: 'bien', texto: `«${pendiente.texto}» pasó a ${NIVEL[nivel].nombre}.` };
+      },
+      'titulo',
+    );
+  }
+
+  /** Pone, cambia o quita la fecha limite (SCRUM-119). `null` la quita. */
+  function cambiarFecha(pendiente: Pendiente, fecha: string | null) {
+    void hacer(
+      pendiente.id,
+      async () => {
+        await editar(pendiente.id, { fechaLimite: fecha });
+        setEditandoFecha(null);
+
+        return {
+          tipo: 'bien',
+          texto:
+            fecha === null
+              ? `«${pendiente.texto}» ya no tiene fecha límite.`
+              : `«${pendiente.texto}»: ${vencimiento(fecha, diaEnLaZona(new Date())).texto.toLowerCase()}.`,
+        };
       },
       'titulo',
     );
@@ -521,9 +551,12 @@ function Ventana({
                 ahora={ahora}
                 resaltado={resaltado}
                 confirmando={confirmando}
+                editandoFecha={editandoFecha}
                 ocupado={ocupado}
                 alMarcarHecho={marcarHecho}
                 alSubir={subir}
+                alEditarFecha={setEditandoFecha}
+                alCambiarFecha={cambiarFecha}
                 alPedirEliminar={(id) => {
                   setAviso(null);
                   setConfirmando(id);
@@ -577,9 +610,12 @@ function Nivel({
   ahora,
   resaltado,
   confirmando,
+  editandoFecha,
   ocupado,
   alMarcarHecho,
   alSubir,
+  alEditarFecha,
+  alCambiarFecha,
   alPedirEliminar,
   alCancelarEliminar,
   alEliminar,
@@ -589,15 +625,19 @@ function Nivel({
   ahora: Date;
   resaltado: string | null;
   confirmando: string | null;
+  editandoFecha: string | null;
   ocupado: string | null;
   alMarcarHecho: (pendiente: Pendiente) => void;
   alSubir: (pendiente: Pendiente, nivel: NivelDePendiente) => void;
+  alEditarFecha: (id: string | null) => void;
+  alCambiarFecha: (pendiente: Pendiente, fecha: string | null) => void;
   alPedirEliminar: (id: string) => void;
   alCancelarEliminar: () => void;
   alEliminar: (pendiente: Pendiente) => void;
 }) {
   const idDelNivel = useId();
   const { nombre, plazo, sube } = NIVEL[nivel];
+  const hoy = diaEnLaZona(ahora);
 
   return (
     <section className="semaforo-nivel" aria-labelledby={idDelNivel}>
@@ -626,6 +666,17 @@ function Nivel({
                   {pendiente.texto}
                 </p>
                 <p className="semaforo-tarea__edad">{edad(diasDesde(pendiente.creadoEn, ahora))}</p>
+                {pendiente.fechaLimite !== null && (
+                  <p
+                    className={`semaforo-tarea__limite${
+                      vencimiento(pendiente.fechaLimite, hoy).vencida
+                        ? ' semaforo-tarea__limite--vencida'
+                        : ''
+                    }`}
+                  >
+                    {vencimiento(pendiente.fechaLimite, hoy).texto}
+                  </p>
+                )}
 
                 {confirmando === pendiente.id ? (
                   <ConfirmarEliminar
@@ -660,6 +711,18 @@ function Nivel({
                       type="button"
                       className="semaforo__accion"
                       aria-describedby={idDelTexto}
+                      aria-expanded={editandoFecha === pendiente.id}
+                      disabled={ocupado === pendiente.id}
+                      onClick={() =>
+                        alEditarFecha(editandoFecha === pendiente.id ? null : pendiente.id)
+                      }
+                    >
+                      {pendiente.fechaLimite === null ? 'Poner fecha' : 'Cambiar fecha'}
+                    </button>
+                    <button
+                      type="button"
+                      className="semaforo__accion"
+                      aria-describedby={idDelTexto}
                       disabled={ocupado === pendiente.id}
                       onClick={() => alPedirEliminar(pendiente.id)}
                     >
@@ -667,12 +730,82 @@ function Nivel({
                     </button>
                   </div>
                 )}
+
+                {confirmando !== pendiente.id && editandoFecha === pendiente.id && (
+                  <EditorDeFecha
+                    pendiente={pendiente}
+                    ocupado={ocupado === pendiente.id}
+                    alCambiar={(fecha) => alCambiarFecha(pendiente, fecha)}
+                    alCerrar={() => alEditarFecha(null)}
+                  />
+                )}
               </li>
             );
           })}
         </ul>
       )}
     </section>
+  );
+}
+
+/**
+ * La fecha limite de un pendiente, en el mismo sitio (SCRUM-119).
+ *
+ * Elegir un dia la guarda de una vez: no hay boton de guardar que olvidar. Es
+ * opcional, asi que siempre se puede quitar. Sin fecha, el semaforo recuerda
+ * por los dias del color, y aqui se dice.
+ */
+function EditorDeFecha({
+  pendiente,
+  ocupado,
+  alCambiar,
+  alCerrar,
+}: {
+  pendiente: Pendiente;
+  ocupado: boolean;
+  alCambiar: (fecha: string | null) => void;
+  alCerrar: () => void;
+}) {
+  const idDelCampo = useId();
+
+  return (
+    <div className="semaforo-fecha">
+      <label htmlFor={idDelCampo} className="semaforo-fecha__etiqueta">
+        Fecha límite
+      </label>
+      <input
+        id={idDelCampo}
+        type="date"
+        className="semaforo-nuevo__campo semaforo-fecha__campo"
+        value={pendiente.fechaLimite ?? ''}
+        disabled={ocupado}
+        onChange={(evento) => {
+          if (evento.target.value !== '') {
+            alCambiar(evento.target.value);
+          }
+        }}
+      />
+      <div className="semaforo__acciones">
+        {pendiente.fechaLimite !== null && (
+          <button
+            type="button"
+            className="semaforo__accion"
+            disabled={ocupado}
+            onClick={() => alCambiar(null)}
+          >
+            Quitar fecha
+          </button>
+        )}
+        <button type="button" className="semaforo__accion" onClick={alCerrar}>
+          Cerrar
+        </button>
+      </div>
+      <p className="semaforo__nota">
+        {pendiente.fechaLimite === null
+          ? 'Sin fecha, te lo recordamos según su color.'
+          : 'Te lo recordamos cuando llegue ese día.'}
+      </p>
+    </div>
   );
 }
 
@@ -769,8 +902,10 @@ function Nuevo({
 }) {
   const [texto, setTexto] = useState('');
   const [nivel, setNivel] = useState<NivelDePendiente>('aplazable');
+  const [fecha, setFecha] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const idDelCampo = useId();
+  const idDeLaFecha = useId();
   const grupo = useId();
 
   async function alAnadir(evento: FormEvent) {
@@ -787,8 +922,9 @@ function Nuevo({
     alGuardar(null);
 
     try {
-      await semaforo.crear(limpio, nivel);
+      await semaforo.crear(limpio, nivel, fecha === '' ? undefined : fecha);
       setTexto('');
+      setFecha('');
       alGuardar({ tipo: 'bien', texto: `Anotado en ${NIVEL[nivel].nombre}.` });
     } catch {
       alGuardar({ tipo: 'fallo', texto: SIN_CONEXION });
@@ -833,6 +969,19 @@ function Nuevo({
           </label>
         ))}
       </fieldset>
+
+      <div className="semaforo-nuevo__fecha">
+        <label htmlFor={idDeLaFecha} className="semaforo-nuevo__fecha-etiqueta">
+          Fecha límite <span>(opcional)</span>
+        </label>
+        <input
+          id={idDeLaFecha}
+          type="date"
+          className="semaforo-nuevo__campo"
+          value={fecha}
+          onChange={(evento) => setFecha(evento.target.value)}
+        />
+      </div>
 
       <button
         type="submit"

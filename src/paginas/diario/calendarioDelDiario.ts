@@ -1,5 +1,5 @@
 import type { Anotacion } from '../../infraestructura/api/diario.ts';
-import { formatoEn, zonaActual } from '../../tiempo/zonaHoraria.ts';
+import { diaEnLaZona, formatoEn, zonaActual } from '../../tiempo/zonaHoraria.ts';
 
 /**
  * Los dias y las horas del diario, en la zona de la persona (SCRUM-96,
@@ -32,11 +32,7 @@ export function ahoraMismo(): Date {
 
 /** El dia de un instante en la zona de la persona, AAAA-MM-DD. */
 export function diaDe(instante: Date): string {
-  return formatoEn(zonaActual(), 'en-CA', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(instante);
+  return diaEnLaZona(instante);
 }
 
 /** El dia `n` dias antes. */

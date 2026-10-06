@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -36,6 +36,7 @@ function pendiente(parcial: Partial<Pendiente> & Pick<Pendiente, 'id' | 'texto'>
     nivel: 'aplazable',
     hecho: false,
     posponerHasta: null,
+    fechaLimite: null,
     creadoEn: HACE_10_DIAS,
     editadoEn: HACE_10_DIAS,
     ...parcial,
@@ -296,6 +297,133 @@ describe('anadir', () => {
   });
 });
 
+describe('la fecha limite, opcional (SCRUM-119)', () => {
+  /** Lo que se escribe en un `<input type="date">` en un navegador: el valor AAAA-MM-DD. */
+  function ponerFecha(campo: HTMLElement, valor: string) {
+    fireEvent.change(campo, { target: { value: valor } });
+  }
+
+  it('al anotar sin fecha, no se manda ninguna', async () => {
+    crearPendiente.mockResolvedValue(pendiente({ id: 'p-n', texto: 'General' }));
+    render(<Semaforo />);
+    const ventana = await abrirLaVentana();
+
+    await usuario.type(within(ventana).getByRole('textbox', { name: 'Añadir algo' }), 'General');
+    await usuario.click(within(ventana).getByRole('button', { name: 'Añadir' }));
+
+    expect(crearPendiente.mock.calls[0]?.[0]).not.toHaveProperty('fechaLimite');
+  });
+
+  it('al anotar con fecha, se manda, y el campo queda limpio para el siguiente', async () => {
+    crearPendiente.mockResolvedValue(
+      pendiente({ id: 'p-n', texto: 'Entregar', nivel: 'urgente', fechaLimite: '2026-10-12' }),
+    );
+    render(<Semaforo />);
+    const ventana = await abrirLaVentana();
+
+    await usuario.type(within(ventana).getByRole('textbox', { name: 'Añadir algo' }), 'Entregar');
+    const campo = within(ventana).getByLabelText(/Fecha límite/);
+    ponerFecha(campo, '2026-10-12');
+    await usuario.click(within(ventana).getByRole('button', { name: 'Añadir' }));
+
+    expect(crearPendiente).toHaveBeenCalledWith(
+      expect.objectContaining({ texto: 'Entregar', fechaLimite: '2026-10-12' }),
+    );
+    expect(within(ventana).getByLabelText(/Fecha límite/)).toHaveValue('');
+  });
+
+  it('un pendiente con fecha la muestra en palabras; uno sin fecha, nada', async () => {
+    const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+
+    consultarElSemaforo.mockResolvedValue(
+      semaforo({
+        pendientes: [
+          pendiente({ id: 'p-hoy', texto: 'Vence ya', nivel: 'urgente', fechaLimite: hoy }),
+          pendiente({
+            id: 'p-viejo',
+            texto: 'Ya paso',
+            nivel: 'prioridad',
+            fechaLimite: '2020-01-01',
+          }),
+          CUARTO,
+        ],
+      }),
+    );
+    render(<Semaforo />);
+    const ventana = await abrirLaVentana();
+
+    expect(await within(ventana).findByText('Vence hoy')).toBeInTheDocument();
+    expect(within(ventana).getByText(/^Venció hace \d+ días$/)).toHaveClass(
+      'semaforo-tarea__limite--vencida',
+    );
+    // Organizar el cuarto no tiene fecha: solo hay dos lineas de limite.
+    expect(ventana.querySelectorAll('.semaforo-tarea__limite')).toHaveLength(2);
+  });
+
+  it('se pone una fecha a uno que no la tenia, y lo dice', async () => {
+    editarPendiente.mockResolvedValue({ ...ENTREGA, fechaLimite: '2030-03-04' });
+    render(<Semaforo />);
+    const ventana = await abrirLaVentana();
+
+    const tarea = (await within(ventana).findByText('Entregar el trabajo')).closest('li');
+    await usuario.click(within(tarea as HTMLElement).getByRole('button', { name: 'Poner fecha' }));
+
+    expect(
+      within(ventana).getByText(/Sin fecha, te lo recordamos según su color/),
+    ).toBeInTheDocument();
+
+    ponerFecha(within(ventana).getByLabelText('Fecha límite'), '2030-03-04');
+
+    await waitFor(() =>
+      expect(editarPendiente).toHaveBeenCalledWith('p-entrega', { fechaLimite: '2030-03-04' }),
+    );
+    // Sale dos veces: en el aviso de lo hecho y en la propia tarea.
+    await waitFor(() =>
+      expect(ventana.querySelector('.semaforo-tarea__limite')).toHaveTextContent(
+        'Vence el lunes, 4 de marzo',
+      ),
+    );
+  });
+
+  it('se quita la fecha, y el boton vuelve a decir Poner fecha', async () => {
+    const conFecha = { ...ENTREGA, fechaLimite: '2030-03-04' };
+
+    consultarElSemaforo.mockResolvedValue(semaforo({ pendientes: [conFecha, EPS, CUARTO] }));
+    editarPendiente.mockResolvedValue({ ...ENTREGA, fechaLimite: null });
+    render(<Semaforo />);
+    const ventana = await abrirLaVentana();
+
+    const tarea = (await within(ventana).findByText('Entregar el trabajo')).closest('li');
+    await usuario.click(
+      within(tarea as HTMLElement).getByRole('button', { name: 'Cambiar fecha' }),
+    );
+    await usuario.click(within(ventana).getByRole('button', { name: 'Quitar fecha' }));
+
+    await waitFor(() =>
+      expect(editarPendiente).toHaveBeenCalledWith('p-entrega', { fechaLimite: null }),
+    );
+    expect(await within(ventana).findByText(/ya no tiene fecha límite/)).toBeInTheDocument();
+    expect(
+      within(
+        (await within(ventana).findByText('Entregar el trabajo')).closest('li') as HTMLElement,
+      ).getByRole('button', { name: 'Poner fecha' }),
+    ).toBeInTheDocument();
+  });
+
+  it('si no se pudo guardar la fecha, lo dice y no cambia nada', async () => {
+    editarPendiente.mockRejectedValue(new TypeError('Failed to fetch'));
+    render(<Semaforo />);
+    const ventana = await abrirLaVentana();
+
+    const tarea = (await within(ventana).findByText('Entregar el trabajo')).closest('li');
+    await usuario.click(within(tarea as HTMLElement).getByRole('button', { name: 'Poner fecha' }));
+    ponerFecha(within(ventana).getByLabelText('Fecha límite'), '2030-03-04');
+
+    expect(await within(ventana).findByRole('alert')).toHaveTextContent('No se pudo guardar');
+    expect(ventana.querySelectorAll('.semaforo-tarea__limite')).toHaveLength(0);
+  });
+});
+
 describe('completar, subir y eliminar', () => {
   it('hecho se puede deshacer, y el foco va al deshacer', async () => {
     editarPendiente
@@ -413,6 +541,16 @@ describe('el recordatorio', () => {
     dias: 10,
     nivelSugerido: null,
     tono: 'plazo',
+    fechaLimite: null,
+  };
+
+  const POR_FECHA: Recordatorio = {
+    pendienteId: 'p-cuarto',
+    nivel: 'aplazable',
+    dias: 3,
+    nivelSugerido: 'prioridad',
+    tono: 'plazo',
+    fechaLimite: '2020-01-01',
   };
 
   const SUAVE: Recordatorio = {
@@ -421,6 +559,7 @@ describe('el recordatorio', () => {
     dias: 31,
     nivelSugerido: 'prioridad',
     tono: 'suave',
+    fechaLimite: null,
   };
 
   it('el de plazo pregunta si se quiere revisar', async () => {
@@ -442,6 +581,18 @@ describe('el recordatorio', () => {
     expect(
       await screen.findByRole('region', { name: /no es urgente, pero no dejes que se acumule/ }),
     ).toHaveTextContent('«Organizar el cuarto»');
+  });
+
+  it('si es por la fecha que puso la persona, dice que llego el dia (SCRUM-119)', async () => {
+    consultarElSemaforo.mockResolvedValue(semaforo({ recordatorio: POR_FECHA }));
+
+    render(<Semaforo />);
+
+    const aviso = await screen.findByRole('region', { name: /Llegó la fecha que le pusiste/ });
+
+    expect(aviso).toHaveTextContent('«Organizar el cuarto»');
+    expect(aviso).toHaveTextContent(/Venció hace \d+ días/);
+    expect(aviso).not.toHaveTextContent('Hace 3 días');
   });
 
   it('revisarlo abre la ventana con ese pendiente resaltado', async () => {

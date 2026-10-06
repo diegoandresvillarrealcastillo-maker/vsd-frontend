@@ -53,7 +53,12 @@ export function useSemaforo() {
   const [intento, setIntento] = useState(0);
   // Un reintento del mismo pendiente reutiliza el identificador: si la
   // primera vez llego al servidor y se perdio la respuesta, no se duplica.
-  const ultimoIntento = useRef<{ texto: string; nivel: NivelDePendiente; id: string } | null>(null);
+  const ultimoIntento = useRef<{
+    texto: string;
+    nivel: NivelDePendiente;
+    fechaLimite: string | undefined;
+    id: string;
+  } | null>(null);
 
   useEffect(() => {
     const control = new AbortController();
@@ -103,16 +108,23 @@ export function useSemaforo() {
   );
 
   const crear = useCallback(
-    async (texto: string, nivel: NivelDePendiente): Promise<Pendiente> => {
+    async (texto: string, nivel: NivelDePendiente, fechaLimite?: string): Promise<Pendiente> => {
       const anterior = ultimoIntento.current;
       const id =
-        anterior?.texto === texto && anterior.nivel === nivel
+        anterior?.texto === texto &&
+        anterior.nivel === nivel &&
+        anterior.fechaLimite === fechaLimite
           ? anterior.id
           : globalThis.crypto.randomUUID();
 
-      ultimoIntento.current = { texto, nivel, id };
+      ultimoIntento.current = { texto, nivel, fechaLimite, id };
 
-      const creado = await crearPendiente({ clientOperationId: id, texto, nivel });
+      const creado = await crearPendiente({
+        clientOperationId: id,
+        texto,
+        nivel,
+        ...(fechaLimite === undefined ? {} : { fechaLimite }),
+      });
 
       ultimoIntento.current = null;
       // Un reintento que ya habia llegado devuelve el mismo: no se repite.
@@ -129,11 +141,12 @@ export function useSemaforo() {
 
       actualizar(
         (pendientes) => pendientes.map((uno) => (uno.id === id ? editado : uno)),
-        // Cambiar el nivel, terminarlo o posponerlo es atenderlo; corregir el
-        // texto, no.
+        // Cambiar el nivel, terminarlo, posponerlo o darle otra fecha es
+        // atenderlo; corregir el texto, no.
         cambios.nivel !== undefined ||
           cambios.hecho !== undefined ||
-          cambios.posponerHasta !== undefined
+          cambios.posponerHasta !== undefined ||
+          cambios.fechaLimite !== undefined
           ? id
           : undefined,
       );
