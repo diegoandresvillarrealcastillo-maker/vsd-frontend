@@ -477,6 +477,43 @@
   font-weight: 600;
 }
 
+/* La fecha limite (SCRUM-119). Una fecha que ya paso no es una alarma: se nota
+   con el peso y el color de la palabra, no con rojo de error. */
+.semaforo-tarea__limite {
+  color: var(--app-tinta);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.semaforo-tarea__limite--vencida {
+  color: var(--app-emociones-acento);
+}
+
+.semaforo-fecha {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: var(--app-lienzo);
+}
+
+.semaforo-fecha__etiqueta,
+.semaforo-nuevo__fecha-etiqueta {
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.semaforo-nuevo__fecha-etiqueta span {
+  color: var(--app-tenue);
+  font-weight: 500;
+}
+
+.semaforo-nuevo__fecha {
+  display: grid;
+  gap: 0.375rem;
+}
+
 .semaforo-confirmar {
   display: grid;
   gap: 0.5rem;

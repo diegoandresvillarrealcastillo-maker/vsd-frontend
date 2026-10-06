@@ -92,3 +92,12 @@ export function formatoEn(
 
   return nuevo;
 }
+
+/** El dia de un instante en la zona de la persona, AAAA-MM-DD. */
+export function diaEnLaZona(instante: Date): string {
+  return formatoEn(zonaActual(), 'en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(instante);
+}

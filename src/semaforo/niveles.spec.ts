@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Pendiente } from '../infraestructura/api/pendientes.ts';
-import { agrupar, dentroDeDias, diasDesde, edad, NIVEL, textoDelRecordatorio } from './niveles.ts';
+import {
+  agrupar,
+  dentroDeDias,
+  diasDesde,
+  edad,
+  NIVEL,
+  textoDelRecordatorio,
+  vencimiento,
+} from './niveles.ts';
 
 describe('cada color es un plazo (SCRUM-107)', () => {
   it('urgente no sube; los otros suben un escalon', () => {
@@ -33,13 +41,56 @@ describe('diasDesde', () => {
   });
 });
 
+describe('vencimiento (SCRUM-119)', () => {
+  const HOY = '2026-10-05';
+
+  it.each([
+    ['2026-10-05', 'Vence hoy', false],
+    ['2026-10-06', 'Vence mañana', false],
+    ['2026-10-04', 'Venció ayer', true],
+    ['2026-10-02', 'Venció hace 3 días', true],
+    ['2026-09-05', 'Venció hace 30 días', true],
+  ])('%s: %s', (fecha, texto, vencida) => {
+    expect(vencimiento(fecha, HOY)).toEqual({ texto, vencida });
+  });
+
+  it('un dia mas lejano se dice con su nombre', () => {
+    expect(vencimiento('2026-10-12', HOY).texto).toMatch(/^Vence el lunes, 12 de octubre$/);
+    expect(vencimiento('2026-10-12', HOY).vencida).toBe(false);
+  });
+
+  it('cruza el cambio de mes y de ano', () => {
+    expect(vencimiento('2026-11-01', '2026-10-31').texto).toBe('Vence mañana');
+    expect(vencimiento('2027-01-01', '2026-12-31').texto).toBe('Vence mañana');
+    expect(vencimiento('2026-12-30', '2027-01-02').texto).toBe('Venció hace 3 días');
+  });
+
+  it('depende del dia de la persona, no del instante: el mismo limite es hoy o ya paso', () => {
+    // El 5 es hoy en Madrid y ya fue ayer en Tokio.
+    expect(vencimiento('2026-10-05', '2026-10-05').vencida).toBe(false);
+    expect(vencimiento('2026-10-05', '2026-10-06').vencida).toBe(true);
+  });
+});
+
 describe('textoDelRecordatorio', () => {
-  const base = { pendienteId: 'x', dias: 30, nivelSugerido: null } as const;
+  const base = { pendienteId: 'x', dias: 30, nivelSugerido: null, fechaLimite: null } as const;
 
   it('el de plazo pregunta si se quiere revisar', () => {
     expect(textoDelRecordatorio({ ...base, nivel: 'urgente', tono: 'plazo' })).toBe(
       'Ey, tienes esto pendiente desde hace un tiempo. ¿Quieres revisarlo?',
     );
+  });
+
+  it('si es por la fecha que puso la persona, dice que llego el dia (SCRUM-119)', () => {
+    const texto = textoDelRecordatorio({
+      ...base,
+      nivel: 'aplazable',
+      tono: 'plazo',
+      fechaLimite: '2026-10-12',
+    });
+
+    expect(texto).toBe('Llegó la fecha que le pusiste a esto. ¿Quieres revisarlo?');
+    expect(texto).not.toMatch(/hace un tiempo/);
   });
 
   it('el suave no mete prisa', () => {
@@ -57,6 +108,7 @@ describe('agrupar', () => {
       nivel: 'urgente',
       hecho: false,
       posponerHasta: null,
+      fechaLimite: null,
       creadoEn: '2026-10-01T00:00:00.000Z',
       editadoEn: '2026-10-01T00:00:00.000Z',
       ...parcial,
