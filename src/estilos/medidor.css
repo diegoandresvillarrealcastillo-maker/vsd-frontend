@@ -1,0 +1,146 @@
+/* ============================================================
+   El medidor de fuerza de la contrasena (SCRUM-116)
+   ============================================================
+   Se usa en dos sitios con dos sistemas de color: las pantallas de acceso
+   (`--acento`, `--texto-tenue`) y el perfil (`--app-*`). Cada valor intenta el
+   token de la aplicacion y cae al de acceso, asi que el medidor se ve bien
+   en los dos sin saber en cual esta.
+
+   Los colores no son lo unico que dice la fuerza: tambien la etiqueta y el
+   numero de barras llenas. Nadie tiene que distinguir rojo de verde.
+   ============================================================ */
+
+.medidor {
+  --medidor-texto: var(--app-tenue, var(--texto-tenue));
+  --medidor-pista: var(--app-carril, var(--borde));
+  --medidor-ok: var(--app-primario, var(--acento));
+  --medidor-ok-texto: var(--app-salvia, var(--exito));
+  --medidor-debil: var(--error, #c4574b);
+  --medidor-regular: #c08a1e;
+  --medidor-regular-texto: #8f5a0a;
+
+  display: grid;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+:root[data-tema='oscuro'] .medidor {
+  --medidor-regular: #e0b050;
+  --medidor-regular-texto: #e0b050;
+}
+
+/* ---------- Las barras ---------- */
+.medidor__barras {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.medidor__pista {
+  display: block;
+  height: 6px;
+  overflow: hidden;
+  background: var(--medidor-pista);
+  border-radius: 9999px;
+}
+
+/* Se llena de izquierda a derecha, como un liquido que sube. La anchura es
+   siempre la de la pista: lo que se anima es la escala, que no obliga al
+   navegador a recalcular la pagina. */
+.medidor__barra {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--medidor-ok);
+  border-radius: inherit;
+  transform-origin: left center;
+  transition: background-color 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.medidor[data-nivel='1'] .medidor__barra {
+  background: var(--medidor-debil);
+}
+
+.medidor[data-nivel='2'] .medidor__barra {
+  background: var(--medidor-regular);
+}
+
+.medidor[data-nivel='3'] .medidor__barra,
+.medidor[data-nivel='4'] .medidor__barra {
+  background: var(--medidor-ok);
+}
+
+/* ---------- La etiqueta ---------- */
+.medidor__fuerza {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--medidor-texto);
+}
+
+.medidor__fuerza strong {
+  font-weight: 600;
+}
+
+.medidor[data-nivel='1'] .medidor__fuerza strong {
+  color: var(--medidor-debil);
+}
+
+.medidor[data-nivel='2'] .medidor__fuerza strong {
+  color: var(--medidor-regular-texto);
+}
+
+.medidor[data-nivel='3'] .medidor__fuerza strong,
+.medidor[data-nivel='4'] .medidor__fuerza strong {
+  color: var(--medidor-ok-texto);
+}
+
+/* ---------- Los requisitos ---------- */
+.medidor__lista {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.medidor__requisito {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  color: var(--medidor-texto);
+  transition: color 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.medidor__requisito--cumplido {
+  color: var(--medidor-ok-texto);
+}
+
+/* El circulo vacio es el estado de "falta"; al cumplirse se rellena y la
+   verificacion se traza dentro. */
+.medidor__marca {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  color: var(--app-sobre-primario, var(--acento-contraste, #ffffff));
+  border: 1.5px solid var(--medidor-texto);
+  border-radius: 50%;
+  transition:
+    background-color 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.medidor__requisito--cumplido .medidor__marca {
+  background: var(--medidor-ok);
+  border-color: var(--medidor-ok);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .medidor__barra,
+  .medidor__requisito,
+  .medidor__marca {
+    transition: none;
+  }
+}

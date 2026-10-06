@@ -64,7 +64,8 @@ const DEMASIADOS_INTENTOS = 'Demasiados intentos seguidos. Espera un momento y v
 /** Cada codigo de error de Supabase con su texto en espanol. */
 const MENSAJES: Readonly<Record<string, string>> = {
   invalid_credentials: 'El correo o la contraseña no coinciden.',
-  weak_password: 'Esa contraseña es muy corta. Necesita al menos 8 caracteres.',
+  weak_password:
+    'Esa contraseña no cumple lo que se pide: al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.',
   email_not_confirmed: 'Todavía no confirmaste el correo. Revisa tu bandeja.',
   over_request_rate_limit: DEMASIADOS_INTENTOS,
   over_email_send_rate_limit: 'Se enviaron muchos correos seguidos. Espera unos minutos.',

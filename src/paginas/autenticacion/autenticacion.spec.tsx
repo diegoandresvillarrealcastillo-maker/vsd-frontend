@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { Acceso } from './Acceso.tsx';
+import { ContrasenaNueva } from './ContrasenaNueva.tsx';
 import { Recuperar } from './Recuperar.tsx';
 import { Registro } from './Registro.tsx';
 
@@ -79,8 +80,8 @@ describe('Registro', () => {
     pintar(<Registro />, estado({ registrarse }));
 
     await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
-    await escribir(screen.getByLabelText('Contraseña'), 'unaContrasenaLarga');
-    await escribir(screen.getByLabelText('Repite la contraseña'), 'unaContrasenaLarga');
+    await escribir(screen.getByLabelText('Contraseña'), 'UnaContrasena#2026');
+    await escribir(screen.getByLabelText('Repite la contraseña'), 'UnaContrasena#2026');
 
     await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
@@ -93,8 +94,8 @@ describe('Registro', () => {
     pintar(<Registro />, estado({ registrarse }));
 
     await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
-    await escribir(screen.getByLabelText('Contraseña'), 'unaContrasenaLarga');
-    await escribir(screen.getByLabelText('Repite la contraseña'), 'otraDistinta');
+    await escribir(screen.getByLabelText('Contraseña'), 'UnaContrasena#2026');
+    await escribir(screen.getByLabelText('Repite la contraseña'), 'OtraDistinta#2026');
     await usuario.click(screen.getByLabelText(/Acepto el tratamiento/));
 
     await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
@@ -116,10 +117,71 @@ describe('Registro', () => {
 
     expect(registrarse).not.toHaveBeenCalled();
 
-    // Se busca por `alert` y no por el texto: el mismo mensaje aparece tambien
-    // como ayuda permanente bajo el campo, y buscar el texto suelto
+    // Se busca por `alert` y no por el texto: la lista de requisitos del
+    // medidor tambien dice "Al menos 8 caracteres", y buscar el texto suelto
     // encontraria los dos sin distinguir cual es el error.
     expect(await screen.findByRole('alert')).toHaveTextContent(/al menos 8 caracteres/i);
+  });
+
+  it('dice que le falta a una contrasena larga que no cumple la regla', async () => {
+    const registrarse = vi.fn().mockResolvedValue({ ok: true });
+    pintar(<Registro />, estado({ registrarse }));
+
+    // Es larga, pero sin mayuscula, sin numero y sin simbolo.
+    await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
+    await escribir(screen.getByLabelText('Contraseña'), 'todoenminusculas');
+    await escribir(screen.getByLabelText('Repite la contraseña'), 'todoenminusculas');
+    await usuario.click(screen.getByLabelText(/Acepto el tratamiento/));
+
+    await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+
+    expect(registrarse).not.toHaveBeenCalled();
+
+    const alerta = await screen.findByRole('alert');
+    expect(alerta).toHaveTextContent('una mayúscula');
+    expect(alerta).toHaveTextContent('un número');
+    expect(alerta).toHaveTextContent('un símbolo');
+    // Lo que si cumple no se vuelve a pedir.
+    expect(alerta).not.toHaveTextContent(/minúscula/i);
+    expect(alerta).not.toHaveTextContent(/al menos 8/i);
+  });
+
+  it('acepta un simbolo que no esta en @$!%*?&', async () => {
+    // La regla pide un simbolo, no uno de seis. Cerrar el conjunto dejaria
+    // fuera `#`, `_` o `.`, y empujaria a escribir una predecible.
+    const registrarse = vi.fn().mockResolvedValue({ ok: true });
+    pintar(<Registro />, estado({ registrarse }));
+
+    await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
+    await escribir(screen.getByLabelText('Contraseña'), 'Con_guion.Bajo7');
+    await escribir(screen.getByLabelText('Repite la contraseña'), 'Con_guion.Bajo7');
+    await usuario.click(screen.getByLabelText(/Acepto el tratamiento/));
+
+    await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+
+    expect(registrarse).toHaveBeenCalledTimes(1);
+  });
+
+  it('muestra el medidor mientras se escribe, y lo enlaza al campo', async () => {
+    pintar(<Registro />, estado());
+
+    const campo = screen.getByLabelText('Contraseña');
+    // El boton de envio tiene su propio `status`, asi que se busca por texto.
+    const fuerza = () => screen.getByText(/Escribe tu contraseña|Seguridad:/);
+
+    expect(fuerza()).toHaveTextContent('Escribe tu contraseña');
+
+    await escribir(campo, 'abc');
+    expect(fuerza()).toHaveTextContent('Débil');
+
+    await escribir(campo, 'UnaContrasena#2026');
+    expect(fuerza()).toHaveTextContent('Fuerte');
+
+    // El campo apunta al medidor: al entrar, el lector de pantalla lee lo que
+    // se pide y cuanto se cumple.
+    const ids = (campo.getAttribute('aria-describedby') ?? '').split(' ');
+    const descripcion = ids.map((id) => document.getElementById(id)?.textContent ?? '').join(' ');
+    expect(descripcion).toContain('Una mayúscula: cumplido');
   });
 
   it('crea la cuenta con todo en orden, y con el consentimiento marcado', async () => {
@@ -127,17 +189,47 @@ describe('Registro', () => {
     pintar(<Registro />, estado({ registrarse }));
 
     await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
-    await escribir(screen.getByLabelText('Contraseña'), 'unaContrasenaLarga');
-    await escribir(screen.getByLabelText('Repite la contraseña'), 'unaContrasenaLarga');
+    await escribir(screen.getByLabelText('Contraseña'), 'UnaContrasena#2026');
+    await escribir(screen.getByLabelText('Repite la contraseña'), 'UnaContrasena#2026');
     await usuario.click(screen.getByLabelText(/Acepto el tratamiento/));
 
     await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
     expect(registrarse).toHaveBeenCalledWith({
       correo: 'alguien@ejemplo.com',
-      contrasena: 'unaContrasenaLarga',
+      contrasena: 'UnaContrasena#2026',
       aceptaElAviso: true,
     });
+  });
+});
+
+describe('ContrasenaNueva', () => {
+  // Basta con que haya sesion: es lo que deja el enlace del correo.
+  const conSesion = { user: { id: 'u1' } } as unknown as EstadoDeSesion['sesion'];
+
+  it('no cambia una contrasena que no cumple la regla, y dice que le falta', async () => {
+    const cambiarContrasena = vi.fn().mockResolvedValue({ ok: true });
+    pintar(<ContrasenaNueva />, estado({ sesion: conSesion, cambiarContrasena }));
+
+    await escribir(screen.getByLabelText('Contraseña nueva'), 'sinsimbolos');
+    await escribir(screen.getByLabelText('Repítela'), 'sinsimbolos');
+    await usuario.click(screen.getByRole('button', { name: 'Guardar y entrar' }));
+
+    expect(cambiarContrasena).not.toHaveBeenCalled();
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'una mayúscula, un número y un símbolo',
+    );
+  });
+
+  it('cambia una contrasena que cumple', async () => {
+    const cambiarContrasena = vi.fn().mockResolvedValue({ ok: true });
+    pintar(<ContrasenaNueva />, estado({ sesion: conSesion, cambiarContrasena }));
+
+    await escribir(screen.getByLabelText('Contraseña nueva'), 'UnaContrasena#2026');
+    await escribir(screen.getByLabelText('Repítela'), 'UnaContrasena#2026');
+    await usuario.click(screen.getByRole('button', { name: 'Guardar y entrar' }));
+
+    expect(cambiarContrasena).toHaveBeenCalledWith('UnaContrasena#2026');
   });
 });
 

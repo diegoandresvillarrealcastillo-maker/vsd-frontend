@@ -348,14 +348,15 @@ describe('Perfil', () => {
       await usuario.click(await screen.findByRole('button', { name: 'Enviarme un código' }));
 
       expect(valor.pedirCodigoDeVerificacion).toHaveBeenCalled();
-      expect(screen.getByRole('status')).toHaveTextContent(CUENTA.correo);
+      // Con el formulario abierto hay otro `status`: el del medidor.
+      expect(screen.getByText(/Te enviamos un código/)).toHaveTextContent(CUENTA.correo);
 
       await usuario.type(screen.getByLabelText('Código del correo'), '123456');
-      await usuario.type(screen.getByLabelText('Contraseña nueva'), 'unaClaveNueva');
-      await usuario.type(screen.getByLabelText('Repite la contraseña nueva'), 'unaClaveNueva');
+      await usuario.type(screen.getByLabelText('Contraseña nueva'), 'UnaClave#Nueva9');
+      await usuario.type(screen.getByLabelText('Repite la contraseña nueva'), 'UnaClave#Nueva9');
       await usuario.click(screen.getByRole('button', { name: 'Cambiar contraseña' }));
 
-      expect(valor.cambiarContrasenaConCodigo).toHaveBeenCalledWith('unaClaveNueva', '123456');
+      expect(valor.cambiarContrasenaConCodigo).toHaveBeenCalledWith('UnaClave#Nueva9', '123456');
       expect(screen.getByRole('status')).toHaveTextContent('quedó cambiada');
     });
 
@@ -363,8 +364,8 @@ describe('Perfil', () => {
       const valor = pintar();
 
       await usuario.click(await screen.findByRole('button', { name: 'Enviarme un código' }));
-      await usuario.type(screen.getByLabelText('Contraseña nueva'), 'unaClaveNueva');
-      await usuario.type(screen.getByLabelText('Repite la contraseña nueva'), 'unaClaveNueva');
+      await usuario.type(screen.getByLabelText('Contraseña nueva'), 'UnaClave#Nueva9');
+      await usuario.type(screen.getByLabelText('Repite la contraseña nueva'), 'UnaClave#Nueva9');
       await usuario.click(screen.getByRole('button', { name: 'Cambiar contraseña' }));
 
       expect(valor.cambiarContrasenaConCodigo).not.toHaveBeenCalled();
@@ -383,7 +384,7 @@ describe('Perfil', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('al menos 8');
 
       await usuario.clear(screen.getByLabelText('Contraseña nueva'));
-      await usuario.type(screen.getByLabelText('Contraseña nueva'), 'unaClaveNueva');
+      await usuario.type(screen.getByLabelText('Contraseña nueva'), 'UnaClave#Nueva9');
       await usuario.click(screen.getByRole('button', { name: 'Cambiar contraseña' }));
 
       expect(screen.getByRole('alert')).toHaveTextContent('no coinciden');
@@ -402,8 +403,8 @@ describe('Perfil', () => {
 
       await usuario.click(await screen.findByRole('button', { name: 'Enviarme un código' }));
       await usuario.type(screen.getByLabelText('Código del correo'), '000000');
-      await usuario.type(screen.getByLabelText('Contraseña nueva'), 'unaClaveNueva');
-      await usuario.type(screen.getByLabelText('Repite la contraseña nueva'), 'unaClaveNueva');
+      await usuario.type(screen.getByLabelText('Contraseña nueva'), 'UnaClave#Nueva9');
+      await usuario.type(screen.getByLabelText('Repite la contraseña nueva'), 'UnaClave#Nueva9');
       await usuario.click(screen.getByRole('button', { name: 'Cambiar contraseña' }));
 
       expect(valor.cambiarContrasenaConCodigo).toHaveBeenCalled();
