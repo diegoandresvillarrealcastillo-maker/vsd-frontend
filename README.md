@@ -231,6 +231,32 @@ que se descarga cualquiera:
 
 ---
 
+### La imagen de Docker
+
+El frontend tiene su `Dockerfile` (SCRUM-132): compila la PWA y la sirve con
+nginx. Sirve para el entorno completo con un solo comando (ver el README de
+`vsd-backend`) y para el CI. **En produccion no se usa: la PWA se despliega en
+Vercel**, que no ejecuta contenedores
+([ADR 0018](https://github.com/diegoandresvillarrealcastillo-maker/vsd-backend/blob/desarrollo/docs/adr/0018-el-backend-se-despliega-como-una-imagen-de-docker.md)).
+
+```bash
+docker build \
+  --build-arg VITE_API_BASE_URL=http://localhost:3000 \
+  --build-arg VITE_SUPABASE_URL=https://TU-PROYECTO.supabase.co \
+  --build-arg VITE_SUPABASE_ANON_KEY=la-clave-anonima \
+  -t vsd-web .
+docker run --rm -p 8080:8080 vsd-web
+```
+
+- **Una imagen por ambiente.** Vite incorpora las `VITE_*` al paquete al
+  compilar, no al ejecutar: para cambiar la direccion de la API hay que volver a
+  construirla. Son valores publicos; nunca pasar un secreto como `--build-arg`.
+- `.env.local` no entra a la imagen (`.dockerignore` es una lista blanca).
+- Se sirve en el **8080**, sin privilegios. Todas las rutas devuelven la
+  aplicacion salvo los archivos que existen, como hace Vercel; `index.html` y
+  `sw.js` se validan en cada visita y los archivos con hash se guardan un ano.
+- Que lo anterior sea cierto lo comprueba el CI (trabajo «Imagen de Docker»).
+
 ## Variables de entorno
 
 Copiar [.env.example](.env.example) como `.env.local` y completar los valores.

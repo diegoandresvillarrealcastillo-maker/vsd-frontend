@@ -12,11 +12,18 @@ import {
 import { Asistente } from '../asistente/Asistente.tsx';
 import { marcoDelAsistente, puntoDeLaMascota } from '../asistente/marco.ts';
 import { useEscribiendo } from '../componentes/useEscribiendo.ts';
+import { useMascotaPropia } from '../foto/mascotaPropia.ts';
 import type { Mascota } from '../infraestructura/api/cuenta.ts';
 import { ESPACIO_DEL_SEMAFORO } from '../semaforo/medidas.ts';
 import { momentoDeLaFrase, siguienteFrase } from './bancoDeFrases.ts';
 import type { Momento } from './frasesDeLaMascota.ts';
-import { mascotaParaMostrar, PERSONAJES, type Expresion } from './personajes.ts';
+import { movimientoDeLaPropia } from './movimientoDeLaPropia.ts';
+import {
+  FORMA_DE_LA_MASCOTA_PROPIA,
+  mascotaParaMostrar,
+  PERSONAJES,
+  type Expresion,
+} from './personajes.ts';
 import { sprite } from './sprites.ts';
 import { useExpresion } from './useExpresion.ts';
 
@@ -178,7 +185,16 @@ function useTamanoDeVentana(): void {
 }
 
 /** El movimiento de reposo de cada cara. Sin movimiento pedido, ninguno. */
-function animacion(expresion: Expresion, sinMovimiento: boolean): TargetAndTransition {
+function animacion(
+  expresion: Expresion,
+  sinMovimiento: boolean,
+  propia: boolean,
+): TargetAndTransition {
+  // Una mascota propia (SCRUM-122) no tiene caras que cambiar: se mueve distinto.
+  if (propia) {
+    return movimientoDeLaPropia(expresion, sinMovimiento);
+  }
+
   if (sinMovimiento) {
     return { y: 0, scale: 1 };
   }
@@ -220,8 +236,15 @@ export function MascotaFlotante({
    */
   momento?: Momento;
 }) {
-  const { personaje, nombre } = mascotaParaMostrar(mascota);
-  const frasesPropias = PERSONAJES[personaje].frases;
+  const { personaje, nombre, propia } = mascotaParaMostrar(mascota);
+  const dibujoPropio = useMascotaPropia();
+  // La mascota propia se pinta cuando ya llego su dibujo. Mientras llega no se
+  // pinta Fungito un instante para cambiarlo despues; y si no llega, se queda
+  // con Fungito en lugar de quedarse sin mascota.
+  const seDibujaLaPropia = propia && dibujoPropio.url !== null;
+  const esperandoLaPropia = propia && dibujoPropio.url === null && dibujoPropio.cargando;
+  // La mascota propia no trae frases propias: dice las del banco general.
+  const frasesPropias = propia ? [] : PERSONAJES[personaje].frases;
   const { expresion, alTocar } = useExpresion(celebrar);
   const sinMovimiento = useReducedMotion() ?? false;
   const escribiendo = useEscribiendo();
@@ -423,7 +446,11 @@ export function MascotaFlotante({
         />
       )}
 
-      <div className={clases} data-personaje={personaje} data-expresion={expresion}>
+      <div
+        className={clases}
+        data-personaje={seDibujaLaPropia ? FORMA_DE_LA_MASCOTA_PROPIA : personaje}
+        data-expresion={expresion}
+      >
         <motion.div
           className="mascota__cuerpo"
           style={{ width: lado, height: lado }}
@@ -453,14 +480,21 @@ export function MascotaFlotante({
             onContextMenu={(evento) => evento.preventDefault()}
           >
             <motion.img
-              className="mascota__dibujo"
-              src={sprite(personaje, expresion)}
+              className={`mascota__dibujo${esperandoLaPropia ? ' mascota__dibujo--esperando' : ''}`}
+              src={seDibujaLaPropia ? dibujoPropio.url : sprite(personaje, expresion)}
               alt=""
               draggable={false}
-              animate={animacion(expresion, sinMovimiento)}
+              animate={animacion(expresion, sinMovimiento, seDibujaLaPropia)}
               {...(sinMovimiento ? {} : { whileTap: { scale: 0.92 } })}
             />
           </button>
+
+          {/* Una mascota propia no puede cerrar los ojos: duerme con unas «z». */}
+          {seDibujaLaPropia && expresion === 'dormida' && (
+            <span className="mascota__sueno" aria-hidden="true">
+              z z
+            </span>
+          )}
         </motion.div>
 
         <span id={idDeInstrucciones} className="solo-lectores">

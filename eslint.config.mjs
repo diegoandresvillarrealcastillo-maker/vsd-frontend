@@ -120,8 +120,9 @@ export default tseslint.config(
   {
     // Los archivos de configuracion en JavaScript no pertenecen a ningun
     // proyecto de TypeScript, asi que las reglas que necesitan tipos no pueden
-    // aplicarse sobre ellos. Se revisan igual, solo que sin esa parte.
-    files: ['*.mjs'],
+    // aplicarse sobre ellos. Se revisan igual, solo que sin esa parte. Los
+    // scripts de `scripts/` (SCRUM-122) corren en Node y son del mismo tipo.
+    files: ['*.mjs', 'scripts/**/*.mjs'],
     extends: [tseslint.configs.disableTypeChecked],
     languageOptions: {
       globals: globals.node,

@@ -123,3 +123,116 @@ jobs:
 
       - name: Compilar
         run: npm run build
+
+  imagen:
+    name: Imagen de Docker
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v7
+
+      - name: Construir la imagen
+        # No se pasa ninguna VITE_*: la pagina se sirve igual, y las credenciales
+        # de Supabase solo se piden cuando alguien se autentica.
+        run: docker build --tag vsd-web:ci .
+
+      - name: Imprimir el peso y revisar que no se haya disparado
+        run: |
+          set -euo pipefail
+          bytes="$(docker image inspect vsd-web:ci --format '{{.Size}}')"
+          mb=$((bytes / 1024 / 1024))
+          echo "La imagen pesa ${mb} MB."
+          # Alarma contra accidentes (que entren node_modules o mapas de fuente),
+          # no una meta. Se ajusta con el numero real que imprime esta linea.
+          limite=200
+          if [ "$mb" -gt "$limite" ]; then
+            echo "::error::La imagen pesa ${mb} MB y el limite de alarma es ${limite} MB."
+            exit 1
+          fi
+
+      - name: Arrancarla y esperar a que este sana
+        run: |
+          set -euo pipefail
+          docker run --detach --name web --publish 8080:8080 vsd-web:ci
+
+          # Esperar al HEALTHCHECK de la imagen comprueba tambien que ese
+          # comando funciona, que de otro modo nadie ejecuta.
+          for intento in $(seq 1 24); do
+            estado="$(docker inspect --format '{{.State.Health.Status}}' web)"
+            echo "intento ${intento}: ${estado}"
+            if [ "$estado" = "healthy" ]; then
+              break
+            fi
+            sleep 5
+          done
+
+          if [ "$estado" != "healthy" ]; then
+            docker logs web
+            echo "::error::La imagen no llego a estado healthy."
+            exit 1
+          fi
+
+      - name: Comprobar que sirve la aplicacion como lo hace Vercel
+        run: |
+          set -euo pipefail
+          base=http://localhost:8080
+
+          codigo() { curl --silent --output /dev/null --write-out '%{http_code}' "$@"; }
+          cabecera() { curl --silent --show-error --fail --head "$@"; }
+
+          echo "La raiz es la aplicacion"
+          curl --silent --show-error --fail "$base/" | grep -q 'id="raiz"'
+
+          echo "Una ruta interna devuelve la aplicacion, no un 404 (recargar /panel)"
+          test "$(codigo "$base/panel")" = "200"
+          curl --silent --show-error --fail "$base/panel" | grep -q 'id="raiz"'
+
+          echo "Un archivo de la compilacion que no existe es un 404 de verdad"
+          test "$(codigo "$base/assets/no-existe.js")" = "404"
+
+          echo "Los archivos que existen se sirven tal cual, con su tipo (icono, SVG)"
+          test "$(codigo "$base/icono-192.png")" = "200"
+          cabecera "$base/icono-192.png" | grep -i '^content-type: image/png'
+          cabecera "$base/favicon.svg" | grep -i '^content-type: image/svg+xml'
+
+          echo "index.html y sw.js nunca se usan sin validar"
+          cabecera "$base/index.html" | grep -i '^cache-control:.*no-cache'
+          cabecera "$base/sw.js" | grep -i '^cache-control:.*no-cache'
+
+          echo "El manifiesto, con su tipo"
+          cabecera "$base/manifest.webmanifest" | grep -i '^content-type: application/manifest+json'
+
+          echo "Los archivos con hash se guardan un ano, y comprimidos"
+          js="$(curl --silent --show-error --fail "$base/" | grep -o '/assets/[^"]*\.js' | awk 'NR==1')"
+          test -n "$js"
+          echo "  usando $js"
+          cabecera "$base$js" | grep -i '^cache-control:.*immutable'
+          curl --silent --show-error --fail --head -H 'Accept-Encoding: gzip' "$base$js" | grep -i '^content-encoding: gzip'
+
+          echo "No dice que version de nginx es"
+          if cabecera "$base/" | grep -i '^server: .*[0-9]'; then
+            echo "::error::La cabecera Server revela la version."
+            exit 1
+          fi
+
+      - name: Revisar la imagen por dentro
+        run: |
+          set -euo pipefail
+          usuario="$(docker exec web id -u)"
+          echo "Corre con el usuario ${usuario}"
+          test "$usuario" != "0"
+
+          # Ni configuracion ni codigo fuente ni herramientas de desarrollo.
+          docker exec web sh -c 'test ! -e /usr/share/nginx/html/.env'
+          docker exec web sh -c 'test ! -d /usr/share/nginx/html/src'
+          docker exec web sh -c 'test ! -d /usr/share/nginx/html/node_modules'
+
+          # La raiz publicada es de solo lectura para quien corre el proceso.
+          if docker exec web sh -c 'touch /usr/share/nginx/html/escribir-aqui 2>/dev/null'; then
+            echo "::error::El proceso pudo escribir en la carpeta publicada."
+            exit 1
+          fi
+
+      - name: Registros del contenedor si algo fallo
+        if: failure()
+        run: docker logs web || true

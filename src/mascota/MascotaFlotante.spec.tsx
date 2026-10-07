@@ -8,6 +8,27 @@ import { MascotaFlotante, PULSACION_LARGA_MS } from './MascotaFlotante.tsx';
 import { PERSONAJES } from './personajes.ts';
 import { INACTIVIDAD_MS } from './useExpresion.ts';
 
+// El dibujo de la mascota propia (SCRUM-122) lo da el servidor; aqui se controla.
+const { dibujoPropio } = vi.hoisted(() => ({
+  dibujoPropio: { url: null as string | null, cargando: false },
+}));
+
+vi.mock('../foto/mascotaPropia.ts', () => ({
+  useMascotaPropia: () => ({ url: dibujoPropio.url, cargando: dibujoPropio.cargando }),
+}));
+
+// El movimiento de la mascota propia se prueba en `movimientoDeLaPropia.spec.ts`;
+// aqui se espia para comprobar que la mascota lo usa, y solo ella.
+const { movimiento } = vi.hoisted(() => ({ movimiento: vi.fn() }));
+
+vi.mock('./movimientoDeLaPropia.ts', async (importarOriginal) => {
+  const original = await importarOriginal<typeof import('./movimientoDeLaPropia.ts')>();
+
+  movimiento.mockImplementation(original.movimientoDeLaPropia);
+
+  return { movimientoDeLaPropia: movimiento };
+});
+
 // VSD IA se abre desde la mascota (SCRUM-100); sus respuestas se prueban en
 // `Asistente.spec.tsx`.
 vi.mock('../infraestructura/api/asistente.ts', () => ({
@@ -40,6 +61,9 @@ beforeEach(() => {
   vi.useFakeTimers({ now: DE_DIA });
   sessionStorage.clear();
   localStorage.clear();
+  dibujoPropio.url = null;
+  dibujoPropio.cargando = false;
+  movimiento.mockClear();
 });
 
 afterEach(() => {
@@ -498,6 +522,236 @@ describe('MascotaFlotante', () => {
       abrir();
 
       expect(screen.getByRole('log')).not.toHaveTextContent('algo mío');
+    });
+  });
+});
+
+describe('MascotaFlotante: la mascota propia (SCRUM-122)', () => {
+  const PROPIA: Mascota = { forma: 'propia', nombre: 'Luma' };
+  const DE_TARDE = new Date('2026-10-03T20:00:00Z'); // 15:00 en Bogota: ningun momento concreto
+
+  function dibujo(): HTMLImageElement {
+    const imagen = mascota('Luma').querySelector('img');
+
+    if (imagen === null) {
+      throw new Error('La mascota no tiene dibujo');
+    }
+
+    return imagen;
+  }
+
+  describe('que se dibuja', () => {
+    it('con su dibujo ya cargado, se pinta ese, con el nombre que le puso la persona', () => {
+      dibujoPropio.url = 'blob:mi-mascota';
+
+      render(<MascotaFlotante mascota={PROPIA} />);
+
+      expect(dibujo()).toHaveAttribute('src', 'blob:mi-mascota');
+      expect(raiz().dataset.personaje).toBe('propia');
+      expect(mascota('Luma')).toBeInTheDocument();
+    });
+
+    it('mientras llega su dibujo, no se pinta Fungito un instante: no se ve nada', () => {
+      dibujoPropio.cargando = true;
+
+      render(<MascotaFlotante mascota={PROPIA} />);
+
+      expect(dibujo()).toHaveClass('mascota__dibujo--esperando');
+      expect(raiz().dataset.personaje).not.toBe('propia');
+    });
+
+    it('si su dibujo no llego ni esta llegando, se queda con Fungito en vez de quedarse sin mascota', () => {
+      render(<MascotaFlotante mascota={PROPIA} />);
+
+      expect(dibujo().getAttribute('src')).toMatch(/fungito-/);
+      expect(dibujo()).not.toHaveClass('mascota__dibujo--esperando');
+      expect(raiz().dataset.personaje).toBe('fungito');
+    });
+
+    it('una vez cargado el dibujo, deja de estar escondida', () => {
+      dibujoPropio.url = 'blob:mi-mascota';
+      dibujoPropio.cargando = false;
+
+      render(<MascotaFlotante mascota={PROPIA} />);
+
+      expect(dibujo()).not.toHaveClass('mascota__dibujo--esperando');
+    });
+
+    it('quien tiene elegido otro personaje ve a ese, aunque haya subido su dibujo', () => {
+      dibujoPropio.url = 'blob:mi-mascota';
+
+      render(<MascotaFlotante mascota={SPARKY} />);
+
+      expect(mascota().querySelector('img')?.getAttribute('src')).toMatch(/sparky-/);
+      expect(raiz().dataset.personaje).toBe('sparky');
+    });
+
+    it('quien no tiene mascota guardada ve a Fungito, aunque haya subido su dibujo', () => {
+      dibujoPropio.url = 'blob:mi-mascota';
+
+      render(<MascotaFlotante mascota={null} />);
+
+      expect(raiz().dataset.personaje).toBe('fungito');
+    });
+
+    it('el dibujo propio es decorativo: el boton ya dice quien es', () => {
+      dibujoPropio.url = 'blob:mi-mascota';
+
+      render(<MascotaFlotante mascota={PROPIA} />);
+
+      expect(dibujo()).toHaveAttribute('alt', '');
+    });
+  });
+
+  describe('las expresiones se reemplazan con movimiento y brillo, porque no hay cuatro dibujos', () => {
+    it('cambia de expresion como cualquier mascota, sin cambiar de dibujo', () => {
+      dibujoPropio.url = 'blob:mi-mascota';
+      sessionStorage.setItem('vsd-h:mascota-saludo', '1');
+
+      render(<MascotaFlotante mascota={PROPIA} />);
+
+      expect(expresion()).toBe('normal');
+
+      fireEvent.click(mascota('Luma'));
+
+      expect(expresion()).toBe('feliz');
+      expect(dibujo()).toHaveAttribute('src', 'blob:mi-mascota');
+
+      adelantar(5_000);
+
+      expect(expresion()).toBe('normal');
+    });
+
+    it('celebra cuando la pantalla lo pide, con el mismo dibujo', () => {
+      dibujoPropio.url = 'blob:mi-mascota';
+
+      render(<MascotaFlotante mascota={PROPIA} celebrar />);
+
+      expect(expresion()).toBe('celebrando');
+      expect(dibujo()).toHaveAttribute('src', 'blob:mi-mascota');
+    });
+
+    it('de noche duerme, con unas «z», y esas «z» no las lee un lector de pantalla', () => {
+      vi.setSystemTime(DE_NOCHE);
+      dibujoPropio.url = 'blob:mi-mascota';
+
+      render(<MascotaFlotante mascota={PROPIA} />);
+
+      expect(expresion()).toBe('dormida');
+
+      const sueno = document.querySelector('.mascota__sueno');
+
+      expect(sueno).toHaveTextContent('z z');
+      expect(sueno).toHaveAttribute('aria-hidden', 'true');
+    });
+
+    it('despierta y las «z» desaparecen', () => {
+      vi.setSystemTime(DE_NOCHE);
+      dibujoPropio.url = 'blob:mi-mascota';
+
+      render(<MascotaFlotante mascota={PROPIA} />);
+
+      fireEvent.click(mascota('Luma'));
+
+      expect(expresion()).toBe('feliz');
+      expect(document.querySelector('.mascota__sueno')).toBeNull();
+    });
+
+    it('un personaje de la lista no lleva «z»: tiene su propia cara dormida', () => {
+      vi.setSystemTime(DE_NOCHE);
+
+      render(<MascotaFlotante mascota={SPARKY} />);
+
+      expect(expresion()).toBe('dormida');
+      expect(document.querySelector('.mascota__sueno')).toBeNull();
+    });
+
+    it('mientras llega su dibujo no hay «z», aunque sea de noche', () => {
+      vi.setSystemTime(DE_NOCHE);
+      dibujoPropio.cargando = true;
+
+      render(<MascotaFlotante mascota={PROPIA} />);
+
+      expect(document.querySelector('.mascota__sueno')).toBeNull();
+    });
+  });
+
+  describe('el movimiento', () => {
+    // Esta prueba corre con prefers-reduced-motion: el segundo argumento es `true`.
+    it('se mueve con el movimiento de la propia, que respeta prefers-reduced-motion', () => {
+      dibujoPropio.url = 'blob:mi-mascota';
+      sessionStorage.setItem('vsd-h:mascota-saludo', '1');
+
+      render(<MascotaFlotante mascota={PROPIA} />);
+
+      expect(movimiento).toHaveBeenCalledWith('normal', true);
+    });
+
+    it('al cambiar de expresion, su movimiento cambia con ella', () => {
+      dibujoPropio.url = 'blob:mi-mascota';
+      sessionStorage.setItem('vsd-h:mascota-saludo', '1');
+
+      render(<MascotaFlotante mascota={PROPIA} />);
+
+      expect(movimiento).not.toHaveBeenCalledWith('feliz', true);
+
+      fireEvent.click(mascota('Luma'));
+
+      expect(movimiento).toHaveBeenCalledWith('feliz', true);
+    });
+
+    it('un personaje de la lista no usa el movimiento de la propia', () => {
+      dibujoPropio.url = 'blob:mi-mascota';
+
+      render(<MascotaFlotante mascota={SPARKY} />);
+      fireEvent.click(mascota());
+
+      expect(movimiento).not.toHaveBeenCalled();
+    });
+
+    it('mientras no tiene su dibujo, y se pinta Fungito, tampoco', () => {
+      render(<MascotaFlotante mascota={PROPIA} />);
+
+      expect(movimiento).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('las frases', () => {
+    it('dice las del banco general y ninguna de un personaje: no tiene personalidad propia', () => {
+      vi.setSystemTime(DE_TARDE);
+      dibujoPropio.url = 'blob:mi-mascota';
+
+      render(<MascotaFlotante mascota={PROPIA} />);
+
+      const generales = frasesDelMomento('general');
+      const vistas = new Set<string>();
+
+      // Un toque por cada frase general: una vuelta entera del banco.
+      generales.forEach(() => {
+        fireEvent.click(mascota('Luma'));
+        vistas.add(document.querySelector('.mascota__frase')?.textContent ?? '');
+      });
+
+      // Una vuelta entera: salen todas las generales, y nada mas.
+      expect([...vistas].sort()).toEqual([...generales].sort());
+
+      for (const personaje of Object.values(PERSONAJES)) {
+        for (const frase of personaje.frases) {
+          expect(vistas).not.toContain(frase);
+        }
+      }
+    });
+
+    it('tambien las dice mientras llega su dibujo, y si no llega', () => {
+      vi.setSystemTime(DE_TARDE);
+
+      render(<MascotaFlotante mascota={PROPIA} />);
+
+      fireEvent.click(mascota('Luma'));
+
+      expect(frasesDelMomento('general')).toContain(
+        document.querySelector('.mascota__frase')?.textContent ?? '',
+      );
     });
   });
 });

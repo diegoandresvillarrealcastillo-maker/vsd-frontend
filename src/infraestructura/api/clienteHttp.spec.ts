@@ -309,6 +309,17 @@ describe('pedirBytesALaApi (SCRUM-120)', () => {
     expect(cabeceras.get('Accept')).toBe('image/jpeg, image/png');
   });
 
+  it('por defecto pide una foto; con `acepta`, pide lo que se diga (SCRUM-122)', async () => {
+    cuandoLaApiResponde(imagen([1], 'image/svg+xml'));
+
+    const archivo = await pedirBytesALaApi('/api/cuenta/mascota-propia', {
+      acepta: 'image/svg+xml',
+    });
+
+    expect(new Headers(loEnviado().headers).get('Accept')).toBe('image/svg+xml');
+    expect(archivo.type).toBe('image/svg+xml');
+  });
+
   it('un 404 sale como ErrorDeLaApi con su codigo, no como una imagen rota', async () => {
     cuandoLaApiResponde(
       respuesta({ codigo: 'FOTO_NO_ENCONTRADA', mensaje: 'No tienes foto.' }, 404),
