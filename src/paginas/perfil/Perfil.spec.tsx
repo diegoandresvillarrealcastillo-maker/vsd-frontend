@@ -1,10 +1,11 @@
 import type { Session } from '@supabase/supabase-js';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { olvidarLaFoto } from '../../foto/fotoDePerfil.ts';
+import { olvidarLaMascotaPropia, sincronizarLaMascotaPropia } from '../../foto/mascotaPropia.ts';
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
 import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
@@ -23,6 +24,9 @@ const {
   guardarLaFoto,
   quitarLaFoto,
   prepararLaFoto,
+  guardarLaMascotaPropia,
+  quitarLaMascotaPropia,
+  pedirLaMascotaPropia,
 } = vi.hoisted(() => ({
   consultarLaVersionDelAviso: vi.fn(),
   darDeAltaLaCuenta: vi.fn(),
@@ -32,6 +36,17 @@ const {
   guardarLaFoto: vi.fn(),
   quitarLaFoto: vi.fn(),
   prepararLaFoto: vi.fn(),
+  guardarLaMascotaPropia: vi.fn(),
+  quitarLaMascotaPropia: vi.fn(),
+  pedirLaMascotaPropia: vi.fn(),
+}));
+
+// La mascota propia (SCRUM-122): solo la API se simula, y el resto es de verdad.
+vi.mock('../../infraestructura/api/mascotaPropia.ts', () => ({
+  guardarLaMascotaPropia,
+  quitarLaMascotaPropia,
+  pedirLaMascotaPropia,
+  TIPO_DEL_SVG: 'image/svg+xml',
 }));
 
 // La foto (SCRUM-120): el recorte y la API se simulan, y el resto es de verdad.
@@ -123,6 +138,7 @@ beforeEach(() => {
 
 afterEach(() => {
   olvidarLaFoto();
+  olvidarLaMascotaPropia();
   vi.restoreAllMocks();
   vi.clearAllMocks();
 });
@@ -614,5 +630,315 @@ describe('la foto de perfil en el perfil (SCRUM-120)', () => {
 
     expect(await within(seccion).findByRole('alert')).toHaveTextContent('menos de 50 KB');
     expect(within(seccion).queryByRole('img')).not.toBeInTheDocument();
+  });
+});
+
+describe('la mascota propia en el perfil (SCRUM-122)', () => {
+  const MARCA = '2026-10-12T15:30:00.000Z';
+  const OTRA_MARCA = '2026-10-13T09:00:00.000Z';
+  const DIBUJO = new File(['<svg xmlns="http://www.w3.org/2000/svg"/>'], 'luma.svg', {
+    type: 'image/svg+xml',
+  });
+  /** Tiene su dibujo y es la que la acompana, con un nombre que le puso. */
+  const ELEGIDA_LA_PROPIA: Cuenta = {
+    ...CUENTA,
+    mascota: { forma: 'propia', nombre: 'Luma' },
+    mascotaPropia: { actualizadaEl: MARCA },
+  };
+
+  const mascotas = () => screen.getByRole('region', { name: 'Tu mascota' });
+  const propia = () => screen.getByRole('region', { name: 'Tu propia mascota' });
+
+  beforeEach(() => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mascota-de-prueba');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    pedirLaMascotaPropia.mockResolvedValue(new Blob(['<svg/>'], { type: 'image/svg+xml' }));
+  });
+
+  it('tiene su apartado, justo despues de «Tu mascota»', async () => {
+    pintar();
+
+    const tuMascota = await screen.findByRole('region', { name: 'Tu mascota' });
+    const tuPropia = propia();
+    const diario = screen.getByRole('region', { name: 'Tu diario' });
+
+    expect(
+      tuMascota.compareDocumentPosition(tuPropia) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      tuPropia.compareDocumentPosition(diario) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  describe('sin mascota propia', () => {
+    it('no hay nada nuevo que elegir: siguen siendo los cinco personajes', async () => {
+      pintar();
+
+      await screen.findByRole('region', { name: 'Tu mascota' });
+
+      expect(within(mascotas()).getAllByRole('radio')).toHaveLength(5);
+      expect(
+        within(mascotas()).queryByRole('radio', { name: /Mi mascota/ }),
+      ).not.toBeInTheDocument();
+      expect(mascotas().querySelector('fieldset')).not.toHaveClass(
+        'perfil__personajes--con-propia',
+      );
+      expect(within(propia()).getByLabelText('Subir mi dibujo')).toBeInTheDocument();
+    });
+
+    it('una forma «propia» guardada sin dibujo se ve como Fungito, con su nombre, y sin error', async () => {
+      darDeAltaLaCuenta.mockResolvedValue({
+        ...CUENTA,
+        mascota: { forma: 'propia', nombre: 'Luma' },
+        mascotaPropia: null,
+      });
+
+      pintar();
+
+      await screen.findByRole('region', { name: 'Tu mascota' });
+
+      expect(within(mascotas()).getAllByRole('radio')).toHaveLength(5);
+      expect(within(mascotas()).getByRole('radio', { name: /Fungito/ })).toBeChecked();
+      expect(within(mascotas()).getByRole('textbox', { name: 'Cómo se llama' })).toHaveValue(
+        'Luma',
+      );
+      expect(screen.getByRole('button', { name: 'Luma, tu mascota' })).toBeInTheDocument();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('con mascota propia', () => {
+    beforeEach(() => {
+      darDeAltaLaCuenta.mockResolvedValue(ELEGIDA_LA_PROPIA);
+    });
+
+    it('«Mi mascota» es la sexta opcion y es la elegida, con su nombre', async () => {
+      pintar();
+
+      await screen.findByRole('region', { name: 'Tu mascota' });
+
+      expect(within(mascotas()).getAllByRole('radio')).toHaveLength(6);
+      expect(within(mascotas()).getByRole('radio', { name: /Mi mascota/ })).toBeChecked();
+      // Donde un personaje dice su rasgo, ella dice que es su dibujo.
+      expect(
+        within(mascotas()).getByRole('radio', { name: /Mi mascota.*Tu dibujo/ }),
+      ).toBeChecked();
+      expect(within(mascotas()).getByRole('textbox', { name: 'Cómo se llama' })).toHaveValue(
+        'Luma',
+      );
+      expect(mascotas().querySelector('fieldset')).toHaveClass('perfil__personajes--con-propia');
+      expect(mascotas()).toHaveTextContent('Es el dibujo que subiste');
+      // Ya guardada y sin cambios: no hay nada que guardar.
+      expect(within(mascotas()).getByRole('button', { name: 'Guardar mascota' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Luma, tu mascota' })).toBeInTheDocument();
+    });
+
+    it('en la opcion se ve su dibujo, el que devuelve el servidor', async () => {
+      sincronizarLaMascotaPropia(ELEGIDA_LA_PROPIA);
+      pintar();
+
+      await screen.findByRole('region', { name: 'Tu mascota' });
+
+      const opcion = within(mascotas())
+        .getByRole('radio', { name: /Mi mascota/ })
+        .closest('label');
+
+      await waitFor(() => {
+        expect(opcion?.querySelector('img')).toHaveAttribute('src', 'blob:mascota-de-prueba');
+      });
+      expect(pedirLaMascotaPropia).toHaveBeenCalledOnce();
+    });
+
+    it('mientras no llega su dibujo, la opcion queda con un cuadro vacio, sin imagen rota', async () => {
+      pintar();
+
+      await screen.findByRole('region', { name: 'Tu mascota' });
+
+      const opcion = within(mascotas())
+        .getByRole('radio', { name: /Mi mascota/ })
+        .closest('label');
+
+      expect(opcion?.querySelector('img')).toBeNull();
+      expect(opcion?.querySelector('.perfil__personaje-dibujo--vacio')).not.toBeNull();
+    });
+
+    it('se puede volver a un personaje: el nombre que le puso se respeta y se guarda', async () => {
+      cambiarPreferencias.mockResolvedValue({
+        ...ELEGIDA_LA_PROPIA,
+        mascota: { forma: 'obsidian', nombre: 'Luma' },
+      });
+
+      pintar();
+
+      await screen.findByRole('region', { name: 'Tu mascota' });
+      await usuario.click(within(mascotas()).getByRole('radio', { name: /Obsidian/ }));
+
+      expect(within(mascotas()).getByRole('textbox', { name: 'Cómo se llama' })).toHaveValue(
+        'Luma',
+      );
+
+      await usuario.click(within(mascotas()).getByRole('button', { name: 'Guardar mascota' }));
+
+      expect(cambiarPreferencias).toHaveBeenCalledWith({
+        mascota: { forma: 'obsidian', nombre: 'Luma' },
+      });
+    });
+
+    it('guardar la eleccion no pierde su aviso: la mascota propia no cambio', async () => {
+      cambiarPreferencias.mockResolvedValue({
+        ...ELEGIDA_LA_PROPIA,
+        mascota: { forma: 'sparky', nombre: 'Luma' },
+      });
+
+      pintar();
+
+      await screen.findByRole('region', { name: 'Tu mascota' });
+      await usuario.click(within(mascotas()).getByRole('radio', { name: /Sparky/ }));
+      await usuario.click(within(mascotas()).getByRole('button', { name: 'Guardar mascota' }));
+
+      expect(await within(mascotas()).findByRole('status')).toHaveTextContent('Luma te acompaña');
+      expect(within(mascotas()).getByRole('radio', { name: /Sparky/ })).toBeChecked();
+      expect(within(mascotas()).getAllByRole('radio')).toHaveLength(6);
+    });
+
+    it('elegirla otra vez la guarda con su forma, y su nombre de fabrica si no tenia uno propio', async () => {
+      darDeAltaLaCuenta.mockResolvedValue({
+        ...ELEGIDA_LA_PROPIA,
+        mascota: { forma: 'sparky', nombre: 'Sparky' },
+      });
+      cambiarPreferencias.mockResolvedValue(ELEGIDA_LA_PROPIA);
+
+      pintar();
+
+      await screen.findByRole('region', { name: 'Tu mascota' });
+      await usuario.click(within(mascotas()).getByRole('radio', { name: /Mi mascota/ }));
+
+      expect(within(mascotas()).getByRole('textbox', { name: 'Cómo se llama' })).toHaveValue(
+        'Mi mascota',
+      );
+
+      await usuario.click(within(mascotas()).getByRole('button', { name: 'Guardar mascota' }));
+
+      expect(cambiarPreferencias).toHaveBeenCalledWith({
+        mascota: { forma: 'propia', nombre: 'Mi mascota' },
+      });
+    });
+
+    it('cambiar el dibujo no cambia cual esta elegida ni su nombre', async () => {
+      guardarLaMascotaPropia.mockResolvedValue({
+        ...ELEGIDA_LA_PROPIA,
+        mascotaPropia: { actualizadaEl: OTRA_MARCA },
+      });
+
+      pintar();
+
+      await screen.findByRole('region', { name: 'Tu mascota' });
+      await usuario.upload(within(propia()).getByLabelText('Cambiar mi dibujo'), DIBUJO);
+
+      expect(await within(propia()).findByRole('status')).toHaveTextContent(
+        'Listo, esta es tu mascota.',
+      );
+      expect(cambiarPreferencias).not.toHaveBeenCalled();
+      expect(within(mascotas()).getByRole('radio', { name: /Mi mascota/ })).toBeChecked();
+      expect(within(mascotas()).getByRole('textbox', { name: 'Cómo se llama' })).toHaveValue(
+        'Luma',
+      );
+    });
+
+    it('quitarla deja los cinco personajes, vuelve a Fungito con su nombre y lo dice', async () => {
+      quitarLaMascotaPropia.mockResolvedValue({
+        ...CUENTA,
+        mascota: { forma: 'fungito', nombre: 'Luma' },
+        mascotaPropia: null,
+      });
+
+      pintar();
+
+      await screen.findByRole('region', { name: 'Tu mascota' });
+      await usuario.click(within(propia()).getByRole('button', { name: 'Quitar mi mascota' }));
+
+      expect(await within(propia()).findByRole('status')).toHaveTextContent(
+        'Quitaste tu mascota propia. Tu acompañante vuelve a ser Fungito.',
+      );
+      expect(within(mascotas()).getAllByRole('radio')).toHaveLength(5);
+      expect(within(mascotas()).getByRole('radio', { name: /Fungito/ })).toBeChecked();
+      expect(within(mascotas()).getByRole('textbox', { name: 'Cómo se llama' })).toHaveValue(
+        'Luma',
+      );
+      expect(screen.getByRole('button', { name: 'Luma, tu mascota' })).toBeInTheDocument();
+      expect(within(propia()).getByLabelText('Subir mi dibujo')).toBeInTheDocument();
+    });
+  });
+
+  describe('subir la primera', () => {
+    it('queda como la elegida, y las opciones pasan a ser seis', async () => {
+      guardarLaMascotaPropia.mockResolvedValue({
+        ...CUENTA,
+        mascotaPropia: { actualizadaEl: MARCA },
+      });
+      cambiarPreferencias.mockResolvedValue({
+        ...CUENTA,
+        mascota: { forma: 'propia', nombre: 'Mi mascota' },
+        mascotaPropia: { actualizadaEl: MARCA },
+      });
+
+      pintar();
+
+      await screen.findByRole('region', { name: 'Tu mascota' });
+
+      expect(within(mascotas()).getAllByRole('radio')).toHaveLength(5);
+
+      await usuario.upload(within(propia()).getByLabelText('Subir mi dibujo'), DIBUJO);
+
+      expect(await within(propia()).findByRole('status')).toHaveTextContent(
+        'Listo, tu mascota ya te acompaña.',
+      );
+      expect(guardarLaMascotaPropia).toHaveBeenCalledWith(DIBUJO);
+      expect(cambiarPreferencias).toHaveBeenCalledWith({
+        mascota: { forma: 'propia', nombre: 'Mi mascota' },
+      });
+      expect(within(mascotas()).getAllByRole('radio')).toHaveLength(6);
+      expect(within(mascotas()).getByRole('radio', { name: /Mi mascota/ })).toBeChecked();
+      expect(screen.getByRole('button', { name: 'Mi mascota, tu mascota' })).toBeInTheDocument();
+      expect(within(propia()).getByLabelText('Cambiar mi dibujo')).toBeInTheDocument();
+    });
+
+    it('si no se pudo dejar como la elegida, queda como una opcion mas y se dice como elegirla', async () => {
+      guardarLaMascotaPropia.mockResolvedValue({
+        ...CUENTA,
+        mascotaPropia: { actualizadaEl: MARCA },
+      });
+      cambiarPreferencias.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      pintar();
+
+      await screen.findByRole('region', { name: 'Tu mascota' });
+      await usuario.upload(within(propia()).getByLabelText('Subir mi dibujo'), DIBUJO);
+
+      expect(await within(propia()).findByRole('alert')).toHaveTextContent(
+        'Elígelo en «Tu mascota»',
+      );
+      expect(within(mascotas()).getAllByRole('radio')).toHaveLength(6);
+      // Sigue con Fungito, y la opcion nueva esta a la vista para elegirla.
+      expect(within(mascotas()).getByRole('radio', { name: /Fungito/ })).toBeChecked();
+      expect(within(mascotas()).getByRole('radio', { name: /Mi mascota/ })).not.toBeChecked();
+    });
+
+    it('si la API rechaza el dibujo, no cambia nada y dice por que', async () => {
+      guardarLaMascotaPropia.mockRejectedValue(
+        new ErrorDeLaApi(400, 'x', undefined, 'MASCOTA_SVG_NO_ADMITIDO'),
+      );
+
+      pintar();
+
+      await screen.findByRole('region', { name: 'Tu mascota' });
+      await usuario.upload(within(propia()).getByLabelText('Subir mi dibujo'), DIBUJO);
+
+      expect(await within(propia()).findByRole('alert')).toHaveTextContent(
+        'textos, imágenes, filtros o estilos',
+      );
+      expect(cambiarPreferencias).not.toHaveBeenCalled();
+      expect(within(mascotas()).getAllByRole('radio')).toHaveLength(5);
+    });
   });
 });

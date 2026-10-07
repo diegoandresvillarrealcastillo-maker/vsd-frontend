@@ -19,6 +19,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "guia-de-la-mascota": "node scripts/generar-la-guia.mjs",
     "prepare": "husky"
   },
   "dependencies": {

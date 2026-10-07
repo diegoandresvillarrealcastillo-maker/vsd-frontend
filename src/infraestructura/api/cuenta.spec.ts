@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { sincronizarLaFoto } from '../../foto/fotoDePerfil.ts';
+import { sincronizarLosArchivosDeLaPersona } from '../../foto/archivosDeLaPersona.ts';
 import { olvidarLaZonaDeLaCuenta, zonaActual } from '../../tiempo/zonaHoraria.ts';
 import { ErrorDeLaApi } from './clienteHttp.ts';
 import {
@@ -28,9 +28,11 @@ const { getSession, signOut } = vi.hoisted(() => ({
 vi.mock('../supabase/cliente.ts', () => ({
   supabase: () => ({ auth: { getSession, signOut } }),
 }));
-// La foto de perfil (SCRUM-120) se prueba en `foto/fotoDePerfil.spec.ts`; aqui
-// solo importa que cada cuenta que llega se le entregue.
-vi.mock('../../foto/fotoDePerfil.ts', () => ({ sincronizarLaFoto: vi.fn() }));
+// La foto (SCRUM-120) y la mascota propia (SCRUM-122) se prueban en `foto/`; aqui
+// solo importa que cada cuenta que llega se les entregue.
+vi.mock('../../foto/archivosDeLaPersona.ts', () => ({
+  sincronizarLosArchivosDeLaPersona: vi.fn(),
+}));
 
 const CUENTA = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -306,7 +308,7 @@ describe('borrarMiCuenta', () => {
   });
 });
 
-describe('la foto de perfil en cada cuenta que llega (SCRUM-120)', () => {
+describe('los archivos de la persona en cada cuenta que llega (SCRUM-120 y SCRUM-122)', () => {
   const CON_FOTO = { ...CUENTA, foto: { actualizadaEl: '2026-10-09T15:30:00.000Z' } };
   const SIN_FOTO = { ...CUENTA, foto: null };
 
@@ -315,7 +317,7 @@ describe('la foto de perfil en cada cuenta que llega (SCRUM-120)', () => {
 
     await darDeAltaLaCuenta('2026-09-1');
 
-    expect(sincronizarLaFoto).toHaveBeenCalledExactlyOnceWith(CON_FOTO);
+    expect(sincronizarLosArchivosDeLaPersona).toHaveBeenCalledExactlyOnceWith(CON_FOTO);
   });
 
   it('al consultar la cuenta propia, tambien', async () => {
@@ -323,7 +325,7 @@ describe('la foto de perfil en cada cuenta que llega (SCRUM-120)', () => {
 
     await consultarLaCuentaPropia();
 
-    expect(sincronizarLaFoto).toHaveBeenCalledExactlyOnceWith(CON_FOTO);
+    expect(sincronizarLosArchivosDeLaPersona).toHaveBeenCalledExactlyOnceWith(CON_FOTO);
   });
 
   it('al cambiar las preferencias, tambien: la cuenta que vuelve trae la marca de la foto', async () => {
@@ -331,7 +333,7 @@ describe('la foto de perfil en cada cuenta que llega (SCRUM-120)', () => {
 
     await cambiarPreferencias({ nombre: 'Ana' });
 
-    expect(sincronizarLaFoto).toHaveBeenCalledExactlyOnceWith(CON_FOTO);
+    expect(sincronizarLosArchivosDeLaPersona).toHaveBeenCalledExactlyOnceWith(CON_FOTO);
   });
 
   it('una cuenta sin foto tambien se entrega: es lo que hace que se deje de mostrar la que hubiera', async () => {
@@ -339,13 +341,13 @@ describe('la foto de perfil en cada cuenta que llega (SCRUM-120)', () => {
 
     await consultarLaCuentaPropia();
 
-    expect(sincronizarLaFoto).toHaveBeenCalledExactlyOnceWith(SIN_FOTO);
+    expect(sincronizarLosArchivosDeLaPersona).toHaveBeenCalledExactlyOnceWith(SIN_FOTO);
   });
 
   it('una cuenta de una API anterior, sin el campo, se entrega igual', async () => {
     await consultarLaCuentaPropia();
 
-    expect(sincronizarLaFoto).toHaveBeenCalledExactlyOnceWith(CUENTA);
+    expect(sincronizarLosArchivosDeLaPersona).toHaveBeenCalledExactlyOnceWith(CUENTA);
   });
 
   it('si el alta se repite sin la zona, la cuenta se entrega una sola vez', async () => {
@@ -357,7 +359,7 @@ describe('la foto de perfil en cada cuenta que llega (SCRUM-120)', () => {
 
     await darDeAltaLaCuenta('2026-09-1');
 
-    expect(sincronizarLaFoto).toHaveBeenCalledExactlyOnceWith(CON_FOTO);
+    expect(sincronizarLosArchivosDeLaPersona).toHaveBeenCalledExactlyOnceWith(CON_FOTO);
   });
 
   it.each([
@@ -371,6 +373,6 @@ describe('la foto de perfil en cada cuenta que llega (SCRUM-120)', () => {
 
     await expect(llamar()).rejects.toBeInstanceOf(ErrorDeLaApi);
 
-    expect(sincronizarLaFoto).not.toHaveBeenCalled();
+    expect(sincronizarLosArchivosDeLaPersona).not.toHaveBeenCalled();
   });
 });
