@@ -249,9 +249,37 @@ vencida; lo tercero, que en una sala de computo nadie lea lo de quien estuvo ant
 Con la sesion que no se recuerda en este equipo, o si el navegador no deja usar
 IndexedDB, todo vive **solo en memoria**.
 
-Este nucleo todavia no se ve en ninguna pantalla: las siguientes entregas lo
-conectan (el indicador de conexion y el boton «Sincronizar ahora», las actividades,
-el diario y los pendientes).
+### Lo que se ve: el indicador, «Sincronizar ahora» y el aviso (SCRUM-137)
+
+- **El indicador** (`src/conexion/IndicadorDeConexion.tsx`) esta en la barra de arriba
+  de toda pantalla de la aplicacion. Con todo enviado es un icono discreto; con algo
+  que decir se lee: «Sin conexión · 3 cambios guardados en este equipo». El estado
+  nunca se dice solo con color. Al pulsarlo abre un panel con el estado, el boton
+  **«Sincronizar ahora»** (no espera los reintentos programados; sin conexion no se
+  puede y lo dice) y la lista de lo guardado: el tipo de cada cambio, cuando se hizo y
+  que le pasa. **Nunca lo escrito.** Lo rechazado se puede reintentar o descartar, y
+  descartar pregunta primero.
+- **El aviso** (`AvisoDeSincronizacion.tsx`) sale al terminar una sincronizacion:
+  «Volviste a tener conexión. Enviamos 3 cambios que estaban guardados en este
+  equipo.» Es uno por tanda, no uno por cambio; no roba el foco; y si algo no salio
+  lleva a la lista. Si la sesion vencio, lleva a entrar. Si lo enviado sugiere
+  acompanamiento, ofrece las lineas de atencion.
+- **Sincroniza sola** (`disparadores.ts`) al volver la red, al abrir la aplicacion, al
+  volver a la pestana, cuando la cola cambia y cada 30 s si hay algo listo.
+  **Mientras la aplicacion esta abierta**, aunque sea en una pestana de fondo: no hay
+  Background Sync en Safari, y con la aplicacion cerrada se envia al abrirla (ADR 0019).
+- **Con la aplicacion en segundo plano**, si ya diste permiso a los avisos, una
+  notificacion neutra («Tus cambios guardados en este equipo ya se enviaron»), sin
+  nada de salud. Nunca pide el permiso por su cuenta.
+- **Abrir sin conexion con el token vencido.** El token dura una hora y sin red no se
+  puede renovar: Supabase diria «sin sesion». Si la renovacion fallo **por falta de
+  red**, se usa la sesion guardada para saber quien es y se abre su almacen; en cuanto
+  vuelve la red, Supabase renueva el token. Una sesion que se cierra de verdad
+  (`SIGNED_OUT`) se cierra.
+
+Quien agregue algo a la cola (las actividades, el diario, los pendientes) lo hace con
+`encolar()` de `ciclo.ts`: es el unico camino, y asi el indicador y las otras pestanas
+se enteran.
 
 ---
 
