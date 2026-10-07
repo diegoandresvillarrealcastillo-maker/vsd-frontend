@@ -1,4 +1,4 @@
-import { sincronizarLaFoto } from '../../foto/fotoDePerfil.ts';
+import { sincronizarLosArchivosDeLaPersona } from '../../foto/archivosDeLaPersona.ts';
 import { fijarLaZonaDeLaCuenta, zonaDelDispositivo } from '../../tiempo/zonaHoraria.ts';
 import { ErrorDeLaApi, llamarALaApi } from './clienteHttp.ts';
 
@@ -53,6 +53,18 @@ export interface FotoDeLaCuenta {
 }
 
 /**
+ * La mascota propia, vista desde la cuenta (SCRUM-122): que hay y desde cuando,
+ * nunca el dibujo, que es un SVG y se pide aparte (`api/mascotaPropia.ts`).
+ */
+export interface MascotaPropiaDeLaCuenta {
+  /**
+   * Cuando se guardo la mascota propia actual. Cambia con cada una nueva, y por
+   * eso sirve para saber si la que se tenia ya no es la vigente.
+   */
+  readonly actualizadaEl: string;
+}
+
+/**
  * La cuenta propia.
  *
  * El `id` de aqui es **el nuestro**, no el de Supabase: es el que relacionan
@@ -87,6 +99,11 @@ export interface Cuenta {
    * funcionar igual, sin foto.
    */
   readonly foto?: FotoDeLaCuenta | null;
+  /**
+   * La mascota propia, un SVG, o `null` si no tiene (SCRUM-122). Opcional por lo
+   * mismo que `foto`. Para usarla, `mascota.forma` es `propia`.
+   */
+  readonly mascotaPropia?: MascotaPropiaDeLaCuenta | null;
 }
 
 /** Lo que se puede cambiar de las preferencias. Lo que no venga, se queda igual. */
@@ -159,7 +176,7 @@ export async function darDeAltaLaCuenta(
   }
 
   fijarLaZonaDeLaCuenta(cuenta.zonaHoraria);
-  sincronizarLaFoto(cuenta);
+  sincronizarLosArchivosDeLaPersona(cuenta);
 
   return cuenta;
 }
@@ -174,7 +191,7 @@ export async function consultarLaCuentaPropia(senal?: AbortSignal): Promise<Cuen
   const cuenta = await llamarALaApi<Cuenta>(RUTA, senal ? { senal } : {});
 
   fijarLaZonaDeLaCuenta(cuenta.zonaHoraria);
-  sincronizarLaFoto(cuenta);
+  sincronizarLosArchivosDeLaPersona(cuenta);
 
   return cuenta;
 }
@@ -221,7 +238,7 @@ export async function cambiarPreferencias(
     ...(senal ? { senal } : {}),
   });
 
-  sincronizarLaFoto(cuenta);
+  sincronizarLosArchivosDeLaPersona(cuenta);
 
   return cuenta;
 }

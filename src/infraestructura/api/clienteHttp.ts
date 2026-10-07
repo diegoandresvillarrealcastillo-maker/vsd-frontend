@@ -195,8 +195,14 @@ export async function llamarALaApi<T>(ruta: string, opciones: Opciones = {}): Pr
  * src>`) porque cada peticion tiene que llevar la sesion, y una imagen no puede
  * ponerse una cabecera.
  */
-export async function pedirBytesALaApi(ruta: string, opciones: Opciones = {}): Promise<Blob> {
-  const respuesta = await pedir(ruta, opciones, 'image/jpeg, image/png');
+export async function pedirBytesALaApi(
+  ruta: string,
+  opciones: Opciones & {
+    /** Lo que se acepta de vuelta. Por defecto, una foto: `image/jpeg, image/png`. */
+    readonly acepta?: string;
+  } = {},
+): Promise<Blob> {
+  const respuesta = await pedir(ruta, opciones, opciones.acepta ?? 'image/jpeg, image/png');
 
   return respuesta.blob();
 }

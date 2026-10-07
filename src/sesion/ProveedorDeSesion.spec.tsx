@@ -3,7 +3,7 @@ import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { olvidarLaFoto } from '../foto/fotoDePerfil.ts';
+import { olvidarLosArchivosDeLaPersona } from '../foto/archivosDeLaPersona.ts';
 import { ProveedorDeSesion } from './ProveedorDeSesion.tsx';
 import { useSesion } from './useSesion.ts';
 
@@ -28,7 +28,7 @@ vi.mock('../infraestructura/supabase/cliente.ts', () => ({
 vi.mock('../notificaciones/navegador.ts', () => ({
   dejarDeAvisarAEsteNavegador: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock('../foto/fotoDePerfil.ts', () => ({ olvidarLaFoto: vi.fn() }));
+vi.mock('../foto/archivosDeLaPersona.ts', () => ({ olvidarLosArchivosDeLaPersona: vi.fn() }));
 
 const SESION = { user: { email: 'ana@ejemplo.test' } } as Session;
 
@@ -77,7 +77,7 @@ describe('la foto de perfil al terminar la sesion (SCRUM-120)', () => {
     });
 
     expect(signOut).toHaveBeenCalledOnce();
-    expect(olvidarLaFoto).toHaveBeenCalled();
+    expect(olvidarLosArchivosDeLaPersona).toHaveBeenCalled();
   });
 
   it('si la sesion termina sin que la persona salga —caduca, se revoca, se cierra en otra pestana—, tambien', async () => {
@@ -88,7 +88,7 @@ describe('la foto de perfil al terminar la sesion (SCRUM-120)', () => {
       avisarCambioDeSesion('SIGNED_OUT', null);
     });
 
-    expect(olvidarLaFoto).toHaveBeenCalledOnce();
+    expect(olvidarLosArchivosDeLaPersona).toHaveBeenCalledOnce();
     expect(signOut).not.toHaveBeenCalled();
   });
 
@@ -100,7 +100,7 @@ describe('la foto de perfil al terminar la sesion (SCRUM-120)', () => {
       avisarCambioDeSesion('TOKEN_REFRESHED', SESION);
     });
 
-    expect(olvidarLaFoto).not.toHaveBeenCalled();
+    expect(olvidarLosArchivosDeLaPersona).not.toHaveBeenCalled();
   });
 
   it('entrar tampoco la olvida: el que entra es el dueno de lo que llegue', async () => {
@@ -112,6 +112,6 @@ describe('la foto de perfil al terminar la sesion (SCRUM-120)', () => {
       avisarCambioDeSesion('SIGNED_IN', SESION);
     });
 
-    expect(olvidarLaFoto).not.toHaveBeenCalled();
+    expect(olvidarLosArchivosDeLaPersona).not.toHaveBeenCalled();
   });
 });
