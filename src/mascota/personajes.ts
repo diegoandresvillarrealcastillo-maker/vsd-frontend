@@ -1,11 +1,14 @@
 import type { Mascota } from '../infraestructura/api/cuenta.ts';
 
 /**
- * Los seis personajes que pueden acompañar a cada persona (SCRUM-99).
+ * Los cinco personajes que pueden acompañar a cada persona (SCRUM-99).
  *
  * Los definió Diego, con su historia y sus cuatro expresiones. Los dibujos son
  * sus hojas de expresiones, recortadas a `sprites/` desde
  * `disenos/mascotas/` con `recortar-hojas.py`.
+ *
+ * Eran seis: Trama se retiró (SCRUM-121). Quien la tenía guardada se dibuja como
+ * Fungito, igual que cualquier forma que este frontend no conozca.
  *
  * Las frases de cada uno van con su personalidad y se suman al banco general
  * (`frasesDeLaMascota.ts`, SCRUM-129), que sirve a cualquier avatar. Acompañan,
@@ -13,7 +16,7 @@ import type { Mascota } from '../infraestructura/api/cuenta.ts';
  * ni tratamientos.
  */
 
-export type Personaje = 'fungito' | 'sparky' | 'ori' | 'gato' | 'obsidian' | 'trama';
+export type Personaje = 'fungito' | 'sparky' | 'ori' | 'gato' | 'obsidian';
 
 export type Expresion = 'normal' | 'feliz' | 'celebrando' | 'dormida';
 
@@ -31,7 +34,6 @@ export const PERSONAJES_EN_ORDEN: readonly Personaje[] = [
   'ori',
   'gato',
   'obsidian',
-  'trama',
 ];
 
 export const PERSONAJE_POR_DEFECTO: Personaje = 'fungito';
@@ -100,19 +102,6 @@ export const PERSONAJES: Readonly<Record<Personaje, DatosDePersonaje>> = {
       'Las distracciones se quedan afuera. Tú, aquí.',
       'Me alegra verte tomar un respiro.',
       'Fuerte no es quien no para, sino quien sabe cuándo parar.',
-    ],
-  },
-  trama: {
-    nombre: 'Trama',
-    rasgo: 'Armonía rítmica',
-    presentacion:
-      'Un viejo telar que cobró vida. Sabe que lo bueno se teje hilo a hilo, sin pensar en la manta entera.',
-    frases: [
-      'Hilo a hilo, el tejido crece.',
-      'No mires toda la manta: mira el hilo de hoy.',
-      'Un punto suelto no arruina el tejido.',
-      'Tu ritmo es el ritmo correcto.',
-      'Lo que se teje con calma dura más.',
     ],
   },
 };
