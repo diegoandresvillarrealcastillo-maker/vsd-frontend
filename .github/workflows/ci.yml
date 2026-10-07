@@ -195,6 +195,9 @@ jobs:
           cabecera "$base/icono-192.png" | grep -i '^content-type: image/png'
           cabecera "$base/favicon.svg" | grep -i '^content-type: image/svg+xml'
 
+          echo "Un PDF se sirve como PDF: no cae en index.html (la guia de la mascota)"
+          cabecera "$base/guia-de-la-mascota-propia.pdf" | grep -i '^content-type: application/pdf'
+
           echo "index.html y sw.js nunca se usan sin validar"
           cabecera "$base/index.html" | grep -i '^cache-control:.*no-cache'
           cabecera "$base/sw.js" | grep -i '^cache-control:.*no-cache'
