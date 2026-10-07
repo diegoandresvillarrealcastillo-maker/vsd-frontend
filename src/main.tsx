@@ -1,9 +1,12 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+import { registerSW } from 'virtual:pwa-register';
 
 import { App } from './App.tsx';
 import { despertarElApi } from './infraestructura/api/despertar.ts';
+import { AvisoDeVersionNueva } from './pwa/AvisoDeVersionNueva.tsx';
+import { registrarElServiceWorker } from './pwa/registrarElServiceWorker.ts';
 import { ProveedorDeSesion } from './sesion/ProveedorDeSesion.tsx';
 import { seguirAlSistema } from './tema/tema.ts';
 import './estilos/global.css';
@@ -16,6 +19,10 @@ seguirAlSistema();
 // Lo antes posible: si el API dormia, que vaya despertando mientras la
 // persona lee la portada o escribe su correo (SCRUM-111).
 despertarElApi();
+
+// El service worker guarda la aplicacion para abrirla sin conexion y recibe los
+// avisos (SCRUM-135). Una version nueva se ofrece con un aviso; no se activa sola.
+registrarElServiceWorker(registerSW);
 
 const raiz = document.getElementById('raiz');
 
@@ -30,6 +37,7 @@ createRoot(raiz).render(
     <BrowserRouter>
       <ProveedorDeSesion>
         <App />
+        <AvisoDeVersionNueva />
       </ProveedorDeSesion>
     </BrowserRouter>
   </StrictMode>,

@@ -10,5 +10,9 @@
   // habria que declarar las dos cosas a la vez y TypeScript dejaria de avisar
   // cuando alguien usa una API que no existe donde su codigo se ejecuta.
   "files": [],
-  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.sw.json" },
+    { "path": "./tsconfig.node.json" }
+  ]
 }

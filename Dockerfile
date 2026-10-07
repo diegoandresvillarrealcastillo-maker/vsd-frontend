@@ -38,9 +38,12 @@ ENV HUSKY=0 \
 COPY package.json package-lock.json ./
 RUN npm ci
 
-COPY index.html vite.config.ts tsconfig.json tsconfig.app.json tsconfig.node.json ./
+COPY index.html vite.config.ts tsconfig.json tsconfig.app.json tsconfig.sw.json tsconfig.node.json ./
 COPY public ./public
 COPY src ./src
+# `npm run build` termina comprobando el service worker ya compilado (SCRUM-135),
+# y falla si no esta este archivo.
+COPY scripts/comprobar-el-service-worker.mjs ./scripts/comprobar-el-service-worker.mjs
 
 # Un ARG sin valor por omision queda sin definir, y la aplicacion usa entonces
 # su respaldo (la API en localhost:3000) o dice cual variable falta. Los ARG
