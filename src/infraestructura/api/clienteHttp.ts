@@ -38,13 +38,67 @@ export class ErrorDeLaApi extends Error {
    */
   readonly identificador: string | undefined;
 
-  constructor(estado: number, mensaje: string, identificador?: string, codigo?: string) {
+  /**
+   * Cuanto pide el servidor que se espere antes de volver a intentarlo, en
+   * segundos (la cabecera `Retry-After`, SCRUM-136). Lo manda un 429 ("demasiadas
+   * peticiones") o un 503; el envio de lo guardado sin conexion lo respeta en
+   * lugar de martillear. Indefinido si no lo pidio o vino en una forma que no se
+   * entiende.
+   */
+  readonly reintentarEnSegundos: number | undefined;
+
+  constructor(
+    estado: number,
+    mensaje: string,
+    identificador?: string,
+    codigo?: string,
+    reintentarEnSegundos?: number,
+  ) {
     super(mensaje);
     this.name = 'ErrorDeLaApi';
     this.estado = estado;
     this.identificador = identificador;
     this.codigo = codigo;
+    this.reintentarEnSegundos = reintentarEnSegundos;
   }
+}
+
+/**
+ * Lo que dice la cabecera `Retry-After`, en segundos.
+ *
+ * Puede venir de dos formas: un numero de segundos (`120`) o una fecha HTTP
+ * (`Wed, 21 Oct 2026 07:28:00 GMT`). Lo que no sea ninguna de las dos, o sea
+ * negativo, se ignora: una cabecera mal formada no puede romper la lectura de un
+ * error que ya esta en curso.
+ */
+export function segundosDeEspera(
+  valor: string | null,
+  ahora: Date = new Date(),
+): number | undefined {
+  if (valor === null) {
+    return undefined;
+  }
+
+  const texto = valor.trim();
+
+  if (/^\d+$/.test(texto)) {
+    return Number(texto);
+  }
+
+  // Solo el formato de fecha de HTTP. `Date.parse` es demasiado generoso: da por
+  // buenas cosas como "-5" o "1.5", que son fechas para el, y un `Retry-After`
+  // mal formado se convertiria en una espera inventada.
+  if (!/^[A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} GMT$/.test(texto)) {
+    return undefined;
+  }
+
+  const fecha = Date.parse(texto);
+
+  if (Number.isNaN(fecha)) {
+    return undefined;
+  }
+
+  return Math.max(0, Math.ceil((fecha - ahora.getTime()) / 1000));
 }
 
 /** Lo que se pudo entender del cuerpo de una respuesta fallida. */
@@ -103,18 +157,34 @@ async function tokenActual(): Promise<string | null> {
 }
 
 interface Opciones {
-  readonly metodo?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  readonly metodo?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  /** Lo que se manda, como JSON. */
   readonly cuerpo?: unknown;
+  /**
+   * O bien los bytes de un archivo, tal cual y con su propio tipo (SCRUM-120).
+   * No se combina con `cuerpo`: son dos formas distintas de llevar lo mismo.
+   */
+  readonly bytes?: Blob;
   readonly senal?: AbortSignal;
 }
 
-export async function llamarALaApi<T>(ruta: string, opciones: Opciones = {}): Promise<T> {
+/**
+ * Hace la llamada y deja pasar solo las que salieron bien.
+ *
+ * Es lo comun a pedir JSON y a pedir bytes: la cabecera con la sesion, que una
+ * sesion caducada se limpie, y que un fallo se convierta en un `ErrorDeLaApi`
+ * con su codigo y su identificador. Lo que cambia es como se lee el cuerpo de
+ * una respuesta buena, y eso lo decide quien llama.
+ */
+async function pedir(ruta: string, opciones: Opciones, acepta: string): Promise<Response> {
   const token = await tokenActual();
 
-  const cabeceras = new Headers({ Accept: 'application/json' });
+  const cabeceras = new Headers({ Accept: acepta });
 
   if (opciones.cuerpo !== undefined) {
     cabeceras.set('Content-Type', 'application/json');
+  } else if (opciones.bytes !== undefined) {
+    cabeceras.set('Content-Type', opciones.bytes.type);
   }
 
   if (token) {
@@ -124,7 +194,8 @@ export async function llamarALaApi<T>(ruta: string, opciones: Opciones = {}): Pr
   const respuesta = await fetch(`${entorno.urlDeLaApi}${ruta}`, {
     method: opciones.metodo ?? 'GET',
     headers: cabeceras,
-    body: opciones.cuerpo === undefined ? null : JSON.stringify(opciones.cuerpo),
+    body:
+      opciones.cuerpo !== undefined ? JSON.stringify(opciones.cuerpo) : (opciones.bytes ?? null),
     ...(opciones.senal ? { signal: opciones.senal } : {}),
   });
 
@@ -154,12 +225,44 @@ export async function llamarALaApi<T>(ruta: string, opciones: Opciones = {}): Pr
     // lea una persona y sabe de que error habla. Quien pinte una pantalla puede
     // ignorarlo y redactar el suyo mirando `codigo`, que suele quedar mejor
     // porque conoce el contexto.
-    throw new ErrorDeLaApi(respuesta.status, mensaje ?? FALLO_SIN_EXPLICAR, identificador, codigo);
+    throw new ErrorDeLaApi(
+      respuesta.status,
+      mensaje ?? FALLO_SIN_EXPLICAR,
+      identificador,
+      codigo,
+      segundosDeEspera(respuesta.headers.get('retry-after')),
+    );
   }
+
+  return respuesta;
+}
+
+export async function llamarALaApi<T>(ruta: string, opciones: Opciones = {}): Promise<T> {
+  const respuesta = await pedir(ruta, opciones, 'application/json');
 
   if (respuesta.status === 204) {
     return undefined as T;
   }
 
   return (await respuesta.json()) as T;
+}
+
+/**
+ * Pide un archivo a la API y lo entrega como `Blob`, con el tipo que trae
+ * (SCRUM-120). Es para lo que no es JSON: la foto de perfil.
+ *
+ * Va por aqui y no por una direccion que el navegador abra solo (un `<img
+ * src>`) porque cada peticion tiene que llevar la sesion, y una imagen no puede
+ * ponerse una cabecera.
+ */
+export async function pedirBytesALaApi(
+  ruta: string,
+  opciones: Opciones & {
+    /** Lo que se acepta de vuelta. Por defecto, una foto: `image/jpeg, image/png`. */
+    readonly acepta?: string;
+  } = {},
+): Promise<Blob> {
+  const respuesta = await pedir(ruta, opciones, opciones.acepta ?? 'image/jpeg, image/png');
+
+  return respuesta.blob();
 }

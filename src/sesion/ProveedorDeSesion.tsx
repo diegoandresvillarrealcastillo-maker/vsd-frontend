@@ -1,13 +1,17 @@
 import type { AuthError, Session } from '@supabase/supabase-js';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import { olvidarLosArchivosDeLaPersona } from '../foto/archivosDeLaPersona.ts';
 import {
+  esSoloDeEstaPestana,
   olvidarPreferenciaDePestana,
   recordarEnEsteEquipo,
 } from '../infraestructura/supabase/almacenamiento.ts';
 import { supabase } from '../infraestructura/supabase/cliente.ts';
 import { dejarDeAvisarAEsteNavegador } from '../notificaciones/navegador.ts';
 import { RUTAS } from '../rutas/rutas.ts';
+import { alCambiarLaSesion, olvidarLosDatosDeLaSesionActual } from '../sincronizacion/ciclo.ts';
+import { olvidarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
 import { consultarLaVersionDelAviso } from '../infraestructura/api/aviso.ts';
 import {
   SesionContexto,
@@ -64,7 +68,8 @@ const DEMASIADOS_INTENTOS = 'Demasiados intentos seguidos. Espera un momento y v
 /** Cada codigo de error de Supabase con su texto en espanol. */
 const MENSAJES: Readonly<Record<string, string>> = {
   invalid_credentials: 'El correo o la contraseña no coinciden.',
-  weak_password: 'Esa contraseña es muy corta. Necesita al menos 8 caracteres.',
+  weak_password:
+    'Esa contraseña no cumple lo que se pide: al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.',
   email_not_confirmed: 'Todavía no confirmaste el correo. Revisa tu bandeja.',
   over_request_rate_limit: DEMASIADOS_INTENTOS,
   over_email_send_rate_limit: 'Se enviaron muchos correos seguidos. Espera unos minutos.',
@@ -183,6 +188,13 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     // que sigue dentro.
     const { data: suscripcion } = cliente.auth.onAuthStateChange((_evento, nueva) => {
       if (vigente) {
+        // Sin sesion, lo que era de quien estaba —su foto, su mascota propia— no
+        // se queda. `salir` ya lo suelta, pero la sesion tambien termina sin
+        // pasar por ahi: caduca, se revoca, o se cierra en otra pestana.
+        if (nueva === null) {
+          olvidarLosArchivosDeLaPersona();
+        }
+
         setSesion(nueva);
         setCargando(false);
       }
@@ -193,6 +205,18 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
       suscripcion.subscription.unsubscribe();
     };
   }, []);
+
+  // El almacen local sigue a la sesion (SCRUM-136). Se mira el identificador de
+  // Supabase y no el de nuestra cuenta: es el unico que se conoce sin conexion.
+  //
+  // Que la sesion termine NO borra lo guardado: si caduco o se cerro en otra
+  // pestana, lo que la persona hizo sin conexion sigue ahi para cuando vuelva a
+  // entrar. Solo `salir` lo olvida.
+  const persona = sesion?.user.id ?? null;
+
+  useEffect(() => {
+    void alCambiarLaSesion(persona, { persistente: !esSoloDeEstaPestana() });
+  }, [persona]);
 
   const registrarse = useCallback(
     async ({
@@ -353,11 +377,23 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
   );
 
   const salir = useCallback(async (): Promise<void> => {
+    // Primero, y sin esperar: se empieza a olvidar lo guardado en este equipo
+    // (SCRUM-136). Quien sale decide por si misma; nada de lo privado se queda
+    // para la siguiente persona. Tiene que ir antes de soltar el token porque
+    // sabe de quien es lo que borra por la sesion que todavia esta abierta.
+    // Avisar de que quedan cambios sin enviar, antes de llegar aqui, es de quien
+    // llama a `salir` (SCRUM-142): aqui ya no hay vuelta atras.
+    const olvido = olvidarLosDatosDeLaSesionActual();
+
     // Antes de soltar el token: este navegador deja de recibir los avisos de
     // quien sale (SCRUM-102). No bloquea la salida si falla.
     await dejarDeAvisarAEsteNavegador();
     await clienteONulo()?.auth.signOut();
+    await olvido;
     olvidarPreferenciaDePestana();
+    // La zona y los archivos de esa cuenta no se quedan para la siguiente persona.
+    olvidarLaZonaDeLaCuenta();
+    olvidarLosArchivosDeLaPersona();
     setSesion(null);
   }, []);
 

@@ -1,6 +1,7 @@
 import { useId, useState, type CSSProperties, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import { MedidorDeContrasena } from '../../componentes/MedidorDeContrasena.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/aplicacion.css';
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
@@ -12,21 +13,30 @@ import {
   type Cuenta,
   type Modulo,
 } from '../../infraestructura/api/cuenta.ts';
+import { useMascotaPropia } from '../../foto/mascotaPropia.ts';
 import { MascotaFlotante } from '../../mascota/MascotaFlotante.tsx';
 import {
+  FORMA_DE_LA_MASCOTA_PROPIA,
   mascotaParaMostrar,
+  nombreAlElegir,
+  nombreDeFabrica,
   PERSONAJES,
   PERSONAJES_EN_ORDEN,
-  type Personaje,
+  PRESENTACION_DE_LA_MASCOTA_PROPIA,
+  RASGO_DE_LA_MASCOTA_PROPIA,
+  type Eleccion,
 } from '../../mascota/personajes.ts';
 import { sprite } from '../../mascota/sprites.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { Semaforo } from '../../semaforo/Semaforo.tsx';
+import { mensajeSiNoCumple } from '../../sesion/reglaDeContrasena.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { BarraSuperior } from '../panel/Estructura.tsx';
 import { Icono } from '../panel/Icono.tsx';
 import { MODULOS, ORDEN } from '../panel/modulos.ts';
 import { Apartado, MensajeDeAviso, SIN_CONEXION, type Aviso } from './piezas.tsx';
+import { TuFoto } from './TuFoto.tsx';
+import { TuMascotaPropia } from './TuMascotaPropia.tsx';
 import { TusAvisos } from './TusAvisos.tsx';
 import { usePerfil } from './usePerfil.ts';
 
@@ -34,19 +44,22 @@ import { usePerfil } from './usePerfil.ts';
  * El perfil: todo lo que la persona configura de su cuenta (SCRUM-101).
  *
  * - El nombre y los modulos activos se cambian aqui.
+ * - La foto se elige de la galeria, se recorta y se comprime en el dispositivo,
+ *   y se puede quitar (SCRUM-120).
  * - El correo se muestra pero no se edita: es la via de acceso y la identidad
  *   en Supabase.
  * - La contrasena se cambia con un codigo que llega al correo. Va directo a
  *   Supabase y nunca pasa por nuestra API.
- * - La mascota se elige entre los seis personajes y se le pone nombre
- *   (SCRUM-99).
+ * - La mascota se elige entre los cinco personajes y se le pone nombre
+ *   (SCRUM-99). Quien subio un dibujo propio lo tiene tambien entre las
+ *   opciones, y lo sube y lo quita en su propio apartado (SCRUM-122).
  * - El diario solo se revisa si la persona lo permite (SCRUM-108).
  * - Los avisos: si llegan a este dispositivo y a que hora cada uno
  *   (SCRUM-102).
  * - Los datos se descargan y la cuenta se borra (SCRUM-75).
  */
 export function Perfil() {
-  const { estado, reintentar, guardar } = usePerfil();
+  const { estado, reintentar, guardar, reemplazarCuenta } = usePerfil();
 
   return (
     <div className="app">
@@ -83,8 +96,20 @@ export function Perfil() {
         {estado.fase === 'listo' && (
           <>
             <Nombre cuenta={estado.cuenta} guardar={guardar} />
+            <TuFoto actualizarCuenta={reemplazarCuenta} />
             <Modulos cuenta={estado.cuenta} guardar={guardar} />
-            <TuMascota cuenta={estado.cuenta} guardar={guardar} />
+            {/* Al subir o quitar la mascota propia, las opciones cambian y se parte de
+                cero. Guardar la eleccion no la cambia: asi no se pierde su aviso. */}
+            <TuMascota
+              key={estado.cuenta.mascotaPropia?.actualizadaEl ?? 'sin-mascota-propia'}
+              cuenta={estado.cuenta}
+              guardar={guardar}
+            />
+            <TuMascotaPropia
+              cuenta={estado.cuenta}
+              guardar={guardar}
+              actualizarCuenta={reemplazarCuenta}
+            />
             <TuDiario cuenta={estado.cuenta} guardar={guardar} />
             <TusAvisos />
             <Correo correo={estado.cuenta.correo} />
@@ -258,6 +283,9 @@ const LARGO_MAXIMO_DEL_NOMBRE_DE_LA_MASCOTA = 30;
  * Cada personaje llega con su propio nombre. Si la persona no lo ha cambiado,
  * al elegir otro personaje el nombre cambia con el; si ya le puso uno suyo, se
  * respeta.
+ *
+ * Quien subio su propia mascota (SCRUM-122) la ve como una sexta opcion, «Mi
+ * mascota». Quien no, no ve nada nuevo: no hay nada que elegir.
  */
 function TuMascota({
   cuenta,
@@ -267,25 +295,30 @@ function TuMascota({
   guardar: (cambios: CambiosDePreferencias) => Promise<void>;
 }) {
   const actual = mascotaParaMostrar(cuenta.mascota);
-  const [personaje, setPersonaje] = useState<Personaje>(actual.personaje);
+  const tienePropia = cuenta.mascotaPropia != null;
+  const dibujoPropio = useMascotaPropia();
+  // Una forma «propia» sin dibujo guardado no tiene nada que elegir: se dibuja
+  // como Fungito, igual que una forma que este frontend no conoce.
+  const eleccionActual: Eleccion =
+    actual.propia && tienePropia ? FORMA_DE_LA_MASCOTA_PROPIA : actual.personaje;
+  const [eleccion, setEleccion] = useState<Eleccion>(eleccionActual);
   const [nombre, setNombre] = useState(actual.nombre);
   const [ocupado, setOcupado] = useState(false);
   const [aviso, setAviso] = useState<Aviso>(null);
   const grupo = useId();
   const idDelNombre = useId();
+  const opciones: readonly Eleccion[] = tienePropia
+    ? [...PERSONAJES_EN_ORDEN, FORMA_DE_LA_MASCOTA_PROPIA]
+    : PERSONAJES_EN_ORDEN;
 
   // Sin mascota guardada todavia, guardar la de siempre tambien es un cambio.
   const cambio =
-    cuenta.mascota === null || personaje !== actual.personaje || nombre.trim() !== actual.nombre;
+    cuenta.mascota === null || eleccion !== eleccionActual || nombre.trim() !== actual.nombre;
 
-  function elegir(nuevo: Personaje) {
+  function elegir(nueva: Eleccion) {
     setAviso(null);
-
-    if (nombre.trim() === '' || nombre.trim() === PERSONAJES[personaje].nombre) {
-      setNombre(PERSONAJES[nuevo].nombre);
-    }
-
-    setPersonaje(nuevo);
+    setNombre(nombreAlElegir(nombre, eleccion, nueva));
+    setEleccion(nueva);
   }
 
   async function alGuardar(evento: FormEvent) {
@@ -302,7 +335,7 @@ function TuMascota({
     setAviso(null);
 
     try {
-      await guardar({ mascota: { forma: personaje, nombre: limpio } });
+      await guardar({ mascota: { forma: eleccion, nombre: limpio } });
       setNombre(limpio);
       setAviso({ tipo: 'bien', texto: `Listo, ${limpio} te acompaña.` });
     } catch (error) {
@@ -328,36 +361,63 @@ function TuMascota({
         onSubmit={(evento) => void alGuardar(evento)}
         noValidate
       >
-        <fieldset className="perfil__personajes">
+        <fieldset
+          className={`perfil__personajes${tienePropia ? ' perfil__personajes--con-propia' : ''}`}
+        >
           <legend className="solo-lectores">Personaje</legend>
-          {PERSONAJES_EN_ORDEN.map((id) => (
+          {opciones.map((id) => (
             <label
               key={id}
-              className={`perfil__personaje${id === personaje ? ' perfil__personaje--elegido' : ''}`}
+              className={`perfil__personaje${id === eleccion ? ' perfil__personaje--elegido' : ''}`}
             >
               <input
                 type="radio"
                 name={grupo}
                 value={id}
-                checked={id === personaje}
+                checked={id === eleccion}
                 onChange={() => elegir(id)}
                 className="solo-lectores"
               />
-              <img
-                className="perfil__personaje-dibujo"
-                src={sprite(id, 'normal')}
-                alt=""
-                width={72}
-                height={72}
-                loading="lazy"
-              />
-              <span className="perfil__personaje-nombre">{PERSONAJES[id].nombre}</span>
-              <span className="perfil__personaje-rasgo">{PERSONAJES[id].rasgo}</span>
+              {id === FORMA_DE_LA_MASCOTA_PROPIA ? (
+                dibujoPropio.url === null ? (
+                  <span
+                    className="perfil__personaje-dibujo perfil__personaje-dibujo--vacio"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <img
+                    className="perfil__personaje-dibujo perfil__personaje-dibujo--propio"
+                    src={dibujoPropio.url}
+                    alt=""
+                    width={72}
+                    height={72}
+                  />
+                )
+              ) : (
+                <img
+                  className="perfil__personaje-dibujo"
+                  src={sprite(id, 'normal')}
+                  alt=""
+                  width={72}
+                  height={72}
+                  loading="lazy"
+                />
+              )}
+              <span className="perfil__personaje-nombre">{nombreDeFabrica(id)}</span>
+              <span className="perfil__personaje-rasgo">
+                {id === FORMA_DE_LA_MASCOTA_PROPIA
+                  ? RASGO_DE_LA_MASCOTA_PROPIA
+                  : PERSONAJES[id].rasgo}
+              </span>
             </label>
           ))}
         </fieldset>
 
-        <p className="app__nota perfil__ayuda">{PERSONAJES[personaje].presentacion}</p>
+        <p className="app__nota perfil__ayuda">
+          {eleccion === FORMA_DE_LA_MASCOTA_PROPIA
+            ? PRESENTACION_DE_LA_MASCOTA_PROPIA
+            : PERSONAJES[eleccion].presentacion}
+        </p>
 
         <div className="bienvenida__campo">
           <label htmlFor={idDelNombre} className="bienvenida__etiqueta">
@@ -475,8 +535,6 @@ function Correo({ correo }: { correo: string }) {
   );
 }
 
-const MINIMO_DE_CONTRASENA = 8;
-
 /**
  * El cambio de contrasena en dos pasos.
  *
@@ -496,6 +554,7 @@ function Contrasena({ correo }: { correo: string }) {
   const idCodigo = useId();
   const idNueva = useId();
   const idRepetida = useId();
+  const idMedidor = useId();
 
   async function pedirCodigo() {
     setOcupado(true);
@@ -522,11 +581,10 @@ function Contrasena({ correo }: { correo: string }) {
       return;
     }
 
-    if (nueva.length < MINIMO_DE_CONTRASENA) {
-      setAviso({
-        tipo: 'fallo',
-        texto: `La contraseña nueva necesita al menos ${MINIMO_DE_CONTRASENA} caracteres.`,
-      });
+    const faltaAlgo = mensajeSiNoCumple(nueva);
+
+    if (faltaAlgo !== null) {
+      setAviso({ tipo: 'fallo', texto: faltaAlgo });
       return;
     }
 
@@ -598,7 +656,9 @@ function Contrasena({ correo }: { correo: string }) {
               value={nueva}
               onChange={(evento) => setNueva(evento.target.value)}
               autoComplete="new-password"
+              aria-describedby={idMedidor}
             />
+            <MedidorDeContrasena contrasena={nueva} id={idMedidor} />
           </div>
           <div className="bienvenida__campo">
             <label htmlFor={idRepetida} className="bienvenida__etiqueta">

@@ -1,0 +1,23 @@
+/* La marca de la aplicacion despues de entrar (SCRUM-117).
+   Sin ningun valor que dependa del tema: el isotipo lleva sus colores fijos y
+   el texto hereda el de la pantalla donde esta. */
+
+.marca {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.marca .isotipo {
+  display: block;
+  flex: none;
+}
+
+.marca__texto {
+  font-family: var(--app-fuente-titulos, Newsreader, Georgia, serif);
+  font-size: 25px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}

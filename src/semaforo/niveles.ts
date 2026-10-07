@@ -85,12 +85,66 @@ export function edad(dias: number): string {
 
 /**
  * Lo que dice el recordatorio. El del aplazable es el suave: no es urgente,
- * pero que no se acumule.
+ * pero que no se acumule. Si es por la fecha limite que la persona puso, dice
+ * que llego el dia (SCRUM-119): no es "hace un tiempo", es lo que ella eligio.
  */
 export function textoDelRecordatorio(recordatorio: Recordatorio): string {
+  if (recordatorio.fechaLimite !== null) {
+    return 'Llegó la fecha que le pusiste a esto. ¿Quieres revisarlo?';
+  }
+
   return recordatorio.tono === 'suave'
     ? 'Esto no es urgente, pero no dejes que se acumule. ¿Le echas un vistazo?'
     : 'Ey, tienes esto pendiente desde hace un tiempo. ¿Quieres revisarlo?';
+}
+
+const FORMATO_DEL_DIA = new Intl.DateTimeFormat('es-CO', {
+  // El dia ya es local: se pinta a mediodia UTC para que ninguna zona lo mueva.
+  timeZone: 'UTC',
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+});
+
+/** Cuantos dias van de uno a otro (AAAA-MM-DD): negativo si el limite ya paso. */
+function diasEntre(desde: string, hasta: string): number {
+  return Math.round(
+    (Date.parse(`${hasta}T12:00:00Z`) - Date.parse(`${desde}T12:00:00Z`)) / UN_DIA_EN_MS,
+  );
+}
+
+/**
+ * Lo que dice la fecha limite de un pendiente, en palabras (SCRUM-119).
+ *
+ * `hoy` es el dia de la persona, en su zona: el mismo instante puede ser un dia
+ * distinto en cada sitio. `vencida` es para quien pinta: una fecha que ya paso
+ * no es un error ni una alarma, pero conviene que se note.
+ */
+export function vencimiento(
+  fechaLimite: string,
+  hoy: string,
+): { readonly texto: string; readonly vencida: boolean } {
+  const dias = diasEntre(hoy, fechaLimite);
+
+  if (dias === 0) {
+    return { texto: 'Vence hoy', vencida: false };
+  }
+
+  if (dias === 1) {
+    return { texto: 'Vence mañana', vencida: false };
+  }
+
+  if (dias === -1) {
+    return { texto: 'Venció ayer', vencida: true };
+  }
+
+  if (dias < 0) {
+    return { texto: `Venció hace ${-dias} días`, vencida: true };
+  }
+
+  const nombre = FORMATO_DEL_DIA.format(new Date(`${fechaLimite}T12:00:00Z`));
+
+  return { texto: `Vence el ${nombre}`, vencida: false };
 }
 
 /**

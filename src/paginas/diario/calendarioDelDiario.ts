@@ -1,26 +1,15 @@
 import type { Anotacion } from '../../infraestructura/api/diario.ts';
+import { diaEnLaZona, formatoEn, zonaActual } from '../../tiempo/zonaHoraria.ts';
 
 /**
- * Los dias y las horas del diario, siempre en hora de Colombia (SCRUM-96).
+ * Los dias y las horas del diario, en la zona de la persona (SCRUM-96,
+ * SCRUM-123).
  *
- * El dia de una anotacion lo decide el servidor con la misma zona. Aqui se
- * calcula igual para saber que es "hoy" y para ensenar las horas: con la del
- * navegador, alguien de viaje veria su diario corrido un dia.
+ * El dia de una anotacion lo decide el servidor con la zona de la cuenta. Aqui
+ * se calcula igual para saber que es "hoy" y para ensenar las horas: con una
+ * zona distinta, el diario de alguien de viaje se veria corrido un dia. Ver
+ * `tiempo/zonaHoraria.ts` para de donde sale.
  */
-const ZONA = 'America/Bogota';
-
-const FORMATO_DE_DIA = new Intl.DateTimeFormat('en-CA', {
-  timeZone: ZONA,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-});
-
-const FORMATO_DE_HORA = new Intl.DateTimeFormat('es-CO', {
-  timeZone: ZONA,
-  hour: 'numeric',
-  minute: '2-digit',
-});
 
 // Un dia ya es local: se pinta a mediodia UTC para que ninguna zona lo mueva.
 const FORMATO_DE_NOMBRE = new Intl.DateTimeFormat('es-CO', {
@@ -41,9 +30,9 @@ export function ahoraMismo(): Date {
   return new Date();
 }
 
-/** El dia de un instante en Colombia, AAAA-MM-DD. */
-export function diaEnColombia(instante: Date): string {
-  return FORMATO_DE_DIA.format(instante);
+/** El dia de un instante en la zona de la persona, AAAA-MM-DD. */
+export function diaDe(instante: Date): string {
+  return diaEnLaZona(instante);
 }
 
 /** El dia `n` dias antes. */
@@ -51,9 +40,11 @@ export function diasAntes(dia: string, n: number): string {
   return new Date(Date.parse(`${dia}T12:00:00Z`) - n * UN_DIA).toISOString().slice(0, 10);
 }
 
-/** "8:14 p. m.", en hora de Colombia. */
-export function horaEnColombia(iso: string): string {
-  return FORMATO_DE_HORA.format(new Date(iso));
+/** "8:14 p. m.", en la zona de la persona. */
+export function horaDe(iso: string): string {
+  return formatoEn(zonaActual(), 'es-CO', { hour: 'numeric', minute: '2-digit' }).format(
+    new Date(iso),
+  );
 }
 
 /** "Hoy", "Ayer" o "sábado, 27 de septiembre". */

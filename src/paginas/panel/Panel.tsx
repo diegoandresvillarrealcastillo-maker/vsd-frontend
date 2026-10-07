@@ -8,6 +8,7 @@ import type { ActividadDeHoy, ProgresoDelModulo } from '../../infraestructura/ap
 import { MascotaFlotante } from '../../mascota/MascotaFlotante.tsx';
 import { rutaDeActividad, rutaDeModulo } from '../../rutas/rutas.ts';
 import { Semaforo } from '../../semaforo/Semaforo.tsx';
+import { formatoEn, zonaActual } from '../../tiempo/zonaHoraria.ts';
 import { Bienvenida } from './Bienvenida.tsx';
 import { Celebracion } from './Celebracion.tsx';
 import { BarraSuperior, NavegacionInferior } from './Estructura.tsx';
@@ -32,13 +33,12 @@ import { useDatosDelPanel } from './useDatosDelPanel.ts';
  * - La etiqueta "Vista de prueba", que era del prototipo.
  */
 
-/** "Viernes, 2 de octubre", siempre en hora de Colombia, como el servidor. */
+/** "Viernes, 2 de octubre", en la zona de la persona, como el servidor. */
 function hoyEnCastellano(): string {
-  const texto = new Intl.DateTimeFormat('es-CO', {
+  const texto = formatoEn(zonaActual(), 'es-CO', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
-    timeZone: 'America/Bogota',
   }).format(new Date());
 
   return texto.charAt(0).toUpperCase() + texto.slice(1);

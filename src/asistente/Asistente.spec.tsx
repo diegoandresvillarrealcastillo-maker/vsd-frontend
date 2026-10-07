@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { RespuestaDelAsistente } from '../infraestructura/api/asistente.ts';
 import { ErrorDeLaApi } from '../infraestructura/api/clienteHttp.ts';
+import { fijarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
 import { Asistente } from './Asistente.tsx';
 import { ESPERA_MAXIMA_MS } from './useConversacion.ts';
 
@@ -148,6 +149,23 @@ describe('VSD IA', () => {
       expect(lineas).toHaveTextContent('Línea 106');
     });
 
+    it('y si no manda ninguna fuera de Colombia, el directorio y ningun telefono de Colombia', async () => {
+      fijarLaZonaDeLaCuenta('America/Mexico_City');
+      preguntarAlAsistente.mockResolvedValue({ ...CON_RIESGO, recursos: [] });
+
+      pintar();
+
+      await usuario.type(campo(), 'ya no puedo más{Enter}');
+
+      const lineas = await screen.findByRole('region', {
+        name: 'Si te sirve hablarlo con alguien',
+      });
+
+      expect(lineas).toHaveTextContent('Directorio internacional de líneas de ayuda');
+      expect(lineas).not.toHaveTextContent('Línea 192');
+      expect(lineas).not.toHaveTextContent('Línea 123');
+    });
+
     it('y si no manda ninguna, las nacionales de respaldo', async () => {
       preguntarAlAsistente.mockResolvedValue({ ...CON_RIESGO, recursos: [] });
 
@@ -178,6 +196,28 @@ describe('VSD IA', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('Línea 192, opción 4');
       expect(screen.queryByText('Pensando…')).not.toBeInTheDocument();
     });
+
+    it.each(['America/Lima', 'Europe/Madrid'])(
+      'fuera de Colombia (%s), manda al directorio y no ensena telefonos de Colombia (SCRUM-124)',
+      async (zona) => {
+        fijarLaZonaDeLaCuenta(zona);
+        vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+
+        pintar();
+
+        await usuario.type(campo(), 'hola{Enter}');
+
+        const alerta = screen.getByRole('alert');
+
+        expect(alerta).toHaveTextContent('No tienes conexión');
+        expect(alerta).not.toHaveTextContent('192');
+        expect(alerta).not.toHaveTextContent('123');
+        expect(alerta).toHaveTextContent('número de emergencias del lugar donde estás');
+        expect(
+          within(alerta).getByRole('link', { name: /directorio internacional/ }),
+        ).toHaveAttribute('href', 'https://findahelpline.com/');
+      },
+    );
 
     it('si la peticion no llega, tambien es falta de conexion', async () => {
       preguntarAlAsistente.mockRejectedValue(new TypeError('Failed to fetch'));

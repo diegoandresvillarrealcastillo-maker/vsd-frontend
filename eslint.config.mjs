@@ -6,9 +6,8 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    // `public/` se sirve tal cual, sin compilar. Su unico codigo es el service
-    // worker (SCRUM-102), que corre fuera de la pagina y no entra en el
-    // proyecto de TypeScript que usan las reglas con tipos.
+    // `public/` se sirve tal cual, sin compilar y sin codigo propio: el service
+    // worker vive en `src/sw.ts` desde SCRUM-135.
     ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'public/**'],
   },
 
@@ -18,6 +17,8 @@ export default tseslint.config(
 
   {
     files: ['src/**/*.{ts,tsx}'],
+    // El service worker tiene su propio proyecto de TypeScript: ver abajo.
+    ignores: ['src/sw.ts'],
     languageOptions: {
       globals: globals.browser,
       parserOptions: {
@@ -77,6 +78,35 @@ export default tseslint.config(
   },
 
   {
+    // El script que comprueba el service worker compilado (SCRUM-135) corre en
+    // Node y no pertenece a ningun proyecto de TypeScript: se revisa sin las
+    // reglas que necesitan tipos, igual que los demas `.mjs`.
+    files: ['scripts/comprobar-el-service-worker.mjs'],
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
+
+  {
+    // El service worker (SCRUM-135): otro mundo, sin `window`, con `self` y sus
+    // propios tipos.
+    files: ['src/sw.ts'],
+    languageOptions: {
+      globals: globals.serviceworker,
+      parserOptions: {
+        project: ['./tsconfig.sw.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
+    },
+  },
+
+  {
     files: ['vite.config.ts'],
     languageOptions: {
       globals: globals.node,
@@ -90,8 +120,9 @@ export default tseslint.config(
   {
     // Los archivos de configuracion en JavaScript no pertenecen a ningun
     // proyecto de TypeScript, asi que las reglas que necesitan tipos no pueden
-    // aplicarse sobre ellos. Se revisan igual, solo que sin esa parte.
-    files: ['*.mjs'],
+    // aplicarse sobre ellos. Se revisan igual, solo que sin esa parte. Los
+    // scripts de `scripts/` (SCRUM-122) corren en Node y son del mismo tipo.
+    files: ['*.mjs', 'scripts/**/*.mjs'],
     extends: [tseslint.configs.disableTypeChecked],
     languageOptions: {
       globals: globals.node,

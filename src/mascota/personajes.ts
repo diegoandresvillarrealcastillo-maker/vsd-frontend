@@ -1,18 +1,22 @@
 import type { Mascota } from '../infraestructura/api/cuenta.ts';
 
 /**
- * Los seis personajes que pueden acompañar a cada persona (SCRUM-99).
+ * Los cinco personajes que pueden acompañar a cada persona (SCRUM-99).
  *
  * Los definió Diego, con su historia y sus cuatro expresiones. Los dibujos son
  * sus hojas de expresiones, recortadas a `sprites/` desde
  * `disenos/mascotas/` con `recortar-hojas.py`.
  *
- * Las frases van con la personalidad de cada uno. Acompañan, no evalúan ni
- * aconsejan sobre salud: ninguna menciona síntomas, diagnósticos ni
- * tratamientos.
+ * Eran seis: Trama se retiró (SCRUM-121). Quien la tenía guardada se dibuja como
+ * Fungito, igual que cualquier forma que este frontend no conozca.
+ *
+ * Las frases de cada uno van con su personalidad y se suman al banco general
+ * (`frasesDeLaMascota.ts`, SCRUM-129), que sirve a cualquier avatar. Acompañan,
+ * no evalúan ni aconsejan sobre salud: ninguna menciona síntomas, diagnósticos
+ * ni tratamientos.
  */
 
-export type Personaje = 'fungito' | 'sparky' | 'ori' | 'gato' | 'obsidian' | 'trama';
+export type Personaje = 'fungito' | 'sparky' | 'ori' | 'gato' | 'obsidian';
 
 export type Expresion = 'normal' | 'feliz' | 'celebrando' | 'dormida';
 
@@ -30,10 +34,47 @@ export const PERSONAJES_EN_ORDEN: readonly Personaje[] = [
   'ori',
   'gato',
   'obsidian',
-  'trama',
 ];
 
 export const PERSONAJE_POR_DEFECTO: Personaje = 'fungito';
+
+/**
+ * La forma que significa «mi mascota propia» (SCRUM-122): un dibujo SVG que subio
+ * la persona. No es un personaje de la lista: no tiene sprites ni frases ni
+ * cuatro caras, y su dibujo se pide al servidor (`foto/mascotaPropia.ts`).
+ */
+export const FORMA_DE_LA_MASCOTA_PROPIA = 'propia';
+
+/** El nombre con el que llega la mascota propia; la persona lo puede cambiar. */
+export const NOMBRE_DE_LA_MASCOTA_PROPIA = 'Mi mascota';
+
+/** Lo que dice la tarjeta de la mascota propia, donde un personaje dice su rasgo. */
+export const RASGO_DE_LA_MASCOTA_PROPIA = 'Tu dibujo';
+
+export const PRESENTACION_DE_LA_MASCOTA_PROPIA =
+  'Es el dibujo que subiste. No tiene cuatro caras: se mueve y brilla según el momento del día.';
+
+/** Lo que se puede elegir como mascota: un personaje de la lista o la propia. */
+export type Eleccion = Personaje | typeof FORMA_DE_LA_MASCOTA_PROPIA;
+
+/** El nombre con el que llega lo elegido, que la persona puede cambiar. */
+export function nombreDeFabrica(eleccion: Eleccion): string {
+  return eleccion === FORMA_DE_LA_MASCOTA_PROPIA
+    ? NOMBRE_DE_LA_MASCOTA_PROPIA
+    : PERSONAJES[eleccion].nombre;
+}
+
+/**
+ * El nombre que queda al pasar de una mascota a otra.
+ *
+ * Si la persona no le habia puesto uno suyo —sigue vacio o es el de fabrica de la
+ * que tenia— el nombre cambia con la mascota; si ya le puso uno, se respeta.
+ */
+export function nombreAlElegir(nombre: string, antes: Eleccion, despues: Eleccion): string {
+  const limpio = nombre.trim();
+
+  return limpio === '' || limpio === nombreDeFabrica(antes) ? nombreDeFabrica(despues) : nombre;
+}
 
 export const PERSONAJES: Readonly<Record<Personaje, DatosDePersonaje>> = {
   fungito: {
@@ -101,19 +142,6 @@ export const PERSONAJES: Readonly<Record<Personaje, DatosDePersonaje>> = {
       'Fuerte no es quien no para, sino quien sabe cuándo parar.',
     ],
   },
-  trama: {
-    nombre: 'Trama',
-    rasgo: 'Armonía rítmica',
-    presentacion:
-      'Un viejo telar que cobró vida. Sabe que lo bueno se teje hilo a hilo, sin pensar en la manta entera.',
-    frases: [
-      'Hilo a hilo, el tejido crece.',
-      'No mires toda la manta: mira el hilo de hoy.',
-      'Un punto suelto no arruina el tejido.',
-      'Tu ritmo es el ritmo correcto.',
-      'Lo que se teje con calma dura más.',
-    ],
-  },
 };
 
 export function esPersonaje(valor: string | undefined): valor is Personaje {
@@ -126,16 +154,27 @@ export function esPersonaje(valor: string | undefined): valor is Personaje {
  * Una forma que este frontend no conoce —una guardada con el modelo anterior,
  * o un personaje que llegue despues— se dibuja como Fungito, pero conserva el
  * nombre que la persona le puso.
+ *
+ * `propia` dice que la elegida es la mascota propia (SCRUM-122). Su dibujo no
+ * sale de aqui sino del servidor, y puede no estar todavia —o no llegar—: por eso
+ * `personaje` sigue valiendo Fungito, que es lo que se pinta mientras tanto o si
+ * el dibujo no llega.
  */
 export function mascotaParaMostrar(mascota: Mascota | null): {
   readonly personaje: Personaje;
   readonly nombre: string;
+  readonly propia: boolean;
 } {
   if (mascota === null) {
-    return { personaje: PERSONAJE_POR_DEFECTO, nombre: PERSONAJES[PERSONAJE_POR_DEFECTO].nombre };
+    return {
+      personaje: PERSONAJE_POR_DEFECTO,
+      nombre: PERSONAJES[PERSONAJE_POR_DEFECTO].nombre,
+      propia: false,
+    };
   }
 
+  const propia = mascota.forma === FORMA_DE_LA_MASCOTA_PROPIA;
   const personaje = esPersonaje(mascota.forma) ? mascota.forma : PERSONAJE_POR_DEFECTO;
 
-  return { personaje, nombre: mascota.nombre };
+  return { personaje, nombre: mascota.nombre, propia };
 }

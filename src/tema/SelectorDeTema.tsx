@@ -1,5 +1,5 @@
-import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { useEffect, useState } from 'react';
 
 import { ACOMPANADO, INMEDIATO } from '../estilos/movimiento.ts';
 import { ponerTema, temaActual, type Tema } from './tema.ts';
@@ -23,7 +23,24 @@ import { ponerTema, temaActual, type Tema } from './tema.ts';
  * apagan. Con `layoutId`, Framer Motion lo reconoce entre los dos botones y lo
  * mueve; sin el, el cambio seria un corte y habria que buscar con la vista
  * donde quedo la marca.
+ *
+ * ---------------------------------------------------------------------------
+ * Por que el vidrio solo aparece al cambiar (SCRUM-118)
+ * ---------------------------------------------------------------------------
+ *
+ * En reposo el control es plano: dos iconos y una pastilla de color, sin
+ * capas encima. El efecto de "liquid glass" es del *movimiento*, no del
+ * control: mientras la pastilla viaja de un icono al otro se estira como una
+ * gota y se vuelve un cristal que deforma lo que pasa por debajo, y al llegar
+ * vuelve a ser plana. Dejarlo puesto siempre era lo que lo hacia pesado.
+ *
+ * Quien decide cuando es la marca `data-moviendo` del grupo, que este
+ * componente pone al elegir y quita cuando termina. El dibujo de las dos fases
+ * esta en `global.css`.
  */
+
+/** Lo que dura el cambio. La misma cifra esta en las animaciones de `global.css`. */
+const DURACION_DEL_CAMBIO_MS = 560;
 
 const OPCIONES: readonly { tema: Tema; nombre: string }[] = [
   { tema: 'claro', nombre: 'Tema claro' },
@@ -83,14 +100,41 @@ export function SelectorDeTema({ variante = 'flotante' }: Props) {
   // Se lee una sola vez al montar. A partir de ahi el estado de aqui y la
   // marca del documento cambian juntos, asi que no hay nada que resincronizar.
   const [tema, setTema] = useState<Tema>(temaActual);
+  const [moviendo, setMoviendo] = useState(false);
+  const sinMovimiento = useReducedMotion();
+
+  // Se quita sola al terminar el cambio. Si se vuelve a elegir antes, el
+  // temporizador anterior se descarta y empieza uno nuevo.
+  useEffect(() => {
+    if (!moviendo) {
+      return undefined;
+    }
+
+    const temporizador = setTimeout(() => setMoviendo(false), DURACION_DEL_CAMBIO_MS + 40);
+
+    return () => clearTimeout(temporizador);
+  }, [moviendo, tema]);
 
   function elegir(nuevo: Tema) {
+    if (nuevo === tema) {
+      return;
+    }
+
     setTema(nuevo);
     ponerTema(nuevo);
+
+    // Con "reducir movimiento" el cambio es inmediato y no hay nada que
+    // estirar ni cristal que mostrar.
+    setMoviendo(sinMovimiento !== true);
   }
 
   return (
-    <div className={CLASE[variante]} role="group" aria-label="Tema de la aplicación">
+    <div
+      className={CLASE[variante]}
+      role="group"
+      aria-label="Tema de la aplicación"
+      data-moviendo={moviendo ? '' : undefined}
+    >
       {OPCIONES.map((opcion) => {
         const activo = tema === opcion.tema;
 
@@ -104,7 +148,7 @@ export function SelectorDeTema({ variante = 'flotante' }: Props) {
             // forma de saber en que tema se esta.
             aria-pressed={activo}
             onClick={() => elegir(opcion.tema)}
-            whileTap={{ scale: 0.92 }}
+            whileTap={sinMovimiento ? {} : { scale: 0.92 }}
             transition={INMEDIATO}
           >
             <span className="solo-lectores">{opcion.nombre}</span>
@@ -113,7 +157,7 @@ export function SelectorDeTema({ variante = 'flotante' }: Props) {
               <motion.span
                 className="tema__pastilla"
                 layoutId="pastilla-del-tema"
-                transition={ACOMPANADO}
+                transition={sinMovimiento ? { duration: 0 } : ACOMPANADO}
               />
             )}
 

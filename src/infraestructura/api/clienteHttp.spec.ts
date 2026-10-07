@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ErrorDeLaApi, llamarALaApi } from './clienteHttp.ts';
+import { ErrorDeLaApi, llamarALaApi, pedirBytesALaApi, segundosDeEspera } from './clienteHttp.ts';
 
 /**
  * El cliente HTTP, comprobado sobre respuestas de verdad.
@@ -103,6 +103,66 @@ describe('llamarALaApi, cuando la API responde un error', () => {
   });
 });
 
+describe('Retry-After (SCRUM-136)', () => {
+  const AHORA = new Date('2026-10-07T12:00:00.000Z');
+
+  it('un numero de segundos se toma tal cual', () => {
+    expect(segundosDeEspera('120', AHORA)).toBe(120);
+    expect(segundosDeEspera(' 7 ', AHORA)).toBe(7);
+    expect(segundosDeEspera('0', AHORA)).toBe(0);
+  });
+
+  it('una fecha HTTP se convierte en los segundos que faltan', () => {
+    expect(segundosDeEspera('Wed, 07 Oct 2026 12:02:00 GMT', AHORA)).toBe(120);
+  });
+
+  it('una fecha que ya paso no es una espera negativa', () => {
+    expect(segundosDeEspera('Wed, 07 Oct 2026 11:00:00 GMT', AHORA)).toBe(0);
+  });
+
+  it.each([
+    ['ausente', null],
+    ['vacio', ''],
+    ['texto', 'pronto'],
+    ['negativo', '-5'],
+    ['con decimales', '1.5'],
+  ])('lo que no se entiende (%s) se ignora', (_nombre, valor) => {
+    expect(segundosDeEspera(valor, AHORA)).toBeUndefined();
+  });
+
+  it('un 429 con Retry-After lo conserva en el error', async () => {
+    cuandoLaApiResponde(
+      respuesta({ codigo: 'DEMASIADAS_PETICIONES', mensaje: 'Espera.' }, 429, {
+        'Retry-After': '30',
+      }),
+    );
+
+    await expect(llamarALaApi('/api/resultados')).rejects.toMatchObject({
+      estado: 429,
+      reintentarEnSegundos: 30,
+    });
+  });
+
+  it('sin la cabecera, no inventa una espera', async () => {
+    cuandoLaApiResponde(respuesta({ codigo: 'ERROR_INTERNO' }, 503));
+
+    const error = await llamarALaApi('/api/resultados').catch((causa: unknown) => causa);
+
+    expect(error).toBeInstanceOf(ErrorDeLaApi);
+    expect((error as ErrorDeLaApi).reintentarEnSegundos).toBeUndefined();
+  });
+
+  it('una cabecera mal formada no rompe la lectura del error', async () => {
+    cuandoLaApiResponde(respuesta({ codigo: 'ERROR_INTERNO' }, 503, { 'Retry-After': 'pronto' }));
+
+    await expect(llamarALaApi('/api/resultados')).rejects.toMatchObject({
+      estado: 503,
+      codigo: 'ERROR_INTERNO',
+      reintentarEnSegundos: undefined,
+    });
+  });
+});
+
 describe('llamarALaApi, cuando el error no viene con la forma esperada', () => {
   it('un cuerpo que no es JSON no se convierte en un fallo distinto', async () => {
     // La prueba que define esta tarea. Un proxy o un balanceador pueden
@@ -201,5 +261,150 @@ describe('llamarALaApi, la cabecera de autorizacion', () => {
     cuandoLaApiResponde(respuesta([]));
 
     await expect(llamarALaApi('/api/catalogo')).resolves.toEqual([]);
+  });
+});
+
+/** Lo que se mando en la primera llamada a `fetch`. */
+function loEnviado(): RequestInit {
+  const [, opciones] = vi.mocked(globalThis.fetch).mock.calls[0] as [string, RequestInit];
+
+  return opciones;
+}
+
+describe('llamarALaApi, cuando lo que se manda es un archivo (SCRUM-120)', () => {
+  const FOTO = new Blob([new Uint8Array([1, 2, 3, 4])], { type: 'image/jpeg' });
+
+  it('manda el archivo mismo, sin convertirlo a JSON, con su propio tipo', async () => {
+    cuandoLaApiResponde(respuesta({ ok: true }));
+
+    await llamarALaApi('/api/cuenta/foto', { metodo: 'PUT', bytes: FOTO });
+
+    const enviado = loEnviado();
+    const cabeceras = new Headers(enviado.headers);
+
+    expect(enviado.method).toBe('PUT');
+    expect(enviado.body).toBe(FOTO);
+    expect(cabeceras.get('Content-Type')).toBe('image/jpeg');
+  });
+
+  it('sigue llevando la sesion', async () => {
+    cuandoLaApiResponde(respuesta({ ok: true }));
+
+    await llamarALaApi('/api/cuenta/foto', { metodo: 'PUT', bytes: FOTO });
+
+    expect(new Headers(loEnviado().headers).get('Authorization')).toBe('Bearer token-de-prueba');
+  });
+
+  it('devuelve la respuesta interpretada, como cualquier otra llamada', async () => {
+    cuandoLaApiResponde(respuesta({ foto: { actualizadaEl: '2026-10-09T15:30:00.000Z' } }));
+
+    await expect(llamarALaApi('/api/cuenta/foto', { metodo: 'PUT', bytes: FOTO })).resolves.toEqual(
+      {
+        foto: { actualizadaEl: '2026-10-09T15:30:00.000Z' },
+      },
+    );
+  });
+
+  it('un fallo conserva su codigo, que es lo que permite decir que esta mal', async () => {
+    cuandoLaApiResponde(
+      respuesta({ codigo: 'FOTO_DEMASIADO_PESADA', mensaje: 'La foto pesa demasiado.' }, 413),
+    );
+
+    await expect(
+      llamarALaApi('/api/cuenta/foto', { metodo: 'PUT', bytes: FOTO }),
+    ).rejects.toMatchObject({ estado: 413, codigo: 'FOTO_DEMASIADO_PESADA' });
+  });
+
+  it('una sesion caducada tambien cierra la sesion', async () => {
+    cuandoLaApiResponde(respuesta({}, 401));
+
+    await expect(
+      llamarALaApi('/api/cuenta/foto', { metodo: 'PUT', bytes: FOTO }),
+    ).rejects.toMatchObject({ estado: 401 });
+
+    expect(signOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('las llamadas de siempre no cambian: un cuerpo JSON sigue siendo JSON', async () => {
+    cuandoLaApiResponde(respuesta({}));
+
+    await llamarALaApi('/api/cuenta/preferencias', { metodo: 'PATCH', cuerpo: { nombre: 'Ana' } });
+
+    expect(new Headers(loEnviado().headers).get('Content-Type')).toBe('application/json');
+    expect(loEnviado().body).toBe('{"nombre":"Ana"}');
+  });
+
+  it('sin cuerpo ni archivo, no manda ni tipo ni cuerpo', async () => {
+    cuandoLaApiResponde(respuesta({}));
+
+    await llamarALaApi('/api/cuenta/foto', { metodo: 'DELETE' });
+
+    expect(new Headers(loEnviado().headers).get('Content-Type')).toBeNull();
+    expect(loEnviado().body).toBeNull();
+  });
+});
+
+describe('pedirBytesALaApi (SCRUM-120)', () => {
+  function imagen(bytes: number[], tipo = 'image/png'): Response {
+    return new Response(new Uint8Array(bytes), { status: 200, headers: { 'Content-Type': tipo } });
+  }
+
+  it('devuelve el archivo como Blob, con el tipo y los bytes que trae', async () => {
+    cuandoLaApiResponde(imagen([9, 8, 7]));
+
+    const archivo = await pedirBytesALaApi('/api/cuenta/foto');
+
+    expect(archivo.type).toBe('image/png');
+    expect(new Uint8Array(await archivo.arrayBuffer())).toEqual(new Uint8Array([9, 8, 7]));
+  });
+
+  it('lleva la sesion, y pide una imagen', async () => {
+    cuandoLaApiResponde(imagen([1]));
+
+    await pedirBytesALaApi('/api/cuenta/foto');
+
+    const cabeceras = new Headers(loEnviado().headers);
+
+    expect(cabeceras.get('Authorization')).toBe('Bearer token-de-prueba');
+    expect(cabeceras.get('Accept')).toBe('image/jpeg, image/png');
+  });
+
+  it('por defecto pide una foto; con `acepta`, pide lo que se diga (SCRUM-122)', async () => {
+    cuandoLaApiResponde(imagen([1], 'image/svg+xml'));
+
+    const archivo = await pedirBytesALaApi('/api/cuenta/mascota-propia', {
+      acepta: 'image/svg+xml',
+    });
+
+    expect(new Headers(loEnviado().headers).get('Accept')).toBe('image/svg+xml');
+    expect(archivo.type).toBe('image/svg+xml');
+  });
+
+  it('un 404 sale como ErrorDeLaApi con su codigo, no como una imagen rota', async () => {
+    cuandoLaApiResponde(
+      respuesta({ codigo: 'FOTO_NO_ENCONTRADA', mensaje: 'No tienes foto.' }, 404),
+    );
+
+    await expect(pedirBytesALaApi('/api/cuenta/foto')).rejects.toMatchObject({
+      estado: 404,
+      codigo: 'FOTO_NO_ENCONTRADA',
+    });
+  });
+
+  it('una sesion caducada tambien cierra la sesion', async () => {
+    cuandoLaApiResponde(respuesta({}, 401));
+
+    await expect(pedirBytesALaApi('/api/cuenta/foto')).rejects.toMatchObject({ estado: 401 });
+
+    expect(signOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('un cuerpo que no es de la API no se convierte en otro fallo', async () => {
+    cuandoLaApiResponde(respuestaEnBruto('<html>502</html>', 502));
+
+    await expect(pedirBytesALaApi('/api/cuenta/foto')).rejects.toMatchObject({
+      estado: 502,
+      codigo: undefined,
+    });
   });
 });

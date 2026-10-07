@@ -16,6 +16,17 @@ export interface Pendiente {
   readonly hecho: boolean;
   /** Mientras no llegue, no recuerda nada. */
   readonly posponerHasta: string | null;
+  /**
+   * Dia limite, AAAA-MM-DD, en el calendario de la persona (SCRUM-119). `null`:
+   * no vence un dia concreto.
+   */
+  readonly fechaLimite: string | null;
+  /**
+   * Empieza en 1 y sube con cada edicion (SCRUM-134). Hay que devolverla al editar
+   * para que la API detecte que otro dispositivo lo cambio. Es opcional porque un
+   * servidor anterior a ese cambio no la manda.
+   */
+  readonly version?: number;
   readonly creadoEn: string;
   readonly editadoEn: string;
 }
@@ -34,6 +45,8 @@ export interface Recordatorio {
   /** El nivel que se sugiere subir, o `null` si ya es urgente. Nunca se aplica solo. */
   readonly nivelSugerido: NivelDePendiente | null;
   readonly tono: 'plazo' | 'suave';
+  /** El dia limite que llego, o `null` si el recordatorio es por los dias de su color. */
+  readonly fechaLimite: string | null;
 }
 
 /** Lo que responde `GET /api/pendientes`. */
@@ -49,14 +62,26 @@ export interface PendientePorCrear {
   readonly clientOperationId: string;
   readonly texto: string;
   readonly nivel: NivelDePendiente;
+  /** AAAA-MM-DD. Opcional: sin ella no vence un dia concreto. */
+  readonly fechaLimite?: string;
 }
 
-/** Lo que no viene se queda como estaba; `posponerHasta: null` deja de posponer. */
+/**
+ * Lo que no viene se queda como estaba; `posponerHasta: null` deja de posponer
+ * y `fechaLimite: null` quita la fecha limite.
+ */
 export interface CambiosDePendiente {
+  /**
+   * La version que se tenia del pendiente (SCRUM-134). Si ya no es la vigente, la
+   * API responde 409 `VERSION_DESACTUALIZADA`, salvo que solo se marque como hecho.
+   * Sin ella no se comprueba nada.
+   */
+  readonly version?: number;
   readonly texto?: string;
   readonly nivel?: NivelDePendiente;
   readonly hecho?: boolean;
   readonly posponerHasta?: string | null;
+  readonly fechaLimite?: string | null;
 }
 
 const RUTA = '/api/pendientes';

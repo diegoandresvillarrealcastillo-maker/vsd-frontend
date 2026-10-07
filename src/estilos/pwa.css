@@ -1,0 +1,98 @@
+/* ============================================================
+   El aviso de version nueva (SCRUM-135)
+   ============================================================
+   Usa solo los colores globales, no los de `.app`: se ve igual en la
+   portada, en el acceso y dentro de la aplicacion, y en los dos temas.
+
+   Arriba de todo lo que flota (la mascota, el dock del movil, el
+   boton del semaforo) y por debajo de los dialogos (z-index 60): un
+   dialogo abierto es una tarea a medias, y este aviso puede esperar.
+   ============================================================ */
+
+.version-nueva {
+  position: fixed;
+  z-index: 50;
+  right: 0;
+  left: 0;
+  /* En el movil, sobre el dock (mide unos 65 px, a 16 px del borde) y sobre el
+     boton del semaforo (a 104 px). */
+  bottom: calc(8.5rem + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  justify-content: center;
+  padding: 0 1rem;
+  /* El contenedor ocupa todo el ancho pero no recibe toques: solo la tarjeta. */
+  pointer-events: none;
+}
+
+@media (min-width: 768px) {
+  /* Sin dock: abajo, con aire. */
+  .version-nueva {
+    bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.version-nueva__tarjeta {
+  display: grid;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 28rem;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: 1rem;
+  background: var(--fondo-elevado);
+  color: var(--texto);
+  box-shadow: var(--sombra);
+  pointer-events: auto;
+}
+
+.version-nueva__texto {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+.version-nueva__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.version-nueva__boton {
+  padding: 0.625rem 1rem;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: 0.75rem;
+  background: transparent;
+  color: var(--texto);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.version-nueva__boton--principal {
+  border-color: var(--acento);
+  background: var(--acento);
+  color: var(--acento-contraste);
+}
+
+.version-nueva__boton:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.version-nueva__boton:focus-visible {
+  outline: 3px solid var(--acento-claro);
+  outline-offset: 2px;
+}
+
+.version-nueva__boton:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* Si no se pudo actualizar. El color solo no basta (contraste y daltonismo): el
+   texto ya lo dice con palabras, esto solo lo destaca. */
+.version-nueva__error {
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--borde-fuerte);
+  font-weight: 600;
+}

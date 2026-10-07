@@ -37,6 +37,7 @@ const CUENTA: Cuenta = {
   modulosActivos: ['bienestar'],
   mascota: null,
   diarioConRecomendaciones: false,
+  zonaHoraria: 'America/Bogota',
 };
 
 /** Tres sesiones hechas y nada todavia hoy. */
@@ -270,7 +271,7 @@ describe('Sendero', () => {
     it('acompaña en el sendero, y celebra cuando lo de hoy esta hecho', async () => {
       darDeAltaLaCuenta.mockResolvedValue({
         ...CUENTA,
-        mascota: { forma: 'trama', nombre: 'Hilo' },
+        mascota: { forma: 'ori', nombre: 'Hilo' },
       });
       conProgreso({
         sesiones: 4,
