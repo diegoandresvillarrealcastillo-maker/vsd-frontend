@@ -1166,8 +1166,8 @@
   max-width: none;
 }
 
-/* Seis personajes: tres por fila en el movil y los seis en fila desde 768 px,
-   para que ninguno quede solo en una fila. */
+/* Cinco personajes: tres por fila en el movil (3 y 2, ninguno solo) y los
+   cinco en fila desde 768 px. */
 .perfil__personajes {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1816,7 +1816,7 @@
   }
 
   .perfil__personajes {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .app__nav-inferior {

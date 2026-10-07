@@ -257,7 +257,7 @@ describe('el banco de frases', () => {
   describe('sirven a cualquier avatar', () => {
     it('no nombran a ningun personaje ni lo que es solo suyo', () => {
       const propio =
-        /fungito|sparky|chispa|(?<!\p{L})ori(?!\p{L})|gato|ojo de gato|obsidian|trama|hongo|seta|compost|telar|hilo|tej[ei]|pliegue|doblar|grulla|ámbar|faro|cristal|gólem|robot|biblioteca|gafas|ronronea|prrr|escudo|manta|tierra/iu;
+        /fungito|sparky|chispa|(?<!\p{L})ori(?!\p{L})|gato|ojo de gato|obsidian|hongo|seta|compost|pliegue|doblar|grulla|ámbar|faro|cristal|gólem|robot|biblioteca|gafas|ronronea|prrr|escudo|tierra/iu;
 
       expect(ofensoras(propio)).toEqual([]);
     });
