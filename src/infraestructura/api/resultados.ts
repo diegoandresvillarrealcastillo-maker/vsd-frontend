@@ -92,7 +92,11 @@ export interface LineaDeAtencion {
   readonly descripcion?: string;
   readonly tipo: string;
 
-  /** Donde sirve: `nacional`, `bogota`, `universidad`. Hay que mostrarlo. */
+  /**
+   * Donde sirve: `nacional`, `bogota`, `universidad` o `internacional` (el
+   * directorio que recibe quien esta en un lugar sin lineas verificadas).
+   * Hay que mostrarlo.
+   */
   readonly cobertura?: string;
   readonly enlace?: string;
 }

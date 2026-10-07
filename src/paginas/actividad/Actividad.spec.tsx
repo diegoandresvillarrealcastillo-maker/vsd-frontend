@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
 import { rutaDeActividad, RUTAS } from '../../rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
+import { fijarLaZonaDeLaCuenta } from '../../tiempo/zonaHoraria.ts';
 import { Actividad } from './Actividad.tsx';
 
 /**
@@ -312,6 +313,55 @@ describe('Actividad, las lineas de atencion (SCRUM-94)', () => {
 
     expect(within(seccion).getByText('Línea 192, opción 4')).toBeInTheDocument();
     expect(within(seccion).getByText('Línea 123')).toBeInTheDocument();
+  });
+
+  it.each(['Europe/Madrid', 'America/Lima'])(
+    'fuera de Colombia (%s), el respaldo es el directorio y no el 192 (SCRUM-124)',
+    async (zona) => {
+      // Lima comparte hora con Bogota, y aun asi no es Colombia: darle el 192
+      // seria darle un numero que no contesta.
+      fijarLaZonaDeLaCuenta(zona);
+      responder(true);
+
+      pintar(SUENO);
+      await terminarLaActividad();
+
+      const seccion = await screen.findByRole('region', {
+        name: 'Si te sirve hablarlo con alguien',
+      });
+
+      expect(
+        within(seccion).getByText('Directorio internacional de líneas de ayuda'),
+      ).toBeInTheDocument();
+      expect(within(seccion).getByText('Directorio internacional')).toBeInTheDocument();
+      expect(seccion).not.toHaveTextContent('192');
+      expect(seccion).not.toHaveTextContent('123');
+      expect(
+        within(seccion).getByRole('link', {
+          name: /Más información sobre Directorio internacional/,
+        }),
+      ).toHaveAttribute('href', 'https://findahelpline.com/');
+    },
+  );
+
+  it('si el servidor manda lineas de otro pais, esas se ven: el servidor es quien sabe', async () => {
+    fijarLaZonaDeLaCuenta('Europe/Madrid');
+    responder(true, [
+      {
+        id: 'l-024',
+        titulo: 'Línea 024, llama a la vida',
+        tipo: 'contacto',
+        cobertura: 'nacional',
+      },
+    ]);
+
+    pintar(SUENO);
+    await terminarLaActividad();
+
+    expect(await screen.findByText('Línea 024, llama a la vida')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Directorio internacional de líneas de ayuda'),
+    ).not.toBeInTheDocument();
   });
 
   it('una lista vacia tambien cae al respaldo', async () => {
