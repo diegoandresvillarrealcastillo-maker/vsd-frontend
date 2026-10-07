@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { formatoEn, zonaActual } from '../tiempo/zonaHoraria.ts';
+import { horaLocal } from '../tiempo/zonaHoraria.ts';
 import type { Expresion } from './personajes.ts';
 
 /** Cuanto dura cada estado pasajero. */
@@ -14,13 +14,6 @@ export const INACTIVIDAD_MS = 120_000;
 const CLAVE_DEL_SALUDO = 'vsd-h:mascota-saludo';
 
 const EVENTOS_DE_ACTIVIDAD = ['pointerdown', 'keydown', 'scroll', 'touchstart'] as const;
-
-/** La hora en la zona de la persona (SCRUM-123): de noche es de noche donde ella esta. */
-function horaLocal(fecha: Date): number {
-  return Number(
-    formatoEn(zonaActual(), 'en-US', { hour: 'numeric', hourCycle: 'h23' }).format(fecha),
-  );
-}
 
 /** De diez de la noche a seis de la manana. */
 export function esDeNoche(fecha: Date): boolean {
