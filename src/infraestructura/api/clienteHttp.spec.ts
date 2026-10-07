@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ErrorDeLaApi, llamarALaApi, pedirBytesALaApi } from './clienteHttp.ts';
+import { ErrorDeLaApi, llamarALaApi, pedirBytesALaApi, segundosDeEspera } from './clienteHttp.ts';
 
 /**
  * El cliente HTTP, comprobado sobre respuestas de verdad.
@@ -100,6 +100,66 @@ describe('llamarALaApi, cuando la API responde un error', () => {
     cuandoLaApiResponde(respuesta({ codigo: 'ACTIVIDAD_NO_ENCONTRADA' }, 404));
 
     await expect(llamarALaApi('/api/resultados')).rejects.toBeInstanceOf(ErrorDeLaApi);
+  });
+});
+
+describe('Retry-After (SCRUM-136)', () => {
+  const AHORA = new Date('2026-10-07T12:00:00.000Z');
+
+  it('un numero de segundos se toma tal cual', () => {
+    expect(segundosDeEspera('120', AHORA)).toBe(120);
+    expect(segundosDeEspera(' 7 ', AHORA)).toBe(7);
+    expect(segundosDeEspera('0', AHORA)).toBe(0);
+  });
+
+  it('una fecha HTTP se convierte en los segundos que faltan', () => {
+    expect(segundosDeEspera('Wed, 07 Oct 2026 12:02:00 GMT', AHORA)).toBe(120);
+  });
+
+  it('una fecha que ya paso no es una espera negativa', () => {
+    expect(segundosDeEspera('Wed, 07 Oct 2026 11:00:00 GMT', AHORA)).toBe(0);
+  });
+
+  it.each([
+    ['ausente', null],
+    ['vacio', ''],
+    ['texto', 'pronto'],
+    ['negativo', '-5'],
+    ['con decimales', '1.5'],
+  ])('lo que no se entiende (%s) se ignora', (_nombre, valor) => {
+    expect(segundosDeEspera(valor, AHORA)).toBeUndefined();
+  });
+
+  it('un 429 con Retry-After lo conserva en el error', async () => {
+    cuandoLaApiResponde(
+      respuesta({ codigo: 'DEMASIADAS_PETICIONES', mensaje: 'Espera.' }, 429, {
+        'Retry-After': '30',
+      }),
+    );
+
+    await expect(llamarALaApi('/api/resultados')).rejects.toMatchObject({
+      estado: 429,
+      reintentarEnSegundos: 30,
+    });
+  });
+
+  it('sin la cabecera, no inventa una espera', async () => {
+    cuandoLaApiResponde(respuesta({ codigo: 'ERROR_INTERNO' }, 503));
+
+    const error = await llamarALaApi('/api/resultados').catch((causa: unknown) => causa);
+
+    expect(error).toBeInstanceOf(ErrorDeLaApi);
+    expect((error as ErrorDeLaApi).reintentarEnSegundos).toBeUndefined();
+  });
+
+  it('una cabecera mal formada no rompe la lectura del error', async () => {
+    cuandoLaApiResponde(respuesta({ codigo: 'ERROR_INTERNO' }, 503, { 'Retry-After': 'pronto' }));
+
+    await expect(llamarALaApi('/api/resultados')).rejects.toMatchObject({
+      estado: 503,
+      codigo: 'ERROR_INTERNO',
+      reintentarEnSegundos: undefined,
+    });
   });
 });
 

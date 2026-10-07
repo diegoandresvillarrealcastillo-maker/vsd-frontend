@@ -70,7 +70,7 @@ Lo que ya tiene:
 | 5     | Entrar con Google (SCRUM-74)                                        | Pendiente |
 | 6     | Landing page                                                        | Terminado |
 | 6     | Panel, actividades, sendero, diario, semaforo, avisos, perfil y PRE | En curso  |
-| 7     | Funcionamiento sin conexion                                         | Pendiente |
+| 7     | Funcionamiento sin conexion                                         | En curso  |
 
 ---
 
@@ -132,6 +132,55 @@ que se descarga cualquiera:
   `import.meta.env.VITE_SUPABASE_URL`, que cambia con el ambiente.
 - **La clave de servicio de Supabase no puede aparecer.** Da acceso total a la
   base y salta el aislamiento por RLS. En el frontend no existe.
+
+### El almacen local: lo hecho sin conexion (SCRUM-136)
+
+`src/sincronizacion/` guarda en el dispositivo lo que la persona hace sin conexion
+y lo envia a la API cuando se puede. Son piezas pequenas y cada una responde a
+una sola pregunta:
+
+| Archivo              | Responde a...                                                           |
+| -------------------- | ----------------------------------------------------------------------- |
+| `almacenLocal.ts`    | Donde se guardan las lecturas y la cola (IndexedDB por persona)         |
+| `cifrado.ts`         | Como se protege lo guardado (AES-GCM 256, clave que no sale del equipo) |
+| `llavero.ts`         | Donde vive esa clave (otra base, aparte de los datos)                   |
+| `cola.ts`            | En que orden se envia, cuando se reintenta y cuanto se espera           |
+| `clasificarFallo.ts` | Si un fallo se reintenta, se detiene todo o pide atencion               |
+| `ejecutores.ts`      | Como se envia cada tipo de operacion a la API                           |
+| `motor.ts`           | Enviar lo pendiente sin perder ni duplicar nada                         |
+| `ciclo.ts`           | Cuando se abre, se cierra y se **olvida** lo guardado                   |
+
+**Lo que se garantiza.**
+
+- **Nada se duplica.** Cada operacion lleva un identificador que se crea una vez,
+  al guardarla, y es el mismo en cada reintento; la API responde con lo que ya
+  tenia. Si la respuesta se pierde por el camino, reenviar es seguro.
+- **Nada se pierde.** Una operacion no se descarta por fallar: se reintenta con
+  espera creciente (5 s, 10 s... hasta 15 min, con un poco de azar) y, si el
+  servidor la rechaza, queda **marcada para que la persona la vea**. Si la sesion
+  caduca a medias, el envio se detiene y la cola sigue ahi.
+- **El orden importa solo donde importa.** Editar un pendiente espera a que se
+  cree; una anotacion rechazada no detiene a los pendientes.
+- **Una sola sincronizacion a la vez**, aunque haya varias pestanas (Web Locks).
+- **Nunca se envia con la sesion de otra persona.** Cada almacen es de una
+  persona y el motor lo comprueba antes de cada envio.
+
+**Cuando se olvida.** Hay dos finales de sesion y no son lo mismo:
+
+| La sesion termina...                                  | Lo guardado...                  |
+| ----------------------------------------------------- | ------------------------------- |
+| porque la persona **cierra sesion** o borra la cuenta | Se **borra** todo, base y clave |
+| sola: caduco, se revoco, se cerro en otra pestana     | Se **conserva**, cerrado        |
+| porque **entra otra persona** en el mismo equipo      | Se borra lo de la anterior      |
+
+Lo segundo es lo que permite que lo hecho sin conexion sobreviva a una sesion
+vencida; lo tercero, que en una sala de computo nadie lea lo de quien estuvo antes.
+Con la sesion que no se recuerda en este equipo, o si el navegador no deja usar
+IndexedDB, todo vive **solo en memoria**.
+
+Este nucleo todavia no se ve en ninguna pantalla: las siguientes entregas lo
+conectan (el indicador de conexion y el boton «Sincronizar ahora», las actividades,
+el diario y los pendientes).
 
 ---
 

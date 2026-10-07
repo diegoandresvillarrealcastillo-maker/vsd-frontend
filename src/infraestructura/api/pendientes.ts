@@ -21,6 +21,12 @@ export interface Pendiente {
    * no vence un dia concreto.
    */
   readonly fechaLimite: string | null;
+  /**
+   * Empieza en 1 y sube con cada edicion (SCRUM-134). Hay que devolverla al editar
+   * para que la API detecte que otro dispositivo lo cambio. Es opcional porque un
+   * servidor anterior a ese cambio no la manda.
+   */
+  readonly version?: number;
   readonly creadoEn: string;
   readonly editadoEn: string;
 }
@@ -65,6 +71,12 @@ export interface PendientePorCrear {
  * y `fechaLimite: null` quita la fecha limite.
  */
 export interface CambiosDePendiente {
+  /**
+   * La version que se tenia del pendiente (SCRUM-134). Si ya no es la vigente, la
+   * API responde 409 `VERSION_DESACTUALIZADA`, salvo que solo se marque como hecho.
+   * Sin ella no se comprueba nada.
+   */
+  readonly version?: number;
   readonly texto?: string;
   readonly nivel?: NivelDePendiente;
   readonly hecho?: boolean;
