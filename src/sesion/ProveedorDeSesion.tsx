@@ -3,12 +3,14 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 
 import { olvidarLosArchivosDeLaPersona } from '../foto/archivosDeLaPersona.ts';
 import {
+  esSoloDeEstaPestana,
   olvidarPreferenciaDePestana,
   recordarEnEsteEquipo,
 } from '../infraestructura/supabase/almacenamiento.ts';
 import { supabase } from '../infraestructura/supabase/cliente.ts';
 import { dejarDeAvisarAEsteNavegador } from '../notificaciones/navegador.ts';
 import { RUTAS } from '../rutas/rutas.ts';
+import { alCambiarLaSesion, olvidarLosDatosDeLaSesionActual } from '../sincronizacion/ciclo.ts';
 import { olvidarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
 import { consultarLaVersionDelAviso } from '../infraestructura/api/aviso.ts';
 import {
@@ -204,6 +206,18 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // El almacen local sigue a la sesion (SCRUM-136). Se mira el identificador de
+  // Supabase y no el de nuestra cuenta: es el unico que se conoce sin conexion.
+  //
+  // Que la sesion termine NO borra lo guardado: si caduco o se cerro en otra
+  // pestana, lo que la persona hizo sin conexion sigue ahi para cuando vuelva a
+  // entrar. Solo `salir` lo olvida.
+  const persona = sesion?.user.id ?? null;
+
+  useEffect(() => {
+    void alCambiarLaSesion(persona, { persistente: !esSoloDeEstaPestana() });
+  }, [persona]);
+
   const registrarse = useCallback(
     async ({
       correo,
@@ -363,10 +377,19 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
   );
 
   const salir = useCallback(async (): Promise<void> => {
+    // Primero, y sin esperar: se empieza a olvidar lo guardado en este equipo
+    // (SCRUM-136). Quien sale decide por si misma; nada de lo privado se queda
+    // para la siguiente persona. Tiene que ir antes de soltar el token porque
+    // sabe de quien es lo que borra por la sesion que todavia esta abierta.
+    // Avisar de que quedan cambios sin enviar, antes de llegar aqui, es de quien
+    // llama a `salir` (SCRUM-142): aqui ya no hay vuelta atras.
+    const olvido = olvidarLosDatosDeLaSesionActual();
+
     // Antes de soltar el token: este navegador deja de recibir los avisos de
     // quien sale (SCRUM-102). No bloquea la salida si falla.
     await dejarDeAvisarAEsteNavegador();
     await clienteONulo()?.auth.signOut();
+    await olvido;
     olvidarPreferenciaDePestana();
     // La zona y los archivos de esa cuenta no se quedan para la siguiente persona.
     olvidarLaZonaDeLaCuenta();
