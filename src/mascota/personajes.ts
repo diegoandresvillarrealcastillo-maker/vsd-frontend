@@ -7,9 +7,10 @@ import type { Mascota } from '../infraestructura/api/cuenta.ts';
  * sus hojas de expresiones, recortadas a `sprites/` desde
  * `disenos/mascotas/` con `recortar-hojas.py`.
  *
- * Las frases van con la personalidad de cada uno. Acompañan, no evalúan ni
- * aconsejan sobre salud: ninguna menciona síntomas, diagnósticos ni
- * tratamientos.
+ * Las frases de cada uno van con su personalidad y se suman al banco general
+ * (`frasesDeLaMascota.ts`, SCRUM-129), que sirve a cualquier avatar. Acompañan,
+ * no evalúan ni aconsejan sobre salud: ninguna menciona síntomas, diagnósticos
+ * ni tratamientos.
  */
 
 export type Personaje = 'fungito' | 'sparky' | 'ori' | 'gato' | 'obsidian' | 'trama';

@@ -14,6 +14,8 @@ import { marcoDelAsistente, puntoDeLaMascota } from '../asistente/marco.ts';
 import { useEscribiendo } from '../componentes/useEscribiendo.ts';
 import type { Mascota } from '../infraestructura/api/cuenta.ts';
 import { ESPACIO_DEL_SEMAFORO } from '../semaforo/medidas.ts';
+import { momentoDeLaFrase, siguienteFrase } from './bancoDeFrases.ts';
+import type { Momento } from './frasesDeLaMascota.ts';
 import { mascotaParaMostrar, PERSONAJES, type Expresion } from './personajes.ts';
 import { sprite } from './sprites.ts';
 import { useExpresion } from './useExpresion.ts';
@@ -25,7 +27,9 @@ import { useExpresion } from './useExpresion.ts';
  *   izquierdo o derecho, el mas cercano.
  * - Con teclado: las flechas arriba y abajo la mueven, y izquierda y derecha la
  *   cambian de lado. Enter muestra una frase.
- * - Al tocarla dice una frase de su personaje.
+ * - Al tocarla dice una frase del banco (SCRUM-129): una al azar, sin repetir
+ *   hasta agotar las de su momento, que sale de la hora de la persona o de lo
+ *   que pide la pantalla. Cada personaje suma ademas las suyas.
  * - Nunca baja de la barra superior ni pisa la navegacion inferior del movil.
  *   A la derecha tampoco baja hasta el boton del semaforo (SCRUM-98): comparten
  *   esquina sin solaparse.
@@ -204,13 +208,20 @@ function animacion(expresion: Expresion, sinMovimiento: boolean): TargetAndTrans
 export function MascotaFlotante({
   mascota,
   celebrar = false,
+  momento,
 }: {
   mascota: Mascota | null;
   /** La pantalla pide celebrar: plan del dia completo, modulo desbloqueado. */
   celebrar?: boolean;
+  /**
+   * El momento de las frases, si la pantalla lo sabe: la racha, el diario.
+   * Celebrar ya pide las de despues de una actividad. Sin ninguno, manda la
+   * hora de la persona.
+   */
+  momento?: Momento;
 }) {
   const { personaje, nombre } = mascotaParaMostrar(mascota);
-  const { frases } = PERSONAJES[personaje];
+  const frasesPropias = PERSONAJES[personaje].frases;
   const { expresion, alTocar } = useExpresion(celebrar);
   const sinMovimiento = useReducedMotion() ?? false;
   const escribiendo = useEscribiendo();
@@ -220,7 +231,6 @@ export function MascotaFlotante({
   const [posicion, setPosicion] = useState<Posicion>(leerPosicion);
   const [arrastre, setArrastre] = useState<Punto | null>(null);
   const [frase, setFrase] = useState<string | null>(null);
-  const siguienteFrase = useRef(0);
   const gesto = useRef<{ id: number; inicio: Punto; origen: Punto; movido: boolean } | null>(null);
   const ignorarClic = useRef(false);
   const pulsacionLarga = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -270,8 +280,9 @@ export function MascotaFlotante({
 
   function decirFrase() {
     alTocar();
-    setFrase(frases[siguienteFrase.current % frases.length] ?? null);
-    siguienteFrase.current += 1;
+    setFrase(
+      siguienteFrase(momentoDeLaFrase(celebrar ? 'actividad' : momento, new Date()), frasesPropias),
+    );
   }
 
   function alPresionar(evento: PointerEvent<HTMLButtonElement>) {

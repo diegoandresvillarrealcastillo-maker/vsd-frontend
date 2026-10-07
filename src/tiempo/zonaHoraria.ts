@@ -93,6 +93,14 @@ export function formatoEn(
   return nuevo;
 }
 
+/**
+ * La hora (0 a 23) de un instante en la zona de la persona (SCRUM-123): de
+ * noche es de noche donde ella esta, no donde esta el servidor.
+ */
+export function horaLocal(instante: Date, zona: string = zonaActual()): number {
+  return Number(formatoEn(zona, 'en-US', { hour: 'numeric', hourCycle: 'h23' }).format(instante));
+}
+
 /** El dia de un instante en la zona de la persona, AAAA-MM-DD. */
 export function diaEnLaZona(instante: Date): string {
   return formatoEn(zonaActual(), 'en-CA', {

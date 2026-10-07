@@ -3,6 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 import type { Mascota } from '../infraestructura/api/cuenta.ts';
 import { fijarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
+import { frasesDelMomento } from './bancoDeFrases.ts';
 import { MascotaFlotante, PULSACION_LARGA_MS } from './MascotaFlotante.tsx';
 import { PERSONAJES } from './personajes.ts';
 import { INACTIVIDAD_MS } from './useExpresion.ts';
@@ -87,15 +88,37 @@ describe('MascotaFlotante', () => {
     });
   });
 
-  describe('las frases', () => {
-    it('al tocarla dice una frase de su personaje, que se puede cerrar', () => {
+  describe('las frases (SCRUM-129)', () => {
+    /** La frase que se ve en el globo. */
+    function fraseVisible(): string {
+      return document.querySelector('.mascota__frase')?.textContent ?? '';
+    }
+
+    /**
+     * Toca una vez por cada frase del momento y devuelve las que salieron,
+     * ordenadas. Si la mascota mezclara otro momento, saldria alguna de mas y
+     * alguna de menos: con una sola frase, las generales (que estan en todos los
+     * momentos) hacian pasar la prueba por azar.
+     */
+    function agotar(momento: Parameters<typeof frasesDelMomento>[0]): string[] {
+      const salidas: string[] = [];
+
+      for (const _frase of frasesDelMomento(momento)) {
+        fireEvent.click(mascota());
+        salidas.push(fraseVisible());
+      }
+
+      return salidas.sort();
+    }
+
+    it('al tocarla dice una frase del banco, que se puede cerrar', () => {
       render(<MascotaFlotante mascota={SPARKY} />);
 
       fireEvent.click(mascota());
 
-      const [primera] = PERSONAJES.sparky.frases;
-
-      expect(screen.getByText(primera ?? '')).toBeInTheDocument();
+      // Son las diez de la manana en Bogota: sale una de la manana o una
+      // general. Las propias del personaje solo entran en las generales.
+      expect(frasesDelMomento('manana')).toContain(fraseVisible());
       expect(screen.getByText('Chispita te acompaña')).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole('button', { name: 'Cerrar la frase' }));
@@ -103,13 +126,25 @@ describe('MascotaFlotante', () => {
       expect(screen.queryByText('Chispita te acompaña')).not.toBeInTheDocument();
     });
 
-    it('cada toque trae la siguiente frase, y el globo se va solo', () => {
+    it('cada toque trae una frase distinta hasta agotar las del momento, y el globo se va solo', () => {
       render(<MascotaFlotante mascota={SPARKY} />);
 
-      fireEvent.click(mascota());
+      const total = frasesDelMomento('manana').length;
+      const vistas: string[] = [];
+
+      for (let toque = 0; toque < total; toque += 1) {
+        fireEvent.click(mascota());
+        vistas.push(fraseVisible());
+      }
+
+      // Ninguna se repitio, y salieron todas.
+      expect(new Set(vistas).size).toBe(total);
+      expect([...vistas].sort()).toEqual([...frasesDelMomento('manana')].sort());
+
+      // Con la siguiente empieza otra vuelta, sin repetir justo la ultima.
       fireEvent.click(mascota());
 
-      expect(screen.getByText(PERSONAJES.sparky.frases[1] ?? '')).toBeInTheDocument();
+      expect(fraseVisible()).not.toBe(vistas[vistas.length - 1]);
 
       adelantar(8_000);
 
@@ -123,7 +158,79 @@ describe('MascotaFlotante', () => {
 
       const anuncio = document.querySelector('[aria-live="polite"]');
 
-      expect(anuncio).toHaveTextContent(`Chispita: ${PERSONAJES.sparky.frases[0] ?? ''}`);
+      expect(anuncio).toHaveTextContent(`Chispita: ${fraseVisible()}`);
+    });
+
+    it('lo que ya dijo se recuerda al volver: no repite aunque se desmonte y se monte otra vez', () => {
+      const vistas: string[] = [];
+
+      for (let visita = 0; visita < 12; visita += 1) {
+        const { unmount } = render(<MascotaFlotante mascota={SPARKY} />);
+
+        fireEvent.click(mascota());
+        vistas.push(fraseVisible());
+        unmount();
+      }
+
+      expect(new Set(vistas).size).toBe(12);
+    });
+
+    it('de noche dice las de la noche, o las generales, y no las de la manana', () => {
+      vi.setSystemTime(DE_NOCHE);
+      render(<MascotaFlotante mascota={SPARKY} />);
+
+      expect(agotar('noche')).toEqual([...frasesDelMomento('noche')].sort());
+    });
+
+    it('al celebrar dice las de despues de una actividad, o las generales', () => {
+      render(<MascotaFlotante mascota={SPARKY} celebrar />);
+
+      expect(agotar('actividad')).toEqual([...frasesDelMomento('actividad')].sort());
+    });
+
+    it.each(['racha', 'diario'] as const)(
+      'si la pantalla pide «%s», dice las de ese momento, o las generales',
+      (momento) => {
+        render(<MascotaFlotante mascota={SPARKY} momento={momento} />);
+
+        expect(agotar(momento)).toEqual([...frasesDelMomento(momento)].sort());
+      },
+    );
+
+    it('celebrar gana a lo que pida la pantalla', () => {
+      render(<MascotaFlotante mascota={SPARKY} celebrar momento="diario" />);
+
+      expect(agotar('actividad')).toEqual([...frasesDelMomento('actividad')].sort());
+    });
+
+    it('las propias del personaje pueden salir cuando el momento es general', () => {
+      // Las tres de la tarde en Bogota: ninguna hora pide un momento concreto.
+      vi.setSystemTime(new Date('2026-10-03T20:00:00Z'));
+      render(<MascotaFlotante mascota={SPARKY} />);
+
+      const total = frasesDelMomento('general', PERSONAJES.sparky.frases).length;
+      const vistas = new Set<string>();
+
+      for (let toque = 0; toque < total; toque += 1) {
+        fireEvent.click(mascota());
+        vistas.add(fraseVisible());
+      }
+
+      for (const propia of PERSONAJES.sparky.frases) {
+        expect(vistas).toContain(propia);
+      }
+    });
+
+    it('una mascota personalizada, sin personaje conocido, tambien dice frases', () => {
+      render(
+        <MascotaFlotante
+          mascota={{ forma: 'brote', color: '#a2d9b6', accesorio: 'ninguno', nombre: 'Luma' }}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Luma, tu mascota' }));
+
+      expect(frasesDelMomento('manana')).toContain(fraseVisible());
     });
   });
 

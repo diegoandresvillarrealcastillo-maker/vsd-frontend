@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   fijarLaZonaDeLaCuenta,
   formatoEn,
+  horaLocal,
   nombreDeLaZona,
   olvidarLaZonaDeLaCuenta,
   ZONA_POR_DEFECTO,
@@ -115,5 +116,27 @@ describe('nombreDeLaZona', () => {
 
   it('una zona que el navegador no conoce se devuelve tal cual, sin lanzar', () => {
     expect(nombreDeLaZona('Marte/Olympus', OCTUBRE)).toBe('Marte/Olympus');
+  });
+});
+
+describe('horaLocal', () => {
+  // 02:30 UTC del 4 de octubre: 21:30 del 3 en Bogota, 04:30 en Madrid, 11:30 en
+  // Tokio. Cada persona vive una hora distinta del mismo instante.
+  const INSTANTE = new Date('2026-10-04T02:30:00Z');
+
+  it.each([
+    ['America/Bogota', 21],
+    ['Europe/Madrid', 4],
+    ['Asia/Tokyo', 11],
+    ['UTC', 2],
+  ])('en %s son las %i', (zona, hora) => {
+    expect(horaLocal(INSTANTE, zona)).toBe(hora);
+  });
+
+  it('sin zona usa la de la cuenta, y la medianoche es la hora 0, no la 24', () => {
+    fijarLaZonaDeLaCuenta('America/Bogota');
+
+    expect(horaLocal(new Date('2026-10-04T05:15:00Z'))).toBe(0);
+    expect(horaLocal(new Date('2026-10-04T04:59:00Z'))).toBe(23);
   });
 });
