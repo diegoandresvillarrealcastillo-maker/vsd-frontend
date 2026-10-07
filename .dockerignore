@@ -1,0 +1,22 @@
+# Se ignora todo y se permite solo lo que la imagen necesita (ver Dockerfile).
+#
+# Es la forma que no se rompe sola: con una lista de "lo que no entra", el dia
+# que alguien cree `.env.produccion` o `secretos/`, entra a la imagen sin que
+# nadie lo decida. Con una lista de "lo que entra", un archivo nuevo se queda
+# fuera hasta que alguien lo pida.
+#
+# Ojo con `.env.local`: Vite lo lee si esta en la carpeta al compilar, y
+# acabaria incorporado al paquete. Por eso no entra y la configuracion se pasa
+# con --build-arg.
+*
+
+!package.json
+!package-lock.json
+!index.html
+!vite.config.ts
+!tsconfig.json
+!tsconfig.app.json
+!tsconfig.node.json
+!public/
+!src/
+!nginx/
