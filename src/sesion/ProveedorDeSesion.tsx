@@ -1,6 +1,7 @@
 import type { AuthError, Session } from '@supabase/supabase-js';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import { olvidarLaFoto } from '../foto/fotoDePerfil.ts';
 import {
   olvidarPreferenciaDePestana,
   recordarEnEsteEquipo,
@@ -185,6 +186,13 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     // que sigue dentro.
     const { data: suscripcion } = cliente.auth.onAuthStateChange((_evento, nueva) => {
       if (vigente) {
+        // Sin sesion, la foto de quien estaba no se queda. `salir` ya la
+        // suelta, pero la sesion tambien termina sin pasar por ahi: caduca, se
+        // revoca, o se cierra en otra pestana.
+        if (nueva === null) {
+          olvidarLaFoto();
+        }
+
         setSesion(nueva);
         setCargando(false);
       }
@@ -360,8 +368,9 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     await dejarDeAvisarAEsteNavegador();
     await clienteONulo()?.auth.signOut();
     olvidarPreferenciaDePestana();
-    // La zona de esa cuenta no se queda para la siguiente persona.
+    // La zona y la foto de esa cuenta no se quedan para la siguiente persona.
     olvidarLaZonaDeLaCuenta();
+    olvidarLaFoto();
     setSesion(null);
   }, []);
 

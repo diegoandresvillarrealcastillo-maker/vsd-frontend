@@ -25,6 +25,11 @@ export function usePerfil(): {
   readonly estado: EstadoDelPerfil;
   readonly reintentar: () => void;
   readonly guardar: (cambios: CambiosDePreferencias) => Promise<void>;
+  /**
+   * Pinta una cuenta que ya llego de la API por otro camino —la de la foto
+   * (SCRUM-120), que no pasa por las preferencias—. No llama a nada.
+   */
+  readonly reemplazarCuenta: (cuenta: Cuenta) => void;
 } {
   const [estado, setEstado] = useState<EstadoDelPerfil>({ fase: 'cargando' });
   const [intento, setIntento] = useState(0);
@@ -66,5 +71,9 @@ export function usePerfil(): {
     setEstado({ fase: 'listo', cuenta });
   }, []);
 
-  return { estado, reintentar, guardar };
+  const reemplazarCuenta = useCallback((cuenta: Cuenta): void => {
+    setEstado({ fase: 'listo', cuenta });
+  }, []);
+
+  return { estado, reintentar, guardar, reemplazarCuenta };
 }

@@ -213,6 +213,15 @@
   background: var(--app-avatar);
   color: var(--app-avatar-tinta);
   cursor: pointer;
+  /* La foto, si la hay, se recorta al circulo. */
+  overflow: hidden;
+}
+
+.app__avatar-foto {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .app__menu {
@@ -1005,6 +1014,59 @@
 
 .perfil__ayuda {
   margin-top: 0;
+}
+
+/* ---------- La foto de perfil (SCRUM-120) ---------- */
+
+.perfil__foto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+.perfil__foto-marco {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 6rem;
+  height: 6rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--app-avatar);
+  color: var(--app-avatar-tinta);
+}
+
+.perfil__foto-imagen {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.perfil__foto-vacia {
+  display: grid;
+  place-items: center;
+}
+
+.perfil__foto-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* La entrada de archivo esta a la vista de teclado y de lector de pantalla, y
+   su etiqueta es lo que se ve: cuando la entrada tiene el foco, se nota en la
+   etiqueta, que va justo despues. */
+.perfil__foto-entrada:focus-visible + .perfil__foto-elegir {
+  outline: 2px solid var(--app-tinta);
+  outline-offset: 2px;
+}
+
+.perfil__foto-elegir--ocupado {
+  opacity: 0.6;
+  cursor: progress;
 }
 
 .perfil__fila {

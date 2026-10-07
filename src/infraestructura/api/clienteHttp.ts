@@ -103,18 +103,34 @@ async function tokenActual(): Promise<string | null> {
 }
 
 interface Opciones {
-  readonly metodo?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  readonly metodo?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  /** Lo que se manda, como JSON. */
   readonly cuerpo?: unknown;
+  /**
+   * O bien los bytes de un archivo, tal cual y con su propio tipo (SCRUM-120).
+   * No se combina con `cuerpo`: son dos formas distintas de llevar lo mismo.
+   */
+  readonly bytes?: Blob;
   readonly senal?: AbortSignal;
 }
 
-export async function llamarALaApi<T>(ruta: string, opciones: Opciones = {}): Promise<T> {
+/**
+ * Hace la llamada y deja pasar solo las que salieron bien.
+ *
+ * Es lo comun a pedir JSON y a pedir bytes: la cabecera con la sesion, que una
+ * sesion caducada se limpie, y que un fallo se convierta en un `ErrorDeLaApi`
+ * con su codigo y su identificador. Lo que cambia es como se lee el cuerpo de
+ * una respuesta buena, y eso lo decide quien llama.
+ */
+async function pedir(ruta: string, opciones: Opciones, acepta: string): Promise<Response> {
   const token = await tokenActual();
 
-  const cabeceras = new Headers({ Accept: 'application/json' });
+  const cabeceras = new Headers({ Accept: acepta });
 
   if (opciones.cuerpo !== undefined) {
     cabeceras.set('Content-Type', 'application/json');
+  } else if (opciones.bytes !== undefined) {
+    cabeceras.set('Content-Type', opciones.bytes.type);
   }
 
   if (token) {
@@ -124,7 +140,8 @@ export async function llamarALaApi<T>(ruta: string, opciones: Opciones = {}): Pr
   const respuesta = await fetch(`${entorno.urlDeLaApi}${ruta}`, {
     method: opciones.metodo ?? 'GET',
     headers: cabeceras,
-    body: opciones.cuerpo === undefined ? null : JSON.stringify(opciones.cuerpo),
+    body:
+      opciones.cuerpo !== undefined ? JSON.stringify(opciones.cuerpo) : (opciones.bytes ?? null),
     ...(opciones.senal ? { signal: opciones.senal } : {}),
   });
 
@@ -157,9 +174,29 @@ export async function llamarALaApi<T>(ruta: string, opciones: Opciones = {}): Pr
     throw new ErrorDeLaApi(respuesta.status, mensaje ?? FALLO_SIN_EXPLICAR, identificador, codigo);
   }
 
+  return respuesta;
+}
+
+export async function llamarALaApi<T>(ruta: string, opciones: Opciones = {}): Promise<T> {
+  const respuesta = await pedir(ruta, opciones, 'application/json');
+
   if (respuesta.status === 204) {
     return undefined as T;
   }
 
   return (await respuesta.json()) as T;
+}
+
+/**
+ * Pide un archivo a la API y lo entrega como `Blob`, con el tipo que trae
+ * (SCRUM-120). Es para lo que no es JSON: la foto de perfil.
+ *
+ * Va por aqui y no por una direccion que el navegador abra solo (un `<img
+ * src>`) porque cada peticion tiene que llevar la sesion, y una imagen no puede
+ * ponerse una cabecera.
+ */
+export async function pedirBytesALaApi(ruta: string, opciones: Opciones = {}): Promise<Blob> {
+  const respuesta = await pedir(ruta, opciones, 'image/jpeg, image/png');
+
+  return respuesta.blob();
 }
