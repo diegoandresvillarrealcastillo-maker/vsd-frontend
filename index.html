@@ -22,6 +22,9 @@
       Si no hay red, la cadena de respaldo deja la tipografia del sistema y la
       pagina sigue entera. Por eso los pesos se piden en una sola peticion y
       con `display=swap`: el texto se ve desde el primer instante.
+
+      El service worker (src/sw.ts, SCRUM-135) guarda estas letras la primera vez
+      que se piden, asi que a partir de la segunda visita tambien se ven sin red.
     -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

@@ -111,17 +111,88 @@ rompe ese inicio de sesion sin decir por que.
 
 ### Comandos disponibles
 
-| Comando                 | Que hace                             |
-| ----------------------- | ------------------------------------ |
-| `npm run dev`           | Arranca y recarga al guardar         |
-| `npm run build`         | Revisa los tipos y compila a `dist/` |
-| `npm run preview`       | Sirve lo compilado, para comprobarlo |
-| `npm test`              | Ejecuta las pruebas                  |
-| `npm run test:watch`    | Pruebas en modo continuo             |
-| `npm run test:coverage` | Pruebas con informe de cobertura     |
-| `npm run lint`          | Estilo y reglas de seguridad         |
-| `npm run typecheck`     | Revisa los tipos sin compilar        |
-| `npm run format`        | Da formato a todo el repositorio     |
+| Comando                 | Que hace                                                          |
+| ----------------------- | ----------------------------------------------------------------- |
+| `npm run dev`           | Arranca y recarga al guardar                                      |
+| `npm run build`         | Revisa los tipos, compila a `dist/` y comprueba el service worker |
+| `npm run preview`       | Sirve lo compilado, para comprobarlo                              |
+| `npm test`              | Ejecuta las pruebas                                               |
+| `npm run test:watch`    | Pruebas en modo continuo                                          |
+| `npm run test:coverage` | Pruebas con informe de cobertura                                  |
+| `npm run lint`          | Estilo y reglas de seguridad                                      |
+| `npm run typecheck`     | Revisa los tipos sin compilar                                     |
+| `npm run format`        | Da formato a todo el repositorio                                  |
+
+### El service worker: abrir sin conexion (SCRUM-135)
+
+`src/sw.ts` es el service worker. Hace tres cosas y solo estas: **guarda la
+aplicacion** (los archivos de la compilacion) para abrirla sin red, **recibe los
+avisos** por Web Push y **guarda la tipografia** de Google Fonts la primera vez
+que se pide. El plugin `vite-plugin-pwa` solo le inyecta la lista de archivos.
+
+**Lo que NO hace** es lo importante:
+
+- **No toca la API, ni Supabase, ni nada que no sea de la aplicacion.** Lo que
+  devuelve la API es de una persona, y esa copia no se borraria al cerrar sesion.
+  Las copias propias de la aplicacion viven en IndexedDB, por persona (SCRUM-136).
+- **No toma el control solo al instalarse una version nueva.** Guarda archivos con
+  hash en el nombre: si una version nueva tomara el control con una pagina vieja
+  abierta, esa pagina pediria archivos que ya no existen y se quedaria a medias
+  sin ningun error que lo explique. La version nueva **espera**, la pagina avisa
+  («Hay una version nueva») y la persona decide. Nunca se recarga una pagina sin
+  que lo sepa quien la usa: podria estar escribiendo en su diario.
+
+**Como se actualiza.** Al abrir la aplicacion, el navegador revisa si hay un
+`sw.js` nuevo. Si lo hay, queda esperando y aparece el aviso:
+
+| La persona...                 | Pasa...                                                    |
+| ----------------------------- | ---------------------------------------------------------- |
+| pulsa **Actualizar**          | Se activa la version nueva y esa pestana se recarga sola   |
+| pulsa **Despues**             | Se esconde el aviso; vuelve a salir al abrir la aplicacion |
+| la acepta en **otra pestana** | Esta no se recarga: ofrece «Recargar» y espera             |
+
+Esto ultimo se hace con `onNeedReload` en `registrarElServiceWorker.ts`. Sin el,
+el plugin recarga cualquier pestana en cuanto la version nueva se activa **por
+cualquier via**, con lo que escribir en una pestana y aceptar la actualizacion en
+otra bastaba para perder lo escrito.
+
+**Lo que pesa.** La primera visita descarga en segundo plano unos 204 archivos:
+**9,1 MiB sin comprimir; entre 2,8 MiB (Brotli) y 3,3 MiB (gzip) por la red**.
+Casi todo es JavaScript (8,4 MiB), y lo mas pesado viene del editor de diagramas
+del diario y sus dependencias. Se guarda entero a proposito: dejar fuera un archivo es una
+aplicacion que abre sin conexion y falla al pedirlo. Si el tamano llegara a
+importar, la primera opcion es sacar del paquete inicial lo que casi nadie usa
+(los idiomas y diagramas de Excalidraw), no el limite de `vite.config.ts`.
+
+**Como probarlo.** En desarrollo no hay service worker (guardar archivos mientras
+cambian a cada rato es la forma de ver una version vieja sin saber por que). Para
+probarlo, sobre una compilacion:
+
+```bash
+npm run build && npm run preview     # http://localhost:4173
+```
+
+Abrir la aplicacion, esperar unos segundos, apagar el servidor (o poner el
+navegador sin conexion) y recargar: la portada y `/acceso` abren. Para ver el
+aviso, compilar otra version distinta y, desde la consola,
+`(await navigator.serviceWorker.getRegistration()).update()`.
+
+**`npm run build` tambien lo comprueba** (`scripts/comprobar-el-service-worker.mjs`):
+carga el `dist/sw.js` ya compilado en un entorno simulado y le manda eventos. Si
+algo falla, **la compilacion falla**, y por tanto el CI y el despliegue de
+Vercel: un service worker roto no se publica. Comprueba que guarda `index.html` y
+cada JS y CSS de `dist/assets`, que **no responde** a la API ni a ningun otro
+origen, que instalarse no llama a `skipWaiting`, y que los avisos y la ruta a la
+que llevan (siempre de este mismo sitio) funcionan. Si cambia la logica de
+`src/sw.ts` y esto no la cubre, hay que ampliarlo.
+
+**Los avisos en desarrollo.** Como no hay service worker en desarrollo, activar
+los avisos desde `npm run dev` no funciona; usar `npm run preview`.
+
+**Un limite conocido.** Si la primera visita a la aplicacion queda abierta en una
+pestana durante mucho tiempo, y despues se acepta una version nueva en otra, esa
+pestana no ofrece recargar (Workbox no la cuenta como una actualizacion). No
+pierde nada, pero seguira con archivos viejos hasta que se recargue.
 
 ### Dos reglas que impone el lint
 

@@ -39,5 +39,8 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  // El service worker corre en otro mundo (sin `window`, con `self`) y tiene su
+  // propio proyecto: ver tsconfig.sw.json.
+  "exclude": ["src/sw.ts"]
 }
