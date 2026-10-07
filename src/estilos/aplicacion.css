@@ -1231,20 +1231,15 @@
   transition: transform 0.18s;
 }
 
-.perfil__modulo--activo .perfil__interruptor {
+.perfil__modulo--activo .perfil__interruptor,
+.perfil__tarjeta-de-aviso--activa .perfil__interruptor {
   background: var(--modulo-acento);
 }
 
-.perfil__modulo--activo .perfil__interruptor > span {
+.perfil__modulo--activo .perfil__interruptor > span,
+.perfil__tarjeta-de-aviso--activa .perfil__interruptor > span {
   background: var(--app-sobre-primario);
   transform: translateX(1rem);
-}
-
-/* Cada aviso del perfil: su interruptor, que hace y, encendido, su hora
-   (SCRUM-102). */
-.perfil__aviso {
-  display: grid;
-  gap: 0.5rem;
 }
 
 .perfil__hora {
@@ -1252,22 +1247,136 @@
   width: 8.5rem;
 }
 
-/* Los avisos se agrupan por como se comportan: los recordatorios del dia, con
-   hora fija, y los de hora elegida (SCRUM-127). */
-.perfil__grupo-de-avisos {
+/* ---------- Los avisos del perfil, en dos tarjetas ----------
+   Cada una: un interruptor, lo que hace y, encendida, sus opciones. Los
+   colores del modulo de bienestar llegan por `--modulo-*` desde el componente,
+   como en las tarjetas de modulo. */
+.perfil__tarjeta-de-aviso {
   display: grid;
-  gap: 0.75rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--app-borde);
+  padding: 0.875rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 20px;
+  background: var(--app-lienzo);
+  transition:
+    background 0.18s,
+    border-color 0.18s;
 }
 
-.perfil__subtitulo {
-  margin: 0;
+.perfil__tarjeta-de-aviso--activa {
+  border-color: var(--modulo-acento);
+  background: var(--modulo-fondo);
+}
+
+/* El interruptor es toda la fila de arriba; la tarjeta ya pone el marco. */
+.perfil__tarjeta-interruptor {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--app-tinta);
-  font-family: var(--app-fuente-titulos);
-  font-size: 1rem;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.perfil__tarjeta-de-aviso .perfil__ayuda {
+  margin-top: 0.625rem;
+}
+
+/* Lo que se despliega: el espacio con lo de arriba va dentro, para que crezca
+   junto con la altura y no haya un salto al terminar. */
+.perfil__despliegue {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.875rem;
+}
+
+/* Los chips son casillas de verdad: la real cubre el chip, invisible, y recibe
+   el foco y los toques. Lo que se ve es el cuerpo, que sigue a la casilla. */
+.perfil__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.perfil__chip {
+  position: relative;
+  display: inline-flex;
+}
+
+.perfil__chip-entrada {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.perfil__chip-cuerpo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.875rem;
+  border: 1px solid color-mix(in srgb, var(--modulo-acento) 55%, transparent);
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--app-tinta);
+  font-size: 0.875rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  line-height: 1.2;
+  transition:
+    background 0.18s,
+    border-color 0.18s,
+    color 0.18s;
+}
+
+.perfil__chip-entrada:checked + .perfil__chip-cuerpo {
+  border-color: var(--modulo-acento);
+  background: var(--modulo-acento);
+  color: var(--app-sobre-primario);
+}
+
+.perfil__chip-entrada:focus-visible {
+  outline: none;
+}
+
+.perfil__chip-entrada:focus-visible + .perfil__chip-cuerpo {
+  outline: 2px solid var(--app-salvia);
+  outline-offset: 3px;
+}
+
+/* La marca de verificacion entra al elegir el chip y no deja hueco cuando no
+   esta elegido. El margen negativo anula el espacio del `gap` mientras mide 0. */
+.perfil__chip-marca {
+  display: inline-grid;
+  width: 0;
+  margin-right: -0.375rem;
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    width 0.18s,
+    margin-right 0.18s,
+    opacity 0.18s;
+}
+
+.perfil__chip-entrada:checked + .perfil__chip-cuerpo .perfil__chip-marca {
+  width: 0.875rem;
+  margin-right: 0;
+  opacity: 1;
+}
+
+.perfil__chip-detalle {
+  font-weight: 500;
 }
 
 .perfil__secundario {
