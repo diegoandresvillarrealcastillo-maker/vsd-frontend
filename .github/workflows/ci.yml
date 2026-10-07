@@ -63,7 +63,14 @@ jobs:
   commits:
     name: Convencion de commits
     runs-on: ubuntu-24.04
-    if: github.event_name == 'pull_request'
+    # Solo en los PR de cada ticket. Una promocion (desarrollo -> preproduccion
+    # -> produccion) trae commits que ya se revisaron al entrar a desarrollo y
+    # que no se pueden corregir sin reescribir una rama compartida. Saltado, el
+    # trabajo cuenta como aprobado para la proteccion de la rama.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.head_ref != 'desarrollo' &&
+      github.head_ref != 'preproduccion'
     steps:
       - name: Descargar el codigo con el historial completo
         uses: actions/checkout@v7
