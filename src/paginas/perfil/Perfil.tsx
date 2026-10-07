@@ -29,6 +29,7 @@ import { BarraSuperior } from '../panel/Estructura.tsx';
 import { Icono } from '../panel/Icono.tsx';
 import { MODULOS, ORDEN } from '../panel/modulos.ts';
 import { Apartado, MensajeDeAviso, SIN_CONEXION, type Aviso } from './piezas.tsx';
+import { TuFoto } from './TuFoto.tsx';
 import { TusAvisos } from './TusAvisos.tsx';
 import { usePerfil } from './usePerfil.ts';
 
@@ -36,6 +37,8 @@ import { usePerfil } from './usePerfil.ts';
  * El perfil: todo lo que la persona configura de su cuenta (SCRUM-101).
  *
  * - El nombre y los modulos activos se cambian aqui.
+ * - La foto se elige de la galeria, se recorta y se comprime en el dispositivo,
+ *   y se puede quitar (SCRUM-120).
  * - El correo se muestra pero no se edita: es la via de acceso y la identidad
  *   en Supabase.
  * - La contrasena se cambia con un codigo que llega al correo. Va directo a
@@ -48,7 +51,7 @@ import { usePerfil } from './usePerfil.ts';
  * - Los datos se descargan y la cuenta se borra (SCRUM-75).
  */
 export function Perfil() {
-  const { estado, reintentar, guardar } = usePerfil();
+  const { estado, reintentar, guardar, reemplazarCuenta } = usePerfil();
 
   return (
     <div className="app">
@@ -85,6 +88,7 @@ export function Perfil() {
         {estado.fase === 'listo' && (
           <>
             <Nombre cuenta={estado.cuenta} guardar={guardar} />
+            <TuFoto actualizarCuenta={reemplazarCuenta} />
             <Modulos cuenta={estado.cuenta} guardar={guardar} />
             <TuMascota cuenta={estado.cuenta} guardar={guardar} />
             <TuDiario cuenta={estado.cuenta} guardar={guardar} />

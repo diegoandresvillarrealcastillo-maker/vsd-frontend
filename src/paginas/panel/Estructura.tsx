@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { MarcaDeLaApp } from '../../componentes/MarcaDeLaApp.tsx';
+import { useFotoDePerfil } from '../../foto/fotoDePerfil.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
@@ -70,6 +71,9 @@ export function BarraSuperior({ conSecciones }: { conSecciones: boolean }) {
  */
 function MenuDeCuenta() {
   const { correo, salir } = useSesion();
+  // La foto de la persona, si la tiene (SCRUM-120). Es decorativa: el boton ya
+  // se llama «Abrir el menu de tu cuenta».
+  const foto = useFotoDePerfil();
   const [abierto, setAbierto] = useState(false);
   const idDelMenu = useId();
   const contenedor = useRef<HTMLDivElement>(null);
@@ -110,7 +114,11 @@ function MenuDeCuenta() {
         aria-controls={idDelMenu}
         onClick={() => setAbierto((antes) => !antes)}
       >
-        <Icono nombre="user" />
+        {foto === null ? (
+          <Icono nombre="user" />
+        ) : (
+          <img className="app__avatar-foto" src={foto} alt="" />
+        )}
       </button>
 
       {abierto && (

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { olvidarLaFoto } from '../../foto/fotoDePerfil.ts';
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
 import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
@@ -19,12 +20,29 @@ const {
   cambiarPreferencias,
   exportarMisDatos,
   borrarMiCuenta,
+  guardarLaFoto,
+  quitarLaFoto,
+  prepararLaFoto,
 } = vi.hoisted(() => ({
   consultarLaVersionDelAviso: vi.fn(),
   darDeAltaLaCuenta: vi.fn(),
   cambiarPreferencias: vi.fn(),
   exportarMisDatos: vi.fn(),
   borrarMiCuenta: vi.fn(),
+  guardarLaFoto: vi.fn(),
+  quitarLaFoto: vi.fn(),
+  prepararLaFoto: vi.fn(),
+}));
+
+// La foto (SCRUM-120): el recorte y la API se simulan, y el resto es de verdad.
+vi.mock('../../infraestructura/api/foto.ts', () => ({
+  guardarLaFoto,
+  quitarLaFoto,
+  pedirLaFoto: vi.fn(),
+}));
+vi.mock('../../foto/prepararLaFoto.ts', async (importarOriginal) => ({
+  ...(await importarOriginal<typeof import('../../foto/prepararLaFoto.ts')>()),
+  prepararLaFoto,
 }));
 
 // Los avisos (SCRUM-102) se prueban en `TusAvisos.spec.tsx`.
@@ -104,6 +122,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  olvidarLaFoto();
+  vi.restoreAllMocks();
   vi.clearAllMocks();
 });
 
@@ -480,5 +500,102 @@ describe('Perfil', () => {
     await usuario.click(screen.getByRole('button', { name: 'Reintentar' }));
 
     expect(await screen.findByRole('region', { name: 'Tu correo' })).toBeInTheDocument();
+  });
+});
+
+describe('la foto de perfil en el perfil (SCRUM-120)', () => {
+  const MARCA = '2026-10-09T15:30:00.000Z';
+  const LISTA = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' });
+  const ELEGIDA = new File([new Uint8Array(2000)], 'verano.png', { type: 'image/png' });
+
+  beforeEach(() => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:foto-de-prueba');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    prepararLaFoto.mockResolvedValue(LISTA);
+  });
+
+  it('tiene su apartado, entre el nombre y los modulos', async () => {
+    pintar();
+
+    const nombre = await screen.findByRole('region', { name: 'Cómo te llamamos' });
+    const foto = screen.getByRole('region', { name: 'Tu foto' });
+    const modulos = screen.getByRole('region', { name: 'Tus módulos' });
+
+    expect(nombre.compareDocumentPosition(foto) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(foto.compareDocumentPosition(modulos) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('al elegir una foto se guarda lo que salio de prepararla, y el perfil pinta la cuenta que volvio', async () => {
+    // La cuenta que vuelve trae otra mascota: es lo que prueba que el perfil la pinto.
+    guardarLaFoto.mockResolvedValue({
+      ...CUENTA,
+      mascota: { forma: 'ori', nombre: 'Papelito' },
+      foto: { actualizadaEl: MARCA },
+    });
+
+    pintar();
+
+    const seccion = await screen.findByRole('region', { name: 'Tu foto' });
+
+    expect(within(seccion).queryByRole('img')).not.toBeInTheDocument();
+
+    await usuario.upload(within(seccion).getByLabelText('Elegir una foto'), ELEGIDA);
+
+    expect(prepararLaFoto).toHaveBeenCalledWith(ELEGIDA);
+    expect(guardarLaFoto).toHaveBeenCalledWith(LISTA);
+    expect(await within(seccion).findByRole('status')).toHaveTextContent('Listo, esta es tu foto.');
+    expect(within(seccion).getByRole('img', { name: 'Tu foto de perfil' })).toHaveAttribute(
+      'src',
+      'blob:foto-de-prueba',
+    );
+    expect(await screen.findByRole('button', { name: 'Papelito, tu mascota' })).toBeInTheDocument();
+  });
+
+  it('la foto no pasa por las preferencias: es su propia ruta', async () => {
+    guardarLaFoto.mockResolvedValue({ ...CUENTA, foto: { actualizadaEl: MARCA } });
+
+    pintar();
+
+    const seccion = await screen.findByRole('region', { name: 'Tu foto' });
+
+    await usuario.upload(within(seccion).getByLabelText('Elegir una foto'), ELEGIDA);
+    await within(seccion).findByRole('status');
+
+    expect(cambiarPreferencias).not.toHaveBeenCalled();
+  });
+
+  it('quitarla deja el apartado sin foto y el perfil pinta la cuenta que volvio', async () => {
+    guardarLaFoto.mockResolvedValue({ ...CUENTA, foto: { actualizadaEl: MARCA } });
+    quitarLaFoto.mockResolvedValue({
+      ...CUENTA,
+      mascota: { forma: 'sparky', nombre: 'Chispa' },
+      foto: null,
+    });
+
+    pintar();
+
+    const seccion = await screen.findByRole('region', { name: 'Tu foto' });
+
+    await usuario.upload(within(seccion).getByLabelText('Elegir una foto'), ELEGIDA);
+    await usuario.click(await within(seccion).findByRole('button', { name: 'Quitar la foto' }));
+
+    expect(quitarLaFoto).toHaveBeenCalledOnce();
+    expect(await within(seccion).findByRole('status')).toHaveTextContent('Quitaste tu foto.');
+    expect(within(seccion).queryByRole('img')).not.toBeInTheDocument();
+    expect(within(seccion).getByLabelText('Elegir una foto')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Chispa, tu mascota' })).toBeInTheDocument();
+  });
+
+  it('si la API rechaza la foto, el perfil sigue como estaba y lo dice', async () => {
+    guardarLaFoto.mockRejectedValue(new ErrorDeLaApi(413, 'x', undefined, 'FOTO_DEMASIADO_PESADA'));
+
+    pintar();
+
+    const seccion = await screen.findByRole('region', { name: 'Tu foto' });
+
+    await usuario.upload(within(seccion).getByLabelText('Elegir una foto'), ELEGIDA);
+
+    expect(await within(seccion).findByRole('alert')).toHaveTextContent('menos de 50 KB');
+    expect(within(seccion).queryByRole('img')).not.toBeInTheDocument();
   });
 });

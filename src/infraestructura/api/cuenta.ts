@@ -1,3 +1,4 @@
+import { sincronizarLaFoto } from '../../foto/fotoDePerfil.ts';
 import { fijarLaZonaDeLaCuenta, zonaDelDispositivo } from '../../tiempo/zonaHoraria.ts';
 import { ErrorDeLaApi, llamarALaApi } from './clienteHttp.ts';
 
@@ -40,6 +41,18 @@ export interface Mascota {
 }
 
 /**
+ * La foto de perfil, vista desde la cuenta (SCRUM-120): que hay y desde cuando,
+ * nunca los bytes. La foto se pide aparte (`api/foto.ts`).
+ */
+export interface FotoDeLaCuenta {
+  /**
+   * Cuando se guardo la foto actual. Cambia con cada foto nueva, y por eso sirve
+   * para saber si la que se tenia ya no es la vigente.
+   */
+  readonly actualizadaEl: string;
+}
+
+/**
  * La cuenta propia.
  *
  * El `id` de aqui es **el nuestro**, no el de Supabase: es el que relacionan
@@ -68,6 +81,12 @@ export interface Cuenta {
    * es para ella, tanto aqui como en el servidor (SCRUM-123).
    */
   readonly zonaHoraria: string;
+  /**
+   * La foto de perfil, o `null` si no tiene. Opcional a proposito: una version de
+   * la API anterior a SCRUM-120 no manda el campo, y la pantalla tiene que
+   * funcionar igual, sin foto.
+   */
+  readonly foto?: FotoDeLaCuenta | null;
 }
 
 /** Lo que se puede cambiar de las preferencias. Lo que no venga, se queda igual. */
@@ -140,6 +159,7 @@ export async function darDeAltaLaCuenta(
   }
 
   fijarLaZonaDeLaCuenta(cuenta.zonaHoraria);
+  sincronizarLaFoto(cuenta);
 
   return cuenta;
 }
@@ -154,6 +174,7 @@ export async function consultarLaCuentaPropia(senal?: AbortSignal): Promise<Cuen
   const cuenta = await llamarALaApi<Cuenta>(RUTA, senal ? { senal } : {});
 
   fijarLaZonaDeLaCuenta(cuenta.zonaHoraria);
+  sincronizarLaFoto(cuenta);
 
   return cuenta;
 }
@@ -190,13 +211,17 @@ export function borrarMiCuenta(confirmacion: string): Promise<void> {
  * los modulos y normaliza la mascota, asi que lo enviado y lo guardado no
  * siempre coinciden letra por letra.
  */
-export function cambiarPreferencias(
+export async function cambiarPreferencias(
   cambios: CambiosDePreferencias,
   senal?: AbortSignal,
 ): Promise<Cuenta> {
-  return llamarALaApi<Cuenta>(`${RUTA}/preferencias`, {
+  const cuenta = await llamarALaApi<Cuenta>(`${RUTA}/preferencias`, {
     metodo: 'PATCH',
     cuerpo: cambios,
     ...(senal ? { senal } : {}),
   });
+
+  sincronizarLaFoto(cuenta);
+
+  return cuenta;
 }
