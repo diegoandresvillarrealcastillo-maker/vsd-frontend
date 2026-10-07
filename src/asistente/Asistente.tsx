@@ -10,7 +10,12 @@ import {
   type RespuestaDelAsistente,
 } from '../infraestructura/api/asistente.ts';
 import { LineasDeAtencion } from '../paginas/actividad/LineasDeAtencion.tsx';
-import { LINEAS_DE_RESPALDO } from '../paginas/actividad/lineasParaMostrar.ts';
+import {
+  DIRECTORIO_INTERNACIONAL,
+  esZonaDeColombia,
+  lineasDeRespaldo,
+} from '../paginas/actividad/lineasParaMostrar.ts';
+import { zonaActual } from '../tiempo/zonaHoraria.ts';
 import type { Marco } from './marco.ts';
 import { useConversacion, type Mensaje, type MotivoDelFallo } from './useConversacion.ts';
 
@@ -246,12 +251,51 @@ function ContenidoDelMensaje({
             Reintentar
           </button>
           <p className="asistente__respaldo">
-            Si necesitas hablar con alguien ahora, estas líneas atienden por teléfono en todo el
-            país: {LINEAS_DE_RESPALDO.map((linea) => linea.titulo).join(' · ')}.
+            <RespaldoDelFallo />
           </p>
         </div>
       );
   }
+}
+
+/**
+ * Los telefonos a mano cuando no se pudo responder (SCRUM-124).
+ *
+ * Como no se sabe que habria respondido el servidor, quedan a mano los de
+ * respaldo. Solo hay telefonos para quien esta en Colombia: a cualquier otra
+ * persona se le manda al directorio, porque un numero de otro pais ensenado
+ * como suyo es el peor error posible.
+ */
+function RespaldoDelFallo() {
+  const zona = zonaActual();
+
+  if (esZonaDeColombia(zona)) {
+    return (
+      <>
+        Si necesitas hablar con alguien ahora, estas líneas atienden por teléfono en todo el país:{' '}
+        {lineasDeRespaldo(zona)
+          .map((linea) => linea.titulo)
+          .join(' · ')}
+        .
+      </>
+    );
+  }
+
+  return (
+    <>
+      Si necesitas hablar con alguien ahora, busca una línea de ayuda del lugar donde estás en{' '}
+      <a
+        href={DIRECTORIO_INTERNACIONAL}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="el directorio internacional de líneas de ayuda (se abre en otra pestaña)"
+      >
+        el directorio internacional
+      </a>
+      . Si hay riesgo inmediato para la vida de alguien, llama al número de emergencias del lugar
+      donde estás.
+    </>
+  );
 }
 
 /** Lo que respondio el asistente, con sus recursos. */

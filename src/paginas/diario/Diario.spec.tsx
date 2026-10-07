@@ -6,6 +6,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
+import { fijarLaZonaDeLaCuenta } from '../../tiempo/zonaHoraria.ts';
 import { diaDe, diasAntes } from './calendarioDelDiario.ts';
 import { Diario } from './Diario.tsx';
 
@@ -54,6 +55,12 @@ vi.mock('./EditorDeDiagrama.tsx', () => {
 });
 
 const usuario = userEvent.setup({ delay: null });
+
+// La zona de Colombia se fija **antes** de calcular el dia: `preparacion.ts` la
+// fija antes de cada prueba, pero esta linea corre al importar el archivo, y
+// con la zona del equipo. En el CI (UTC), entre las 7 p. m. y la medianoche en
+// Colombia "hoy" salia un dia adelantado y la prueba fallaba (SCRUM-130).
+fijarLaZonaDeLaCuenta('America/Bogota');
 
 const HOY = diaDe(new Date());
 const AYER = diasAntes(HOY, 1);
