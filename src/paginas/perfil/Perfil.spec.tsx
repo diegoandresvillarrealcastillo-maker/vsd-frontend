@@ -205,12 +205,13 @@ describe('Perfil', () => {
   });
 
   describe('la mascota (SCRUM-99)', () => {
-    it('ofrece los seis personajes; sin mascota guardada, Fungito', async () => {
+    it('ofrece los cinco personajes, sin Trama; sin mascota guardada, Fungito', async () => {
       pintar();
 
       const seccion = await screen.findByRole('region', { name: 'Tu mascota' });
 
-      expect(within(seccion).getAllByRole('radio')).toHaveLength(6);
+      expect(within(seccion).getAllByRole('radio')).toHaveLength(5);
+      expect(within(seccion).queryByRole('radio', { name: /Trama/ })).not.toBeInTheDocument();
       expect(within(seccion).getByRole('radio', { name: /Fungito/ })).toBeChecked();
       expect(within(seccion).getByRole('textbox', { name: 'Cómo se llama' })).toHaveValue(
         'Fungito',
@@ -257,11 +258,27 @@ describe('Perfil', () => {
       // Ya guardada y sin cambios: no hay nada que guardar.
       expect(within(seccion).getByRole('button', { name: 'Guardar mascota' })).toBeDisabled();
 
-      await usuario.click(within(seccion).getByRole('radio', { name: /Trama/ }));
+      await usuario.click(within(seccion).getByRole('radio', { name: /Obsidian/ }));
 
       expect(within(seccion).getByRole('textbox', { name: 'Cómo se llama' })).toHaveValue(
         'Papelito',
       );
+    });
+
+    it('una cuenta que todavia tenia a Trama (SCRUM-121) abre el perfil con Fungito y su nombre', async () => {
+      darDeAltaLaCuenta.mockResolvedValue({
+        ...CUENTA,
+        mascota: { forma: 'trama', nombre: 'Hilo' },
+      });
+
+      pintar();
+
+      const seccion = await screen.findByRole('region', { name: 'Tu mascota' });
+
+      expect(within(seccion).getByRole('radio', { name: /Fungito/ })).toBeChecked();
+      expect(within(seccion).getByRole('textbox', { name: 'Cómo se llama' })).toHaveValue('Hilo');
+      expect(screen.getByRole('button', { name: 'Hilo, tu mascota' })).toBeInTheDocument();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
 
     it('sin nombre no se guarda, y un nombre invalido se explica', async () => {

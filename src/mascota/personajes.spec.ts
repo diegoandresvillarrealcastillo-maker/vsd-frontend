@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  esPersonaje,
   mascotaParaMostrar,
   PERSONAJES,
   PERSONAJES_EN_ORDEN,
@@ -11,8 +12,8 @@ import { sprite } from './sprites.ts';
 const EXPRESIONES: readonly Expresion[] = ['normal', 'feliz', 'celebrando', 'dormida'];
 
 describe('los personajes', () => {
-  it('son seis, y cada uno tiene sus cuatro dibujos', () => {
-    expect(PERSONAJES_EN_ORDEN).toHaveLength(6);
+  it('son cinco, y cada uno tiene sus cuatro dibujos', () => {
+    expect(PERSONAJES_EN_ORDEN).toEqual(['fungito', 'sparky', 'ori', 'gato', 'obsidian']);
 
     for (const personaje of PERSONAJES_EN_ORDEN) {
       for (const expresion of EXPRESIONES) {
@@ -44,6 +45,16 @@ describe('mascotaParaMostrar', () => {
       personaje: 'obsidian',
       nombre: 'Roca',
     });
+  });
+
+  it('quien todavia tiene guardada a Trama (SCRUM-121) ve a Fungito, con su nombre', () => {
+    // Pasa entre que se despliega este cambio y se aplica la migracion que la
+    // pasa a Fungito, o con una cuenta que la guardo desde otro dispositivo.
+    expect(mascotaParaMostrar({ forma: 'trama', nombre: 'Hilo' })).toEqual({
+      personaje: 'fungito',
+      nombre: 'Hilo',
+    });
+    expect(esPersonaje('trama')).toBe(false);
   });
 
   it('una forma que no conoce se dibuja como Fungito, pero conserva el nombre', () => {

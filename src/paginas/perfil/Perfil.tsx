@@ -43,7 +43,7 @@ import { usePerfil } from './usePerfil.ts';
  *   en Supabase.
  * - La contrasena se cambia con un codigo que llega al correo. Va directo a
  *   Supabase y nunca pasa por nuestra API.
- * - La mascota se elige entre los seis personajes y se le pone nombre
+ * - La mascota se elige entre los cinco personajes y se le pone nombre
  *   (SCRUM-99).
  * - El diario solo se revisa si la persona lo permite (SCRUM-108).
  * - Los avisos: si llegan a este dispositivo y a que hora cada uno
