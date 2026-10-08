@@ -170,8 +170,14 @@
 
    Plano (SCRUM-118): una pista de un solo color y una pastilla encima. Sin
    borde, sin brillo y sin sombra en reposo; el vidrio es del cambio y lo pone
-   `global.css`. */
-.tema--barra {
+   `global.css`.
+
+   Va como `.tema.tema--barra` y no solo `.tema--barra`: la regla base `.tema`
+   (fija, de 1120 px) vive en `global.css`, y desde que la pantalla de error
+   importa esta hoja en el paquete principal, esta carga ANTES que `global.css`.
+   Con la misma especificidad ganaba la base y la barra se veia como una pista
+   larga. Asi gana siempre, cargue en el orden que cargue. */
+.tema.tema--barra {
   position: static;
   width: auto;
   padding: 3px;
