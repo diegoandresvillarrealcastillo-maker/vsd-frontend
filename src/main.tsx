@@ -5,6 +5,8 @@ import { registerSW } from 'virtual:pwa-register';
 
 import { App } from './App.tsx';
 import { AvisoDeSincronizacion } from './conexion/AvisoDeSincronizacion.tsx';
+import { LimiteDeErrores } from './errores/LimiteDeErrores.tsx';
+import { reportarError } from './errores/reportarError.ts';
 import { despertarElApi } from './infraestructura/api/despertar.ts';
 import { AvisoDeVersionNueva } from './pwa/AvisoDeVersionNueva.tsx';
 import { registrarElServiceWorker } from './pwa/registrarElServiceWorker.ts';
@@ -39,14 +41,30 @@ if (!raiz) {
   throw new Error('No se encontro el elemento #raiz en index.html.');
 }
 
-createRoot(raiz).render(
+// Lo que React no atrapa en ningun limite (SCRUM-156): errores de los
+// manejadores de eventos, de lo asincrono y de las promesas sin atender. No
+// cambian la pantalla, pero alguien tiene que enterarse. Van al mismo reportero
+// que los de pintado, que no se lleva el mensaje del error.
+window.addEventListener('error', (evento) => reportarError(evento.error, 'ventana'));
+window.addEventListener('unhandledrejection', (evento) => reportarError(evento.reason, 'promesa'));
+
+createRoot(raiz, {
+  // Un error que ningun limite atrapo: lo que falla dentro de la propia pantalla
+  // de error, o antes de que exista un limite.
+  onUncaughtError: (error, info) => reportarError(error, 'no-capturado', info.componentStack),
+}).render(
   <StrictMode>
-    <BrowserRouter>
-      <ProveedorDeSesion>
-        <App />
-        <AvisoDeSincronizacion />
-        <AvisoDeVersionNueva />
-      </ProveedorDeSesion>
-    </BrowserRouter>
+    {/* El limite de mas afuera: si se rompe el enrutador, la sesion o cualquier
+        proveedor, la persona ve la pantalla de error y no una pagina en blanco.
+        Las rutas tienen el suyo dentro de `App`, que deja viva la navegacion. */}
+    <LimiteDeErrores origen="raiz">
+      <BrowserRouter>
+        <ProveedorDeSesion>
+          <App />
+          <AvisoDeSincronizacion />
+          <AvisoDeVersionNueva />
+        </ProveedorDeSesion>
+      </BrowserRouter>
+    </LimiteDeErrores>
   </StrictMode>,
 );
