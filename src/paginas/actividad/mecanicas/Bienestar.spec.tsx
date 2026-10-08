@@ -7,17 +7,28 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { rutaDeActividad, RUTAS } from '../../../rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../../sesion/SesionContexto.ts';
 import { Actividad } from '../Actividad.tsx';
+import {
+  abrirUnAlmacenDePrueba,
+  cerrarElAlmacenDePrueba,
+} from '../../../pruebas/almacenDePrueba.ts';
 
 /**
  * Las dos actividades de Bienestar que llegan con SCRUM-93, dentro del motor
  * de verdad y con la API simulada.
  */
-const { buscarActividad, registrarResultado } = vi.hoisted(() => ({
+const { buscarActividad, registrarResultado, hayConexionConLaApi } = vi.hoisted(() => ({
   buscarActividad: vi.fn(),
   registrarResultado: vi.fn(),
+  hayConexionConLaApi: vi.fn(),
 }));
 
-vi.mock('../../../infraestructura/api/catalogo.ts', () => ({ buscarActividad }));
+// El catalogo sale de la copia local cuando no hay conexion (SCRUM-138); aqui es un doble.
+vi.mock('../../../sincronizacion/catalogoLocal.ts', () => ({
+  buscarActividadConCopia: buscarActividad,
+  nombreDeLaActividad: vi.fn(() => Promise.resolve(null)),
+}));
+// Lo que se termina entra a la cola y la envia el motor de verdad: solo se simula la red.
+vi.mock('../../../infraestructura/api/conexion.ts', () => ({ hayConexionConLaApi }));
 vi.mock('../../../infraestructura/api/resultados.ts', () => ({ registrarResultado }));
 
 const CARGA = '0acd0000-0000-4000-8000-000000000005';
@@ -85,7 +96,13 @@ async function preguntas(): Promise<HTMLElement[]> {
   return within(formulario).getAllByRole('group');
 }
 
+beforeEach(async () => {
+  hayConexionConLaApi.mockResolvedValue(true);
+  await abrirUnAlmacenDePrueba();
+});
+
 afterEach(() => {
+  cerrarElAlmacenDePrueba();
   vi.clearAllMocks();
 });
 
