@@ -20,10 +20,12 @@ export function Acceso() {
   const [estado, setEstado] = useState<EstadoDeEnvio>('listo');
   const [error, setError] = useState<string | null>(null);
 
-  // Marcada por defecto: es lo que espera quien entra desde su propio equipo,
-  // que son la mayoria. Quien esta en una sala de computo de la universidad la
-  // desmarca, y entonces la sesion muere al cerrar la pestana.
-  const [recordar, setRecordar] = useState(true);
+  // Desmarcada por defecto (SCRUM-164, decision D9): buena parte de quien usa
+  // VSD Health entra desde una sala de computo, y alli una sesion que se queda
+  // abierta es el diario de una persona a la vista de la siguiente. Lo seguro es
+  // lo que pasa si no se toca nada; quien esta en su propio equipo la marca, y
+  // entonces la sesion se conserva como hasta ahora.
+  const [recordar, setRecordar] = useState(false);
 
   // A donde queria ir antes de que la ruta protegida la mandara aqui.
   const destino = (ubicacion.state as { volverA?: string } | null)?.volverA ?? RUTAS.PANEL;
@@ -107,8 +109,8 @@ export function Acceso() {
 
         <Aparece>
           <Casilla
-            etiqueta="Recordar en este dispositivo"
-            nota="Si lo desmarcas, la sesión se cierra al cerrar la pestaña. Úsalo en computadores compartidos."
+            etiqueta="Mantener la sesión en este equipo"
+            nota="Márcalo solo en tu propio equipo. Si no, la sesión se cierra al cerrar la pestaña: es lo más seguro en un computador compartido."
             marcada={recordar}
             disabled={ocupado}
             onChange={setRecordar}
