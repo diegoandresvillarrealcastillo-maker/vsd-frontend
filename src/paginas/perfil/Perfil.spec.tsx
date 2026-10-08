@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, configure, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -1239,12 +1239,27 @@ describe('sin conexion (SCRUM-142)', () => {
     const HAY_COPIA = /Datos de hace/;
 
     beforeEach(async () => {
+      // Estas pruebas esperan lecturas del almacen y dos vueltas a la API: con la suite completa
+      // en marcha, el segundo por omision se queda corto y flaquean sin que nada este mal.
+      configure({ asyncUtilTimeout: 3000 });
       await abrirUnAlmacenDePrueba();
     });
 
     afterEach(() => {
+      configure({ asyncUtilTimeout: 1000 });
       cerrarElAlmacenDePrueba();
     });
+
+    /**
+     * Espera a ver la copia y a que se hayan suscrito los efectos de la pantalla. Sin lo segundo, un
+     * `online` enviado enseguida a veces llega antes de que alguien lo escuche y se pierde.
+     */
+    async function verLaCopia() {
+      await screen.findByText(HAY_COPIA);
+      await act(async () => {
+        await Promise.resolve();
+      });
+    }
 
     async function guardarLaCopia(cuenta: Cuenta = { ...CUENTA, nombre: 'Marina de ayer' }) {
       await guardarElPanel({ cuenta, progreso: [] });
@@ -1344,7 +1359,7 @@ describe('sin conexion (SCRUM-142)', () => {
       const red = sinConexion();
 
       pintar();
-      await screen.findByText(HAY_COPIA);
+      await verLaCopia();
       expect(within(apartado('Tu mascota')).getByRole('radio', { name: /Ori/ })).toBeChecked();
 
       darDeAltaLaCuenta.mockResolvedValue({
@@ -1377,7 +1392,7 @@ describe('sin conexion (SCRUM-142)', () => {
       const red = sinConexion();
 
       pintar();
-      await screen.findByText(HAY_COPIA);
+      await verLaCopia();
 
       let llega: (cuenta: Cuenta) => void = () => undefined;
 
@@ -1411,7 +1426,7 @@ describe('sin conexion (SCRUM-142)', () => {
       await guardarLaCopia();
       darDeAltaLaCuenta.mockImplementation(SIN_RED);
       pintar();
-      await screen.findByText(HAY_COPIA);
+      await verLaCopia();
 
       act(() => {
         window.dispatchEvent(new Event('online'));
@@ -1428,7 +1443,7 @@ describe('sin conexion (SCRUM-142)', () => {
       await guardarLaCopia();
       darDeAltaLaCuenta.mockImplementation(SIN_RED);
       pintar();
-      await screen.findByText(HAY_COPIA);
+      await verLaCopia();
 
       await guardarLaCopia({ ...CUENTA, nombre: 'Marina desde otra pestaña' });
       act(() => {
