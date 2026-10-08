@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { registerSW } from 'virtual:pwa-register';
 
 import { App } from './App.tsx';
+import { ProveedorDeAnalitica } from './analitica/ProveedorDeAnalitica.tsx';
 import { despertarElApi } from './infraestructura/api/despertar.ts';
 import { AvisoDeVersionNueva } from './pwa/AvisoDeVersionNueva.tsx';
 import { registrarElServiceWorker } from './pwa/registrarElServiceWorker.ts';
@@ -36,10 +37,14 @@ if (!raiz) {
 createRoot(raiz).render(
   <StrictMode>
     <BrowserRouter>
-      <ProveedorDeSesion>
-        <App />
-        <AvisoDeVersionNueva />
-      </ProveedorDeSesion>
+      {/* Dentro del enrutador porque cada pantalla es una visita. Sin identificador
+          de medicion (VITE_GA_ID) no hace nada. */}
+      <ProveedorDeAnalitica>
+        <ProveedorDeSesion>
+          <App />
+          <AvisoDeVersionNueva />
+        </ProveedorDeSesion>
+      </ProveedorDeAnalitica>
     </BrowserRouter>
   </StrictMode>,
 );

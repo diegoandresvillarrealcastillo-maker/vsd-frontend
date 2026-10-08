@@ -2,6 +2,7 @@ import { AnimatePresence, motion, useMotionValueEvent, useScroll } from 'framer-
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { useAnalitica } from '../../analitica/useAnalitica.ts';
 import { ACOMPANADO, REACCION_SUAVE } from '../../estilos/movimiento.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
@@ -120,10 +121,16 @@ export function InvitacionAlEntrar({ noTapar }: Props) {
     recordarQueSeCerro();
   }
 
+  // Mientras el banner de la analitica pregunta, esta espera (SCRUM-161): las dos
+  // tarjetas viven abajo y una taparia a la otra, y una decision sobre la
+  // privacidad va antes que una invitacion a registrarse.
+  const { preguntando } = useAnalitica();
+
   // A quien ya entro no se le ofrece entrar. Y mientras no se sabe, no se
   // ensena nada: es preferible tardar que ofrecerle una cuenta a quien ya
   // tiene una.
-  const visible = bajoLoSuficiente && !cerrada && !estorbando && !cargando && !sesion;
+  const visible =
+    bajoLoSuficiente && !cerrada && !estorbando && !cargando && !sesion && !preguntando;
 
   return (
     <AnimatePresence>

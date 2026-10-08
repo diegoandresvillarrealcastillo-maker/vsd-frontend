@@ -1,5 +1,5 @@
-import { useId, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useId, type ReactNode } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 
 import { Logo } from '../../componentes/Logo.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
@@ -84,6 +84,21 @@ export function DatoDelResponsable({ campo }: { campo: keyof typeof DATOS_DEL_RE
  */
 export function PaginaLegal({ ruta, titulo, entradilla, version, secciones }: Props) {
   const idDelIndice = useId();
+  const { hash } = useLocation();
+
+  // Un enlace a `/cookies#analitica` (el del banner) llega con la seccion ya
+  // marcada en la direccion, pero el enrutador no se desplaza solo hasta ella.
+  useEffect(() => {
+    if (hash.length <= 1) {
+      return;
+    }
+
+    try {
+      document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView();
+    } catch {
+      // Un fragmento mal escrito a mano (`#%E0%A4%A`) no puede tumbar la pagina.
+    }
+  }, [hash]);
 
   return (
     <div className="legal">
