@@ -346,6 +346,78 @@ describe('el guardia de las cabeceras de seguridad', () => {
     expect(salida).toContain(`la politica dice ${nombre}`);
   });
 
+  describe('el CAPTCHA de Cloudflare Turnstile (SCRUM-165)', () => {
+    const TURNSTILE = 'https://challenges.cloudflare.com';
+
+    /**
+     * Las fuentes que una directiva autoriza en un archivo. Se leen por directiva y
+     * se comparan valor por valor, sin armar expresiones regulares con el dominio:
+     * un dominio metido en una regex es justo lo que CodeQL marca como «sin ancla».
+     */
+    function fuentesDe(archivo: string, directiva: string): string[] {
+      const parte = archivo
+        .split(/[";]/)
+        .map((trozo) => trozo.trim())
+        .find((trozo) => trozo.startsWith(`${directiva} `));
+
+      return parte === undefined ? [] : parte.split(/\s+/).slice(1);
+    }
+
+    it('los archivos de verdad lo autorizan en script-src, frame-src y connect-src', () => {
+      for (const archivo of [VERCEL, NGINX]) {
+        expect(fuentesDe(archivo, 'script-src')).toContain(TURNSTILE);
+        expect(fuentesDe(archivo, 'connect-src')).toContain(TURNSTILE);
+        expect(fuentesDe(archivo, 'frame-src')).toEqual([TURNSTILE]);
+      }
+    });
+
+    it.each([
+      ['script-src', `script-src autoriza`, ` ${TURNSTILE}; style-src`, '; style-src'],
+      ['connect-src', `connect-src autoriza`, ` ${TURNSTILE}; frame-src`, '; frame-src'],
+      ['frame-src', `frame-src es exactamente`, ` frame-src ${TURNSTILE};`, ''],
+    ])('falla si deja de autorizarlo en %s', (_directiva, mensaje, quitar, dejar) => {
+      const archivos = buenos();
+      const sin = (texto: string) => texto.replace(quitar, dejar);
+
+      escribir({
+        ...archivos,
+        vercel: sin(archivos.vercel),
+        nginx: sin(archivos.nginx),
+      });
+
+      const { aprobo, salida } = correr();
+
+      expect(aprobo).toBe(false);
+      expect(salida).toContain(mensaje);
+    });
+
+    it('falla si se cuela otro dominio de fuera en script-src', () => {
+      const archivos = buenos();
+      const cambiar = (texto: string) =>
+        texto.replace(`'self' 'sha256-`, `'self' https://cdn.ejemplo.co 'sha256-`);
+
+      escribir({ ...archivos, vercel: cambiar(archivos.vercel), nginx: cambiar(archivos.nginx) });
+
+      const { aprobo, salida } = correr();
+
+      expect(aprobo).toBe(false);
+      expect(salida).toMatch(/ningun otro dominio de fuera/);
+    });
+
+    it('falla si frame-src admite algo mas que Turnstile', () => {
+      const archivos = buenos();
+      const cambiar = (texto: string) =>
+        texto.replace(`frame-src ${TURNSTILE};`, `frame-src ${TURNSTILE} https://www.youtube.com;`);
+
+      escribir({ ...archivos, vercel: cambiar(archivos.vercel), nginx: cambiar(archivos.nginx) });
+
+      const { aprobo, salida } = correr();
+
+      expect(aprobo).toBe(false);
+      expect(salida).toMatch(/frame-src es exactamente/);
+    });
+  });
+
   it('falla si index.html empieza a cargar algo de otro dominio', () => {
     const archivos = buenos();
 

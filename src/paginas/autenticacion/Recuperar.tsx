@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 
+import { CaptchaDeTurnstile } from '../../captcha/CaptchaDeTurnstile.tsx';
+import { ESPERA_DEL_CAPTCHA, useCaptcha } from '../../captcha/useCaptcha.ts';
 import { BotonDeEnvio, type EstadoDeEnvio } from '../../componentes/BotonDeEnvio.tsx';
 import { Campo } from '../../componentes/Campo.tsx';
 import { RUTAS } from '../../rutas/rutas.ts';
@@ -15,13 +17,23 @@ export function Recuperar() {
   const [estado, setEstado] = useState<EstadoDeEnvio>('listo');
   const [error, setError] = useState<string | null>(null);
   const [enviado, setEnviado] = useState(false);
+  const captcha = useCaptcha();
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
     setError(null);
+
+    if (captcha.activo && captcha.token === null) {
+      setError(ESPERA_DEL_CAPTCHA);
+      return;
+    }
+
     setEstado('enviando');
 
-    const resultado = await pedirRecuperacion(correo);
+    const resultado = await pedirRecuperacion(correo, captcha.token ?? undefined);
+
+    // Cada token vale una vez, salga como salga el intento.
+    captcha.reiniciar();
 
     if (!resultado.ok) {
       setEstado('listo');
@@ -86,6 +98,12 @@ export function Recuperar() {
             onChange={(e) => setCorreo(e.target.value)}
           />
         </Aparece>
+
+        {captcha.activo && (
+          <Aparece>
+            <CaptchaDeTurnstile captcha={captcha} accion="recuperar" />
+          </Aparece>
+        )}
 
         <Aparece>
           <BotonDeEnvio estado={estado} textoAlTerminar="Enviado">

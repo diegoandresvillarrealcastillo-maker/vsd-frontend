@@ -2,6 +2,8 @@ import { useId, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { BotonDeEnvio, type EstadoDeEnvio } from '../../componentes/BotonDeEnvio.tsx';
+import { CaptchaDeTurnstile } from '../../captcha/CaptchaDeTurnstile.tsx';
+import { ESPERA_DEL_CAPTCHA, useCaptcha } from '../../captcha/useCaptcha.ts';
 import { BotonDeGoogle } from '../../componentes/BotonDeGoogle.tsx';
 import { Campo } from '../../componentes/Campo.tsx';
 import { MedidorDeContrasena } from '../../componentes/MedidorDeContrasena.tsx';
@@ -41,6 +43,7 @@ export function Registro() {
   const [errorDeLaFecha, setErrorDeLaFecha] = useState<string | undefined>(undefined);
   const [enviado, setEnviado] = useState(false);
   const idMedidor = useId();
+  const captcha = useCaptcha();
 
   const acepta = avisoAceptado && terminosAceptados;
 
@@ -106,6 +109,13 @@ export function Registro() {
       return;
     }
 
+    // Despues de lo que la persona puede corregir, no antes: que espere a
+    // Cloudflare solo cuando ya no queda nada por arreglar en el formulario.
+    if (captcha.activo && captcha.token === null) {
+      setError(ESPERA_DEL_CAPTCHA);
+      return;
+    }
+
     setEstado('enviando');
 
     // La fecha no se manda a Supabase: no hace falta para crear la identidad, y
@@ -116,7 +126,11 @@ export function Registro() {
       contrasena,
       aceptaElAviso: avisoAceptado,
       aceptaLosTerminos: terminosAceptados,
+      ...(captcha.token === null ? {} : { captchaToken: captcha.token }),
     });
+
+    // Cada token vale una vez, salga como salga el intento.
+    captcha.reiniciar();
 
     if (!resultado.ok) {
       setEstado('listo');
@@ -236,6 +250,12 @@ export function Registro() {
           alCambiarLosTerminos={setTerminosAceptados}
           disabled={ocupado}
         />
+
+        {captcha.activo && (
+          <Aparece>
+            <CaptchaDeTurnstile captcha={captcha} accion="registro" />
+          </Aparece>
+        )}
 
         <Aparece>
           {/* Sin el consentimiento no hay base legal para guardar un solo dato
