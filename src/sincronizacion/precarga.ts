@@ -1,6 +1,7 @@
 import { traerElCatalogoConCopia } from './catalogoLocal.ts';
 import { precargarElDiario } from './diarioLocal.ts';
 import { precargarElPanel } from './panelLocal.ts';
+import { precargarLasReglasLocales } from './reglasLocalesLocal.ts';
 import { precargarElSemaforo } from './semaforoLocal.ts';
 
 /**
@@ -22,6 +23,10 @@ import { precargarElSemaforo } from './semaforoLocal.ts';
  * Y el panel con el sendero (SCRUM-140): la cuenta y el progreso, para que abran sin red. Esa
  * lectura tampoco da de alta la cuenta.
  *
+ * Y las reglas con las que VSD IA responde sin conexion (SCRUM-141): un saludo, una
+ * despedida, las lineas de ayuda de cada pais y la deteccion de riesgo. Las lineas son lo
+ * ultimo que se quiere no tener cuando falla la red.
+ *
  * **Nunca falla ni molesta**: es una comodidad. Sin conexion, o si el servidor no
  * responde, no pasa nada; se intentara otra vez cuando vuelva la red.
  */
@@ -33,5 +38,6 @@ export async function precargarLasLecturas(): Promise<void> {
     Promise.resolve().then(() => precargarElDiario()),
     Promise.resolve().then(() => precargarElSemaforo()),
     Promise.resolve().then(() => precargarElPanel()),
+    Promise.resolve().then(() => precargarLasReglasLocales()),
   ]);
 }
