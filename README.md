@@ -218,8 +218,15 @@ Lo que Google y los asistentes de IA leen, y lo que no deben leer:
     sitemap roto.
   - **Cualquier otro** (PRE, local): `robots.txt` lo cierra todo, no hay sitemap,
     la pagina lleva `<meta name="robots" content="noindex">` y Vercel manda la
-    cabecera `X-Robots-Tag: noindex` en los `*.vercel.app`. PRE tiene cuentas y
-    datos de prueba; que se indexe no le sirve a nadie.
+    cabecera `X-Robots-Tag: noindex` en PRE (`vsd-health-pre.vercel.app`) y en las
+    vistas previas de las ramas (`*-git-*.vercel.app`). PRE tiene cuentas y datos de
+    prueba; que se indexe no le sirve a nadie.
+  - **Por que la regla no cubre todo `*.vercel.app`**: el dominio de produccion
+    sera uno gratuito y generico de Vercel (`algo.vercel.app`), y una regla por
+    `vercel.app` lo cerraria a los buscadores. `scripts/comprobar-las-cabeceras.mjs`
+    lo vigila: falla si la regla deja de cubrir PRE o las vistas previas, o si pasa a
+    cubrir un posible dominio de produccion. **Si PROD estrena un dominio propio o
+    PRE cambia de nombre, hay que ajustar el host en `vercel.json`.**
 - **Solo existen las rutas que existen.** `vercel.json` y `nginx/default.conf`
   reescriben a `index.html` unicamente las pantallas de `src/rutas/rutas.ts`; el
   resto es un 404 real, con una pagina estatica y `noindex` (antes cualquier

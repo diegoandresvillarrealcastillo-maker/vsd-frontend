@@ -14,7 +14,7 @@
 //   sin sitemap, y un llms.txt que dice que el ambiente no es publico. PRE tiene
 //   cuentas de prueba y datos de prueba: que Google lo indexe no le sirve a nadie.
 //   Es una de tres capas (las otras: la etiqueta `noindex` del HTML y la cabecera
-//   `X-Robots-Tag` que manda Vercel en los `*.vercel.app`).
+//   `X-Robots-Tag` que manda Vercel en PRE y en las vistas previas de las ramas).
 //
 // Nunca falla por falta de dominio fuera de produccion: ahi no se usa.
 

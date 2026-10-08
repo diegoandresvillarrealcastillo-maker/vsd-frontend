@@ -64,9 +64,39 @@ const robotsDeVercel = reglasDeLosVercelApp
   .find(({ key }) => key === 'X-Robots-Tag');
 
 comprobar(
-  'vercel.json manda X-Robots-Tag noindex en los *.vercel.app (PRE y las vistas previas)',
+  'vercel.json manda X-Robots-Tag noindex en PRE y en las vistas previas de las ramas',
   robotsDeVercel !== undefined && /noindex/.test(robotsDeVercel.value),
 );
+
+// El dominio de produccion sera uno generico de Vercel (`algo.vercel.app`), asi que la
+// regla NO puede cubrir todo `vercel.app`: cerraria produccion a los buscadores. Se
+// comprueba con direcciones de ejemplo, una por cada cosa que tiene que pasar.
+const hostDeLaRegla = reglasDeLosVercelApp
+  .flatMap((regla) => regla.has ?? [])
+  .find((condicion) => condicion.type === 'host')?.value;
+
+function cubre(host) {
+  try {
+    return new RegExp(`^(?:${hostDeLaRegla})$`).test(host);
+  } catch {
+    return false;
+  }
+}
+
+comprobar(
+  'la regla del noindex cubre PRE (vsd-health-pre.vercel.app)',
+  cubre('vsd-health-pre.vercel.app'),
+);
+comprobar(
+  'la regla del noindex cubre las vistas previas de las ramas (-git-)',
+  cubre('vsd-health-git-feature-algo-vsd-company.vercel.app'),
+);
+for (const produccion of ['vsd-health.vercel.app', 'vsd-health-app.vercel.app', 'vsd.vercel.app']) {
+  comprobar(
+    `la regla del noindex NO cubre un posible dominio de produccion (${produccion}): lo cerraria`,
+    !cubre(produccion),
+  );
+}
 comprobar(
   'la cabecera noindex NO sale en todas las rutas de todos los ambientes: cerraria produccion',
   !deVercel.has('X-Robots-Tag'),

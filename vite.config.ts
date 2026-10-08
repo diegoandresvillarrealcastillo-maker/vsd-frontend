@@ -12,7 +12,7 @@ import { defineConfig } from 'vitest/config';
  * Fuera de produccion, la pagina le dice a los buscadores que no la indexen
  * (SEO-02). Es una de tres capas: tambien lo dicen `robots.txt` (que genera
  * `scripts/generar-los-archivos-de-busqueda.mjs`) y la cabecera `X-Robots-Tag` que
- * Vercel manda en los `*.vercel.app`.
+ * Vercel manda en PRE y en las vistas previas de las ramas.
  *
  * Se decide con `VITE_APP_ENV` y no con `mode`: PRE se compila con `mode`
  * `production`, igual que PROD, y lo unico que los distingue es esa variable.

@@ -10,7 +10,7 @@
   "headers": [
     {
       "source": "/(.*)",
-      "has": [{ "type": "host", "value": ".*\\.vercel\\.app" }],
+      "has": [{ "type": "host", "value": "(vsd-health-pre|.*-git-.*)\\.vercel\\.app" }],
       "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
     },
     {
