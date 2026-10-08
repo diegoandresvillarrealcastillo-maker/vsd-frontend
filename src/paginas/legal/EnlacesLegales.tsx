@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 
+import { useAnalitica } from '../../analitica/useAnalitica.ts';
 import '../../estilos/legal.css';
 import type { Ruta } from '../../rutas/rutas.ts';
 import { DOCUMENTOS_LEGALES } from './datosLegales.ts';
@@ -9,6 +10,10 @@ import { DOCUMENTOS_LEGALES } from './datosLegales.ts';
  * acceso y en el de las propias paginas legales. La lista vive en
  * `datosLegales.ts`: asi un documento nuevo aparece en todos a la vez y ninguno
  * se queda con un enlace de menos.
+ *
+ * Donde hay analitica (SCRUM-161) se suma «Preferencias de analitica», que vuelve
+ * a abrir el banner: cambiar de idea tiene que ser tan facil como la primera vez, y
+ * estar siempre a mano. Es un boton y no un enlace, porque no lleva a ninguna parte.
  */
 
 interface Props {
@@ -18,6 +23,8 @@ interface Props {
 }
 
 export function EnlacesLegales({ actual, className }: Props) {
+  const { disponible, preguntarDeNuevo } = useAnalitica();
+
   return (
     <nav
       className={className === undefined ? 'enlaces-legales' : `enlaces-legales ${className}`}
@@ -35,6 +42,17 @@ export function EnlacesLegales({ actual, className }: Props) {
             </Link>
           </li>
         ))}
+        {disponible && (
+          <li>
+            <button
+              type="button"
+              className="enlaces-legales__enlace enlaces-legales__boton"
+              onClick={preguntarDeNuevo}
+            >
+              Preferencias de analítica
+            </button>
+          </li>
+        )}
       </ul>
     </nav>
   );

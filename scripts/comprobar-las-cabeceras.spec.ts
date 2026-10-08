@@ -327,6 +327,68 @@ describe('el guardia de las cabeceras de seguridad', () => {
     expect(salida).toMatch(/Google Fonts/);
   });
 
+  describe('los unicos dominios de fuera (SCRUM-161)', () => {
+    /** Aplica el mismo cambio a las dos copias: se prueba la politica, no su diferencia. */
+    function enLasDosCopias(cambiar: (texto: string) => string): void {
+      const archivos = buenos();
+
+      escribir({ ...archivos, vercel: cambiar(archivos.vercel), nginx: cambiar(archivos.nginx) });
+    }
+
+    it('los archivos de verdad autorizan Google Analytics y nada mas de Google', () => {
+      // Si esto falla, las pruebas de abajo no prueban lo que creen.
+      expect(VERCEL).toContain('https://www.googletagmanager.com');
+      expect(VERCEL).toContain('https://*.google-analytics.com');
+      expect(VERCEL).toContain('https://*.analytics.google.com');
+      expect(VERCEL).not.toMatch(/https:\/\/(www\.)?google\.com|googleads|doubleclick/);
+    });
+
+    it.each([
+      ['script-src', "script-src 'self'", "script-src 'self' https://cdn.ejemplo.test"],
+      ['connect-src', "connect-src 'self'", "connect-src 'self' https://api.ejemplo.test"],
+      ['img-src', "img-src 'self'", "img-src 'self' https://imagenes.ejemplo.test"],
+    ])('falla si %s autoriza un tercero que no esta en la lista', (directiva, antes, despues) => {
+      enLasDosCopias((texto) => texto.replace(antes, despues));
+
+      const { aprobo, salida } = correr();
+
+      expect(aprobo).toBe(false);
+      expect(salida).toContain(`${directiva} autoriza https://`);
+      expect(salida).toMatch(/no esta en la lista de dominios de fuera/);
+    });
+
+    it.each([
+      ['script-src', ' https://www.googletagmanager.com'],
+      ['connect-src', ' https://*.analytics.google.com'],
+      ['img-src', ' https://*.google-analytics.com'],
+    ])('falla si a %s le falta un dominio de Google Analytics', (directiva, sobra) => {
+      // Se quita solo la primera aparicion, que es la de esa directiva en la politica.
+      const archivos = buenos();
+      const sin = (texto: string) => {
+        const politica = texto.slice(texto.indexOf(`${directiva} `));
+        const quitada = politica.replace(sobra, '');
+
+        return texto.replace(politica, quitada);
+      };
+
+      escribir({ ...archivos, vercel: sin(archivos.vercel), nginx: sin(archivos.nginx) });
+
+      const { aprobo, salida } = correr();
+
+      expect(aprobo).toBe(false);
+      expect(salida).toContain(`${directiva} tiene que autorizar`);
+    });
+
+    it.each(['img-src', 'connect-src'])('falla si %s admite https: entero', (directiva) => {
+      enLasDosCopias((texto) => texto.replace(`${directiva} 'self'`, `${directiva} 'self' https:`));
+
+      const { aprobo, salida } = correr();
+
+      expect(aprobo).toBe(false);
+      expect(salida).toMatch(/admiten https: entero ni comodines/);
+    });
+  });
+
   it.each([
     ['frame-ancestors', "frame-ancestors 'none'", "frame-ancestors 'self'"],
     ['object-src', "object-src 'none'", "object-src 'self'"],
@@ -372,7 +434,12 @@ describe('el guardia de las cabeceras de seguridad', () => {
     });
 
     it.each([
-      ['script-src', `script-src autoriza`, ` ${TURNSTILE}; style-src`, '; style-src'],
+      [
+        'script-src',
+        `script-src autoriza`,
+        ` ${TURNSTILE} https://www.googletagmanager.com; style-src`,
+        ' https://www.googletagmanager.com; style-src',
+      ],
       ['connect-src', `connect-src autoriza`, ` ${TURNSTILE}; frame-src`, '; frame-src'],
       ['frame-src', `frame-src es exactamente`, ` frame-src ${TURNSTILE};`, ''],
     ])('falla si deja de autorizarlo en %s', (_directiva, mensaje, quitar, dejar) => {

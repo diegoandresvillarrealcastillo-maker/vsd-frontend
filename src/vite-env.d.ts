@@ -33,6 +33,12 @@ interface ImportMetaEnv {
    * diseno. Sin ella no hay CAPTCHA. La clave secreta no va aqui nunca.
    */
   readonly VITE_TURNSTILE_SITE_KEY?: string;
+
+  /**
+   * Identificador de medicion de Google Analytics 4 (`G-XXXXXXXXXX`). Publico por
+   * diseno. Sin el no hay banner ni analitica.
+   */
+  readonly VITE_GA_ID?: string;
 }
 
 interface ImportMeta {
