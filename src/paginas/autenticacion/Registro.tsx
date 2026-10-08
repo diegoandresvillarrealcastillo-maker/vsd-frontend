@@ -133,14 +133,25 @@ export function Registro() {
   if (enviado) {
     return (
       <LienzoDeAcceso
-        titulo="Ya te enviamos el correo"
-        // Se dice que la cuenta existe y que le falta un paso. Un "revisa tu
-        // correo" a secas deja sin saber si el registro funciono o no.
-        entradilla={`Tu cuenta ya está creada. Para activarla, abre ${correo} y pulsa el enlace que acabamos de mandarte. Al entrar por primera vez te pediremos confirmar tu fecha de nacimiento y aceptar el aviso y los términos.`}
+        titulo="Revisa tu correo"
+        // Esta pantalla sale igual si el correo es nuevo o ya tenia cuenta, y lo
+        // que dice tiene que ser cierto en los dos casos: ni «tu cuenta ya esta
+        // creada» (falso si ya existia) ni «ese correo ya esta registrado» (lo
+        // delata). Es la misma regla de Recuperar.tsx (S-08 de la auditoria 360).
+        // Quien ya tenia cuenta no se queda esperando un correo que no va a
+        // llegar: el pie le deja a un enlace entrar o recuperar la contrasena.
+        entradilla={`Si ${correo} es un correo válido, te enviamos un mensaje para continuar. Ábrelo y pulsa el enlace. Al entrar por primera vez te pediremos confirmar tu fecha de nacimiento y aceptar el aviso y los términos.`}
         pie={
-          <Link className="acceso__enlace" to={RUTAS.ACCESO}>
-            Volver al inicio de sesión
-          </Link>
+          <span>
+            ¿Ya tenías una cuenta con este correo?{' '}
+            <Link className="acceso__enlace" to={RUTAS.ACCESO}>
+              Entra
+            </Link>{' '}
+            o{' '}
+            <Link className="acceso__enlace" to={RUTAS.RECUPERAR}>
+              recupera tu contraseña
+            </Link>
+          </span>
         }
       >
         <PistasDelCorreo />
@@ -230,7 +241,7 @@ export function Registro() {
           {/* Sin el consentimiento no hay base legal para guardar un solo dato
               de salud, asi que el boton no deja continuar. La comprobacion se
               repite en el proveedor: esto es comodidad, no el control. */}
-          <BotonDeEnvio estado={acepta ? estado : 'listo'} textoAlTerminar="Cuenta creada">
+          <BotonDeEnvio estado={acepta ? estado : 'listo'} textoAlTerminar="Listo">
             Crear cuenta
           </BotonDeEnvio>
         </Aparece>
