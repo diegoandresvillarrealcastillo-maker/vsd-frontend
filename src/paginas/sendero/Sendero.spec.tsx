@@ -6,7 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
 import type { ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
+import { abrirUnAlmacenDePrueba, cerrarElAlmacenDePrueba } from '../../pruebas/almacenDePrueba.ts';
 import { RUTAS, rutaDeModulo } from '../../rutas/rutas.ts';
+import { encolar } from '../../sincronizacion/ciclo.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { Sendero } from './Sendero.tsx';
 
@@ -89,7 +91,7 @@ function sesion(): EstadoDeSesion {
 }
 
 function pintar(ruta: string = rutaDeModulo('bienestar')) {
-  render(
+  return render(
     <SesionContexto.Provider value={sesion()}>
       <MemoryRouter initialEntries={[ruta]}>
         <Routes>
@@ -320,7 +322,10 @@ describe('Sendero', () => {
 
       pintar();
 
-      expect(await screen.findByRole('alert')).toHaveTextContent(/No se pudo conectar/);
+      // Sin red y sin una copia en este equipo no hay nada que ensenar (SCRUM-140).
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        /Todavía no hay una copia de tu panel en este equipo/,
+      );
 
       await usuario.click(screen.getByRole('button', { name: 'Reintentar' }));
 
@@ -337,5 +342,67 @@ describe('Sendero', () => {
         RUTAS.PANEL,
       );
     });
+  });
+});
+
+describe('Sendero sin conexion (SCRUM-140)', () => {
+  beforeEach(async () => {
+    await abrirUnAlmacenDePrueba();
+  });
+
+  afterEach(() => {
+    cerrarElAlmacenDePrueba();
+    darDeAltaLaCuenta.mockReset();
+  });
+
+  async function conLaCopiaGuardada() {
+    const primera = pintar();
+
+    await screen.findByRole('heading', { name: 'Etapa 1' });
+    primera.unmount();
+    darDeAltaLaCuenta.mockRejectedValue(new TypeError('Failed to fetch'));
+  }
+
+  it('se abre con la copia de este equipo, y dice de cuando es', async () => {
+    await conLaCopiaGuardada();
+
+    pintar();
+
+    expect(await screen.findByRole('heading', { name: 'Etapa 1' })).toBeInTheDocument();
+    expect(screen.getByText(/Datos de hace un momento/)).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Hoy, sesión 4: 0 de 3 actividades hechas/ }),
+    ).toBeInTheDocument();
+  });
+
+  it('lo que se hizo hoy sin conexion sale hecho, y se dice que se contara al enviarse', async () => {
+    await conLaCopiaGuardada();
+    await encolar({
+      operationId: 'res-1',
+      tipo: 'resultado.registrar',
+      entidad: 'resultado:res-1',
+      payload: {
+        clientOperationId: 'res-1',
+        activityId: '0acd0000-0000-4000-8000-000000000002',
+        completedAt: new Date().toISOString(),
+      },
+    });
+
+    pintar();
+
+    expect(
+      await screen.findByRole('button', { name: /Hoy, sesión 4: 1 de 3 actividades hechas/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Lo que hiciste sin conexión se contará cuando se envíe/),
+    ).toBeInTheDocument();
+  });
+
+  it('con conexion no hay nada que decir de la copia', async () => {
+    pintar();
+
+    await screen.findByRole('heading', { name: 'Etapa 1' });
+
+    expect(screen.queryByText(/Datos de hace/)).toBeNull();
   });
 });

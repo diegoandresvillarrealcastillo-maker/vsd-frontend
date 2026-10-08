@@ -1,3 +1,4 @@
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   useCallback,
   useEffect,
@@ -6,8 +7,10 @@ import {
   useState,
   type CSSProperties,
   type ReactNode,
+  type RefObject,
 } from 'react';
 
+import { ACOMPANADO } from '../../estilos/movimiento.ts';
 import {
   cambiarHorasDeAviso,
   cambiarRecordatoriosDelDia,
@@ -40,48 +43,41 @@ import { Apartado, MensajeDeAviso, SIN_CONEXION, type Aviso } from './piezas.tsx
  *   permiso. Sin permiso todo sigue funcionando. En iPhone solo funciona con
  *   la aplicacion instalada en la pantalla de inicio, y se explica como.
  * - **Cuales llegan y a que hora.** Es de la cuenta: vale para todos sus
- *   dispositivos. Cada aviso se enciende y apaga por separado, y todos se leen
- *   en la zona horaria de la persona (SCRUM-123).
+ *   dispositivos, y todos se leen en la zona horaria de la persona (SCRUM-123).
  *
- * Y dos grupos de avisos, porque se comportan distinto:
+ * Y los avisos se agrupan en dos tarjetas, una por lo que avisan. Cada una
+ * tiene un solo interruptor y, encendida, despliega sus opciones; apagada, las
+ * esconde del todo:
  *
- * - **Recordatorios del dia** (SCRUM-127): el de la manana y el de la noche,
- *   con la hora fija en las 8:00 y las 20:00. Solo se encienden o apagan.
- * - **A la hora que elijas:** el del semaforo y "un momento para ti", con hora
- *   propia.
+ * - **Actividades y bienestar:** tres opciones en forma de chip. La de la
+ *   manana (8:00) y la de la noche (20:00) tienen hora fija (SCRUM-127); la
+ *   personalizada tiene la hora que la persona elija.
+ * - **Pendientes del semaforo:** cuantos pendientes tiene, a la hora que elija.
+ *
+ * El servidor guarda cuatro avisos sueltos y la pantalla los junta: la tarjeta
+ * de actividades esta encendida si lo esta alguno de sus tres chips, y apagarla
+ * apaga los tres. No hay estado propio que pueda contradecir al del servidor.
  */
 
-type ClaseDeAviso = 'semaforo' | 'racha';
+type Momento = 'manana' | 'noche' | 'personalizado';
 
-const CLASES: Readonly<
-  Record<
-    ClaseDeAviso,
-    {
-      readonly nombre: string;
-      readonly explicacion: string;
-      readonly icono: NombreDeIcono;
-      readonly horaPorDefecto: string;
-      readonly campo: keyof CambiosDeHoras;
-    }
-  >
-> = {
-  semaforo: {
-    nombre: 'Pendientes del semáforo',
-    explicacion: 'Cuántos pendientes tienes y cuáles, a la hora que elijas.',
-    icono: 'check',
-    horaPorDefecto: '08:00',
-    campo: 'horaSemaforo',
-  },
-  racha: {
-    nombre: 'Un momento para ti',
-    explicacion:
-      'Una invitación a tus actividades, solo si ese día todavía no hiciste ninguna. ' +
-      'Si también tienes encendido «Cierre del día», llega solo la que toque primero.',
-    icono: 'sparkles',
-    horaPorDefecto: '19:00',
-    campo: 'horaRacha',
-  },
-};
+type Elegidos = Readonly<Record<Momento, boolean>>;
+
+const NINGUNO: Elegidos = { manana: false, noche: false, personalizado: false };
+
+const MOMENTOS: readonly {
+  readonly clave: Momento;
+  readonly nombre: string;
+  readonly detalle: string | null;
+}[] = [
+  { clave: 'manana', nombre: 'Mañana', detalle: '8:00 a. m.' },
+  { clave: 'noche', nombre: 'Noche', detalle: '8:00 p. m.' },
+  { clave: 'personalizado', nombre: 'Personalizado', detalle: null },
+];
+
+/** Las horas con las que se enciende un aviso que todavia no tenia. */
+const HORA_DEL_SEMAFORO = '08:00';
+const HORA_PERSONALIZADA = '19:00';
 
 /** Cuanto se espera tras tocar la hora antes de guardarla. */
 const ESPERA_AL_ESCRIBIR_LA_HORA_MS = 700;
@@ -100,7 +96,6 @@ export function TusAvisos() {
   const [permiso, setPermiso] = useState<NotificationPermission>(permisoDeAvisos);
   const [ocupado, setOcupado] = useState(false);
   const [aviso, setAviso] = useState<Aviso>(null);
-  const idDeLasHoras = useId();
   const capacidad = capacidadDelNavegador();
 
   useEffect(() => {
@@ -123,28 +118,38 @@ export function TusAvisos() {
     return () => control.abort();
   }, [intento]);
 
-  const cambiarHoras = useCallback(async (cambios: CambiosDeHoras): Promise<void> => {
+  // Las dos devuelven si se guardo, porque una tarjeta a veces necesita dos
+  // cambios seguidos y no debe mandar el segundo si el primero fallo.
+  const cambiarHoras = useCallback(async (cambios: CambiosDeHoras): Promise<boolean> => {
     setAviso(null);
 
     try {
       const datos = await cambiarHorasDeAviso(cambios);
 
       setEstado({ fase: 'listo', datos });
+
+      return true;
     } catch {
       setAviso({ tipo: 'fallo', texto: SIN_CONEXION });
+
+      return false;
     }
   }, []);
 
   const cambiarRecordatorios = useCallback(
-    async (cambios: CambiosDeRecordatorios): Promise<void> => {
+    async (cambios: CambiosDeRecordatorios): Promise<boolean> => {
       setAviso(null);
 
       try {
         const datos = await cambiarRecordatoriosDelDia(cambios);
 
         setEstado({ fase: 'listo', datos });
+
+        return true;
       } catch {
         setAviso({ tipo: 'fallo', texto: SIN_CONEXION });
+
+        return false;
       }
     },
     [],
@@ -248,30 +253,31 @@ export function TusAvisos() {
             alDesactivar={() => void desactivarAqui()}
           />
 
-          {/* Una API anterior a SCRUM-126 no manda estos campos: no se ofrece lo que no existe. */}
-          {typeof estado.datos.recordatorioManana === 'boolean' &&
-            typeof estado.datos.recordatorioNoche === 'boolean' && (
-              <RecordatoriosDelDia
-                manana={estado.datos.recordatorioManana}
-                noche={estado.datos.recordatorioNoche}
-                recibeEsteDispositivo={enEsteDispositivo}
-                alCambiar={cambiarRecordatorios}
-              />
-            )}
+          <TarjetaDeActividades
+            manana={estado.datos.recordatorioManana === true}
+            noche={estado.datos.recordatorioNoche === true}
+            horaPersonalizada={estado.datos.horaRacha}
+            // Una API anterior a SCRUM-126 no manda los recordatorios fijos: no se ofrece lo que no existe.
+            ofreceLosFijos={
+              typeof estado.datos.recordatorioManana === 'boolean' &&
+              typeof estado.datos.recordatorioNoche === 'boolean'
+            }
+            alCambiarRecordatorios={cambiarRecordatorios}
+            alCambiarHoras={cambiarHoras}
+          />
 
-          <div role="group" aria-labelledby={idDeLasHoras} className="perfil__grupo-de-avisos">
-            <h3 id={idDeLasHoras} className="perfil__subtitulo">
-              A la hora que elijas
-            </h3>
-            {(['semaforo', 'racha'] as const).map((clase) => (
-              <HoraDeUnAviso
-                key={clase}
-                clase={clase}
-                hora={clase === 'semaforo' ? estado.datos.horaSemaforo : estado.datos.horaRacha}
-                alCambiar={cambiarHoras}
-              />
-            ))}
-          </div>
+          <TarjetaDelSemaforo hora={estado.datos.horaSemaforo} alCambiarHoras={cambiarHoras} />
+
+          {(estado.datos.recordatorioManana === true ||
+            estado.datos.recordatorioNoche === true ||
+            estado.datos.horaSemaforo !== null ||
+            estado.datos.horaRacha !== null) &&
+            !enEsteDispositivo && (
+              <p className="app__nota">
+                Este dispositivo todavía no recibe avisos, así que aquí no llegarán. Actívalos
+                arriba para recibirlos.
+              </p>
+            )}
         </>
       )}
 
@@ -351,118 +357,360 @@ function EsteDispositivo({
   );
 }
 
-/** Un aviso: el interruptor y, encendido, su hora. */
-function HoraDeUnAviso({
-  clase,
-  hora,
-  alCambiar,
+/**
+ * Invitaciones a empezar el dia, a tomarse un momento y a cerrarlo.
+ *
+ * Los tres chips son avisos distintos en el servidor, y no avisan igual: el de
+ * la manana sale siempre; el de la noche y el personalizado, solo si ese dia la
+ * persona todavia no hizo ninguna actividad, y entre los dos llega uno solo,
+ * el que toque primero. La explicacion lo dice tal cual.
+ */
+function TarjetaDeActividades({
+  manana,
+  noche,
+  horaPersonalizada,
+  ofreceLosFijos,
+  alCambiarRecordatorios,
+  alCambiarHoras,
 }: {
-  clase: ClaseDeAviso;
-  hora: string | null;
-  alCambiar: (cambios: CambiosDeHoras) => Promise<void>;
+  manana: boolean;
+  noche: boolean;
+  horaPersonalizada: string | null;
+  ofreceLosFijos: boolean;
+  alCambiarRecordatorios: (cambios: CambiosDeRecordatorios) => Promise<boolean>;
+  alCambiarHoras: (cambios: CambiosDeHoras) => Promise<boolean>;
 }) {
-  const datos = CLASES[clase];
-  const encendido = hora !== null;
-  const [escrita, setEscrita] = useState(hora ?? datos.horaPorDefecto);
   const [ocupado, setOcupado] = useState(false);
-  const temporizador = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const idDeLaHora = useId();
+  const interruptor = useRef<HTMLButtonElement>(null);
+  // Lo que habia elegido antes de apagarla, para devolverlo al encenderla.
+  const recordados = useRef<Elegidos | null>(null);
 
-  useEffect(() => () => clearTimeout(temporizador.current), []);
+  const elegidos: Elegidos = { manana, noche, personalizado: horaPersonalizada !== null };
+  const encendida = elegidos.manana || elegidos.noche || elegidos.personalizado;
+
+  const hora = useHoraElegida(horaPersonalizada, HORA_PERSONALIZADA, async (valor) => {
+    setOcupado(true);
+
+    try {
+      await alCambiarHoras({ horaRacha: valor });
+    } finally {
+      setOcupado(false);
+    }
+  });
+
+  /** Lleva el servidor a lo que se pide, tocando solo lo que cambia. */
+  async function aplicar(despues: Elegidos): Promise<boolean> {
+    setOcupado(true);
+
+    try {
+      const recordatorios: CambiosDeRecordatorios = {
+        ...(despues.manana !== elegidos.manana ? { manana: despues.manana } : {}),
+        ...(despues.noche !== elegidos.noche ? { noche: despues.noche } : {}),
+      };
+
+      if (Object.keys(recordatorios).length > 0 && !(await alCambiarRecordatorios(recordatorios))) {
+        return false;
+      }
+
+      if (despues.personalizado !== elegidos.personalizado) {
+        return await alCambiarHoras({
+          horaRacha: despues.personalizado ? hora.escrita : null,
+        });
+      }
+
+      return true;
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  async function alternarLaTarjeta() {
+    if (ocupado) {
+      return;
+    }
+
+    hora.cancelar();
+
+    if (encendida) {
+      recordados.current = elegidos;
+      await aplicar(NINGUNO);
+
+      return;
+    }
+
+    // Sin nada recordado se ofrece lo mas corriente: la manana y la noche.
+    await aplicar(
+      recordados.current ?? {
+        manana: ofreceLosFijos,
+        noche: ofreceLosFijos,
+        personalizado: !ofreceLosFijos,
+      },
+    );
+  }
+
+  async function alternarUno(momento: Momento) {
+    if (ocupado) {
+      return;
+    }
+
+    if (momento === 'personalizado') {
+      hora.cancelar();
+    }
+
+    const despues: Elegidos = { ...elegidos, [momento]: !elegidos[momento] };
+    const queda = despues.manana || despues.noche || despues.personalizado;
+
+    // Quitar el ultimo chip apaga la tarjeta. El chip desaparece con el
+    // despliegue, y con el el foco: se devuelve al interruptor.
+    if (!queda) {
+      recordados.current = elegidos;
+    }
+
+    if ((await aplicar(despues)) && !queda) {
+      interruptor.current?.focus();
+    }
+  }
+
+  return (
+    <TarjetaDeAviso
+      nombre="Actividades y bienestar"
+      explicacion="Invitaciones para empezar el día, para tomarte un momento o para cerrarlo. La de la mañana llega siempre; las demás, solo si ese día aún no hiciste ninguna actividad."
+      icono="leaf"
+      encendida={encendida}
+      alAlternar={() => void alternarLaTarjeta()}
+      referencia={interruptor}
+    >
+      <fieldset className="perfil__chips">
+        <legend className="solo-lectores">Qué avisos quieres recibir</legend>
+
+        {MOMENTOS.filter((momento) => ofreceLosFijos || momento.clave === 'personalizado').map(
+          (momento) => (
+            <Chip
+              key={momento.clave}
+              nombre={momento.nombre}
+              detalle={momento.detalle}
+              marcado={elegidos[momento.clave]}
+              alCambiar={() => void alternarUno(momento.clave)}
+            />
+          ),
+        )}
+      </fieldset>
+
+      <Despliegue abierto={elegidos.personalizado}>
+        <CampoDeHora
+          etiqueta="Hora del aviso personalizado"
+          valor={hora.escrita}
+          alEscribir={hora.escribir}
+          conZona={false}
+        />
+      </Despliegue>
+
+      {/* Un solo parrafo para las dos aclaraciones: apilar una nota por cada cosa
+          alargaba la tarjeta. La zona vale para los tres chips. */}
+      <p className="app__nota">
+        Las horas son de tu zona horaria ({nombreDeLaZona()}). Si viajas, se ajustan solas.
+        {elegidos.noche &&
+          elegidos.personalizado &&
+          ' Con «Noche» y «Personalizado» a la vez, llega solo la que toque primero.'}
+      </p>
+    </TarjetaDeAviso>
+  );
+}
+
+/** Cuantos pendientes hay en el semaforo, a la hora que la persona elija. */
+function TarjetaDelSemaforo({
+  hora: horaGuardada,
+  alCambiarHoras,
+}: {
+  hora: string | null;
+  alCambiarHoras: (cambios: CambiosDeHoras) => Promise<boolean>;
+}) {
+  const [ocupado, setOcupado] = useState(false);
+  const encendida = horaGuardada !== null;
 
   async function guardar(nueva: string | null) {
     setOcupado(true);
 
     try {
-      await alCambiar({ [datos.campo]: nueva });
+      await alCambiarHoras({ horaSemaforo: nueva });
     } finally {
       setOcupado(false);
     }
   }
+
+  const hora = useHoraElegida(horaGuardada, HORA_DEL_SEMAFORO, guardar);
 
   function alternar() {
     if (ocupado) {
       return;
     }
 
-    clearTimeout(temporizador.current);
-    void guardar(encendido ? null : escrita);
+    hora.cancelar();
+    void guardar(encendida ? null : hora.escrita);
   }
 
-  function alEscribirHora(valor: string) {
+  return (
+    <TarjetaDeAviso
+      nombre="Pendientes del semáforo"
+      explicacion="Te avisamos cuántos pendientes tienes para que te organices."
+      icono="check"
+      encendida={encendida}
+      alAlternar={alternar}
+    >
+      <CampoDeHora
+        etiqueta="Hora del aviso: Pendientes del semáforo"
+        valor={hora.escrita}
+        alEscribir={hora.escribir}
+      />
+    </TarjetaDeAviso>
+  );
+}
+
+/**
+ * La hora que se escribe en un campo `time` y su guardado con espera: se manda
+ * cuando esta completa y se deja de tocar un momento. `cancelar` borra un
+ * guardado pendiente; hay que llamarlo al apagar el aviso, o la hora llegaria
+ * despues y lo volveria a encender.
+ */
+function useHoraElegida(
+  guardada: string | null,
+  porDefecto: string,
+  guardar: (hora: string) => Promise<void>,
+) {
+  const [escrita, setEscrita] = useState(guardada ?? porDefecto);
+  const temporizador = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => () => clearTimeout(temporizador.current), []);
+
+  const cancelar = useCallback(() => clearTimeout(temporizador.current), []);
+
+  function escribir(valor: string) {
     setEscrita(valor);
     clearTimeout(temporizador.current);
 
-    // Se guarda cuando la hora esta completa y se deja de tocar un momento.
     if (HORA.test(valor)) {
       temporizador.current = setTimeout(() => void guardar(valor), ESPERA_AL_ESCRIBIR_LA_HORA_MS);
     }
   }
 
+  return { escrita, escribir, cancelar };
+}
+
+/** "A las [hora] en tal zona". La hora se lee en la zona de la cuenta (SCRUM-123), no en la de Colombia. */
+function CampoDeHora({
+  etiqueta,
+  valor,
+  alEscribir,
+  conZona = true,
+}: {
+  etiqueta: string;
+  valor: string;
+  alEscribir: (valor: string) => void;
+  /** Falso cuando la tarjeta ya dice la zona una vez para todas sus horas. */
+  conZona?: boolean;
+}) {
+  const id = useId();
+
   return (
-    <InterruptorDeAviso
-      nombre={datos.nombre}
-      explicacion={datos.explicacion}
-      icono={datos.icono}
-      encendido={encendido}
-      alAlternar={alternar}
-    >
-      {encendido && (
-        <div className="perfil__fila">
-          <label htmlFor={idDeLaHora} className="bienvenida__etiqueta">
-            A las
-          </label>
-          <input
-            id={idDeLaHora}
-            type="time"
-            step={60}
-            className="bienvenida__entrada perfil__hora"
-            value={escrita}
-            onChange={(evento) => alEscribirHora(evento.target.value)}
-            aria-label={`Hora del aviso: ${datos.nombre}`}
-          />
-          {/* La hora se lee en la zona de la cuenta (SCRUM-123), no en la de Colombia. */}
-          <span className="app__nota">{nombreDeLaZona()}</span>
-        </div>
-      )}
-    </InterruptorDeAviso>
+    <div className="perfil__fila">
+      <label htmlFor={id} className="bienvenida__etiqueta">
+        A las
+      </label>
+      <input
+        id={id}
+        type="time"
+        step={60}
+        className="bienvenida__entrada perfil__hora"
+        value={valor}
+        onChange={(evento) => alEscribir(evento.target.value)}
+        aria-label={etiqueta}
+      />
+      {conZona && <span className="app__nota">{nombreDeLaZona()}</span>}
+    </div>
   );
 }
 
 /**
- * Un aviso: su interruptor y lo que hace. Lo que va dentro (la hora, una nota)
- * aparece debajo. Es un `switch`, asi que se maneja con teclado y se lee como
+ * Una opcion en forma de chip. Es una casilla de verdad, escondida debajo: la
+ * que recibe el foco, responde al espacio y anuncia un lector de pantalla. Lo
+ * que se pinta es decoracion sincronizada con ella, y la marca de verificacion
+ * evita que el estado se distinga solo por el color.
+ */
+function Chip({
+  nombre,
+  detalle,
+  marcado,
+  alCambiar,
+}: {
+  nombre: string;
+  detalle: string | null;
+  marcado: boolean;
+  alCambiar: () => void;
+}) {
+  return (
+    <label className="perfil__chip">
+      <input
+        type="checkbox"
+        className="perfil__chip-entrada"
+        checked={marcado}
+        onChange={alCambiar}
+      />
+      <span className="perfil__chip-cuerpo">
+        <span className="perfil__chip-marca" aria-hidden="true">
+          <Icono nombre="check" tamano={14} />
+        </span>
+        {nombre}
+        {/* El espacio explicito: sin estilos, nombre y hora se leerian pegados. */}
+        {detalle !== null && (
+          <>
+            {' '}
+            <span className="perfil__chip-detalle">{detalle}</span>
+          </>
+        )}
+      </span>
+    </label>
+  );
+}
+
+/**
+ * Una tarjeta de avisos: un interruptor, lo que hace y, encendida, sus
+ * opciones. Es un `switch`, asi que se maneja con teclado y se lee como
  * "interruptor, activado" en un lector de pantalla.
  */
-function InterruptorDeAviso({
+function TarjetaDeAviso({
   nombre,
   explicacion,
   icono,
-  encendido,
+  encendida,
   alAlternar,
+  referencia,
   children,
 }: {
   nombre: string;
   explicacion: string;
   icono: NombreDeIcono;
-  encendido: boolean;
+  encendida: boolean;
   alAlternar: () => void;
-  children?: ReactNode;
+  referencia?: RefObject<HTMLButtonElement | null>;
+  children: ReactNode;
 }) {
   const colores = MODULOS.bienestar;
   const idDeLaExplicacion = useId();
 
   return (
-    <div className="perfil__aviso">
+    <div
+      className={`perfil__tarjeta-de-aviso${encendida ? ' perfil__tarjeta-de-aviso--activa' : ''}`}
+      style={
+        { '--modulo-fondo': colores.fondo, '--modulo-acento': colores.acento } as CSSProperties
+      }
+    >
       <button
+        ref={referencia}
         type="button"
         role="switch"
-        aria-checked={encendido}
+        aria-checked={encendida}
         aria-describedby={idDeLaExplicacion}
-        className={`perfil__modulo${encendido ? ' perfil__modulo--activo' : ''}`}
-        style={
-          { '--modulo-fondo': colores.fondo, '--modulo-acento': colores.acento } as CSSProperties
-        }
+        className="perfil__tarjeta-interruptor"
         onClick={alAlternar}
       >
         <span className="tarjeta-modulo__icono">
@@ -478,102 +726,35 @@ function InterruptorDeAviso({
         {explicacion}
       </p>
 
-      {children}
+      <Despliegue abierto={encendida}>{children}</Despliegue>
     </div>
   );
 }
 
-type MomentoDelDia = 'manana' | 'noche';
-
-const MOMENTOS: Readonly<
-  Record<
-    MomentoDelDia,
-    {
-      readonly nombre: string;
-      readonly explicacion: string;
-      readonly icono: NombreDeIcono;
-    }
-  >
-> = {
-  manana: {
-    nombre: 'Buenos días',
-    explicacion: 'A las 8:00 a. m., una invitación a empezar el día. Sin prisa, a tu ritmo.',
-    icono: 'leaf',
-  },
-  noche: {
-    nombre: 'Cierre del día',
-    explicacion:
-      'A las 8:00 p. m., solo si hoy aún no hiciste ninguna actividad. Si ya la hiciste, no llega nada. ' +
-      'Si también tienes encendido «Un momento para ti», llega solo la que toque primero.',
-    icono: 'moon',
-  },
-};
-
 /**
- * Los recordatorios de la manana y de la noche (SCRUM-127): a las 8:00 y a las
- * 20:00 de la persona, sin hora que elegir. Solo se encienden y se apagan.
+ * Lo que aparece solo cuando hace falta. Cerrado no esta en el arbol: no ocupa
+ * sitio ni recibe el foco. Al abrir y cerrar crece y se encoge, sin salto, y con
+ * "reducir movimiento" aparece y desaparece de golpe.
  *
- * Avisan, con un tono de juego y sin culpa, lo que dicen: los textos viven en
- * el servidor y rotan cada dia. Aqui se explica a que hora y en que zona llegan,
- * y que hace falta que este dispositivo reciba avisos.
+ * El recorte (`overflow`) solo rige mientras se mueve: al terminar de abrirse
+ * se suelta, o el anillo de foco de lo que hay dentro quedaria cortado.
  */
-function RecordatoriosDelDia({
-  manana,
-  noche,
-  recibeEsteDispositivo,
-  alCambiar,
-}: {
-  manana: boolean;
-  noche: boolean;
-  recibeEsteDispositivo: boolean;
-  alCambiar: (cambios: CambiosDeRecordatorios) => Promise<void>;
-}) {
-  const [ocupado, setOcupado] = useState(false);
-  const idDelTitulo = useId();
-  const zona = nombreDeLaZona();
-  const encendidos: Readonly<Record<MomentoDelDia, boolean>> = { manana, noche };
-
-  async function alternar(momento: MomentoDelDia) {
-    if (ocupado) {
-      return;
-    }
-
-    setOcupado(true);
-
-    try {
-      await alCambiar({ [momento]: !encendidos[momento] });
-    } finally {
-      setOcupado(false);
-    }
-  }
+function Despliegue({ abierto, children }: { abierto: boolean; children: ReactNode }) {
+  const sinMovimiento = useReducedMotion() ?? false;
 
   return (
-    <div role="group" aria-labelledby={idDelTitulo} className="perfil__grupo-de-avisos">
-      <h3 id={idDelTitulo} className="perfil__subtitulo">
-        Recordatorios del día
-      </h3>
-      <p className="app__nota perfil__ayuda">
-        Dos momentos fijos, a las 8:00 a. m. y a las 8:00 p. m. de tu zona horaria ({zona}). Si
-        viajas, se ajustan solos.
-      </p>
-
-      {(['manana', 'noche'] as const).map((momento) => (
-        <InterruptorDeAviso
-          key={momento}
-          nombre={MOMENTOS[momento].nombre}
-          explicacion={MOMENTOS[momento].explicacion}
-          icono={MOMENTOS[momento].icono}
-          encendido={encendidos[momento]}
-          alAlternar={() => void alternar(momento)}
-        />
-      ))}
-
-      {(manana || noche) && !recibeEsteDispositivo && (
-        <p className="app__nota">
-          Este dispositivo todavía no recibe avisos, así que aquí no llegarán. Actívalos arriba para
-          recibirlos.
-        </p>
+    <AnimatePresence initial={false}>
+      {abierto && (
+        <motion.div
+          initial={{ height: 0, opacity: 0, overflow: 'hidden' }}
+          animate={{ height: 'auto', opacity: 1, transitionEnd: { overflow: 'visible' } }}
+          exit={{ height: 0, opacity: 0, overflow: 'hidden' }}
+          transition={sinMovimiento ? { duration: 0 } : ACOMPANADO}
+        >
+          {/* El espacio con lo de arriba va dentro, para que se anime con la altura. */}
+          <div className="perfil__despliegue">{children}</div>
+        </motion.div>
       )}
-    </div>
+    </AnimatePresence>
   );
 }
