@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -60,6 +60,17 @@ async function escribir(campo: HTMLElement, valor: string): Promise<void> {
   await usuario.paste(valor);
 }
 
+/**
+ * Lo que se le pide a quien se registra ademas del correo y la contrasena: su
+ * fecha de nacimiento y las dos casillas, cada una con su documento.
+ */
+async function rellenarLoLegal(fecha = '1998-03-14'): Promise<void> {
+  // El campo de fecha se rellena de una vez: tecla a tecla, jsdom lo deja a medias.
+  fireEvent.change(screen.getByLabelText('Fecha de nacimiento'), { target: { value: fecha } });
+  await usuario.click(screen.getByLabelText(/Acepto el aviso de privacidad/));
+  await usuario.click(screen.getByLabelText(/Acepto los términos/));
+}
+
 function pintar(pantalla: React.ReactNode, valor: EstadoDeSesion) {
   return render(
     <SesionContexto.Provider value={valor}>
@@ -96,7 +107,7 @@ describe('Registro', () => {
     await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
     await escribir(screen.getByLabelText('Contraseña'), 'UnaContrasena#2026');
     await escribir(screen.getByLabelText('Repite la contraseña'), 'OtraDistinta#2026');
-    await usuario.click(screen.getByLabelText(/Acepto el tratamiento/));
+    await rellenarLoLegal();
 
     await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
@@ -111,7 +122,7 @@ describe('Registro', () => {
     await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
     await escribir(screen.getByLabelText('Contraseña'), 'corta');
     await escribir(screen.getByLabelText('Repite la contraseña'), 'corta');
-    await usuario.click(screen.getByLabelText(/Acepto el tratamiento/));
+    await rellenarLoLegal();
 
     await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
@@ -131,7 +142,7 @@ describe('Registro', () => {
     await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
     await escribir(screen.getByLabelText('Contraseña'), 'todoenminusculas');
     await escribir(screen.getByLabelText('Repite la contraseña'), 'todoenminusculas');
-    await usuario.click(screen.getByLabelText(/Acepto el tratamiento/));
+    await rellenarLoLegal();
 
     await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
@@ -155,7 +166,7 @@ describe('Registro', () => {
     await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
     await escribir(screen.getByLabelText('Contraseña'), 'Con_guion.Bajo7');
     await escribir(screen.getByLabelText('Repite la contraseña'), 'Con_guion.Bajo7');
-    await usuario.click(screen.getByLabelText(/Acepto el tratamiento/));
+    await rellenarLoLegal();
 
     await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
@@ -191,7 +202,7 @@ describe('Registro', () => {
     await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
     await escribir(screen.getByLabelText('Contraseña'), 'UnaContrasena#2026');
     await escribir(screen.getByLabelText('Repite la contraseña'), 'UnaContrasena#2026');
-    await usuario.click(screen.getByLabelText(/Acepto el tratamiento/));
+    await rellenarLoLegal();
 
     await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
@@ -199,6 +210,7 @@ describe('Registro', () => {
       correo: 'alguien@ejemplo.com',
       contrasena: 'UnaContrasena#2026',
       aceptaElAviso: true,
+      aceptaLosTerminos: true,
     });
   });
 });

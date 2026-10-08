@@ -13,7 +13,7 @@ import { dejarDeAvisarAEsteNavegador } from '../notificaciones/navegador.ts';
 import { RUTAS } from '../rutas/rutas.ts';
 import { alCambiarLaSesion, olvidarLosDatosDeLaSesionActual } from '../sincronizacion/ciclo.ts';
 import { olvidarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
-import { consultarLaVersionDelAviso } from '../infraestructura/api/aviso.ts';
+import { consultarLosTextosVigentes, type TextosVigentes } from '../infraestructura/api/aviso.ts';
 import {
   SesionContexto,
   type DatosDeAcceso,
@@ -275,12 +275,20 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
       correo,
       contrasena,
       aceptaElAviso,
-    }: DatosDeAcceso & { aceptaElAviso: boolean }): Promise<ResultadoDeAcceso> => {
-      if (!aceptaElAviso) {
+      aceptaLosTerminos,
+    }: DatosDeAcceso & {
+      aceptaElAviso: boolean;
+      aceptaLosTerminos: boolean;
+    }): Promise<ResultadoDeAcceso> => {
+      if (!aceptaElAviso || !aceptaLosTerminos) {
         // No es una validacion de formulario cualquiera. Sin autorizacion
         // previa y expresa no hay base legal para guardar un solo dato de
-        // salud, asi que la cuenta no puede crearse.
-        return { ok: false, mensaje: 'Para crear la cuenta hace falta aceptar el aviso.' };
+        // salud, asi que la cuenta no puede crearse. Son dos casillas porque
+        // son dos documentos: el aviso de privacidad y los terminos.
+        return {
+          ok: false,
+          mensaje: 'Para crear la cuenta hace falta aceptar el aviso de privacidad y los términos.',
+        };
       }
 
       recordarEnEsteEquipo(RECORDAR_SIEMPRE);
@@ -291,14 +299,14 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
         return SIN_CONFIGURAR;
       }
 
-      // La version del aviso se pide a la API, que es su unica fuente
-      // (SCRUM-85). Si no se puede saber cual esta vigente no se crea la
-      // cuenta: registrarla con una version supuesta seria guardar un
+      // Las versiones del aviso y de los terminos se piden a la API, que es su
+      // unica fuente (SCRUM-85). Si no se puede saber cuales estan vigentes no
+      // se crea la cuenta: registrarla con una version supuesta seria guardar un
       // consentimiento que nadie puede demostrar.
-      let versionDelAviso: string;
+      let textos: TextosVigentes;
 
       try {
-        versionDelAviso = await consultarLaVersionDelAviso();
+        textos = await consultarLosTextosVigentes();
       } catch {
         return SIN_SERVIDOR;
       }
@@ -307,8 +315,14 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
         email: correo,
         password: contrasena,
         options: {
+          // Solo lo que se acepto y cuando, como constancia de que se marcaron
+          // las casillas al registrarse. La fecha de nacimiento no va aqui: no
+          // hace falta para crear la identidad y no tiene por que viajar en el
+          // token de cada peticion. El consentimiento que vale lo registra la
+          // API al crear la cuenta.
           data: {
-            version_aviso: versionDelAviso,
+            version_aviso: textos.aviso,
+            version_terminos: textos.terminos,
             acepto_en: new Date().toISOString(),
           },
           emailRedirectTo: `${window.location.origin}${RUTAS.PANEL}`,

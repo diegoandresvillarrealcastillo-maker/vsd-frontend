@@ -32,7 +32,7 @@ const ELEMENTOS: readonly Elemento[] = [
   {
     nombre: 'workbox-precache-…',
     paraQue:
-      'Los archivos de la aplicación, para que abra más rápido y se pueda abrir sin conexión.',
+      'Los archivos de la aplicación, tipografías incluidas, para que abra más rápido y se pueda abrir sin conexión.',
     cuanto: 'Hasta que haya una versión nueva o borres los datos del sitio.',
     esencial: true,
   },
@@ -60,12 +60,6 @@ const ELEMENTOS: readonly Elemento[] = [
     paraQue:
       'Recuerdan dónde dejaste la mascota, sus saludos y si ya viste la introducción del semáforo.',
     cuanto: 'Hasta que borres los datos del sitio.',
-    esencial: false,
-  },
-  {
-    nombre: 'vsd-fuentes-…',
-    paraQue: 'Guarda en tu dispositivo las tipografías del sitio para que carguen más rápido.',
-    cuanto: 'Hasta un año, o hasta que borres los datos del sitio.',
     esencial: false,
   },
 ];
@@ -145,9 +139,9 @@ const SECCIONES: readonly SeccionLegal[] = [
       <>
         <ul>
           <li>
-            <strong>Google</strong>: si eliges entrar con Google, esa pantalla es de Google y puede
-            usar sus propias cookies en su dominio. Además, las tipografías del sitio se piden a los
-            servidores de Google, que reciben tu dirección IP al hacerlo.
+            <strong>Google</strong>: solo si eliges entrar con Google. Esa pantalla es de Google y
+            puede usar sus propias cookies en su dominio. Las tipografías del sitio ya no se piden a
+            Google: viajan con la aplicación, desde nuestro dominio.
           </li>
           <li>
             <strong>Nuestros proveedores</strong> (Supabase, Render, Vercel) pueden registrar datos

@@ -10,7 +10,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --build && vite build && node scripts/comprobar-el-service-worker.mjs",
+    "build": "tsc --build && vite build && node scripts/comprobar-el-service-worker.mjs && node scripts/comprobar-las-cabeceras.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --build --force",
     "test": "vitest run",
@@ -24,6 +24,9 @@
   },
   "dependencies": {
     "@excalidraw/excalidraw": "0.18.1",
+    "@fontsource/dm-sans": "5.3.0",
+    "@fontsource/manrope": "5.3.0",
+    "@fontsource/newsreader": "5.3.0",
     "@supabase/supabase-js": "^2.116.0",
     "@tiptap/core": "3.31.4",
     "@tiptap/extension-text-style": "3.31.4",

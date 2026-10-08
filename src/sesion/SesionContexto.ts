@@ -25,7 +25,7 @@ export interface EstadoDeSesion {
   // forma corta, extraerlas con desestructuracion —que es como se usan— hace
   // saltar la regla que avisa de metodos separados de su objeto.
   readonly registrarse: (
-    datos: DatosDeAcceso & { aceptaElAviso: boolean },
+    datos: DatosDeAcceso & { aceptaElAviso: boolean; aceptaLosTerminos: boolean },
   ) => Promise<ResultadoDeAcceso>;
   readonly entrar: (datos: DatosDeEntrada) => Promise<ResultadoDeAcceso>;
   readonly entrarConGoogle: (recordar: boolean) => Promise<ResultadoDeAcceso>;

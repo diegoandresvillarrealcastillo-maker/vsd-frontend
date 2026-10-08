@@ -11,6 +11,7 @@ import { registrarElServiceWorker } from './pwa/registrarElServiceWorker.ts';
 import { ProveedorDeSesion } from './sesion/ProveedorDeSesion.tsx';
 import { iniciarLaSincronizacionAutomatica } from './sincronizacion/estado.ts';
 import { seguirAlSistema } from './tema/tema.ts';
+import './estilos/tipografias.ts';
 import './estilos/global.css';
 
 // El tema inicial ya lo puso el script del `index.html`, antes del primer
