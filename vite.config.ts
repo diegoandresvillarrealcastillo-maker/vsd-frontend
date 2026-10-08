@@ -75,7 +75,8 @@ export default defineConfig(({ mode }) => ({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/pruebas/preparacion.ts'],
-    include: ['src/**/*.spec.{ts,tsx}'],
+    // Los guiones de `scripts/` que deciden algo (SCRUM-155) tienen su prueba al lado.
+    include: ['src/**/*.spec.{ts,tsx}', 'scripts/**/*.spec.mjs'],
     css: true,
 
     coverage: {

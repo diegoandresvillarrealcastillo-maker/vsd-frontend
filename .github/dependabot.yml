@@ -1,0 +1,80 @@
+# ============================================================
+#  VSD Health - Dependabot (SCRUM-155)
+# ============================================================
+#  Abre un Pull Request por semana con las dependencias que
+#  tienen version nueva, agrupadas para no inundar la lista.
+#
+#  OJO: GitHub lee este archivo de la rama POR DEFECTO, que aqui
+#  es `produccion`. No hace nada hasta que llegue ahi por la
+#  cadena de promociones (desarrollo -> preproduccion -> produccion).
+#
+#  Los Pull Request se abren contra `desarrollo`, como los de
+#  cualquier ticket: nadie escribe en las ramas de ambiente.
+# ============================================================
+
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    target-branch: desarrollo
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: America/Bogota
+    open-pull-requests-limit: 5
+    # Conventional Commits: `build(deps): ...` y `build(deps-dev): ...`. El
+    # commitlint del CI deja pasar estos commits aunque no citen un ticket
+    # (ver commitlint.config.mjs).
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      # Estas familias van fijadas a una misma version exacta y solo funcionan
+      # juntas: subir una sin las demas rompe. Van primero porque un paquete
+      # entra en el primer grupo que le corresponde.
+      tiptap:
+        patterns: ['@tiptap/*']
+      workbox:
+        patterns: ['workbox-*']
+      # Lo que solo se usa para desarrollar (lint, pruebas, tipos): menores y
+      # parches juntos. Un cambio mayor llega solo, para revisarlo aparte.
+      herramientas:
+        dependency-type: development
+        update-types: [minor, patch]
+      # Lo que va a produccion: solo parches juntos. Cada menor y cada mayor
+      # llega en su propio Pull Request.
+      parches-de-produccion:
+        dependency-type: production
+        update-types: [patch]
+    ignore:
+      # TypeScript 6 esta fijado a proposito: typescript-eslint todavia no
+      # soporta la 7. Los menores y parches de la 6 si llegan.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: desarrollo
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: America/Bogota
+    commit-message:
+      prefix: ci
+    groups:
+      acciones:
+        patterns: ['*']
+
+  - package-ecosystem: docker
+    directory: /
+    target-branch: desarrollo
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: America/Bogota
+    commit-message:
+      prefix: build
