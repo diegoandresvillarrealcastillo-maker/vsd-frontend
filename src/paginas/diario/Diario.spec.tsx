@@ -9,6 +9,7 @@ import { abrirUnAlmacenDePrueba, cerrarElAlmacenDePrueba } from '../../pruebas/a
 import { AlmacenLleno } from '../../sincronizacion/almacenLocal.ts';
 import { cicloActual } from '../../sincronizacion/ciclo.ts';
 import { CLAVE_DE_LAS_COPIAS_DEL_DIARIO } from '../../sincronizacion/diarioLocal.ts';
+import { cuantosH1, fallosDeAccesibilidad } from '../../pruebas/axe.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { fijarLaZonaDeLaCuenta } from '../../tiempo/zonaHoraria.ts';
 import { diaDe, diasAntes } from './calendarioDelDiario.ts';
@@ -202,6 +203,16 @@ async function guardarEscribiendo(texto: string) {
   await escribirEnElLienzo(texto);
   await usuario.click(screen.getByRole('button', { name: 'Guardar anotación' }));
 }
+
+describe('Mi diario, accesibilidad (C-03)', () => {
+  it('no tiene fallos de accesibilidad y tiene un solo h1', async () => {
+    pintar();
+    await within(historial()).findByRole('heading', { name: 'Hoy' });
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+    expect(cuantosH1()).toBe(1);
+  });
+});
 
 describe('Mi diario, el historial', () => {
   it('agrupa por dia, con la hora de cada anotacion', async () => {

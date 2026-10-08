@@ -204,6 +204,40 @@ que se descarga cualquiera:
 - **La clave de servicio de Supabase no puede aparecer.** Da acceso total a la
   base y salta el aislamiento por RLS. En el frontend no existe.
 
+### La accesibilidad se comprueba sola (C-03 y SEO-04 de la auditoria 360)
+
+El contraste y el teclado se revisaron a mano, pantalla por pantalla; ahora hay tres
+redes para que una regresion no pase en silencio:
+
+- **`eslint-plugin-jsx-a11y`** (recomendado) sobre todo `src/**/*.tsx`: una imagen sin
+  `alt`, un enlace sin destino, un `div` con `onClick` y sin teclado. Es de 2024 y su
+  `peerDependencies` no nombra ESLint 10: por eso hay un `overrides` en
+  `package.json`, y se comprobo que sus reglas funcionan. Si dejara de funcionar con
+  una version futura de ESLint, es lo primero que se quita.
+- **axe en las pruebas de cada pantalla** (`src/pruebas/axe.ts`): `fallosDeAccesibilidad()`
+  corre axe sobre la pagina ya pintada, con las reglas de WCAG 2.1 A y AA y las buenas
+  practicas, y `cuantosH1()` comprueba que hay un solo encabezado de primer nivel. Va
+  en los archivos `*.spec.tsx` de cada pantalla y de cada ventana. jsdom no pinta, asi
+  que el **contraste** y los **puntos de referencia** de la pagina quedan fuera (los
+  cubre Lighthouse); `src/pruebas/axe.spec.tsx` le ensena al ayudante cada tipo de
+  fallo para comprobar que lo ve. Con `vi.useFakeTimers()` axe no termina: en esa
+  prueba, `vi.useRealTimers()`.
+- **Lighthouse en el CI** (`.github/workflows/lighthouse.yml`, `lighthouserc.json`):
+  mide la compilacion, en un navegador de verdad, en la portada y las tres pantallas
+  de acceso. Exige **95 en accesibilidad** y 90 en SEO (hoy 100 y 92: lo unico que
+  falla es que no hay `robots.txt`, de SEO-02). Se compila como produccion para que la
+  etiqueta `noindex` de los otros ambientes no cuente como un fallo de SEO. Para
+  correrlo en local: `npm run build` y `npx @lhci/cli@0.15.1 autorun` (con
+  `CHROME_PATH` si no encuentra Chrome). **Cuando `robots.txt` exista, el umbral de
+  SEO sube a 95**, y una pantalla publica nueva se agrega a `lighthouserc.json`.
+- **Las ventanas se cierran al pulsar el fondo con `alPulsarElFondo`**
+  (`src/componentes/`), no con un `onClick` en el fondo y otro en la caja que llama a
+  `stopPropagation`: el fondo lleva `role="presentation"` y quien usa teclado cierra
+  con Escape.
+- **No poner `whileTap` en lo que no es un boton o un enlace.** Framer Motion le anade
+  `tabindex="0"` a lo que no es enfocable, y una imagen dentro de un boton queda como
+  una segunda parada del teclado (le pasaba a la mascota; ver `Casilla.tsx`).
+
 ### El almacen local: lo hecho sin conexion (SCRUM-136)
 
 `src/sincronizacion/` guarda en el dispositivo lo que la persona hace sin conexion
