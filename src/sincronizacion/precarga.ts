@@ -1,4 +1,5 @@
 import { traerElCatalogoConCopia } from './catalogoLocal.ts';
+import { precargarElDiario } from './diarioLocal.ts';
 
 /**
  * Lo que se guarda por adelantado para poder usarlo sin conexion (SCRUM-138).
@@ -9,12 +10,18 @@ import { traerElCatalogoConCopia } from './catalogoLocal.ts';
  * abre el almacen de una persona y hay conexion, se leen las cosas que sirven para
  * todo el mundo y se dejan guardadas.
  *
+ * Lo mismo vale para el diario (SCRUM-139): sus ultimos 30 dias se dejan guardados, en el
+ * almacen cifrado de la persona, para poder leerlos sin conexion. Esa lectura **no da de
+ * alta la cuenta**: eso registra un consentimiento y solo lo hace una pantalla.
+ *
  * **Nunca falla ni molesta**: es una comodidad. Sin conexion, o si el servidor no
- * responde, no pasa nada; se intentara otra vez cuando vuelva la red. Y solo trae lo
- * que es igual para todos (ver `lecturas.ts`).
+ * responde, no pasa nada; se intentara otra vez cuando vuelva la red.
  */
 export async function precargarLasLecturas(): Promise<void> {
   // Cada lectura corre dentro de su propia promesa: ni una que falle antes de esperar a
   // nadie puede romper a quien llama.
-  await Promise.allSettled([Promise.resolve().then(() => traerElCatalogoConCopia())]);
+  await Promise.allSettled([
+    Promise.resolve().then(() => traerElCatalogoConCopia()),
+    Promise.resolve().then(() => precargarElDiario()),
+  ]);
 }

@@ -622,7 +622,146 @@ describe('construirAviso: uno por tanda, no uno por cambio', () => {
         sugiereAcompanamiento: false,
         lineasDeAtencion: [],
         orientaciones: [],
+        copias: 0,
       });
+    });
+  });
+
+  describe('las correcciones del diario que se guardaron como copia (SCRUM-139, ADR 0009)', () => {
+    const anotacion = {
+      id: 'copia-1',
+      dia: '2026-10-07',
+      titulo: null,
+      contenido: { type: 'doc', content: [] },
+      adjuntos: [],
+      version: 1,
+      creadaEn: '2026-10-07T11:00:00.000Z',
+      editadaEn: '2026-10-07T11:00:00.000Z',
+      editableHasta: '2026-10-07T12:00:00.000Z',
+    };
+    const copia = (motivo = 'VERSION_DESACTUALIZADA', creadaEn?: string): ReciboDePrueba => ({
+      operationId: 'op-copia',
+      tipo: 'diario.editar',
+      recibo: { ...anotacion, copiaDe: 'a-1', motivo },
+      ...(creadaEn === undefined ? {} : { creadaEn }),
+    });
+    const haceSegundos = (segundos: number) =>
+      new Date(AHORA.getTime() - segundos * 1000).toISOString();
+
+    it('lo dice, con lo demas que se envio, y cuenta cuantas', () => {
+      const a = aviso(resultado('terminada', { enviadas: 2, recibos: [copia(), copia()] }));
+
+      expect(a?.copias).toBe(2);
+      expect(a?.tono).toBe('exito');
+      expect(a?.texto).toBe(
+        'Enviamos 2 cambios que estaban guardados en este equipo. 2 correcciones de tu diario no se pudieron aplicar a las anotaciones originales, así que se guardaron como copias. No se perdió nada.',
+      );
+    });
+
+    it('una sola, en singular', () => {
+      const a = aviso(resultado('terminada', { enviadas: 1, recibos: [copia()] }), 'manual');
+
+      expect(a?.texto).toBe(
+        'Listo. Enviamos 1 cambio que estaba guardado en este equipo. Una corrección de tu diario no se pudo aplicar a la anotación original, así que se guardó como una copia. No se perdió nada.',
+      );
+    });
+
+    it('al volver la conexion se dice junto con eso', () => {
+      const a = aviso(
+        resultado('terminada', { enviadas: 1, recibos: [copia()] }),
+        'conexion',
+        true,
+      );
+
+      expect(a?.texto).toBe(
+        'Volviste a tener conexión. Enviamos 1 cambio que estaba guardado en este equipo. Una corrección de tu diario no se pudo aplicar a la anotación original, así que se guardó como una copia. No se perdió nada.',
+      );
+    });
+
+    it('se avisa aunque haya salido en el acto: es lo unico del diario que no se espera', () => {
+      const a = aviso(
+        resultado('terminada', {
+          enviadas: 1,
+          recibos: [copia('EDICION_FUERA_DE_PLAZO', haceSegundos(5))],
+        }),
+        'programada',
+      );
+
+      expect(a).toMatchObject({
+        tono: 'info',
+        enviadas: 1,
+        copias: 1,
+        texto:
+          'Una corrección de tu diario no se pudo aplicar a la anotación original, así que se guardó como una copia. No se perdió nada.',
+      });
+    });
+
+    it('lo que salio en el acto y no es copia sigue callado', () => {
+      const normal: ReciboDePrueba = {
+        operationId: 'op-1',
+        tipo: 'diario.editar',
+        recibo: anotacion,
+        creadaEn: haceSegundos(5),
+      };
+
+      expect(
+        aviso(resultado('terminada', { enviadas: 1, recibos: [normal] }), 'programada'),
+      ).toBeNull();
+    });
+
+    it('si ademas algo no salio, tambien se cuenta', () => {
+      const a = aviso(
+        resultado('terminada', { enviadas: 1, requierenAtencion: 1, recibos: [copia()] }),
+      );
+
+      expect(a?.tono).toBe('atencion');
+      expect(a?.copias).toBe(1);
+      expect(a?.texto).toContain('1 cambio necesita tu atención.');
+      expect(a?.texto).toContain('se guardó como una copia. No se perdió nada.');
+    });
+
+    it('si ademas quedaron cosas por reintentar, tambien se cuenta', () => {
+      const a = aviso(resultado('terminada', { enviadas: 1, pendientes: 2, recibos: [copia()] }));
+
+      expect(a?.texto).toContain('2 cambios siguen guardados en este equipo');
+      expect(a?.texto).toContain('se guardó como una copia. No se perdió nada.');
+    });
+
+    it.each([
+      ['una anotacion normal', anotacion],
+      ['una que dice de cual es copia pero no por que', { ...anotacion, copiaDe: 'a-1' }],
+      ['una con un motivo que no se conoce', { ...anotacion, copiaDe: 'a-1', motivo: 'OTRO' }],
+      ['algo que no es una anotacion', { copiaDe: 'a-1', motivo: 'VERSION_DESACTUALIZADA' }],
+      ['nada', null],
+    ])('%s no cuenta como copia', (_nombre, recibo) => {
+      const a = aviso(
+        resultado('terminada', {
+          enviadas: 1,
+          recibos: [{ operationId: 'op-1', tipo: 'diario.editar', recibo }],
+        }),
+      );
+
+      expect(a?.copias).toBe(0);
+      expect(a?.texto).not.toContain('copia');
+    });
+
+    it('cuentan las que esperaron y las que no, cada una una vez', () => {
+      const a = aviso(
+        resultado('terminada', {
+          enviadas: 2,
+          recibos: [copia(), copia('EDICION_FUERA_DE_PLAZO', haceSegundos(2))],
+        }),
+        'programada',
+      );
+
+      expect(a?.copias).toBe(2);
+    });
+
+    it('todo lo demas dice cero copias', () => {
+      expect(aviso(resultado('terminada', { enviadas: 1 }))?.copias).toBe(0);
+      expect(aviso(resultado('sesion_vencida', { pendientes: 1 }))?.copias).toBe(0);
+      expect(aviso(resultado('nada_que_hacer'), 'manual')?.copias).toBe(0);
+      expect(aviso(resultado('sin_conexion'), 'manual')?.copias).toBe(0);
     });
   });
 

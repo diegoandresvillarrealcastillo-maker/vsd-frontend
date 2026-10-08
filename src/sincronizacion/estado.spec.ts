@@ -220,6 +220,7 @@ function armar(cambios: Partial<DependenciasDelEstado> = {}) {
   const documento = Object.assign(new EventTarget(), { visibilityState: 'visible' });
   const notificar = vi.fn();
   const precargar = vi.fn();
+  const conciliarElDiario = vi.fn();
   const red = { hay: true };
   const cancelar = vi.fn();
   const apagar = iniciarLaSincronizacionAutomatica({
@@ -231,10 +232,11 @@ function armar(cambios: Partial<DependenciasDelEstado> = {}) {
     cancelar,
     notificarEnSegundoPlano: notificar,
     precargar,
+    conciliarElDiario,
     ...cambios,
   });
 
-  return { ventana, documento, notificar, precargar, red, apagar, cancelar };
+  return { ventana, documento, notificar, precargar, conciliarElDiario, red, apagar, cancelar };
 }
 
 beforeEach(() => {
@@ -481,6 +483,92 @@ describe('lo que se guarda por adelantado para usar sin conexion (SCRUM-138)', (
     t.ventana.dispatchEvent(new Event('online'));
 
     expect(t.precargar).not.toHaveBeenCalled();
+
+    t.apagar();
+  });
+});
+
+describe('la copia local del diario se pone al dia con lo que el servidor acepto (SCRUM-139)', () => {
+  const deTipo = (
+    tipo: 'diario.escribir' | 'diario.editar' | 'pendiente.crear' | 'resultado.registrar',
+  ) =>
+    ({
+      ...recibo(0),
+      tipo,
+    }) as ResumenDeSincronizacion['recibos'][number];
+
+  it.each(['diario.escribir', 'diario.editar'] as const)(
+    'al terminar una tanda que envio algo de %s, se concilia',
+    async (tipo) => {
+      const t = armar();
+      const c = crearCiclo();
+
+      await abrir(c);
+      c.emitir({ tipo: 'inicio', motivo: 'manual' });
+      c.emitir({
+        tipo: 'fin',
+        resultado: resultado('terminada', { enviadas: 1, recibos: [deTipo(tipo)] }),
+      });
+
+      expect(t.conciliarElDiario).toHaveBeenCalledTimes(1);
+
+      t.apagar();
+    },
+  );
+
+  it('una tanda que no envio nada del diario no la concilia', async () => {
+    const t = armar();
+    const c = crearCiclo();
+
+    await abrir(c);
+    c.emitir({ tipo: 'inicio', motivo: 'manual' });
+    c.emitir({
+      tipo: 'fin',
+      resultado: resultado('terminada', {
+        enviadas: 2,
+        recibos: [deTipo('pendiente.crear'), deTipo('resultado.registrar')],
+      }),
+    });
+    c.emitir({ tipo: 'inicio', motivo: 'programada' });
+    c.emitir({ tipo: 'fin', resultado: resultado('nada_que_hacer') });
+
+    expect(t.conciliarElDiario).not.toHaveBeenCalled();
+
+    t.apagar();
+  });
+
+  it('mezclada con otras cosas, basta con que haya una del diario', async () => {
+    const t = armar();
+    const c = crearCiclo();
+
+    await abrir(c);
+    c.emitir({ tipo: 'inicio', motivo: 'manual' });
+    c.emitir({
+      tipo: 'fin',
+      resultado: resultado('terminada', {
+        enviadas: 2,
+        recibos: [deTipo('pendiente.crear'), deTipo('diario.editar')],
+      }),
+    });
+
+    expect(t.conciliarElDiario).toHaveBeenCalledTimes(1);
+
+    t.apagar();
+  });
+
+  it.each([
+    ['diario.escribir', 1],
+    ['diario.editar', 1],
+    ['pendiente.crear', 0],
+    ['resultado.registrar', 0],
+  ] as const)('cada %s enviada, sin esperar al fin de la tanda: %i vez', async (tipo, veces) => {
+    const t = armar();
+    const c = crearCiclo();
+
+    await abrir(c);
+    c.emitir({ tipo: 'enviada', operacion: operacion({ tipo }), recibo: null });
+
+    expect(t.conciliarElDiario).toHaveBeenCalledTimes(veces);
 
     t.apagar();
   });

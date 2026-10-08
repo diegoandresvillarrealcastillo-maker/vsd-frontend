@@ -831,6 +831,73 @@ describe('encolar: el unico camino para agregar algo (SCRUM-137)', () => {
     await expect(encolar(unaOperacion('a'))).rejects.toThrow(SinAlmacenAbierto);
   });
 
+  describe('el orden sobre una misma cosa (SCRUM-139)', () => {
+    const sobre = (operationId: string, entidad: string, extra: Record<string, unknown> = {}) => ({
+      operationId,
+      tipo: 'diario.editar' as const,
+      entidad,
+      payload: { id: 'x' },
+      ...extra,
+    });
+
+    async function abrir() {
+      const { fabricas } = crearMundo();
+
+      reiniciarElCicloParaLasPruebas(fabricas);
+      await alCambiarLaSesion('ana', RECORDADA);
+    }
+
+    it('la primera sobre una cosa no depende de nada', async () => {
+      await abrir();
+
+      expect((await encolar(sobre('a', 'diario:1'))).dependeDe).toBeNull();
+    });
+
+    it('la segunda sobre la misma cosa depende de la primera, y la tercera de la segunda', async () => {
+      await abrir();
+      await encolar(sobre('a', 'diario:1'));
+
+      expect((await encolar(sobre('b', 'diario:1'))).dependeDe).toBe('a');
+      expect((await encolar(sobre('c', 'diario:1'))).dependeDe).toBe('b');
+    });
+
+    it('lo que es de otra cosa no se mezcla', async () => {
+      await abrir();
+      await encolar(sobre('a', 'diario:1'));
+
+      expect((await encolar(sobre('b', 'diario:2'))).dependeDe).toBeNull();
+    });
+
+    it('lo que ya termino no se espera', async () => {
+      await abrir();
+
+      const primera = await encolar(sobre('a', 'diario:1'));
+
+      await cicloActual()?.almacen.guardarOperacion({ ...primera, estado: 'hecha' });
+
+      expect((await encolar(sobre('b', 'diario:1'))).dependeDe).toBeNull();
+    });
+
+    it('lo que fallo si se espera: no se manda lo que depende de algo que nunca se creo', async () => {
+      await abrir();
+
+      const primera = await encolar(sobre('a', 'diario:1'));
+
+      await cicloActual()?.almacen.guardarOperacion({ ...primera, estado: 'requiere_atencion' });
+
+      expect((await encolar(sobre('b', 'diario:1'))).dependeDe).toBe('a');
+    });
+
+    it('quien lo dice, manda: otra operacion, o ninguna', async () => {
+      await abrir();
+      await encolar(sobre('a', 'diario:1'));
+      await encolar(sobre('b', 'diario:1'));
+
+      expect((await encolar(sobre('c', 'diario:1', { dependeDe: 'a' }))).dependeDe).toBe('a');
+      expect((await encolar(sobre('d', 'diario:1', { dependeDe: null }))).dependeDe).toBeNull();
+    });
+  });
+
   it('si el almacen se esta abriendo, espera a que termine', async () => {
     const { fabricas } = crearMundo();
 

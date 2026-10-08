@@ -16,6 +16,7 @@ import {
   type ResultadoDeSincronizacion,
 } from './motor.ts';
 import { avisarEnSegundoPlano } from './notificacionLocal.ts';
+import { conciliarElDiario as conciliarLaCopiaDelDiario, esTipoDelDiario } from './diarioLocal.ts';
 import { precargarLasLecturas } from './precarga.ts';
 import { planDeEnvio } from './cola.ts';
 import {
@@ -184,6 +185,13 @@ export interface DependenciasDelEstado {
   readonly notificarEnSegundoPlano: () => void;
   /** Guarda por adelantado lo que sirve para usar la aplicacion sin conexion (SCRUM-138). */
   readonly precargar: () => void;
+  /**
+   * Pasa a la copia local del diario lo que el servidor acepto y deja marcado cuales
+   * anotaciones son copia de otra (SCRUM-139). Se hace aqui y no solo al abrir el diario
+   * porque lo enviado se conserva siete dias en la cola: si nadie lo guarda antes, la
+   * marca de una copia se perderia. Nunca lanza.
+   */
+  readonly conciliarElDiario: () => void;
 }
 
 function dependenciasReales(): DependenciasDelEstado {
@@ -202,6 +210,9 @@ function dependenciasReales(): DependenciasDelEstado {
     precargar: () => {
       void precargarLasLecturas();
     },
+    conciliarElDiario: () => {
+      void conciliarLaCopiaDelDiario();
+    },
   };
 }
 
@@ -214,7 +225,15 @@ let contadorDeAvisos = 0;
 export function iniciarLaSincronizacionAutomatica(
   dependencias: DependenciasDelEstado = dependenciasReales(),
 ): () => void {
-  const { ventana, documento, hayRed, reloj, notificarEnSegundoPlano, precargar } = dependencias;
+  const {
+    ventana,
+    documento,
+    hayRed,
+    reloj,
+    notificarEnSegundoPlano,
+    precargar,
+    conciliarElDiario,
+  } = dependencias;
   let dejarDeEscucharAlMotor: (() => void) | null = null;
   let motivoActual: MotivoDeSincronizacion = 'apertura';
   /** Se supo que no habia conexion desde el ultimo aviso. */
@@ -308,6 +327,10 @@ export function iniciarLaSincronizacionAutomatica(
 
     void leerLoGuardado();
 
+    if (resumen.recibos.some((enviado) => esTipoDelDiario(enviado.tipo))) {
+      conciliarElDiario();
+    }
+
     if (ciclo !== null && resultado.estado === 'terminada') {
       void leerLaUltimaSincronizacion(ciclo);
     }
@@ -324,6 +347,11 @@ export function iniciarLaSincronizacionAutomatica(
       cambiar({ sincronizando: true });
     } else if (evento.tipo === 'enviada') {
       void leerLoGuardado();
+
+      // Una tanda puede cortarse a la mitad: lo que ya salio se guarda sin esperar a su fin.
+      if (esTipoDelDiario(evento.operacion.tipo)) {
+        conciliarElDiario();
+      }
     } else {
       alTerminarUnaTanda(evento.resultado);
     }

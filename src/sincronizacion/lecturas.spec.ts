@@ -3,7 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ErrorDeLaApi, type RespuestaCondicional } from '../infraestructura/api/clienteHttp.ts';
 import { AlmacenLleno } from './almacenLocal.ts';
 import { alCambiarLaSesion, cicloActual, reiniciarElCicloParaLasPruebas } from './ciclo.ts';
-import { ESPERA_CON_COPIA_EN_MS, leerConCopia, leerSoloLaCopia } from './lecturas.ts';
+import {
+  ESPERA_CON_COPIA_EN_MS,
+  leerConCopia,
+  leerSoloLaCopia,
+  modificarLaCopia,
+} from './lecturas.ts';
 
 const NO_RECORDADA = { persistente: false };
 const CLAVE = 'catalogo';
@@ -397,5 +402,55 @@ describe('leerSoloLaCopia', () => {
     await leerConCopia('cero', () => Promise.resolve(nuevo(0)));
 
     expect(await leerSoloLaCopia('cero')).toBe(0);
+  });
+});
+
+describe('modificarLaCopia (SCRUM-139)', () => {
+  it('sin nada guardado, recibe nulo y lo que devuelve queda guardado', async () => {
+    const cambiar = vi.fn((actual: string[] | null) => [...(actual ?? []), 'uno']);
+
+    await modificarLaCopia('lista', cambiar);
+
+    expect(cambiar).toHaveBeenCalledWith(null);
+    expect(await leerSoloLaCopia('lista')).toEqual(['uno']);
+  });
+
+  it('con algo guardado, recibe lo que hay y guarda lo nuevo encima', async () => {
+    await modificarLaCopia('lista', () => ['uno']);
+    await modificarLaCopia<string[]>('lista', (actual) => [...(actual ?? []), 'dos']);
+
+    expect(await leerSoloLaCopia('lista')).toEqual(['uno', 'dos']);
+  });
+
+  it('si devuelve nulo, no toca lo guardado ni guarda nada', async () => {
+    await modificarLaCopia('lista', () => ['uno']);
+    await modificarLaCopia('lista', () => null);
+    await modificarLaCopia('otra', () => null);
+
+    expect(await leerSoloLaCopia('lista')).toEqual(['uno']);
+    expect(await leerSoloLaCopia('otra')).toBeNull();
+  });
+
+  it('conserva el ETag de lo que se leyo de la API', async () => {
+    await leerConCopia('con-etag', () => Promise.resolve(nuevo(['uno'], 'W/"a"')));
+    await modificarLaCopia<string[]>('con-etag', (actual) => [...(actual ?? []), 'dos']);
+
+    const traer = vi.fn(() => Promise.resolve(nuevo(['tres'], 'W/"b"')));
+
+    await leerConCopia('con-etag', traer);
+
+    expect(traer).toHaveBeenCalledWith('W/"a"');
+  });
+
+  it('sin almacen abierto no hace nada y no falla', async () => {
+    reiniciarElCicloParaLasPruebas();
+
+    await expect(modificarLaCopia('lista', () => ['uno'])).resolves.toBeUndefined();
+  });
+
+  it('si no hay espacio para guardar, no falla: lo que se sabe se sigue sabiendo', async () => {
+    vi.spyOn(cicloActual()!.almacen, 'guardarLectura').mockRejectedValue(new AlmacenLleno());
+
+    await expect(modificarLaCopia('lista', () => ['uno'])).resolves.toBeUndefined();
   });
 });
