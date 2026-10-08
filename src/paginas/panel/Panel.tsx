@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 
+import { PieDeLaApp } from '../../componentes/PieDeLaApp.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/aplicacion.css';
 import type { Cuenta, Modulo } from '../../infraestructura/api/cuenta.ts';
@@ -117,6 +118,10 @@ export function VistaDelPanel({
             activarModulo={activarModulo}
           />
         )}
+
+        {/* El aviso de la portada se ve una vez, antes de entrar. Este es el que
+            acompana a quien usa la aplicacion a diario (L-03 de la auditoria 360). */}
+        <PieDeLaApp />
       </main>
 
       {enDashboard && <NavegacionInferior />}

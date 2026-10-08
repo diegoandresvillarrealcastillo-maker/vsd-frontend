@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { TEXTO_DEL_AVISO_ORIENTATIVO } from '../../componentes/AvisoOrientativo.tsx';
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
 import { rutaDeActividad, RUTAS } from '../../rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
@@ -121,6 +122,18 @@ describe('Actividad, el recorrido completo', () => {
 
     expect(await screen.findByRole('heading', { name: 'Listo' })).toBeInTheDocument();
     expect(screen.getByText('Vas bien. Sigue así.')).toBeInTheDocument();
+  });
+
+  it('bajo el nivel va siempre la linea que dice que es orientativo (L-03)', async () => {
+    pintar(SUENO);
+    await terminarLaActividad();
+
+    await screen.findByRole('heading', { name: 'Listo' });
+
+    expect(screen.getByText(TEXTO_DEL_AVISO_ORIENTATIVO)).toBeInTheDocument();
+    expect(screen.getByText(TEXTO_DEL_AVISO_ORIENTATIVO)).toHaveTextContent(
+      'Orientativo. No es un diagnóstico ni reemplaza a un profesional.',
+    );
   });
 
   it('manda el puntaje crudo y la metadata de lo que respondio la persona', async () => {
@@ -615,6 +628,8 @@ describe('Actividad, el nivel', () => {
     await terminarLaActividad();
 
     expect(await screen.findByText(/Quedó registrado/)).toBeInTheDocument();
+    // Sin nivel no hay nada que matizar: la linea acompana al nivel.
+    expect(screen.queryByText(TEXTO_DEL_AVISO_ORIENTATIVO)).not.toBeInTheDocument();
   });
 });
 

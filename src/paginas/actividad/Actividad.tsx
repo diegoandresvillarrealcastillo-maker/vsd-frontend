@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 
+import { AvisoOrientativo } from '../../componentes/AvisoOrientativo.tsx';
 import { MarcaDeLaApp } from '../../componentes/MarcaDeLaApp.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/actividad.css';
@@ -206,9 +207,16 @@ function Terminada({
           cómo evoluciona.
         </p>
       ) : (
-        <p className={`actividad__nivel actividad__nivel--${resultado.nivelOrientativo}`}>
-          {textoDelNivel(resultado.nivelOrientativo)}
-        </p>
+        <>
+          <p className={`actividad__nivel actividad__nivel--${resultado.nivelOrientativo}`}>
+            {textoDelNivel(resultado.nivelOrientativo)}
+          </p>
+
+          {/* Bajo cada nivel, siempre la misma linea: un resultado se lee sin la
+              portada delante, y es donde mas hace falta recordar que no es un
+              diagnostico (L-03 de la auditoria 360). */}
+          <AvisoOrientativo />
+        </>
       )}
 
       {/* Lo decide el servidor, por el nivel o por una senal en el texto

@@ -493,10 +493,33 @@ describe('Dashboard', () => {
       expect(tarjeta(/Cognición/)).toHaveAttribute('href', '/modulo/cognicion');
       expect(tarjeta(/Bienestar/)).toHaveAttribute('href', '/modulo/bienestar');
       // El plan diario sigue mostrando lo de todos los modulos.
-      expect(within(screen.getByRole('list')).getByText('Parejas')).toBeInTheDocument();
+      // Hay mas de una lista en la pantalla (el pie lleva la de los documentos
+      // legales), asi que se mira que cada actividad este dentro de alguna.
+      const listas = screen.getAllByRole('list');
+
+      expect(listas.some((lista) => within(lista).queryByText('Parejas') !== null)).toBe(true);
       expect(
-        within(screen.getByRole('list')).getByText('Cómo dormiste anoche'),
-      ).toBeInTheDocument();
+        listas.some((lista) => within(lista).queryByText('Cómo dormiste anoche') !== null),
+      ).toBe(true);
+    });
+
+    it('lleva el pie con lo que no es y para quien es, y el camino a los documentos (L-03)', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: 'Tu plan diario' });
+
+      const pie = screen.getByRole('contentinfo');
+
+      expect(pie).toHaveTextContent(/no diagnostica, no formula medicamentos y no reemplaza/i);
+      expect(pie).toHaveTextContent('Es solo para mayores de 18 años');
+      expect(within(pie).getByRole('link', { name: 'Términos' })).toHaveAttribute(
+        'href',
+        '/terminos',
+      );
+      expect(within(pie).getByRole('link', { name: 'Privacidad' })).toHaveAttribute(
+        'href',
+        '/privacidad',
+      );
     });
 
     it('añadir un modulo lo activa y lo pinta sin recargar', async () => {
