@@ -274,9 +274,11 @@ export function Registro() {
             </Aparece>
 
             <Aparece>
-              {/* Al registrarse siempre se recuerda: la pregunta de si guardar
-                  la sesion solo la hace la pantalla de inicio de sesion. */}
-              <BotonDeGoogle disabled={ocupado} onClick={() => void entrarConGoogle(true)}>
+              {/* Aqui no se pregunta si mantener la sesion, y en un equipo
+                  compartido lo seguro es no hacerlo (SCRUM-164): se cierra al
+                  cerrar la pestana. Quien quiera conservarla en su equipo la
+                  pide en la pantalla de acceso. */}
+              <BotonDeGoogle disabled={ocupado} onClick={() => void entrarConGoogle(false)}>
                 Registrarme con Google
               </BotonDeGoogle>
             </Aparece>
