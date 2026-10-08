@@ -145,6 +145,40 @@ Si un secreto se filtra por error:
 2. Avisar al equipo.
 3. Solo despues limpiar el repositorio.
 
+### Dependencias y analisis del codigo (SCRUM-155)
+
+Lo que se instala con `npm` es codigo de otras personas que acaba dentro del
+paquete que descarga el navegador. Ademas de Gitleaks hay tres controles:
+
+| Control                    | Archivo                              | Que hace                                                                                   |
+| -------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Dependabot                 | `.github/dependabot.yml`             | Abre cada lunes los Pull Request de dependencias, agrupados, contra `desarrollo`.          |
+| Avisos de las dependencias | `.github/workflows/dependencias.yml` | Falla si produccion trae un aviso `high` o `critical` que nadie haya aceptado por escrito. |
+| Analisis del codigo        | `.github/workflows/codeql.yml`       | CodeQL (`security-extended`) sobre TypeScript; los hallazgos salen en Code scanning.       |
+
+- **Un aviso se acepta por escrito, con fecha.** Si no hay arreglo posible, se
+  agrega a `vulnerabilidades-aceptadas.json` con su identificador `GHSA`, el
+  motivo y la fecha en que deja de valer. Pasada la fecha el control vuelve a
+  fallar y alguien tiene que decidir otra vez. Se acepta el **aviso**, no el
+  paquete, para no tapar el que salga la semana siguiente. Hoy la lista esta
+  vacia.
+- **`overrides` en `package.json`.** `@excalidraw/excalidraw` fija versiones
+  exactas de `nanoid`, `sass` y `lodash-es` (via Mermaid) que tenian avisos
+  graves. Se fuerzan versiones corregidas de la misma linea (o, para el
+  `nanoid` de `@excalidraw/mermaid-to-excalidraw`, de la 5). Dependabot no
+  actualiza lo que esta en `overrides`: al subir Excalidraw hay que revisar si
+  siguen haciendo falta, y quitar las que ya no.
+- **Solo produccion.** `npm audit --omit=dev`. Va aparte de `ci.yml` para que un
+  aviso publicado hoy no ponga en rojo un Pull Request que no toca las
+  dependencias: corre en los que si las tocan, al entrar a una rama de
+  ambiente, cada lunes y a mano (`node scripts/revisar-dependencias.mjs`).
+- **Las tareas programadas y `dependabot.yml` solo funcionan desde la rama por
+  defecto**, que aqui es `produccion`. Hasta que lleguen ahi por la cadena de
+  promociones, los controles corren en los Pull Request pero Dependabot no abre
+  nada.
+- Los commits de Dependabot no citan un ticket; `commitlint.config.mjs` los
+  reconoce por su firma y los deja pasar.
+
 ---
 
 ## 7. Definition of Done
