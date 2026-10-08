@@ -607,13 +607,97 @@ describe('un fallo pasajero se reintenta con espera creciente (criterio 3)', () 
 
     banco.ejecutores['pendiente.crear'].mockRejectedValue(api(503));
     await banco.encolar('a');
-    await banco.motor.sincronizar('manual');
+    await banco.motor.sincronizar('conexion');
     banco.ejecutores['pendiente.crear'].mockClear();
     banco.reloj.ahora = new Date(AHORA.getTime() + ESPERA_BASE_EN_MS - 1);
 
-    await banco.motor.sincronizar('manual');
+    await banco.motor.sincronizar('programada');
 
     expect(banco.ejecutores['pendiente.crear']).not.toHaveBeenCalled();
+  });
+
+  it('y si es lo unico que hay, ni se toca la red: abrir la app no cuesta una peticion', async () => {
+    const banco = armar();
+
+    banco.ejecutores['pendiente.crear'].mockRejectedValue(api(503));
+    await banco.encolar('a');
+    await banco.motor.sincronizar('conexion');
+
+    const preguntas = banco.conexion.preguntas;
+    const resultado = await banco.motor.sincronizar('apertura');
+
+    expect(resultado.estado).toBe('nada_que_hacer');
+    expect(resultado.resumen.pendientes).toBe(1);
+    expect(banco.conexion.preguntas).toBe(preguntas);
+  });
+
+  it('"Sincronizar ahora" no espera el reintento programado: se envia ya', async () => {
+    const banco = armar();
+
+    banco.ejecutores['pendiente.crear'].mockRejectedValueOnce(api(503));
+    await banco.encolar('a');
+    await banco.motor.sincronizar('conexion');
+
+    // Todavia falta para la hora del reintento.
+    expect((await banco.estado('a')).proximoIntento).not.toBeNull();
+
+    const resultado = await banco.motor.sincronizar('manual');
+
+    expect(resultado.estado).toBe('terminada');
+    expect(resultado.resumen.enviadas).toBe(1);
+    expect(await banco.estado('a')).toMatchObject({
+      estado: 'hecha',
+      proximoIntento: null,
+      error: null,
+    });
+  });
+
+  it('pero cada operacion se intenta una sola vez por tanda: si vuelve a fallar no se repite en bucle', async () => {
+    const banco = armar();
+
+    banco.ejecutores['pendiente.crear'].mockRejectedValue(api(503));
+    await banco.encolar('a');
+    await banco.motor.sincronizar('conexion');
+    banco.ejecutores['pendiente.crear'].mockClear();
+
+    await banco.motor.sincronizar('manual');
+
+    expect(banco.ejecutores['pendiente.crear']).toHaveBeenCalledTimes(1);
+    expect(await banco.estado('a')).toMatchObject({ estado: 'pendiente', intentos: 2 });
+  });
+
+  it('"Sincronizar ahora" tampoco pasa por encima de una dependencia que fallo', async () => {
+    const banco = armar();
+
+    await banco.encolar('crear', { estado: 'requiere_atencion' });
+    await banco.encolar('editar', {
+      tipo: 'pendiente.editar',
+      dependeDe: 'crear',
+      payload: { id: idLocalDe('crear'), cambios: {} },
+    });
+
+    const resultado = await banco.motor.sincronizar('manual');
+
+    expect(resultado.estado).toBe('nada_que_hacer');
+    expect(banco.ejecutores['pendiente.editar']).not.toHaveBeenCalled();
+  });
+
+  it('lo que espera su turno detras de otra no toca la red mientras la otra no este lista', async () => {
+    const banco = armar();
+
+    banco.ejecutores['pendiente.crear'].mockRejectedValue(api(503));
+    await banco.encolar('crear');
+    await banco.encolar('editar', {
+      tipo: 'pendiente.editar',
+      dependeDe: 'crear',
+      payload: { id: idLocalDe('crear'), cambios: {} },
+    });
+    await banco.motor.sincronizar('conexion');
+
+    const preguntas = banco.conexion.preguntas;
+
+    expect((await banco.motor.sincronizar('programada')).estado).toBe('nada_que_hacer');
+    expect(banco.conexion.preguntas).toBe(preguntas);
   });
 
   it('a la hora del reintento se envia, y si esta vez sale bien queda hecha', async () => {

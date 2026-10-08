@@ -1,9 +1,10 @@
-import type { AuthError, Session } from '@supabase/supabase-js';
+import { isAuthRetryableFetchError, type AuthError, type Session } from '@supabase/supabase-js';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { olvidarLosArchivosDeLaPersona } from '../foto/archivosDeLaPersona.ts';
 import {
   esSoloDeEstaPestana,
+  leerLaSesionGuardada,
   olvidarPreferenciaDePestana,
   recordarEnEsteEquipo,
 } from '../infraestructura/supabase/almacenamiento.ts';
@@ -171,9 +172,18 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     // Primero lo que ya hubiera guardado, para no expulsar a quien recarga.
     void cliente.auth
       .getSession()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (vigente) {
-          setSesion(data.session);
+          // Si no hay sesion porque el token vencio y SIN CONEXION no se pudo
+          // renovar, la sesion sigue guardada y sirve para saber quien es: se abre
+          // la aplicacion sin conexion (SCRUM-137). Cualquier otro fallo es una
+          // sesion que de verdad no existe.
+          const sinRenovar =
+            data.session === null && error !== null && isAuthRetryableFetchError(error)
+              ? leerLaSesionGuardada()
+              : null;
+
+          setSesion(data.session ?? sinRenovar);
           setCargando(false);
         }
       })
@@ -186,16 +196,23 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     // Y despues, cualquier cambio: entrar, salir, o que se renueve el token.
     // Sin esta suscripcion, cerrar sesion en otra pestana dejaria esta creyendo
     // que sigue dentro.
-    const { data: suscripcion } = cliente.auth.onAuthStateChange((_evento, nueva) => {
+    const { data: suscripcion } = cliente.auth.onAuthStateChange((evento, nueva) => {
       if (vigente) {
+        // Lo mismo que arriba: al arrancar sin conexion con el token vencido,
+        // Supabase empieza diciendo "sin sesion". Si queda una guardada, sigue siendo
+        // la de esta persona. Solo en el arranque: un `SIGNED_OUT` es de verdad.
+        const sinRenovar =
+          nueva === null && evento === 'INITIAL_SESSION' ? leerLaSesionGuardada() : null;
+        const actual = nueva ?? sinRenovar;
+
         // Sin sesion, lo que era de quien estaba —su foto, su mascota propia— no
         // se queda. `salir` ya lo suelta, pero la sesion tambien termina sin
         // pasar por ahi: caduca, se revoca, o se cierra en otra pestana.
-        if (nueva === null) {
+        if (actual === null) {
           olvidarLosArchivosDeLaPersona();
         }
 
-        setSesion(nueva);
+        setSesion(actual);
         setCargando(false);
       }
     });
