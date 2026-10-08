@@ -291,7 +291,7 @@ se enteran.
   una respuesta del servidor («no existe», «no tienes permiso»). Lo de una persona lleva
   su propia regla: el diario (SCRUM-139) y los pendientes y el panel (SCRUM-140) estan mas
   abajo. Al abrirse el almacen, y al volver la red, se precargan el catalogo, el diario,
-  el semaforo y el panel (`precarga.ts`).
+  el semaforo, el panel y las reglas de VSD IA (`precarga.ts`).
 - **Terminar una actividad sin red.** El resultado entra a la cola
   (`resultado.registrar`) con un `operationId` estable, y la pantalla lo sigue
   (`seguimiento.ts`) hasta **5 s**: si la API lo acepta, se ve la orientacion de
@@ -385,6 +385,48 @@ la configuracion del perfil, y activar un modulo o completar la bienvenida.
   que le toca (`conLoQueEstaEnLaCola`). Una copia de otro dia no se toca.
 - **La precarga no da de alta la cuenta.** Leer por adelantado usa `GET /api/cuenta`;
   `POST /api/cuenta` registra el consentimiento y solo lo hace una pantalla.
+
+### VSD IA sin conexion (SCRUM-141)
+
+VSD IA es un **asistente mixto**: sin conexion responde lo basico, y todo lo demas exige
+conexion y lo dice. **Nunca inventa una respuesta.** Con conexion no cambia nada.
+
+| Sin conexion, la persona escribe                   | Pasa                                                                      |
+| -------------------------------------------------- | ------------------------------------------------------------------------- |
+| Una expresion de riesgo                            | El mensaje de siempre y las lineas de su pais, **sin esperar la red**     |
+| «¿Donde busco ayuda?», «¿que lineas de ayuda hay?» | El mensaje y las lineas de su pais                                        |
+| Un saludo, un agradecimiento, una despedida        | Su respuesta (el saludo no invita a preguntar lo que sin red no se puede) |
+| Cualquier otra cosa                                | «Esto lo puedo responder cuando tengas conexion.», con «Reintentar»       |
+
+- **De donde sale lo que responde.** De **las mismas reglas que usa el servidor**: lo que
+  publica `GET /api/asistente/reglas-locales` (publica, con `ETag` y con la version de su
+  forma). **Esta aplicacion no lleva ninguna lista propia** de saludos, de expresiones de
+  riesgo ni de telefonos: `asistente/reglasLocales.ts` solo aplica el paquete, en el orden
+  del servidor (el riesgo primero y aparte, luego la charla si **el mensaje entero** lo es,
+  luego lo demas). Se guarda en el almacen de la persona (`reglasLocalesLocal.ts`, como el
+  catalogo), se precarga al entrar y se renueva al volver la red.
+- **Un paquete que no se entiende no se aplica.** Si el servidor publica otro `esquema`, o
+  lo guardado esta incompleto, se sigue con lo que valia, o con nada: nunca se aplica a medias
+  una regla que nadie reviso. Sin reglas guardadas (nunca se abrio con conexion) el asistente
+  se comporta como antes: dice que no pudo responder y deja a mano las lineas de respaldo.
+- **El pais sale de la zona horaria de la cuenta**, como en el servidor, y la zona se lee como
+  la lee IANA (`america/bogota`, `US/Eastern`). Quien esta en un lugar sin lineas verificadas
+  recibe el directorio internacional y **ningun telefono**: un numero de otro pais, ensenado
+  como si fuera suyo, es el peor error posible.
+- **Lo escrito sin conexion no se envia despues.** No entra a la cola de lo que se
+  sincroniza: se queda en la pantalla con su aviso, y la persona decide si lo reenvia
+  («Reintentar»). Al cerrar el asistente se olvida, como siempre.
+- **Cada respuesta dada asi lo dice** («Respondido sin conexion») y un aviso arriba explica que
+  sin conexion solo responde lo basico. Tambien se prueba lo mismo cuando el navegador dice
+  que hay red pero la peticion no llega, o tarda mas de 20 s; un error **del servidor**
+  (un 500, «vas muy rapido») se respeta tal cual.
+- **Una sola verdad, comprobada.** El algoritmo vive en dos repositorios; los datos, en uno.
+  Por eso `src/asistente/contrato/reglas-locales.json` es una **copia exacta** de
+  `docs/contratos/reglas-locales.json` del backend: el paquete que publica el servidor y lo que
+  tiene que responder el dispositivo a cada una de sus frases. `reglasLocales.spec.ts` prueba el
+  motor contra esa copia, y ademas contra cada expresion de riesgo, cada patron y cada zona del
+  paquete. **Si el backend cambia una regla, un texto o una linea, hay que copiar el archivo
+  nuevo y la prueba dice que respondia distinto.**
 
 ---
 

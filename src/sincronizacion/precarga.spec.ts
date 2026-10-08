@@ -4,17 +4,20 @@ import { traerElCatalogoConCopia } from './catalogoLocal.ts';
 import { precargarElDiario } from './diarioLocal.ts';
 import { precargarElPanel } from './panelLocal.ts';
 import { precargarLasLecturas } from './precarga.ts';
+import { precargarLasReglasLocales } from './reglasLocalesLocal.ts';
 import { precargarElSemaforo } from './semaforoLocal.ts';
 
 vi.mock('./catalogoLocal.ts', () => ({ traerElCatalogoConCopia: vi.fn() }));
 vi.mock('./diarioLocal.ts', () => ({ precargarElDiario: vi.fn() }));
 vi.mock('./panelLocal.ts', () => ({ precargarElPanel: vi.fn() }));
+vi.mock('./reglasLocalesLocal.ts', () => ({ precargarLasReglasLocales: vi.fn() }));
 vi.mock('./semaforoLocal.ts', () => ({ precargarElSemaforo: vi.fn() }));
 
 const traer = vi.mocked(traerElCatalogoConCopia);
 const traerElDiario = vi.mocked(precargarElDiario);
 const traerElSemaforo = vi.mocked(precargarElSemaforo);
 const traerElPanel = vi.mocked(precargarElPanel);
+const traerLasReglas = vi.mocked(precargarLasReglasLocales);
 
 beforeEach(() => {
   traer.mockReset();
@@ -24,6 +27,8 @@ beforeEach(() => {
   traerElSemaforo.mockResolvedValue(undefined);
   traerElPanel.mockReset();
   traerElPanel.mockResolvedValue(undefined);
+  traerLasReglas.mockReset();
+  traerLasReglas.mockResolvedValue(undefined);
 });
 
 describe('precargarLasLecturas (SCRUM-138)', () => {
@@ -57,6 +62,41 @@ describe('precargarLasLecturas (SCRUM-138)', () => {
     await precargarLasLecturas();
 
     expect(traerElPanel).toHaveBeenCalledTimes(1);
+  });
+
+  it('lee las reglas de VSD IA para responder sin conexion y dejarlas guardadas (SCRUM-141)', async () => {
+    traer.mockResolvedValue({ valor: [], deLaCopia: false, guardadoEn: null });
+
+    await precargarLasLecturas();
+
+    expect(traerLasReglas).toHaveBeenCalledTimes(1);
+  });
+
+  it('si las reglas fallan, lo demas se lee igual, y al reves', async () => {
+    traer.mockResolvedValue({ valor: [], deLaCopia: false, guardadoEn: null });
+    traerLasReglas.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    await expect(precargarLasLecturas()).resolves.toBeUndefined();
+    expect(traer).toHaveBeenCalledTimes(1);
+    expect(traerElDiario).toHaveBeenCalledTimes(1);
+    expect(traerElSemaforo).toHaveBeenCalledTimes(1);
+    expect(traerElPanel).toHaveBeenCalledTimes(1);
+
+    traerElPanel.mockRejectedValue(new TypeError('Failed to fetch'));
+    traerLasReglas.mockResolvedValue(undefined);
+
+    await precargarLasLecturas();
+
+    expect(traerLasReglas).toHaveBeenCalledTimes(2);
+  });
+
+  it('un fallo de las reglas que se lanza sin esperar a nadie tampoco se escapa', async () => {
+    traer.mockResolvedValue({ valor: [], deLaCopia: false, guardadoEn: null });
+    traerLasReglas.mockImplementation(() => {
+      throw new Error('fallo sincrono');
+    });
+
+    await expect(precargarLasLecturas()).resolves.toBeUndefined();
   });
 
   it('si el panel falla, lo demas se lee igual, y al reves', async () => {

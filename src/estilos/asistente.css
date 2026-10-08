@@ -91,6 +91,23 @@
   font-size: 0.8125rem;
 }
 
+/* Sin conexion (SCRUM-141): el borde discontinuo lo dice tambien sin depender del color. */
+.asistente__sin-conexion {
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed var(--app-borde);
+  border-radius: 0.75rem;
+  color: var(--app-tinta);
+  font-size: 0.8125rem;
+}
+
+/* De donde viene una respuesta que no fue del servidor: se dice, no se disfraza. */
+.asistente__origen {
+  margin-top: 0.5rem;
+  color: var(--app-tenue);
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
 .asistente__sugerencias {
   display: flex;
   flex-wrap: wrap;
