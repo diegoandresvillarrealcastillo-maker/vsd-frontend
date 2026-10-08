@@ -1,8 +1,12 @@
 import js from '@eslint/js';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+
+const MENSAJE_HTML_EN_BRUTO =
+  'Nada de HTML en bruto: dangerouslySetInnerHTML, innerHTML, outerHTML, insertAdjacentHTML y document.write pintan texto sin escapar, y con un dato de la persona es una XSS. Pinta el texto como hijo de un elemento de React, o usa DocumentoLeido para el diario.';
 
 export default tseslint.config(
   {
@@ -14,6 +18,16 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
+
+  // Accesibilidad en el codigo (C-03 de la auditoria 360): lo que se puede ver sin
+  // ejecutar nada, como una imagen sin `alt`, un enlace sin destino o un `div` con
+  // `onClick` y sin teclado. Lo que solo se ve con la pagina pintada —nombres,
+  // contraste, orden de los encabezados— lo comprueban las pruebas con axe
+  // (`src/pruebas/axe.ts`) y Lighthouse en el CI.
+  {
+    ...jsxA11y.flatConfigs.recommended,
+    files: ['src/**/*.tsx'],
+  },
 
   {
     files: ['src/**/*.{ts,tsx}'],
@@ -63,7 +77,43 @@ export default tseslint.config(
           message:
             'La clave de servicio de Supabase no existe en el frontend: da acceso total y salta el aislamiento por RLS.',
         },
+
+        // Lo que hoy no esta y nadie deberia agregar (SCRUM-155). Lo que escribe
+        // una persona —el diario, el nombre, el texto del asistente— se pinta
+        // como texto de React, que lo escapa. Con HTML en bruto, un `<img
+        // onerror>` guardado es una XSS que se ejecuta en la sesion de quien lo
+        // lea. Si de verdad hace falta pintar HTML, se hace en un componente
+        // propio, con su saneador y su prueba, y se justifica en el Pull Request.
+        {
+          selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
+          message: MENSAJE_HTML_EN_BRUTO,
+        },
+        {
+          selector: "Property[key.name='dangerouslySetInnerHTML']",
+          message: MENSAJE_HTML_EN_BRUTO,
+        },
+        {
+          selector: 'AssignmentExpression[left.property.name=/^(innerHTML|outerHTML)$/]',
+          message: MENSAJE_HTML_EN_BRUTO,
+        },
+        {
+          selector: "CallExpression[callee.property.name='insertAdjacentHTML']",
+          message: MENSAJE_HTML_EN_BRUTO,
+        },
+        {
+          selector:
+            "CallExpression[callee.object.name='document'][callee.property.name=/^write(ln)?$/]",
+          message: MENSAJE_HTML_EN_BRUTO,
+        },
+        {
+          selector: "CallExpression[callee.property.name='createContextualFragment']",
+          message: MENSAJE_HTML_EN_BRUTO,
+        },
       ],
+
+      // Ejecutar texto como codigo: lo mismo, con otro nombre.
+      'no-eval': 'error',
+      'no-new-func': 'error',
     },
   },
 
@@ -107,7 +157,9 @@ export default tseslint.config(
   },
 
   {
-    files: ['vite.config.ts'],
+    // La configuracion de Vite y las pruebas de los scripts de compilacion: las dos
+    // corren en Node, no en el navegador, y comparten proyecto de TypeScript.
+    files: ['vite.config.ts', 'scripts/**/*.spec.ts'],
     languageOptions: {
       globals: globals.node,
       parserOptions: {

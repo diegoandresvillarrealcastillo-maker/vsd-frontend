@@ -1,6 +1,7 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useId, useRef, type CSSProperties } from 'react';
 
+import { alPulsarElFondo } from '../../componentes/alPulsarElFondo.ts';
 import type { Modulo } from '../../infraestructura/api/cuenta.ts';
 import { Icono } from './Icono.tsx';
 import { MODULOS } from './modulos.ts';
@@ -80,7 +81,8 @@ export function Celebracion({
     <div
       className="celebracion"
       style={{ '--modulo-fondo': datos.fondo, '--modulo-acento': datos.acento } as CSSProperties}
-      onClick={alCerrar}
+      role="presentation"
+      onClick={alPulsarElFondo(alCerrar)}
     >
       <motion.div
         role="dialog"
@@ -88,7 +90,6 @@ export function Celebracion({
         aria-labelledby={idDelTitulo}
         aria-describedby={idDelTexto}
         className="celebracion__caja"
-        onClick={(evento) => evento.stopPropagation()}
         initial={sinMovimiento ? false : { opacity: 0, scale: 0.92, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={

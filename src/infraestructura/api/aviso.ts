@@ -3,6 +3,32 @@ import { llamarALaApi } from './clienteHttp.ts';
 /** Lo que devuelve `GET /api/aviso`. */
 interface AvisoVigente {
   readonly version: string;
+  /** Una API anterior a la auditoria 360 (T-01) no lo manda. */
+  readonly versionTerminos?: string;
+}
+
+/** Las versiones de los dos textos que hay que aceptar para registrarse. */
+export interface TextosVigentes {
+  readonly aviso: string;
+  readonly terminos: string;
+}
+
+/**
+ * Las versiones vigentes del aviso de privacidad y de los terminos.
+ *
+ * Misma razon que la del aviso solo: la unica fuente es la API, y el alta solo
+ * acepta las vigentes. Si la API no informa la de los terminos no se puede
+ * registrar a nadie —aceptar unos terminos sin version es aceptar algo que
+ * nadie puede demostrar— y se falla en lugar de suponer una.
+ */
+export async function consultarLosTextosVigentes(senal?: AbortSignal): Promise<TextosVigentes> {
+  const vigente = await llamarALaApi<AvisoVigente>('/api/aviso', senal ? { senal } : {});
+
+  if (vigente.versionTerminos === undefined) {
+    throw new Error('La API no informa la versión vigente de los términos.');
+  }
+
+  return { aviso: vigente.version, terminos: vigente.versionTerminos };
 }
 
 /**

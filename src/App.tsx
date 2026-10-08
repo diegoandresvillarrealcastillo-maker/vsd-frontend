@@ -3,14 +3,20 @@ import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import { SaltoAlContenido } from './componentes/SaltoAlContenido.tsx';
+import { LimiteDeErrores } from './errores/LimiteDeErrores.tsx';
 import { Actividad } from './paginas/actividad/Actividad.tsx';
 import { Panel } from './paginas/panel/Panel.tsx';
 import { Perfil } from './paginas/perfil/Perfil.tsx';
 import { Sendero } from './paginas/sendero/Sendero.tsx';
 import { Acceso } from './paginas/autenticacion/Acceso.tsx';
+import { CompletarRegistro } from './paginas/autenticacion/CompletarRegistro.tsx';
 import { ContrasenaNueva } from './paginas/autenticacion/ContrasenaNueva.tsx';
 import { Recuperar } from './paginas/autenticacion/Recuperar.tsx';
 import { Registro } from './paginas/autenticacion/Registro.tsx';
+import { SoloMayores } from './paginas/autenticacion/SoloMayores.tsx';
+import { Cookies } from './paginas/legal/Cookies.tsx';
+import { Privacidad } from './paginas/legal/Privacidad.tsx';
+import { Terminos } from './paginas/legal/Terminos.tsx';
 import { Portada } from './paginas/portada/Portada.tsx';
 import { RutaDeInvitado } from './rutas/RutaDeInvitado.tsx';
 import { RutaProtegida } from './rutas/RutaProtegida.tsx';
@@ -31,7 +37,8 @@ const Diario = lazy(() =>
  * Tres clases de ruta, y ninguna se cuela en otra
  * ---------------------------------------------------------------------------
  *
- * - **Publicas**: la portada. Cualquiera, con sesion o sin ella.
+ * - **Publicas**: la portada y los documentos legales (privacidad, terminos y
+ *   cookies). Cualquiera, con sesion o sin ella.
  * - **De invitado**: entrar, registrarse y pedir una contrasena nueva. Solo
  *   tienen sentido sin sesion; con sesion abierta llevan al panel. Rellenar un
  *   formulario que no va a cambiar nada es peor que no verlo.
@@ -66,96 +73,118 @@ export function App() {
           en cualquier pantalla. */}
       <SaltoAlContenido />
 
-      <AnimatePresence mode="popLayout" initial={false}>
-        <Routes location={ubicacion} key={ubicacion.pathname}>
-          {/* ---------- Publicas ---------- */}
-          <Route path={RUTAS.INICIO} element={<Portada />} />
+      {/* Un error al pintar una pantalla ya no deja la aplicacion en blanco
+          (SCRUM-156): sale la pantalla de error con una salida y las lineas de
+          atencion, y navegar a otra ruta la quita sola. */}
+      <LimiteDeErrores origen="ruta" restablecerCon={ubicacion.pathname}>
+        <AnimatePresence mode="popLayout" initial={false}>
+          <Routes location={ubicacion} key={ubicacion.pathname}>
+            {/* ---------- Publicas ---------- */}
+            <Route path={RUTAS.INICIO} element={<Portada />} />
+            <Route path={RUTAS.PRIVACIDAD} element={<Privacidad />} />
+            <Route path={RUTAS.TERMINOS} element={<Terminos />} />
+            <Route path={RUTAS.COOKIES} element={<Cookies />} />
 
-          {/* ---------- Solo sin sesion ---------- */}
-          <Route
-            path={RUTAS.ACCESO}
-            element={
-              <RutaDeInvitado>
-                <Acceso />
-              </RutaDeInvitado>
-            }
-          />
-          <Route
-            path={RUTAS.REGISTRO}
-            element={
-              <RutaDeInvitado>
-                <Registro />
-              </RutaDeInvitado>
-            }
-          />
-          <Route
-            path={RUTAS.RECUPERAR}
-            element={
-              <RutaDeInvitado>
-                <Recuperar />
-              </RutaDeInvitado>
-            }
-          />
+            {/* ---------- Solo sin sesion ---------- */}
+            <Route
+              path={RUTAS.ACCESO}
+              element={
+                <RutaDeInvitado>
+                  <Acceso />
+                </RutaDeInvitado>
+              }
+            />
+            <Route
+              path={RUTAS.REGISTRO}
+              element={
+                <RutaDeInvitado>
+                  <Registro />
+                </RutaDeInvitado>
+              }
+            />
+            <Route
+              path={RUTAS.RECUPERAR}
+              element={
+                <RutaDeInvitado>
+                  <Recuperar />
+                </RutaDeInvitado>
+              }
+            />
 
-          {/* Se guarda sola: ver la nota de arriba. */}
-          <Route path={RUTAS.CONTRASENA_NUEVA} element={<ContrasenaNueva />} />
+            {/* Se guarda sola: ver la nota de arriba. */}
+            <Route path={RUTAS.CONTRASENA_NUEVA} element={<ContrasenaNueva />} />
 
-          {/* ---------- Protegidas ---------- */}
-          <Route
-            path={RUTAS.PANEL}
-            element={
-              <RutaProtegida>
-                <Panel />
-              </RutaProtegida>
-            }
-          />
-          <Route
-            path={RUTAS.PERFIL}
-            element={
-              <RutaProtegida>
-                <Perfil />
-              </RutaProtegida>
-            }
-          />
-          <Route
-            path={RUTAS.DIARIO}
-            element={
-              <RutaProtegida>
-                <Suspense
-                  fallback={
-                    <p className="solo-lectores" role="status">
-                      Cargando tu diario…
-                    </p>
-                  }
-                >
-                  <Diario />
-                </Suspense>
-              </RutaProtegida>
-            }
-          />
-          <Route
-            path={RUTAS.MODULO}
-            element={
-              <RutaProtegida>
-                <Sendero />
-              </RutaProtegida>
-            }
-          />
-          <Route
-            path={RUTAS.ACTIVIDAD}
-            element={
-              <RutaProtegida>
-                <Actividad />
-              </RutaProtegida>
-            }
-          />
+            {/* Lo que ve quien resulta menor de 18 anos. Publica: se llega despues
+              de cerrar la sesion, y no pide ni guarda nada. */}
+            <Route path={RUTAS.SOLO_MAYORES} element={<SoloMayores />} />
 
-          {/* Una direccion que no existe no merece una pantalla de error: se
+            {/* Pide sesion pero no el registro completo: es justo lo que hace. */}
+            <Route
+              path={RUTAS.COMPLETAR_REGISTRO}
+              element={
+                <RutaProtegida sinRegistro>
+                  <CompletarRegistro />
+                </RutaProtegida>
+              }
+            />
+
+            {/* ---------- Protegidas ---------- */}
+            <Route
+              path={RUTAS.PANEL}
+              element={
+                <RutaProtegida>
+                  <Panel />
+                </RutaProtegida>
+              }
+            />
+            <Route
+              path={RUTAS.PERFIL}
+              element={
+                <RutaProtegida>
+                  <Perfil />
+                </RutaProtegida>
+              }
+            />
+            <Route
+              path={RUTAS.DIARIO}
+              element={
+                <RutaProtegida>
+                  <Suspense
+                    fallback={
+                      <p className="solo-lectores" role="status">
+                        Cargando tu diario…
+                      </p>
+                    }
+                  >
+                    <Diario />
+                  </Suspense>
+                </RutaProtegida>
+              }
+            />
+            <Route
+              path={RUTAS.MODULO}
+              element={
+                <RutaProtegida>
+                  <Sendero />
+                </RutaProtegida>
+              }
+            />
+            <Route
+              path={RUTAS.ACTIVIDAD}
+              element={
+                <RutaProtegida>
+                  <Actividad />
+                </RutaProtegida>
+              }
+            />
+
+            {/* Una direccion que no existe no merece una pantalla de error: se
               vuelve a la portada, que es lo que la persona queria de todos
               modos. */}
-          <Route path="*" element={<Navigate to={RUTAS.INICIO} replace />} />
-        </Routes>
-      </AnimatePresence>
+            <Route path="*" element={<Navigate to={RUTAS.INICIO} replace />} />
+          </Routes>
+        </AnimatePresence>
+      </LimiteDeErrores>
     </>
   );
 }

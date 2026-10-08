@@ -77,6 +77,19 @@ export interface Cuenta {
   readonly rol: string;
   readonly nombre?: string;
   readonly consentimiento: Consentimiento;
+  /**
+   * Los terminos que acepto con su casilla, o `null` en las cuentas anteriores a
+   * que se pidieran. Opcional por lo mismo que `registroCompleto`.
+   */
+  readonly terminos?: Consentimiento | null;
+  /**
+   * Si la cuenta tiene su fecha de nacimiento y el aviso y los terminos aceptados
+   * con casilla. Las cuentas anteriores a eso vienen en `false`, y la API les
+   * responde 403 `REGISTRO_INCOMPLETO` a todo menos a ver, exportar y borrar la
+   * cuenta. Opcional porque una API anterior no lo manda: sin el, se entiende
+   * completa.
+   */
+  readonly registroCompleto?: boolean;
   readonly registradoEn: string;
   /** Vacio mientras la persona no ha elegido con que modulos empezar. */
   readonly modulosActivos: readonly Modulo[];

@@ -8,6 +8,7 @@ import { olvidarLaFoto } from '../../foto/fotoDePerfil.ts';
 import { olvidarLaMascotaPropia, sincronizarLaMascotaPropia } from '../../foto/mascotaPropia.ts';
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
 import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
+import { cuantosH1, fallosDeAccesibilidad } from '../../pruebas/axe.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { Perfil } from './Perfil.tsx';
@@ -141,6 +142,24 @@ afterEach(() => {
   olvidarLaMascotaPropia();
   vi.restoreAllMocks();
   vi.clearAllMocks();
+});
+
+describe('Perfil, accesibilidad (C-03)', () => {
+  it('no tiene fallos de accesibilidad y tiene un solo h1', async () => {
+    pintar();
+    await screen.findByRole('region', { name: 'Cómo te llamamos' });
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+    expect(cuantosH1()).toBe(1);
+  });
+
+  it('tampoco con el cambio de contrasena abierto', async () => {
+    pintar();
+    await usuario.click(await screen.findByRole('button', { name: 'Enviarme un código' }));
+    await screen.findByLabelText('Código del correo');
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+  });
 });
 
 describe('Perfil', () => {
@@ -412,6 +431,27 @@ describe('Perfil', () => {
 
       expect(valor.cambiarContrasenaConCodigo).toHaveBeenCalledWith('UnaClave#Nueva9', '123456');
       expect(screen.getByRole('status')).toHaveTextContent('quedó cambiada');
+    });
+
+    it('al cambiarla dice que cerro la sesion de los demas dispositivos (SCRUM-154)', async () => {
+      pintar(
+        sesion({
+          cambiarContrasenaConCodigo: vi.fn().mockResolvedValue({
+            ok: true,
+            mensaje: 'Cerramos tu sesión en los demás dispositivos.',
+          }),
+        }),
+      );
+
+      await usuario.click(await screen.findByRole('button', { name: 'Enviarme un código' }));
+      await usuario.type(screen.getByLabelText('Código del correo'), '123456');
+      await usuario.type(screen.getByLabelText('Contraseña nueva'), 'UnaClave#Nueva9');
+      await usuario.type(screen.getByLabelText('Repite la contraseña nueva'), 'UnaClave#Nueva9');
+      await usuario.click(screen.getByRole('button', { name: 'Cambiar contraseña' }));
+
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Tu contraseña quedó cambiada. Cerramos tu sesión en los demás dispositivos.',
+      );
     });
 
     it('sin el codigo no la cambia', async () => {

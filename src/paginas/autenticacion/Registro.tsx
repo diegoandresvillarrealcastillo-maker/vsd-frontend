@@ -1,15 +1,18 @@
 import { useId, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { BotonDeEnvio, type EstadoDeEnvio } from '../../componentes/BotonDeEnvio.tsx';
+import { CaptchaDeTurnstile } from '../../captcha/CaptchaDeTurnstile.tsx';
+import { ESPERA_DEL_CAPTCHA, useCaptcha } from '../../captcha/useCaptcha.ts';
 import { BotonDeGoogle } from '../../componentes/BotonDeGoogle.tsx';
 import { Campo } from '../../componentes/Campo.tsx';
-import { Casilla } from '../../componentes/Casilla.tsx';
 import { MedidorDeContrasena } from '../../componentes/MedidorDeContrasena.tsx';
 import { entorno } from '../../infraestructura/entorno.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
+import { evaluarLaFecha } from '../../sesion/edad.ts';
 import { mensajeSiNoCumple } from '../../sesion/reglaDeContrasena.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
+import { CamposDelRegistro } from './CamposDelRegistro.tsx';
 import { Aparece, LienzoDeAcceso } from './LienzoDeAcceso.tsx';
 import { PistasDelCorreo } from './PistasDelCorreo.tsx';
 
@@ -26,26 +29,62 @@ interface ErroresDeContrasena {
 
 export function Registro() {
   const { registrarse, entrarConGoogle } = useSesion();
+  const navegar = useNavigate();
 
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [repetida, setRepetida] = useState('');
-  const [acepta, setAcepta] = useState(false);
+  const [fecha, setFecha] = useState('');
+  const [avisoAceptado, setAvisoAceptado] = useState(false);
+  const [terminosAceptados, setTerminosAceptados] = useState(false);
   const [estado, setEstado] = useState<EstadoDeEnvio>('listo');
   const [error, setError] = useState<string | null>(null);
   const [errorDeCampo, setErrorDeCampo] = useState<ErroresDeContrasena>({});
+  const [errorDeLaFecha, setErrorDeLaFecha] = useState<string | undefined>(undefined);
   const [enviado, setEnviado] = useState(false);
   const idMedidor = useId();
+  const captcha = useCaptcha();
+
+  const acepta = avisoAceptado && terminosAceptados;
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
     setError(null);
+    setErrorDeLaFecha(undefined);
 
     // Sin consentimiento no se intenta siquiera. El proveedor lo vuelve a
     // comprobar y es el que manda, pero mandar la peticion sabiendo que va a
     // ser rechazada gasta un intento del limite de Supabase y deja al boton
     // dando vueltas para nada.
     if (!acepta) {
+      return;
+    }
+
+    // La edad va antes que todo lo demas, y antes de llamar a nadie. Quien es
+    // menor ve la pantalla de rechazo al instante, y como ningun dato suyo sale
+    // del dispositivo no se le crea una identidad que despues haya que borrar.
+    // Esto es una cortesia: la API repite la comprobacion, y es la que vale.
+    const evaluacion = evaluarLaFecha(fecha);
+
+    if (evaluacion === 'vacia') {
+      setErrorDeLaFecha('Escribe tu fecha de nacimiento.');
+      return;
+    }
+
+    if (evaluacion === 'invalida') {
+      setErrorDeLaFecha(
+        'Revisa tu fecha de nacimiento: tiene que ser una fecha real y que ya haya pasado.',
+      );
+      return;
+    }
+
+    if (evaluacion === 'menor') {
+      // Lo escrito se descarta: no se guarda en ninguna parte.
+      setFecha('');
+      setCorreo('');
+      setContrasena('');
+      setRepetida('');
+      void navegar(RUTAS.SOLO_MAYORES, { replace: true });
       return;
     }
 
@@ -70,13 +109,28 @@ export function Registro() {
       return;
     }
 
+    // Despues de lo que la persona puede corregir, no antes: que espere a
+    // Cloudflare solo cuando ya no queda nada por arreglar en el formulario.
+    if (captcha.activo && captcha.token === null) {
+      setError(ESPERA_DEL_CAPTCHA);
+      return;
+    }
+
     setEstado('enviando');
 
+    // La fecha no se manda a Supabase: no hace falta para crear la identidad, y
+    // no tiene por que quedar en ningun sitio que no sea nuestra base. Al entrar
+    // por primera vez se vuelve a pedir, y es entonces cuando la API la guarda.
     const resultado = await registrarse({
       correo,
       contrasena,
-      aceptaElAviso: acepta,
+      aceptaElAviso: avisoAceptado,
+      aceptaLosTerminos: terminosAceptados,
+      ...(captcha.token === null ? {} : { captchaToken: captcha.token }),
     });
+
+    // Cada token vale una vez, salga como salga el intento.
+    captcha.reiniciar();
 
     if (!resultado.ok) {
       setEstado('listo');
@@ -96,7 +150,7 @@ export function Registro() {
         titulo="Ya te enviamos el correo"
         // Se dice que la cuenta existe y que le falta un paso. Un "revisa tu
         // correo" a secas deja sin saber si el registro funciono o no.
-        entradilla={`Tu cuenta ya está creada. Para activarla, abre ${correo} y pulsa el enlace que acabamos de mandarte.`}
+        entradilla={`Tu cuenta ya está creada. Para activarla, abre ${correo} y pulsa el enlace que acabamos de mandarte. Al entrar por primera vez te pediremos confirmar tu fecha de nacimiento y aceptar el aviso y los términos.`}
         pie={
           <Link className="acceso__enlace" to={RUTAS.ACCESO}>
             Volver al inicio de sesión
@@ -175,15 +229,22 @@ export function Registro() {
           />
         </Aparece>
 
-        <Aparece>
-          <Casilla
-            etiqueta="Acepto el tratamiento de mis datos"
-            nota="VSD Health maneja información relacionada con tu bienestar. No diagnostica, no formula medicamentos y no reemplaza a ningún profesional."
-            marcada={acepta}
-            disabled={ocupado}
-            onChange={setAcepta}
-          />
-        </Aparece>
+        <CamposDelRegistro
+          fecha={fecha}
+          alCambiarLaFecha={setFecha}
+          errorDeLaFecha={errorDeLaFecha}
+          avisoAceptado={avisoAceptado}
+          alCambiarElAviso={setAvisoAceptado}
+          terminosAceptados={terminosAceptados}
+          alCambiarLosTerminos={setTerminosAceptados}
+          disabled={ocupado}
+        />
+
+        {captcha.activo && (
+          <Aparece>
+            <CaptchaDeTurnstile captcha={captcha} accion="registro" />
+          </Aparece>
+        )}
 
         <Aparece>
           {/* Sin el consentimiento no hay base legal para guardar un solo dato
@@ -196,7 +257,9 @@ export function Registro() {
 
         {!acepta && (
           <Aparece>
-            <p className="campo__ayuda">Para continuar hace falta aceptar el aviso.</p>
+            <p className="campo__ayuda">
+              Para continuar hace falta aceptar el aviso de privacidad y los términos.
+            </p>
           </Aparece>
         )}
 
@@ -211,11 +274,23 @@ export function Registro() {
             </Aparece>
 
             <Aparece>
-              {/* Al registrarse siempre se recuerda: la pregunta de si guardar
-                  la sesion solo la hace la pantalla de inicio de sesion. */}
-              <BotonDeGoogle disabled={ocupado} onClick={() => void entrarConGoogle(true)}>
+              {/* Aqui no se pregunta si mantener la sesion, y en un equipo
+                  compartido lo seguro es no hacerlo (SCRUM-164): se cierra al
+                  cerrar la pestana. Quien quiera conservarla en su equipo la
+                  pide en la pantalla de acceso. */}
+              <BotonDeGoogle disabled={ocupado} onClick={() => void entrarConGoogle(false)}>
                 Registrarme con Google
               </BotonDeGoogle>
+            </Aparece>
+
+            <Aparece>
+              {/* Google crea la identidad antes de que se pueda preguntar nada,
+                  asi que la fecha y las casillas se piden despues, en «Completa
+                  tu registro». Hay que decirlo antes de pulsar. */}
+              <p className="campo__ayuda">
+                Con Google te pediremos tu fecha de nacimiento y que aceptes el aviso de privacidad
+                y los términos en el siguiente paso.
+              </p>
             </Aparece>
           </>
         )}

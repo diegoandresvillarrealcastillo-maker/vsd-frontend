@@ -4,7 +4,9 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { TEXTO_DEL_AVISO_ORIENTATIVO } from '../../componentes/AvisoOrientativo.tsx';
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
+import { cuantosH1, fallosDeAccesibilidad } from '../../pruebas/axe.ts';
 import { rutaDeActividad, RUTAS } from '../../rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { fijarLaZonaDeLaCuenta } from '../../tiempo/zonaHoraria.ts';
@@ -105,6 +107,34 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+describe('Actividad, accesibilidad (C-03)', () => {
+  it('la actividad no tiene fallos de accesibilidad y tiene un solo h1', async () => {
+    pintar(SUENO);
+    await screen.findByRole('heading', { name: 'Cómo dormiste anoche' });
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+    expect(cuantosH1()).toBe(1);
+  });
+
+  it('el resultado tampoco, ni con las lineas de atencion', async () => {
+    registrarResultado.mockResolvedValue({
+      id: 'res-1',
+      activityId: SUENO,
+      nivelOrientativo: 'requiere_atencion',
+      sugiereAcompanamiento: true,
+      metadata: {},
+      completedAt: '2026-09-30T11:00:00.000Z',
+    });
+
+    pintar(SUENO);
+    await terminarLaActividad();
+    await screen.findByRole('heading', { name: 'Listo' });
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+    expect(cuantosH1()).toBe(1);
+  });
+});
+
 describe('Actividad, el recorrido completo', () => {
   it('carga la actividad y la presenta con su categoria', async () => {
     pintar(SUENO);
@@ -121,6 +151,18 @@ describe('Actividad, el recorrido completo', () => {
 
     expect(await screen.findByRole('heading', { name: 'Listo' })).toBeInTheDocument();
     expect(screen.getByText('Vas bien. Sigue así.')).toBeInTheDocument();
+  });
+
+  it('bajo el nivel va siempre la linea que dice que es orientativo (L-03)', async () => {
+    pintar(SUENO);
+    await terminarLaActividad();
+
+    await screen.findByRole('heading', { name: 'Listo' });
+
+    expect(screen.getByText(TEXTO_DEL_AVISO_ORIENTATIVO)).toBeInTheDocument();
+    expect(screen.getByText(TEXTO_DEL_AVISO_ORIENTATIVO)).toHaveTextContent(
+      'Orientativo. No es un diagnóstico ni reemplaza a un profesional.',
+    );
   });
 
   it('manda el puntaje crudo y la metadata de lo que respondio la persona', async () => {
@@ -615,6 +657,8 @@ describe('Actividad, el nivel', () => {
     await terminarLaActividad();
 
     expect(await screen.findByText(/Quedó registrado/)).toBeInTheDocument();
+    // Sin nivel no hay nada que matizar: la linea acompana al nivel.
+    expect(screen.queryByText(TEXTO_DEL_AVISO_ORIENTATIVO)).not.toBeInTheDocument();
   });
 });
 

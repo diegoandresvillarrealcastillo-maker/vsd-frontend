@@ -17,10 +17,11 @@ import type { Session } from '@supabase/supabase-js';
  * espera, y desaparece al cerrar la pestana. Con `true` vive en
  * `localStorage` y dura los treinta dias del token de refresco.
  *
- * Hoy nadie llama con `false`: la casilla que lo ofrecia se quito de las
- * pantallas de acceso y el proveedor guarda siempre. El mecanismo se conserva
- * entero y probado porque el caso de la sala de computo no ha desaparecido,
- * solo la forma de pedirlo; ver `RECORDAR_SIEMPRE` en `ProveedorDeSesion`.
+ * Se llama con `false` cuando quien entra no marca «Mantener la sesion en este
+ * equipo» en la pantalla de acceso, que es lo que pasa si no toca nada
+ * (SCRUM-164): lo seguro en una sala de computo es lo que ocurre por defecto.
+ * Al registrarse con correo se usa el almacen duradero por una razon tecnica;
+ * ver `RECORDAR_SIEMPRE` en `ProveedorDeSesion`.
  *
  * ---------------------------------------------------------------------------
  * Por que un adaptador y no dos clientes

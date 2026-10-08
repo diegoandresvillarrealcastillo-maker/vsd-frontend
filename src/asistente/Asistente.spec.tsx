@@ -2,9 +2,11 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { TEXTO_DEL_AVISO_ORIENTATIVO } from '../componentes/AvisoOrientativo.tsx';
 import type { RespuestaDelAsistente } from '../infraestructura/api/asistente.ts';
 import { ErrorDeLaApi } from '../infraestructura/api/clienteHttp.ts';
 import type { ReglasLocales } from '../infraestructura/api/reglasLocales.ts';
+import { fallosDeAccesibilidad } from '../pruebas/axe.ts';
 import { fijarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
 import { Asistente } from './Asistente.tsx';
 import contratoJson from './contrato/reglas-locales.json';
@@ -95,12 +97,54 @@ afterEach(() => {
   fijarLaZonaDeLaCuenta('America/Bogota');
 });
 
+describe('VSD IA, accesibilidad (C-03)', () => {
+  it('abierta, no tiene fallos de accesibilidad', async () => {
+    pintar();
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+  });
+
+  it('con una respuesta y sus recursos, tampoco', async () => {
+    pintar();
+
+    await usuario.type(campo(), 'no duermo bien');
+    await usuario.click(screen.getByRole('button', { name: 'Enviar' }));
+    await screen.findByText(/Descansar mejor casi siempre/);
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+  });
+
+  it('se cierra al pulsar el fondo, y no al pulsar dentro', async () => {
+    const { alCerrar, dialogo } = pintar();
+
+    // El marco rodea al dialogo y no es el fondo: pulsarlo no cierra.
+    await usuario.click(dialogo.parentElement!);
+    await usuario.click(dialogo);
+    expect(alCerrar).not.toHaveBeenCalled();
+
+    const fondo = dialogo.parentElement?.parentElement;
+
+    expect(fondo).toHaveClass('asistente-velo');
+    expect(fondo).toHaveAttribute('role', 'presentation');
+    await usuario.click(fondo!);
+    expect(alCerrar).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('VSD IA', () => {
   it('se abre con el foco en el campo y avisa de que nada se guarda', () => {
     const { dialogo } = pintar();
 
     expect(campo()).toHaveFocus();
     expect(dialogo).toHaveTextContent('Lo que escribas aquí no se guarda');
+  });
+
+  it('desde que se abre, y antes de preguntar nada, dice que es orientativo (L-03)', () => {
+    const { dialogo } = pintar();
+
+    const cabecera = within(dialogo).getByRole('banner');
+
+    expect(cabecera).toHaveTextContent(TEXTO_DEL_AVISO_ORIENTATIVO);
   });
 
   it('responde con su mensaje y sus recursos', async () => {

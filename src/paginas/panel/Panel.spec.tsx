@@ -8,6 +8,7 @@ import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
 import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
 import type { ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { abrirUnAlmacenDePrueba, cerrarElAlmacenDePrueba } from '../../pruebas/almacenDePrueba.ts';
+import { cuantosH1, fallosDeAccesibilidad } from '../../pruebas/axe.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { encolar } from '../../sincronizacion/ciclo.ts';
 import { Panel } from './Panel.tsx';
@@ -116,6 +117,16 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks();
+});
+
+describe('Dashboard, accesibilidad (C-03)', () => {
+  it('no tiene fallos de accesibilidad y tiene un solo h1', async () => {
+    pintar();
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+    expect(cuantosH1()).toBe(1);
+  });
 });
 
 describe('Dashboard', () => {
@@ -493,10 +504,33 @@ describe('Dashboard', () => {
       expect(tarjeta(/Cognición/)).toHaveAttribute('href', '/modulo/cognicion');
       expect(tarjeta(/Bienestar/)).toHaveAttribute('href', '/modulo/bienestar');
       // El plan diario sigue mostrando lo de todos los modulos.
-      expect(within(screen.getByRole('list')).getByText('Parejas')).toBeInTheDocument();
+      // Hay mas de una lista en la pantalla (el pie lleva la de los documentos
+      // legales), asi que se mira que cada actividad este dentro de alguna.
+      const listas = screen.getAllByRole('list');
+
+      expect(listas.some((lista) => within(lista).queryByText('Parejas') !== null)).toBe(true);
       expect(
-        within(screen.getByRole('list')).getByText('Cómo dormiste anoche'),
-      ).toBeInTheDocument();
+        listas.some((lista) => within(lista).queryByText('Cómo dormiste anoche') !== null),
+      ).toBe(true);
+    });
+
+    it('lleva el pie con lo que no es y para quien es, y el camino a los documentos (L-03)', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: 'Tu plan diario' });
+
+      const pie = screen.getByRole('contentinfo');
+
+      expect(pie).toHaveTextContent(/no diagnostica, no formula medicamentos y no reemplaza/i);
+      expect(pie).toHaveTextContent('Es solo para mayores de 18 años');
+      expect(within(pie).getByRole('link', { name: 'Términos' })).toHaveAttribute(
+        'href',
+        '/terminos',
+      );
+      expect(within(pie).getByRole('link', { name: 'Privacidad' })).toHaveAttribute(
+        'href',
+        '/privacidad',
+      );
     });
 
     it('añadir un modulo lo activa y lo pinta sin recargar', async () => {

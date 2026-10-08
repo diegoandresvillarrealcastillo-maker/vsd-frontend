@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { TEXTO_DEL_AVISO_ORIENTATIVO } from '../../../componentes/AvisoOrientativo.tsx';
 import { rutaDeActividad, RUTAS } from '../../../rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../../sesion/SesionContexto.ts';
 import { cicloActual } from '../../../sincronizacion/ciclo.ts';
@@ -401,6 +402,10 @@ describe('Emociones, lo que se lee en pantalla', () => {
     await terminar();
     await screen.findByRole('region', { name: 'Si te sirve hablarlo con alguien' });
 
-    expect(document.body.textContent).not.toMatch(CLINICO);
+    // La linea fija «Orientativo. No es un diagnostico...» (L-03 de la auditoria
+    // 360) es la unica que puede nombrar el diagnostico, y solo para negarlo. Se
+    // comprueba que esta, y se quita para mirar todo lo demas.
+    expect(screen.getByText(TEXTO_DEL_AVISO_ORIENTATIVO)).toBeInTheDocument();
+    expect(document.body.textContent.replace(TEXTO_DEL_AVISO_ORIENTATIVO, '')).not.toMatch(CLINICO);
   });
 });

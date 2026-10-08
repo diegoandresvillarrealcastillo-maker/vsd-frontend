@@ -2,6 +2,7 @@ import { useId, useState, type CSSProperties, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { MedidorDeContrasena } from '../../componentes/MedidorDeContrasena.tsx';
+import { PieDeLaApp } from '../../componentes/PieDeLaApp.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/aplicacion.css';
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
@@ -120,6 +121,8 @@ export function Perfil() {
             <Semaforo />
           </>
         )}
+
+        <PieDeLaApp />
       </main>
     </div>
   );
@@ -609,7 +612,10 @@ function Contrasena({ correo }: { correo: string }) {
     setCodigo('');
     setNueva('');
     setRepetida('');
-    setAviso({ tipo: 'bien', texto: 'Tu contraseña quedó cambiada.' });
+    setAviso({
+      tipo: 'bien',
+      texto: ['Tu contraseña quedó cambiada.', resultado.mensaje].filter(Boolean).join(' '),
+    });
   }
 
   return (

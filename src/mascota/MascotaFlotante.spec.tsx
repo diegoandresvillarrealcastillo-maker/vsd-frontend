@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Mascota } from '../infraestructura/api/cuenta.ts';
+import { fallosDeAccesibilidad } from '../pruebas/axe.ts';
 import { fijarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
 import { frasesDelMomento } from './bancoDeFrases.ts';
 import { MascotaFlotante, PULSACION_LARGA_MS } from './MascotaFlotante.tsx';
@@ -93,6 +94,31 @@ function adelantar(ms: number) {
     vi.advanceTimersByTime(ms);
   });
 }
+
+describe('MascotaFlotante, accesibilidad (C-03)', () => {
+  it('no tiene fallos de accesibilidad', async () => {
+    // axe espera con temporizadores de verdad; con los de mentira de este archivo
+    // no terminaria nunca.
+    vi.useRealTimers();
+    render(<MascotaFlotante mascota={SPARKY} />);
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+  });
+
+  it('el dibujo no es una segunda parada del teclado dentro del boton', () => {
+    // `whileTap` en una imagen obliga a Framer Motion a ponerle `tabindex="0"`: una
+    // imagen decorativa, dentro de un boton, que el teclado recorria dos veces.
+    render(<MascotaFlotante mascota={SPARKY} />);
+
+    const imagen = mascota().querySelector('img');
+
+    expect(imagen).not.toBeNull();
+    expect(imagen?.hasAttribute('tabindex')).toBe(false);
+    expect(
+      raiz().querySelectorAll('button, a[href], input, select, textarea, [tabindex]'),
+    ).toHaveLength(1);
+  });
+});
 
 describe('MascotaFlotante', () => {
   describe('quien es', () => {
