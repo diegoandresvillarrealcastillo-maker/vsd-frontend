@@ -24,5 +24,8 @@
 
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "scripts/**/*.spec.ts"]
+  // `src/rutas/rutas.ts` entra porque las pruebas de los scripts la leen (para que una
+  // ruta nueva no se quede sin reescritura ni sin clasificar). No tiene nada del
+  // navegador: son cadenas.
+  "include": ["vite.config.ts", "scripts/**/*.spec.ts", "src/rutas/rutas.ts"]
 }

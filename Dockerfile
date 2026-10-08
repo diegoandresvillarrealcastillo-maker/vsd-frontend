@@ -48,6 +48,9 @@ COPY scripts/comprobar-el-service-worker.mjs ./scripts/comprobar-el-service-work
 # y autorizan el script en linea de `index.html` (S-05 de la auditoria 360). Por
 # eso entran aqui `vercel.json` y las de nginx, ademas del script.
 COPY scripts/comprobar-las-cabeceras.mjs ./scripts/comprobar-las-cabeceras.mjs
+# Y escribiendo robots.txt, sitemap.xml, llms.txt y la pagina 404 segun el ambiente
+# (SEO-02): ese `npm run build` los deja en `dist/`, que es lo que se publica.
+COPY scripts/generar-los-archivos-de-busqueda.mjs ./scripts/generar-los-archivos-de-busqueda.mjs
 COPY vercel.json ./vercel.json
 COPY nginx ./nginx
 
@@ -59,6 +62,7 @@ ARG VITE_API_BASE_URL
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
 ARG VITE_PROVEEDOR_GOOGLE
+ARG VITE_URL_PUBLICA
 RUN npm run build
 
 # ---------- 2. Ejecucion ----------

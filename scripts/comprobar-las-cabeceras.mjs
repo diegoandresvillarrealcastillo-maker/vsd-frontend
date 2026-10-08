@@ -37,7 +37,11 @@ function comprobar(descripcion, cumple) {
 // ----- lo que manda Vercel -----
 
 const vercel = JSON.parse(readFileSync('vercel.json', 'utf8'));
-const reglas = (vercel.headers ?? []).filter((regla) => regla.source === '/(.*)');
+// Las de seguridad, que salen en TODOS los ambientes. La regla que solo sale en
+// algunos (la de `has`, abajo) no cuenta para esto.
+const reglas = (vercel.headers ?? []).filter(
+  (regla) => regla.source === '/(.*)' && regla.has === undefined,
+);
 
 comprobar(
   'vercel.json tiene una regla de cabeceras para todas las rutas (/(.*))',
@@ -45,6 +49,58 @@ comprobar(
 );
 
 const deVercel = new Map((reglas[0]?.headers ?? []).map(({ key, value }) => [key, value]));
+
+// ----- lo que Vercel manda solo fuera de produccion (SEO-02) -----
+
+const reglasDeLosVercelApp = (vercel.headers ?? []).filter(
+  (regla) =>
+    regla.source === '/(.*)' &&
+    (regla.has ?? []).some(
+      (condicion) => condicion.type === 'host' && /vercel/.test(condicion.value),
+    ),
+);
+const robotsDeVercel = reglasDeLosVercelApp
+  .flatMap((regla) => regla.headers)
+  .find(({ key }) => key === 'X-Robots-Tag');
+
+comprobar(
+  'vercel.json manda X-Robots-Tag noindex en PRE y en las vistas previas de las ramas',
+  robotsDeVercel !== undefined && /noindex/.test(robotsDeVercel.value),
+);
+
+// El dominio de produccion sera uno generico de Vercel (`algo.vercel.app`), asi que la
+// regla NO puede cubrir todo `vercel.app`: cerraria produccion a los buscadores. Se
+// comprueba con direcciones de ejemplo, una por cada cosa que tiene que pasar.
+const hostDeLaRegla = reglasDeLosVercelApp
+  .flatMap((regla) => regla.has ?? [])
+  .find((condicion) => condicion.type === 'host')?.value;
+
+function cubre(host) {
+  try {
+    return new RegExp(`^(?:${hostDeLaRegla})$`).test(host);
+  } catch {
+    return false;
+  }
+}
+
+comprobar(
+  'la regla del noindex cubre PRE (vsd-health-pre.vercel.app)',
+  cubre('vsd-health-pre.vercel.app'),
+);
+comprobar(
+  'la regla del noindex cubre las vistas previas de las ramas (-git-)',
+  cubre('vsd-health-git-feature-algo-vsd-company.vercel.app'),
+);
+for (const produccion of ['vsd-health.vercel.app', 'vsd-health-app.vercel.app', 'vsd.vercel.app']) {
+  comprobar(
+    `la regla del noindex NO cubre un posible dominio de produccion (${produccion}): lo cerraria`,
+    !cubre(produccion),
+  );
+}
+comprobar(
+  'la cabecera noindex NO sale en todas las rutas de todos los ambientes: cerraria produccion',
+  !deVercel.has('X-Robots-Tag'),
+);
 
 // ----- lo que manda nginx -----
 
@@ -63,6 +119,18 @@ if (existsSync(rutaDeNginx)) {
     }
   }
 }
+
+// ----- lo que nginx manda de mas: la imagen nunca es publica -----
+
+const robotsDeNginx = deNginx.get('X-Robots-Tag');
+
+comprobar(
+  'nginx manda X-Robots-Tag noindex: la imagen es local y nunca se indexa',
+  robotsDeNginx !== undefined && /noindex/.test(robotsDeNginx),
+);
+
+// Se saca de la comparacion de abajo: en Vercel no sale en todos los ambientes.
+deNginx.delete('X-Robots-Tag');
 
 // ----- las mismas, con los mismos valores -----
 

@@ -255,6 +255,36 @@ jobs:
             exit 1
           fi
 
+          # Lo que ven los buscadores (SEO-02 de la auditoria 360). Aqui la imagen se
+          # compila sin VITE_APP_ENV, es decir como desarrollo: todo cerrado.
+          echo "Cada pantalla de la aplicacion carga, con y sin barra final"
+          for ruta in /acceso /registro /recuperar /contrasena-nueva /privacidad /terminos /cookies \
+            /panel /perfil /diario /modulo/emociones /actividad/abc-123 /panel/; do
+            test "$(codigo "$base$ruta")" = "200" || { echo "::error::${ruta} no devolvio 200"; exit 1; }
+            curl --silent --show-error --fail "$base$ruta" | grep -q 'id="raiz"'
+          done
+
+          echo "Una direccion inventada es un 404 de verdad, con su pagina y sin indexar"
+          for ruta in /no-existe /aceso /panel/otro /modulo /wp-login.php /.env; do
+            test "$(codigo "$base$ruta")" = "404" || { echo "::error::${ruta} no devolvio 404"; exit 1; }
+          done
+          pagina="$(curl --silent "$base/no-existe")"
+          echo "$pagina" | grep -q 'No encontramos esta página'
+          echo "$pagina" | grep -q 'name="robots" content="noindex'
+          if echo "$pagina" | grep -q 'id="raiz"'; then
+            echo "::error::El 404 devuelve la aplicacion en lugar de su propia pagina."
+            exit 1
+          fi
+
+          echo "Fuera de produccion todo esta cerrado a los buscadores: etiqueta, cabecera y robots.txt"
+          curl --silent --show-error --fail "$base/" | grep -q 'name="robots" content="noindex'
+          cabecera "$base/" | grep -qi '^x-robots-tag: noindex'
+          curl --silent --head "$base/no-existe" | grep -qi '^x-robots-tag: noindex'
+          test "$(curl --silent --show-error --fail "$base/robots.txt")" = "$(printf 'User-agent: *\nDisallow: /')"
+          cabecera "$base/robots.txt" | grep -i '^content-type: text/plain'
+          test "$(codigo "$base/sitemap.xml")" = "404"
+          test "$(codigo "$base/llms.txt")" = "200"
+
       - name: Revisar la imagen por dentro
         run: |
           set -euo pipefail

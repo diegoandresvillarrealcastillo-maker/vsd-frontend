@@ -10,7 +10,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --build && vite build && node scripts/comprobar-el-service-worker.mjs && node scripts/comprobar-las-cabeceras.mjs",
+    "build": "tsc --build && vite build && node scripts/comprobar-el-service-worker.mjs && node scripts/generar-los-archivos-de-busqueda.mjs && node scripts/comprobar-las-cabeceras.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --build --force",
     "test": "vitest run",
