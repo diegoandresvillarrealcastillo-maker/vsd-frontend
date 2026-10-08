@@ -16,6 +16,14 @@ export const RUTAS = {
   /** A donde lleva el enlace del correo de recuperacion. */
   CONTRASENA_NUEVA: '/contrasena-nueva',
 
+  /**
+   * Los documentos legales. Publicos, con sesion o sin ella: se tienen que
+   * poder leer antes de aceptarlos, y despues de hacerlo.
+   */
+  PRIVACIDAD: '/privacidad',
+  TERMINOS: '/terminos',
+  COOKIES: '/cookies',
+
   /** Primera pantalla despues de entrar. */
   PANEL: '/panel',
 
