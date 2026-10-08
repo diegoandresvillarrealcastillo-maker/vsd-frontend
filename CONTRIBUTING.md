@@ -178,6 +178,14 @@ paquete que descarga el navegador. Ademas de Gitleaks hay tres controles:
   nada.
 - Los commits de Dependabot no citan un ticket; `commitlint.config.mjs` los
   reconoce por su firma y los deja pasar.
+- **Nada de HTML en bruto.** ESLint prohibe `dangerouslySetInnerHTML`,
+  `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `createContextualFragment`,
+  `document.write`, `eval` y `new Function` en `src/`. Hoy no se usan (el diario
+  se pinta con `DocumentoLeido`); la regla evita que alguien los agregue sin
+  darse cuenta. Si de verdad hace falta pintar HTML, va en un componente propio,
+  con su saneador y su prueba, y se justifica en el Pull Request. Leer
+  `container.innerHTML` en una prueba esta permitido: la regla solo mira las
+  asignaciones.
 
 ---
 
