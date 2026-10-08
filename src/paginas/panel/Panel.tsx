@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 
+import { ExigeConexion } from '../../componentes/ExigeConexion.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/aplicacion.css';
 import type { Cuenta, Modulo } from '../../infraestructura/api/cuenta.ts';
@@ -313,21 +314,25 @@ function ModuloPorActivar({
         <span className="tarjeta-modulo__titulo">{datos.titulo}</span>
         <span className="tarjeta-modulo__texto">{datos.descripcion}</span>
 
-        <button
-          type="button"
-          className="app__boton tarjeta-modulo__activar"
-          onClick={() => void alPulsar()}
-          disabled={ocupado}
-        >
-          <Icono nombre="plus" tamano={16} />
-          {ocupado ? 'Añadiendo…' : `Añadir ${datos.titulo}`}
-        </button>
+        {/* Activar un modulo cambia la cuenta: lo decide el servidor, asi que sin conexion
+            se ve y dice por que no se puede (SCRUM-142). */}
+        <ExigeConexion>
+          <button
+            type="button"
+            className="app__boton tarjeta-modulo__activar"
+            onClick={() => void alPulsar()}
+            disabled={ocupado}
+          >
+            <Icono nombre="plus" tamano={16} />
+            {ocupado ? 'Añadiendo…' : `Añadir ${datos.titulo}`}
+          </button>
 
-        {fallo && (
-          <span className="tarjeta-modulo__fallo" role="alert">
-            No se pudo añadir. Inténtalo de nuevo.
-          </span>
-        )}
+          {fallo && (
+            <span className="tarjeta-modulo__fallo" role="alert">
+              No se pudo añadir. Inténtalo de nuevo.
+            </span>
+          )}
+        </ExigeConexion>
       </span>
     </div>
   );

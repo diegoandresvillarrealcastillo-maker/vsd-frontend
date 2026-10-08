@@ -482,6 +482,36 @@ describe('Dashboard', () => {
       expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo guardar');
       expect(screen.getByRole('button', { name: /Empezar/ })).toBeEnabled();
     });
+
+    it('sin conexion se puede elegir pero no empezar, y lo dice (SCRUM-142)', async () => {
+      const red = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+
+      pintar();
+
+      await userEvent.type(await screen.findByLabelText(/Cómo quieres que te llamemos/), 'Marina');
+      await userEvent.click(screen.getByRole('checkbox', { name: /Emociones/ }));
+
+      expect(screen.getByRole('status')).toHaveTextContent('Necesitas conexión para esto.');
+      expect(screen.getByRole('button', { name: /Empezar/ })).toBeDisabled();
+      // Lo elegido y lo escrito se queda como estaba.
+      expect(screen.getByRole('checkbox', { name: /Emociones/ })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
+      expect(screen.getByLabelText(/Cómo quieres que te llamemos/)).toHaveValue('Marina');
+      expect(cambiarPreferencias).not.toHaveBeenCalled();
+
+      red.mockReturnValue(true);
+    });
+
+    it('con conexion la bienvenida no dice que haga falta nada', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: /Te damos la bienvenida/ });
+
+      expect(screen.queryByText('Necesitas conexión para esto.')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Empezar/ })).toBeEnabled();
+    });
   });
 
   describe('lo que se puede hacer', () => {
@@ -568,6 +598,30 @@ describe('Dashboard', () => {
       await userEvent.click(screen.getByRole('button', { name: /Seguir/ }));
 
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('sin conexion no se puede añadir un modulo, y lo dice en la propia tarjeta (SCRUM-142)', async () => {
+      const red = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+
+      pintar();
+
+      const boton = await screen.findByRole('button', { name: /Añadir Emociones/ });
+
+      expect(boton).toBeDisabled();
+      expect(screen.getByRole('status')).toHaveTextContent('Necesitas conexión para esto.');
+
+      await userEvent.click(boton);
+
+      expect(cambiarPreferencias).not.toHaveBeenCalled();
+
+      red.mockReturnValue(true);
+    });
+
+    it('con conexion añadir un modulo no dice que haga falta nada', async () => {
+      pintar();
+
+      expect(await screen.findByRole('button', { name: /Añadir Emociones/ })).toBeEnabled();
+      expect(screen.queryByText('Necesitas conexión para esto.')).not.toBeInTheDocument();
     });
 
     it('si añadir falla, lo dice en la propia tarjeta', async () => {
