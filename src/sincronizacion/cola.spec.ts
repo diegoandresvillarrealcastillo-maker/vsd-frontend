@@ -10,6 +10,7 @@ import {
   VERSION_ACTUAL_DEL_PAYLOAD,
   esTipoDeOperacion,
   esperaDeReintento,
+  dependientesDe,
   haceCuanto,
   nuevaOperacion,
   planDeEnvio,
@@ -303,6 +304,67 @@ describe('planDeEnvio: lo que se puede enviar ahora', () => {
     planDeEnvio(entrada, AHORA);
 
     expect(entrada).toEqual([a, b]);
+  });
+});
+
+describe('dependientesDe: lo que se tira junto con una operacion (SCRUM-137)', () => {
+  it('sin nadie que dependa, no hay nada', () => {
+    const a = operacion();
+    const b = operacion();
+
+    expect(dependientesDe([a, b], a.operationId)).toEqual([]);
+  });
+
+  it('las que dependen de ella, directamente', () => {
+    const a = operacion();
+    const b = operacion({ dependeDe: a.operationId });
+    const c = operacion({ dependeDe: a.operationId });
+    const ajena = operacion();
+
+    expect(ids(dependientesDe([a, b, c, ajena], a.operationId))).toEqual([
+      b.operationId,
+      c.operationId,
+    ]);
+  });
+
+  it('y las que dependen de las que dependen, de la que sea', () => {
+    const a = operacion();
+    const b = operacion({ dependeDe: a.operationId });
+    const c = operacion({ dependeDe: b.operationId });
+    const d = operacion({ dependeDe: c.operationId });
+
+    expect(ids(dependientesDe([d, c, b, a], a.operationId)).sort()).toEqual(
+      [b.operationId, c.operationId, d.operationId].sort(),
+    );
+  });
+
+  it('no incluye a la propia operacion ni a lo que esta antes en la cadena', () => {
+    const a = operacion();
+    const b = operacion({ dependeDe: a.operationId });
+    const c = operacion({ dependeDe: b.operationId });
+
+    expect(ids(dependientesDe([a, b, c], b.operationId))).toEqual([c.operationId]);
+  });
+
+  it('una cadena que da la vuelta no se queda dando vueltas', () => {
+    const a = operacion({ dependeDe: 'op-b' });
+    const b = operacion({ operationId: 'op-b', dependeDe: a.operationId });
+
+    expect(ids(dependientesDe([a, b], a.operationId))).toEqual(['op-b']);
+    expect(dependientesDe([a, b], a.operationId).map((o) => o.operationId)).not.toContain(
+      a.operationId,
+    );
+  });
+
+  it('una operacion que no existe no tiene dependientes', () => {
+    expect(dependientesDe([operacion()], 'no-existe')).toEqual([]);
+  });
+
+  it('no mira las que no dependen de nadie (dependeDe nulo)', () => {
+    const a = operacion();
+    const sinNada = operacion({ dependeDe: null });
+
+    expect(dependientesDe([a, sinNada], a.operationId)).toEqual([]);
   });
 });
 

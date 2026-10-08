@@ -151,11 +151,13 @@ export function vencimiento(
  * Los sin hacer de cada color, del mas antiguo al mas nuevo, y los hechos
  * aparte, el ultimo primero.
  */
-export function agrupar(pendientes: readonly Pendiente[]): {
-  readonly porNivel: Readonly<Record<NivelDePendiente, readonly Pendiente[]>>;
-  readonly hechos: readonly Pendiente[];
+export function agrupar<T extends Pendiente>(
+  pendientes: readonly T[],
+): {
+  readonly porNivel: Readonly<Record<NivelDePendiente, readonly T[]>>;
+  readonly hechos: readonly T[];
 } {
-  const porFecha = (uno: Pendiente, otro: Pendiente) => uno.creadoEn.localeCompare(otro.creadoEn);
+  const porFecha = (uno: T, otro: T) => uno.creadoEn.localeCompare(otro.creadoEn);
   const sinHacer = pendientes.filter((pendiente) => !pendiente.hecho);
 
   return {

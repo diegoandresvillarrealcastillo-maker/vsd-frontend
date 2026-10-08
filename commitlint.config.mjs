@@ -13,6 +13,13 @@
 export default {
   extends: ['@commitlint/config-conventional'],
 
+  // Los commits de Dependabot (SCRUM-155) no citan un ticket y traen en el
+  // cuerpo lineas largas con enlaces a las notas de version. Se reconocen por
+  // la firma que Dependabot siempre agrega. Es una comodidad, no un control:
+  // quien escriba esa linea a mano tambien pasa, y el Pull Request pasa por
+  // revision igual.
+  ignores: [(mensaje) => mensaje.includes('Signed-off-by: dependabot[bot]')],
+
   parserPreset: {
     parserOpts: {
       // Permite que commitlint reconozca "SCRUM-31" como una referencia.

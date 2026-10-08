@@ -58,6 +58,16 @@
   border-radius: 12px;
 }
 
+.diario__aviso--novedad {
+  display: grid;
+  gap: 0.625rem;
+  justify-items: start;
+}
+
+.diario__aviso--novedad p {
+  margin: 0;
+}
+
 .diario__apoyo {
   display: grid;
   gap: 0.75rem;
@@ -348,6 +358,37 @@
 
 .diario__anotacion--error {
   border-color: var(--tinta-rojo);
+}
+
+/* Guardada en este equipo y sin enviar: el borde discontinuo lo dice sin depender del color. */
+.diario__anotacion--en_este_equipo {
+  border-style: dashed;
+}
+
+.diario__etiqueta-copia {
+  padding: 0.0625rem 0.5rem;
+  color: var(--app-tinta);
+  background: var(--app-superficie);
+  border: 1px solid var(--app-borde);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.diario__origen-de-la-copia {
+  margin: 0;
+  color: var(--app-tenue);
+  font-size: 0.8125rem;
+}
+
+.diario__copia-local {
+  margin: 0;
+  padding: 0.625rem 0.875rem;
+  color: var(--app-tenue);
+  background: var(--app-superficie);
+  border: 1px dashed var(--app-borde);
+  border-radius: 12px;
+  font-size: 0.875rem;
 }
 
 .diario__anotacion-cabecera {

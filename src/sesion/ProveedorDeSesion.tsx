@@ -1,9 +1,10 @@
-import type { AuthError, Session } from '@supabase/supabase-js';
+import { isAuthRetryableFetchError, type AuthError, type Session } from '@supabase/supabase-js';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { olvidarLosArchivosDeLaPersona } from '../foto/archivosDeLaPersona.ts';
 import {
   esSoloDeEstaPestana,
+  leerLaSesionGuardada,
   olvidarPreferenciaDePestana,
   recordarEnEsteEquipo,
 } from '../infraestructura/supabase/almacenamiento.ts';
@@ -64,6 +65,41 @@ function clienteONulo(): ReturnType<typeof supabase> | null {
 }
 
 const DEMASIADOS_INTENTOS = 'Demasiados intentos seguidos. Espera un momento y vuelve.';
+
+const DEMAS_SESIONES_CERRADAS = 'Cerramos tu sesión en los demás dispositivos.';
+
+const DEMAS_SESIONES_ABIERTAS =
+  'No pudimos cerrar tu sesión en los demás dispositivos. Si alguno no es tuyo, cambia la contraseña otra vez en un momento.';
+
+/**
+ * Despues de cambiar la contrasena, cierra la sesion de todos los demas
+ * dispositivos y deja abierta solo esta (SCRUM-154).
+ *
+ * Cambiar la contrasena porque alguien mas pudo entrar no sirve de nada si esa
+ * persona conserva su sesion: Supabase no la cierra por su cuenta. Es lo que
+ * hace que cambiarla sea de verdad el remedio de "creo que entraron a mi
+ * cuenta".
+ *
+ * La contrasena ya cambio cuando se llega aqui, asi que un fallo no la
+ * deshace ni se vuelve un error: la persona tiene que saberlo, porque quedo con
+ * la sensacion de haber cerrado algo que sigue abierto. Por eso el resultado es
+ * siempre `ok` y lo que cambia es el mensaje.
+ *
+ * Los demas dispositivos pierden la sesion en cuanto intentan renovarla; el
+ * token que ya tengan sigue valiendo hasta que caduque (una hora por defecto en
+ * Supabase).
+ */
+async function cerrarLasDemasSesiones(
+  cliente: ReturnType<typeof supabase>,
+): Promise<ResultadoDeAcceso> {
+  try {
+    const { error } = await cliente.auth.signOut({ scope: 'others' });
+
+    return { ok: true, mensaje: error ? DEMAS_SESIONES_ABIERTAS : DEMAS_SESIONES_CERRADAS };
+  } catch {
+    return { ok: true, mensaje: DEMAS_SESIONES_ABIERTAS };
+  }
+}
 
 /** Cada codigo de error de Supabase con su texto en espanol. */
 const MENSAJES: Readonly<Record<string, string>> = {
@@ -175,9 +211,18 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     // Primero lo que ya hubiera guardado, para no expulsar a quien recarga.
     void cliente.auth
       .getSession()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (vigente) {
-          setSesion(data.session);
+          // Si no hay sesion porque el token vencio y SIN CONEXION no se pudo
+          // renovar, la sesion sigue guardada y sirve para saber quien es: se abre
+          // la aplicacion sin conexion (SCRUM-137). Cualquier otro fallo es una
+          // sesion que de verdad no existe.
+          const sinRenovar =
+            data.session === null && error !== null && isAuthRetryableFetchError(error)
+              ? leerLaSesionGuardada()
+              : null;
+
+          setSesion(data.session ?? sinRenovar);
           setCargando(false);
         }
       })
@@ -190,16 +235,23 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     // Y despues, cualquier cambio: entrar, salir, o que se renueve el token.
     // Sin esta suscripcion, cerrar sesion en otra pestana dejaria esta creyendo
     // que sigue dentro.
-    const { data: suscripcion } = cliente.auth.onAuthStateChange((_evento, nueva) => {
+    const { data: suscripcion } = cliente.auth.onAuthStateChange((evento, nueva) => {
       if (vigente) {
+        // Lo mismo que arriba: al arrancar sin conexion con el token vencido,
+        // Supabase empieza diciendo "sin sesion". Si queda una guardada, sigue siendo
+        // la de esta persona. Solo en el arranque: un `SIGNED_OUT` es de verdad.
+        const sinRenovar =
+          nueva === null && evento === 'INITIAL_SESSION' ? leerLaSesionGuardada() : null;
+        const actual = nueva ?? sinRenovar;
+
         // Sin sesion, lo que era de quien estaba —su foto, su mascota propia— no
         // se queda. `salir` ya lo suelta, pero la sesion tambien termina sin
         // pasar por ahi: caduca, se revoca, o se cierra en otra pestana.
-        if (nueva === null) {
+        if (actual === null) {
           olvidarLosArchivosDeLaPersona();
         }
 
-        setSesion(nueva);
+        setSesion(actual);
         setCargando(false);
       }
     });
@@ -374,7 +426,11 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
 
     const { error } = await cliente.auth.updateUser({ password: nueva });
 
-    return traducir(error);
+    if (error) {
+      return traducir(error);
+    }
+
+    return cerrarLasDemasSesiones(cliente);
   }, []);
 
   /**
@@ -408,7 +464,11 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
 
       const { error } = await cliente.auth.updateUser({ password: nueva, nonce: codigo.trim() });
 
-      return traducir(error);
+      if (error) {
+        return traducir(error);
+      }
+
+      return cerrarLasDemasSesiones(cliente);
     },
     [],
   );
