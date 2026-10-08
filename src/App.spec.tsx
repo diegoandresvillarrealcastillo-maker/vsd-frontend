@@ -2,11 +2,22 @@ import type { Session } from '@supabase/supabase-js';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { App } from './App.tsx';
 import { RUTAS, rutaDeModulo } from './rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from './sesion/SesionContexto.ts';
+import { olvidarElRegistro } from './sesion/useRegistroCompleto.ts';
+
+// El registro se comprueba contra la API antes de ensenar nada de la cuenta. Aqui
+// se da por completo: lo que se prueba es el mapa de rutas, no el registro.
+vi.mock('./infraestructura/api/registro.ts', () => ({
+  consultarElEstadoDelRegistro: vi.fn().mockResolvedValue({ estado: 'completo', cuenta: {} }),
+}));
+
+beforeEach(() => {
+  olvidarElRegistro();
+});
 
 /**
  * Se construye el estado a mano en vez de levantar el proveedor, igual que en
@@ -39,7 +50,10 @@ function estado(parcial: Partial<EstadoDeSesion> = {}): EstadoDeSesion {
  * tipo porque construir un `Session` entero —con su token, su usuario y sus
  * fechas— para comprobar un `if` seria ruido.
  */
-const SESION = { access_token: 'de-mentira' } as unknown as Session;
+const SESION = {
+  access_token: 'de-mentira',
+  user: { id: 'persona-de-prueba' },
+} as unknown as Session;
 
 function pintar(ruta: string, valor: EstadoDeSesion = estado()) {
   return render(
@@ -128,8 +142,9 @@ describe('Volver a la portada', () => {
     pintar(RUTAS.PANEL, estado({ sesion: SESION }));
 
     // Desde SCRUM-89 vive en el menu de la cuenta, el boton redondo de la
-    // barra, como en el diseño de Figma.
-    await userEvent.click(screen.getByRole('button', { name: /menú de tu cuenta/ }));
+    // barra, como en el diseño de Figma. Se espera a que se compruebe el
+    // registro, que va antes de ensenar nada de la cuenta.
+    await userEvent.click(await screen.findByRole('button', { name: /menú de tu cuenta/ }));
 
     expect(screen.getByRole('link', { name: /página principal/ })).toHaveAttribute(
       'href',
@@ -165,13 +180,13 @@ describe('Guardas de ruta', () => {
     ['el acceso', RUTAS.ACCESO],
     ['el registro', RUTAS.REGISTRO],
     ['la recuperacion', RUTAS.RECUPERAR],
-  ])('manda al panel a quien ya tiene sesion y pide %s', (_nombre, ruta) => {
+  ])('manda al panel a quien ya tiene sesion y pide %s', async (_nombre, ruta) => {
     // Rellenar un formulario que no va a cambiar nada es peor que no verlo:
     // quien lo envia no entiende por que no paso nada.
     pintar(ruta, estado({ sesion: SESION, correo: 'alguien@ejemplo.com' }));
 
     // La marca de la barra solo existe dentro de la aplicacion.
-    expect(screen.getByRole('link', { name: 'VSD-H, inicio' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'VSD-H, inicio' })).toBeInTheDocument();
   });
 
   it('no deja escribir una contrasena nueva a quien no vino del correo', () => {
