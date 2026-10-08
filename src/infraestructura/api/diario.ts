@@ -56,10 +56,21 @@ export interface AnotacionPorEscribir {
   readonly titulo?: string;
   readonly contenido: NodoDelDocumento;
   readonly adjuntos?: readonly Adjunto[];
+  /**
+   * La hora en que el dispositivo la escribio (ISO 8601). Importa cuando se escribe sin
+   * conexion y llega despues: la anotacion muestra esta hora y no la de cuando se
+   * recibe (ADR 0020). El servidor la acota y, si no sirve, usa la suya.
+   */
+  readonly escritaEn?: string;
 }
 
 export interface CambiosDeAnotacion {
   readonly version: number;
+  /**
+   * La hora en que el dispositivo hizo la correccion (ISO 8601). El plazo de una hora se
+   * mide contra ella, no contra cuando llega la peticion (ADR 0020).
+   */
+  readonly editadaEn?: string;
   /** `null` quita el titulo. */
   readonly titulo?: string | null;
   readonly contenido?: NodoDelDocumento;

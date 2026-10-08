@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, configure, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -7,7 +7,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { olvidarLaFoto } from '../../foto/fotoDePerfil.ts';
 import { olvidarLaMascotaPropia, sincronizarLaMascotaPropia } from '../../foto/mascotaPropia.ts';
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
+import { abrirUnAlmacenDePrueba, cerrarElAlmacenDePrueba } from '../../pruebas/almacenDePrueba.ts';
+import {
+  cicloActual,
+  encolar,
+  olvidarLosDatosDeLaSesionActual,
+} from '../../sincronizacion/ciclo.ts';
+import { CLAVE_DEL_PANEL, guardarElPanel } from '../../sincronizacion/panelLocal.ts';
 import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
+import { cuantosH1, fallosDeAccesibilidad } from '../../pruebas/axe.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { Perfil } from './Perfil.tsx';
@@ -58,6 +66,12 @@ vi.mock('../../infraestructura/api/foto.ts', () => ({
 vi.mock('../../foto/prepararLaFoto.ts', async (importarOriginal) => ({
   ...(await importarOriginal<typeof import('../../foto/prepararLaFoto.ts')>()),
   prepararLaFoto,
+}));
+
+// El almacen es de verdad; solo se espia que se olvide al borrar la cuenta (SCRUM-142).
+vi.mock('../../sincronizacion/ciclo.ts', async (importar) => ({
+  ...(await importar<typeof import('../../sincronizacion/ciclo.ts')>()),
+  olvidarLosDatosDeLaSesionActual: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Los avisos (SCRUM-102) se prueban en `TusAvisos.spec.tsx`.
@@ -141,6 +155,24 @@ afterEach(() => {
   olvidarLaMascotaPropia();
   vi.restoreAllMocks();
   vi.clearAllMocks();
+});
+
+describe('Perfil, accesibilidad (C-03)', () => {
+  it('no tiene fallos de accesibilidad y tiene un solo h1', async () => {
+    pintar();
+    await screen.findByRole('region', { name: 'Cómo te llamamos' });
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+    expect(cuantosH1()).toBe(1);
+  });
+
+  it('tampoco con el cambio de contrasena abierto', async () => {
+    pintar();
+    await usuario.click(await screen.findByRole('button', { name: 'Enviarme un código' }));
+    await screen.findByLabelText('Código del correo');
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+  });
 });
 
 describe('Perfil', () => {
@@ -414,6 +446,27 @@ describe('Perfil', () => {
       expect(screen.getByRole('status')).toHaveTextContent('quedó cambiada');
     });
 
+    it('al cambiarla dice que cerro la sesion de los demas dispositivos (SCRUM-154)', async () => {
+      pintar(
+        sesion({
+          cambiarContrasenaConCodigo: vi.fn().mockResolvedValue({
+            ok: true,
+            mensaje: 'Cerramos tu sesión en los demás dispositivos.',
+          }),
+        }),
+      );
+
+      await usuario.click(await screen.findByRole('button', { name: 'Enviarme un código' }));
+      await usuario.type(screen.getByLabelText('Código del correo'), '123456');
+      await usuario.type(screen.getByLabelText('Contraseña nueva'), 'UnaClave#Nueva9');
+      await usuario.type(screen.getByLabelText('Repite la contraseña nueva'), 'UnaClave#Nueva9');
+      await usuario.click(screen.getByRole('button', { name: 'Cambiar contraseña' }));
+
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Tu contraseña quedó cambiada. Cerramos tu sesión en los demás dispositivos.',
+      );
+    });
+
     it('sin el codigo no la cambia', async () => {
       const valor = pintar();
 
@@ -484,6 +537,103 @@ describe('Perfil', () => {
     vi.unstubAllGlobals();
   });
 
+  describe('la descarga incluye lo que este equipo no ha enviado (SCRUM-142)', () => {
+    /** Descarga los datos y devuelve lo que se escribio en el archivo. */
+    async function descargarYLeer(): Promise<Record<string, unknown>> {
+      let archivo: Blob | null = null;
+
+      vi.stubGlobal('URL', {
+        ...URL,
+        createObjectURL: (blob: Blob) => {
+          archivo = blob;
+
+          return 'blob:prueba';
+        },
+        revokeObjectURL: vi.fn(),
+      });
+
+      await usuario.click(await screen.findByRole('button', { name: 'Descargar mis datos' }));
+      await screen.findByText('Tus datos se descargaron.');
+
+      const blob = archivo as Blob | null;
+
+      if (blob === null) {
+        throw new Error('No se descargo nada');
+      }
+
+      const texto = await new Promise<string>((resolver, rechazar) => {
+        const lector = new FileReader();
+
+        lector.onload = () => {
+          resolver(typeof lector.result === 'string' ? lector.result : '');
+        };
+        lector.onerror = () => {
+          rechazar(new Error('No se pudo leer el archivo'));
+        };
+        lector.readAsText(blob);
+      });
+
+      return JSON.parse(texto) as Record<string, unknown>;
+    }
+
+    beforeEach(async () => {
+      exportarMisDatos.mockResolvedValue({ cuenta: { correo: CUENTA.correo }, diario: [] });
+      await abrirUnAlmacenDePrueba();
+    });
+
+    afterEach(() => {
+      cerrarElAlmacenDePrueba();
+      vi.unstubAllGlobals();
+    });
+
+    it('lo que el servidor no tiene va aparte, con lo que se escribio', async () => {
+      const guardada = await encolar({
+        operationId: 'op-sin-enviar',
+        tipo: 'pendiente.crear',
+        entidad: 'pendiente:1',
+        payload: { texto: 'Llamar a la EPS' },
+      });
+
+      await cicloActual()?.almacen.guardarOperacion({ ...guardada, estado: 'requiere_atencion' });
+      pintar();
+
+      const archivo = await descargarYLeer();
+
+      expect(archivo).toMatchObject({
+        cuenta: { correo: CUENTA.correo },
+        diario: [],
+        sinEnviarDesdeEsteEquipo: [
+          {
+            operationId: 'op-sin-enviar',
+            tipo: 'pendiente.crear',
+            estado: 'requiere_atencion',
+            contenido: { texto: 'Llamar a la EPS' },
+          },
+        ],
+      });
+    });
+
+    it('lo que ya se envio no va: el servidor ya lo tiene', async () => {
+      const guardada = await encolar({
+        operationId: 'op-enviada',
+        tipo: 'pendiente.crear',
+        entidad: 'pendiente:1',
+        payload: { texto: 'Ya esta' },
+      });
+
+      await cicloActual()?.almacen.guardarOperacion({ ...guardada, estado: 'hecha' });
+      pintar();
+
+      expect(await descargarYLeer()).toEqual({ cuenta: { correo: CUENTA.correo }, diario: [] });
+    });
+
+    it('sin nada sin enviar, es el archivo de siempre', async () => {
+      pintar();
+
+      expect(await descargarYLeer()).toEqual({ cuenta: { correo: CUENTA.correo }, diario: [] });
+    });
+  });
+
   describe('borrar la cuenta', () => {
     it('el boton no se habilita hasta escribir la frase exacta', async () => {
       pintar();
@@ -507,6 +657,35 @@ describe('Perfil', () => {
       expect(borrarMiCuenta).toHaveBeenCalledWith('BORRAR MI CUENTA');
       expect(valor.salir).toHaveBeenCalled();
       expect(await screen.findByText('Portada')).toBeInTheDocument();
+    });
+
+    it('olvida tambien todo lo que este equipo guardaba de ella, antes de cerrar la sesion (SCRUM-142)', async () => {
+      borrarMiCuenta.mockResolvedValue(undefined);
+      const valor = pintar();
+
+      await usuario.type(await screen.findByLabelText(/Para confirmar/), 'BORRAR MI CUENTA');
+      await usuario.click(screen.getByRole('button', { name: /Borrar mi cuenta/ }));
+
+      await screen.findByText('Portada');
+
+      expect(olvidarLosDatosDeLaSesionActual).toHaveBeenCalledTimes(1);
+      expect(borrarMiCuenta.mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(olvidarLosDatosDeLaSesionActual).mock.invocationCallOrder[0] ?? 0,
+      );
+      expect(vi.mocked(olvidarLosDatosDeLaSesionActual).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(valor.salir).mock.invocationCallOrder[0] ?? 0,
+      );
+    });
+
+    it('si la cuenta no se borro, no se olvida nada: lo guardado todavia tiene a quien enviarse', async () => {
+      borrarMiCuenta.mockRejectedValue(new TypeError('Failed to fetch'));
+      pintar();
+
+      await usuario.type(await screen.findByLabelText(/Para confirmar/), 'BORRAR MI CUENTA');
+      await usuario.click(screen.getByRole('button', { name: /Borrar mi cuenta/ }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Revisa tu conexión');
+      expect(olvidarLosDatosDeLaSesionActual).not.toHaveBeenCalled();
     });
 
     it('si el proveedor falla, dice que no se borro nada y no cierra la sesion', async () => {
@@ -680,7 +859,7 @@ describe('la mascota propia en el perfil (SCRUM-122)', () => {
       expect(
         within(mascotas()).queryByRole('radio', { name: /Mi mascota/ }),
       ).not.toBeInTheDocument();
-      expect(mascotas().querySelector('fieldset')).not.toHaveClass(
+      expect(mascotas().querySelector('fieldset.perfil__personajes')).not.toHaveClass(
         'perfil__personajes--con-propia',
       );
       expect(within(propia()).getByLabelText('Subir mi dibujo')).toBeInTheDocument();
@@ -726,7 +905,9 @@ describe('la mascota propia en el perfil (SCRUM-122)', () => {
       expect(within(mascotas()).getByRole('textbox', { name: 'Cómo se llama' })).toHaveValue(
         'Luma',
       );
-      expect(mascotas().querySelector('fieldset')).toHaveClass('perfil__personajes--con-propia');
+      expect(mascotas().querySelector('fieldset.perfil__personajes')).toHaveClass(
+        'perfil__personajes--con-propia',
+      );
       expect(mascotas()).toHaveTextContent('Es el dibujo que subiste');
       // Ya guardada y sin cambios: no hay nada que guardar.
       expect(within(mascotas()).getByRole('button', { name: 'Guardar mascota' })).toBeDisabled();
@@ -939,6 +1120,395 @@ describe('la mascota propia en el perfil (SCRUM-122)', () => {
       );
       expect(cambiarPreferencias).not.toHaveBeenCalled();
       expect(within(mascotas()).getAllByRole('radio')).toHaveLength(5);
+    });
+  });
+});
+
+describe('sin conexion (SCRUM-142)', () => {
+  const NECESITAS = 'Necesitas conexión para esto.';
+
+  function sinConexion() {
+    return vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+  }
+
+  /** Los apartados que cambian algo en el servidor: todos menos el correo, que solo se ve. */
+  const CAMBIAN_ALGO = [
+    'Cómo te llamamos',
+    'Tus módulos',
+    'Tu diario',
+    'Contraseña',
+    'Tus datos',
+    'Borrar tu cuenta',
+  ];
+
+  it.each(CAMBIAN_ALGO)(
+    '«%s» dice que necesita conexion y no deja usar sus controles',
+    async (titulo) => {
+      sinConexion();
+      pintar();
+      await screen.findByRole('heading', { name: 'Tu perfil' });
+
+      const seccion = apartado(titulo);
+
+      expect(within(seccion).getByText(NECESITAS)).toBeInTheDocument();
+      expect(within(seccion).getByRole('group')).toBeDisabled();
+
+      for (const control of seccion.querySelectorAll('button, input')) {
+        expect(control, titulo).toBeDisabled();
+      }
+    },
+  );
+
+  it('la foto, la mascota y los avisos tambien', async () => {
+    sinConexion();
+    pintar();
+    await screen.findByRole('heading', { name: 'Tu perfil' });
+
+    for (const seccion of screen.getAllByRole('region')) {
+      const titulo = within(seccion).getByRole('heading', { level: 2 }).textContent ?? '';
+
+      if (titulo === 'Tu correo' || /Semáforo|VSD/.test(titulo)) {
+        continue;
+      }
+
+      const controles = seccion.querySelectorAll('button, input, select, textarea');
+
+      for (const control of controles) {
+        expect(control, `${titulo}: ${control.outerHTML.slice(0, 60)}`).toBeDisabled();
+      }
+    }
+  });
+
+  it('el correo solo se muestra: no se bloquea ni dice que necesita conexion', async () => {
+    sinConexion();
+    pintar();
+    await screen.findByRole('heading', { name: 'Tu perfil' });
+
+    const correo = apartado('Tu correo');
+
+    expect(correo).toHaveTextContent(CUENTA.correo);
+    expect(within(correo).queryByText(NECESITAS)).not.toBeInTheDocument();
+    expect(within(correo).queryByRole('group')).not.toBeInTheDocument();
+  });
+
+  it('con conexion nada dice que haga falta', async () => {
+    pintar();
+    await screen.findByRole('heading', { name: 'Tu perfil' });
+
+    expect(screen.queryByText(NECESITAS)).not.toBeInTheDocument();
+    expect(within(apartado('Cómo te llamamos')).getByRole('button')).toBeEnabled();
+  });
+
+  it('no se simula un exito: ni se llama a la API ni se dice que se guardo', async () => {
+    const red = sinConexion();
+
+    pintar();
+    await screen.findByRole('heading', { name: 'Tu perfil' });
+
+    const nombre = within(apartado('Cómo te llamamos')).getByRole('textbox', { name: 'Nombre' });
+
+    // Un campo deshabilitado no recibe nada, y el boton no hace nada.
+    await usuario.type(nombre, 'Otro');
+    await usuario.click(within(apartado('Cómo te llamamos')).getByRole('button'));
+
+    expect(cambiarPreferencias).not.toHaveBeenCalled();
+    expect(screen.queryByText('Listo, así te llamaremos.')).not.toBeInTheDocument();
+
+    red.mockReturnValue(true);
+  });
+
+  it('lo que se habia escrito no se pierde al irse la red, y se puede seguir al volver', async () => {
+    const red = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true);
+
+    cambiarPreferencias.mockResolvedValue({ ...CUENTA, nombre: 'Marina Isabel' });
+    pintar();
+    await screen.findByRole('heading', { name: 'Tu perfil' });
+
+    const nombre = () =>
+      within(apartado('Cómo te llamamos')).getByRole('textbox', { name: 'Nombre' });
+
+    await usuario.clear(nombre());
+    await usuario.type(nombre(), 'Marina Isabel');
+
+    act(() => {
+      red.mockReturnValue(false);
+      window.dispatchEvent(new Event('offline'));
+    });
+
+    expect(nombre()).toBeDisabled();
+    expect(nombre()).toHaveValue('Marina Isabel');
+
+    act(() => {
+      red.mockReturnValue(true);
+      window.dispatchEvent(new Event('online'));
+    });
+    await usuario.click(within(apartado('Cómo te llamamos')).getByRole('button'));
+
+    expect(cambiarPreferencias).toHaveBeenCalledWith({ nombre: 'Marina Isabel' });
+  });
+
+  it('el codigo y la contrasena que se escribian no se pierden al irse la red', async () => {
+    const red = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true);
+
+    pintar();
+    await screen.findByRole('heading', { name: 'Tu perfil' });
+    await usuario.click(
+      within(apartado('Contraseña')).getByRole('button', { name: 'Enviarme un código' }),
+    );
+    await usuario.type(
+      await within(apartado('Contraseña')).findByLabelText('Código del correo'),
+      '123456',
+    );
+
+    act(() => {
+      red.mockReturnValue(false);
+      window.dispatchEvent(new Event('offline'));
+    });
+
+    expect(within(apartado('Contraseña')).getByLabelText('Código del correo')).toBeDisabled();
+    expect(within(apartado('Contraseña')).getByLabelText('Código del correo')).toHaveValue(
+      '123456',
+    );
+    expect(
+      within(apartado('Contraseña')).getByRole('button', { name: 'Cambiar contraseña' }),
+    ).toBeDisabled();
+  });
+
+  describe('con la copia de la cuenta que guardo el panel', () => {
+    const SIN_RED = () => Promise.reject(new TypeError('Failed to fetch'));
+    const HAY_COPIA = /Datos de hace/;
+
+    beforeEach(async () => {
+      // Estas pruebas esperan lecturas del almacen y dos vueltas a la API: con la suite completa
+      // en marcha, el segundo por omision se queda corto y flaquean sin que nada este mal.
+      configure({ asyncUtilTimeout: 3000 });
+      await abrirUnAlmacenDePrueba();
+    });
+
+    afterEach(() => {
+      configure({ asyncUtilTimeout: 1000 });
+      cerrarElAlmacenDePrueba();
+    });
+
+    /**
+     * Espera a ver la copia y a que se hayan suscrito los efectos de la pantalla. Sin lo segundo, un
+     * `online` enviado enseguida a veces llega antes de que alguien lo escuche y se pierde.
+     */
+    async function verLaCopia() {
+      await screen.findByText(HAY_COPIA);
+      await act(async () => {
+        await Promise.resolve();
+      });
+    }
+
+    async function guardarLaCopia(cuenta: Cuenta = { ...CUENTA, nombre: 'Marina de ayer' }) {
+      await guardarElPanel({ cuenta, progreso: [] });
+    }
+
+    it('sin conexion ensena la cuenta guardada, dice de cuando es y no deja cambiar nada', async () => {
+      await guardarLaCopia();
+      darDeAltaLaCuenta.mockImplementation(SIN_RED);
+      sinConexion();
+      pintar();
+
+      expect(await screen.findByText(HAY_COPIA)).toHaveTextContent('Se ponen al día solo cuando');
+
+      const nombre = within(apartado('Cómo te llamamos')).getByRole('textbox', { name: 'Nombre' });
+
+      expect(nombre).toHaveValue('Marina de ayer');
+      expect(nombre).toBeDisabled();
+      expect(within(apartado('Cómo te llamamos')).getByText(NECESITAS)).toBeInTheDocument();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('con un servidor que no responde bien (503) tambien: Render despertando no es un error', async () => {
+      await guardarLaCopia();
+      darDeAltaLaCuenta.mockRejectedValue(new ErrorDeLaApi(503, 'Servicio no disponible'));
+      pintar();
+
+      expect(await screen.findByText(HAY_COPIA)).toBeInTheDocument();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('con la copia a la vista pero con conexion, lo que se guarda la reemplaza por lo del servidor', async () => {
+      await guardarLaCopia();
+      darDeAltaLaCuenta.mockRejectedValue(new ErrorDeLaApi(503, 'Servicio no disponible'));
+      cambiarPreferencias.mockResolvedValue({ ...CUENTA, nombre: 'Mari' });
+      pintar();
+      await screen.findByText(HAY_COPIA);
+
+      const seccion = apartado('Cómo te llamamos');
+
+      await usuario.clear(within(seccion).getByRole('textbox', { name: 'Nombre' }));
+      await usuario.type(within(seccion).getByRole('textbox', { name: 'Nombre' }), 'Mari');
+      await usuario.click(within(seccion).getByRole('button', { name: 'Guardar nombre' }));
+
+      expect(cambiarPreferencias).toHaveBeenCalledWith({ nombre: 'Mari' });
+      expect(await within(seccion).findByRole('status')).toHaveTextContent('Listo');
+      expect(screen.queryByText(HAY_COPIA)).not.toBeInTheDocument();
+    });
+
+    it('sin copia, el error sale como siempre: nunca se inventa una cuenta', async () => {
+      darDeAltaLaCuenta.mockImplementation(SIN_RED);
+      pintar();
+
+      expect(await screen.findByRole('alert')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument();
+      expect(screen.queryByText(HAY_COPIA)).not.toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: 'Cómo te llamamos' })).not.toBeInTheDocument();
+    });
+
+    it.each([
+      [
+        'una cuenta que no existe (403)',
+        new ErrorDeLaApi(403, 'No tienes cuenta', undefined, 'SIN_CUENTA'),
+      ],
+      ['una peticion rechazada (400)', new ErrorDeLaApi(400, 'No se entiende')],
+      ['una sesion que ya no vale (401)', new ErrorDeLaApi(401, 'Sesion vencida')],
+    ])('%s no se tapa con la copia: es una respuesta, no una caida', async (_nombre, error) => {
+      await guardarLaCopia();
+      darDeAltaLaCuenta.mockRejectedValue(error);
+      pintar();
+
+      expect(await screen.findByRole('alert')).toBeInTheDocument();
+      expect(screen.queryByText(HAY_COPIA)).not.toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: 'Cómo te llamamos' })).not.toBeInTheDocument();
+    });
+
+    it('una copia que no se entiende no se usa', async () => {
+      await cicloActual()?.almacen.guardarLectura(
+        CLAVE_DEL_PANEL,
+        { valor: { cuenta: { id: 'x' }, progreso: [] }, etag: null },
+        new Date(),
+      );
+      darDeAltaLaCuenta.mockImplementation(SIN_RED);
+      pintar();
+
+      expect(await screen.findByRole('alert')).toBeInTheDocument();
+      expect(screen.queryByText(HAY_COPIA)).not.toBeInTheDocument();
+    });
+
+    it('al volver la conexion pregunta de nuevo y deja de decir que son datos de antes', async () => {
+      await guardarLaCopia({
+        ...CUENTA,
+        nombre: 'Marina de ayer',
+        mascota: { forma: 'ori', nombre: 'Papelito' },
+      });
+      darDeAltaLaCuenta.mockImplementation(SIN_RED);
+
+      const red = sinConexion();
+
+      pintar();
+      await verLaCopia();
+      expect(within(apartado('Tu mascota')).getByRole('radio', { name: /Ori/ })).toBeChecked();
+
+      darDeAltaLaCuenta.mockResolvedValue({
+        ...CUENTA,
+        nombre: 'Marina de hoy',
+        mascota: { forma: 'sparky', nombre: 'Chispa' },
+      });
+      act(() => {
+        red.mockReturnValue(true);
+        window.dispatchEvent(new Event('online'));
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByText(HAY_COPIA)).not.toBeInTheDocument();
+      });
+
+      const nombre = within(apartado('Cómo te llamamos')).getByRole('textbox', { name: 'Nombre' });
+
+      expect(nombre).toHaveValue('Marina de hoy');
+      expect(nombre).toBeEnabled();
+      expect(within(apartado('Tu mascota')).getByRole('radio', { name: /Sparky/ })).toBeChecked();
+      expect(within(apartado('Tu mascota')).getByRole('textbox')).toHaveValue('Chispa');
+      expect(screen.queryByText(NECESITAS)).not.toBeInTheDocument();
+    });
+
+    it('mientras llega lo nuevo, la copia sigue a la vista: no se pasa por "cargando"', async () => {
+      await guardarLaCopia();
+      darDeAltaLaCuenta.mockImplementation(SIN_RED);
+
+      const red = sinConexion();
+
+      pintar();
+      await verLaCopia();
+
+      let llega: (cuenta: Cuenta) => void = () => undefined;
+
+      darDeAltaLaCuenta.mockReturnValue(
+        new Promise<Cuenta>((resolver) => {
+          llega = resolver;
+        }),
+      );
+      act(() => {
+        red.mockReturnValue(true);
+        window.dispatchEvent(new Event('online'));
+      });
+
+      await waitFor(() => {
+        expect(darDeAltaLaCuenta).toHaveBeenCalledTimes(2);
+      });
+      expect(screen.getByText(HAY_COPIA)).toBeInTheDocument();
+      expect(screen.queryByText('Cargando tu perfil…')).not.toBeInTheDocument();
+
+      await act(async () => {
+        llega({ ...CUENTA, nombre: 'Marina de hoy' });
+        await Promise.resolve();
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByText(HAY_COPIA)).not.toBeInTheDocument();
+      });
+    });
+
+    it('si al volver la red sigue sin llegar, la copia sigue a la vista', async () => {
+      await guardarLaCopia();
+      darDeAltaLaCuenta.mockImplementation(SIN_RED);
+      pintar();
+      await verLaCopia();
+
+      act(() => {
+        window.dispatchEvent(new Event('online'));
+      });
+
+      await waitFor(() => {
+        expect(darDeAltaLaCuenta).toHaveBeenCalledTimes(2);
+      });
+      expect(await screen.findByText(HAY_COPIA)).toBeInTheDocument();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('si la copia cambio mientras tanto (otra pestana), al volver a leerla se ve la nueva', async () => {
+      await guardarLaCopia();
+      darDeAltaLaCuenta.mockImplementation(SIN_RED);
+      pintar();
+      await verLaCopia();
+
+      await guardarLaCopia({ ...CUENTA, nombre: 'Marina desde otra pestaña' });
+      act(() => {
+        window.dispatchEvent(new Event('online'));
+      });
+
+      await waitFor(() => {
+        expect(
+          within(apartado('Cómo te llamamos')).getByRole('textbox', { name: 'Nombre' }),
+        ).toHaveValue('Marina desde otra pestaña');
+      });
+      expect(screen.getByText(HAY_COPIA)).toBeInTheDocument();
+    });
+
+    it('si lo que se ve es lo de la API, la conexion que vuelve no pregunta otra vez', async () => {
+      pintar();
+      await screen.findByRole('region', { name: 'Cómo te llamamos' });
+
+      act(() => {
+        window.dispatchEvent(new Event('online'));
+      });
+      await Promise.resolve();
+
+      expect(darDeAltaLaCuenta).toHaveBeenCalledTimes(1);
+      expect(screen.queryByText(HAY_COPIA)).not.toBeInTheDocument();
     });
   });
 });

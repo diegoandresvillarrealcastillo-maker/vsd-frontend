@@ -48,7 +48,10 @@ export type MotivoDeSincronizacion = 'manual' | 'conexion' | 'apertura' | 'progr
 export type EstadoDeLaSincronizacion =
   /** Se hizo lo que habia que hacer (puede quedar algo esperando su turno o su reintento). */
   | 'terminada'
-  /** No habia nada pendiente. No se toco la red. */
+  /**
+   * No habia nada que enviar ahora: o no hay nada pendiente, o lo pendiente espera
+   * su turno o su proximo reintento. No se toco la red.
+   */
   | 'nada_que_hacer'
   /** No hay conexion con la API. Nada se toco. */
   | 'sin_conexion'
@@ -65,6 +68,12 @@ export interface ReciboDeEnvio {
   readonly operationId: string;
   readonly tipo: TipoDeOperacion;
   readonly recibo: unknown;
+  /**
+   * Cuando se guardo la operacion, en ISO 8601. Sirve para distinguir lo que salio de
+   * inmediato (se acababa de guardar) de lo que estuvo esperando en este equipo: solo
+   * lo segundo merece un aviso.
+   */
+  readonly creadaEn: string;
 }
 
 export interface ResumenDeSincronizacion {
@@ -178,6 +187,9 @@ const SIN_NADA: ResumenDeSincronizacion = {
 /** Lo que se anota de cuando se sincronizo por ultima vez (en `meta`). */
 export const META_ULTIMA_SINCRONIZACION = 'ultimaSincronizacion';
 
+/** Un instante que ninguna espera de reintento alcanza: todo lo que espere ya "toca". */
+const FIN_DE_LOS_TIEMPOS = new Date(8.64e15);
+
 export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincronizacion {
   const {
     almacen,
@@ -202,7 +214,7 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
   }
 
   /** Lo que hace una tanda, con la exclusion ya tomada. */
-  async function tanda(): Promise<ResultadoDeSincronizacion> {
+  async function tanda(motivo: MotivoDeSincronizacion): Promise<ResultadoDeSincronizacion> {
     const persona = personaDeLaSesion();
 
     if (persona === null) {
@@ -253,12 +265,20 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
       }
     }
 
+    // "Sincronizar ahora" no espera: lo que estaba aguardando su proximo reintento se
+    // envia ya. Lo demas respeta la espera, para no martillar a un servidor caido.
+    const cuando = (): Date => (motivo === 'manual' ? FIN_DE_LOS_TIEMPOS : reloj());
+
     const pendientesAlEmpezar = [...operaciones.values()].filter((o) => o.estado === 'pendiente');
 
-    // Sin nada pendiente no se toca la red: abrir la aplicacion no puede costar una
-    // peticion por cada vez que no hay nada que enviar.
-    if (pendientesAlEmpezar.length === 0) {
-      return { estado: 'nada_que_hacer', resumen: SIN_NADA };
+    // Sin nada que enviar ahora no se toca la red: abrir la aplicacion, o volver a
+    // la pestana, no puede costar una peticion cada vez. "Nada que enviar ahora"
+    // incluye lo que espera su turno o su proximo reintento.
+    if (planDeEnvio([...operaciones.values()], cuando()).listas.length === 0) {
+      return {
+        estado: 'nada_que_hacer',
+        resumen: { ...SIN_NADA, pendientes: pendientesAlEmpezar.length },
+      };
     }
 
     if (!(await confirmarConexion())) {
@@ -269,6 +289,7 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
     }
 
     const recibos: ReciboDeEnvio[] = [];
+    const intentadas = new Set<string>();
     let requierenAtencion = 0;
     let conflictos = 0;
     let corte: 'sin_conexion' | 'sesion_vencida' | 'persona_distinta' | null = null;
@@ -286,7 +307,12 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
     const tope = operaciones.size * 2 + 2;
 
     for (let vuelta = 0; vuelta < tope && corte === null; vuelta += 1) {
-      const siguiente = planDeEnvio([...operaciones.values()], reloj()).listas[0];
+      // Una operacion se intenta una sola vez por tanda. Sin esto, con "Sincronizar
+      // ahora" (que ignora la espera) la que acaba de fallar volveria a tocar y se
+      // reintentaria en bucle hasta agotar los intentos.
+      const siguiente = planDeEnvio([...operaciones.values()], cuando()).listas.find(
+        (operacion) => !intentadas.has(operacion.operationId),
+      );
 
       if (siguiente === undefined) {
         break;
@@ -297,6 +323,8 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
         corte = 'persona_distinta';
         break;
       }
+
+      intentadas.add(siguiente.operationId);
 
       const problema = comprobarLaOperacion(siguiente);
 
@@ -334,7 +362,12 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
           proximoIntento: null,
         });
 
-        recibos.push({ operationId: hecha.operationId, tipo: hecha.tipo, recibo: reciboDeLaApi });
+        recibos.push({
+          operationId: hecha.operationId,
+          tipo: hecha.tipo,
+          recibo: reciboDeLaApi,
+          creadaEn: hecha.creadaEn,
+        });
         emitir({ tipo: 'enviada', operacion: hecha, recibo: reciboDeLaApi });
       } else {
         const { error } = falloDelEnvio;
@@ -456,7 +489,9 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
       emitir({ tipo: 'inicio', motivo });
 
       try {
-        const salida = await exclusion(`vsd-sincronizacion-${almacen.persona}`, tanda);
+        const salida = await exclusion(`vsd-sincronizacion-${almacen.persona}`, () =>
+          tanda(motivo),
+        );
         const resultado: ResultadoDeSincronizacion = salida.ejecutada
           ? salida.valor
           : { estado: 'ocupada', resumen: SIN_NADA };

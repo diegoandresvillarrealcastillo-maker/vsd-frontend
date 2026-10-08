@@ -14,6 +14,7 @@ import { Icono } from '../panel/Icono.tsx';
 import { MODULOS, ORDEN } from '../panel/modulos.ts';
 import { etapaSiguiente, etapasAnteriores, nombreDeEtapa, tramoDeHoy } from './etapas.ts';
 import { HojaDeHoy } from './HojaDeHoy.tsx';
+import { DatosDeHace } from '../../conexion/DatosDeHace.tsx';
 import { useSendero } from './useSendero.ts';
 
 /**
@@ -122,6 +123,15 @@ export function VistaDelSendero({
             Añadirlo desde tu panel
           </Link>
         </div>
+      )}
+
+      {/* Sin conexion se ve la copia de este equipo, y se dice de cuando es (SCRUM-140). */}
+      {estado.fase === 'listo' && estado.deLaCopia !== null && (
+        <DatosDeHace
+          guardadoEn={estado.deLaCopia}
+          ahora={estado.ahora}
+          porEnviar={estado.sinEnviar}
+        />
       )}
 
       {estado.fase === 'listo' && <Camino progreso={estado.progreso} titulo={datos.titulo} />}

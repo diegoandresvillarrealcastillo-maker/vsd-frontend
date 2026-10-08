@@ -2,10 +2,14 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { ConfirmarSalida } from '../../componentes/ConfirmarSalida.tsx';
 import { MarcaDeLaApp } from '../../componentes/MarcaDeLaApp.tsx';
+import { IndicadorDeConexion } from '../../conexion/IndicadorDeConexion.tsx';
 import { useFotoDePerfil } from '../../foto/fotoDePerfil.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
+import { sincronizarAhora } from '../../sincronizacion/estado.ts';
+import { cuantosCambiosSinEnviar } from '../../sincronizacion/loGuardadoEnEsteEquipo.ts';
 import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
 import { Icono, type NombreDeIcono } from './Icono.tsx';
 
@@ -56,6 +60,8 @@ export function BarraSuperior({ conSecciones }: { conSecciones: boolean }) {
         )}
 
         <div className="app__acciones">
+          {/* Si hay conexion y cuanto sigue guardado en este equipo (SCRUM-137). */}
+          <IndicadorDeConexion />
           {/* Volvio con el modo claro (SCRUM-112). */}
           <SelectorDeTema variante="barra" />
           <MenuDeCuenta />
@@ -68,6 +74,10 @@ export function BarraSuperior({ conSecciones }: { conSecciones: boolean }) {
 /**
  * El boton redondo de la derecha: con que correo se entro, el perfil, la
  * portada y salir.
+ *
+ * **Salir pregunta si hay cambios sin enviar** (SCRUM-142): cerrar sesion olvida todo lo
+ * guardado en este equipo, y eso incluye lo que todavia no llego al servidor. Sin nada
+ * pendiente, sale de una vez, como siempre.
  */
 function MenuDeCuenta() {
   const { correo, salir } = useSesion();
@@ -75,8 +85,53 @@ function MenuDeCuenta() {
   // se llama «Abrir el menu de tu cuenta».
   const foto = useFotoDePerfil();
   const [abierto, setAbierto] = useState(false);
+  // Cuantos cambios sin enviar hay, mientras se pregunta si salir; `null` si no se pregunta.
+  const [sinEnviar, setSinEnviar] = useState<number | null>(null);
+  const [enviando, setEnviando] = useState(false);
   const idDelMenu = useId();
   const contenedor = useRef<HTMLDivElement>(null);
+  const avatar = useRef<HTMLButtonElement>(null);
+
+  async function pedirSalir() {
+    const cuantos = await cuantosCambiosSinEnviar();
+
+    if (cuantos === 0) {
+      await salir();
+
+      return;
+    }
+
+    setAbierto(false);
+    setSinEnviar(cuantos);
+  }
+
+  function esperar() {
+    setSinEnviar(null);
+    // El boton del menu sigue ahi: el foco vuelve a donde estaba.
+    avatar.current?.focus();
+  }
+
+  async function enviarYSalir() {
+    setEnviando(true);
+
+    try {
+      await sincronizarAhora();
+
+      const quedan = await cuantosCambiosSinEnviar();
+
+      // Si ya no queda nada sin enviar, se sale: era lo que la persona queria.
+      if (quedan === 0) {
+        setSinEnviar(null);
+        await salir();
+
+        return;
+      }
+
+      setSinEnviar(quedan);
+    } finally {
+      setEnviando(false);
+    }
+  }
 
   useEffect(() => {
     if (!abierto) {
@@ -107,6 +162,7 @@ function MenuDeCuenta() {
   return (
     <div className="app__cuenta" ref={contenedor}>
       <button
+        ref={avatar}
         type="button"
         className="app__avatar"
         aria-label="Abrir el menú de tu cuenta"
@@ -133,10 +189,31 @@ function MenuDeCuenta() {
           <Link className="app__menu-opcion" to={RUTAS.INICIO}>
             Ir a la página principal
           </Link>
-          <button type="button" className="app__menu-opcion" onClick={() => void salir()}>
+          <button
+            type="button"
+            className="app__menu-opcion"
+            onClick={() => {
+              void pedirSalir();
+            }}
+          >
             Cerrar sesión
           </button>
         </div>
+      )}
+
+      {sinEnviar !== null && (
+        <ConfirmarSalida
+          cambios={sinEnviar}
+          enviando={enviando}
+          alEsperar={esperar}
+          alEnviar={() => {
+            void enviarYSalir();
+          }}
+          alSalir={() => {
+            setSinEnviar(null);
+            void salir();
+          }}
+        />
       )}
     </div>
   );

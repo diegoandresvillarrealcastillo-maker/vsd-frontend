@@ -1,10 +1,11 @@
-import type { Session } from '@supabase/supabase-js';
+import { AuthApiError, AuthRetryableFetchError, type Session } from '@supabase/supabase-js';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { olvidarLosArchivosDeLaPersona } from '../foto/archivosDeLaPersona.ts';
 import {
+  CLAVE_DE_LA_SESION,
   olvidarPreferenciaDePestana,
   recordarEnEsteEquipo,
 } from '../infraestructura/supabase/almacenamiento.ts';
@@ -94,6 +95,8 @@ beforeEach(() => {
 afterEach(() => {
   vi.clearAllMocks();
   olvidarPreferenciaDePestana();
+  window.localStorage.clear();
+  window.sessionStorage.clear();
 });
 
 describe('la foto de perfil al terminar la sesion (SCRUM-120)', () => {
@@ -141,6 +144,88 @@ describe('la foto de perfil al terminar la sesion (SCRUM-120)', () => {
     });
 
     expect(olvidarLosArchivosDeLaPersona).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Lo que queda y lo que no en este navegador cuando termina una sesion (SCRUM-142).
+ *
+ * El criterio: tras cerrar sesion **no queda nada de la persona** en IndexedDB (eso lo hace
+ * `olvidarLosDatosDeLaSesionActual`, mas abajo), en la cache del service worker (que solo
+ * guarda la aplicacion y la tipografia, nunca lo de una persona: SCRUM-135) ni en
+ * `localStorage`. Esta prueba lo fija para `localStorage`: lo que es de la persona se va, y
+ * lo que se queda son **preferencias del dispositivo** que no dicen nada de nadie.
+ */
+describe('lo que queda en localStorage al terminar la sesion (SCRUM-142)', () => {
+  /** Lo que la mascota ya le dijo a esta persona: es suyo, no del dispositivo. */
+  const LO_DE_LA_PERSONA = ['vsd-h:mascota-frases'];
+
+  /** Preferencias de este dispositivo: el tema, donde dejo la mascota, si ya vio la induccion. */
+  const DEL_DISPOSITIVO = ['vsd.tema', 'vsd-h:mascota-posicion', 'vsd-h:semaforo-induccion-vista'];
+
+  function dejarTodoEnElNavegador() {
+    for (const clave of [...LO_DE_LA_PERSONA, ...DEL_DISPOSITIVO]) {
+      window.localStorage.setItem(clave, '{}');
+    }
+  }
+
+  const quedan = () => Object.keys(window.localStorage).sort();
+
+  it('al salir se va lo de la persona y se quedan las preferencias del dispositivo', async () => {
+    dejarTodoEnElNavegador();
+    pintar();
+
+    await act(async () => {
+      await userEvent.setup().click(await screen.findByRole('button', { name: 'Salir' }));
+    });
+
+    expect(quedan()).toEqual([...DEL_DISPOSITIVO].sort());
+  });
+
+  it('si la sesion termina sola —caduca, se revoca, se cierra en otra pestana—, tambien', async () => {
+    dejarTodoEnElNavegador();
+    pintar();
+    await screen.findByRole('button', { name: 'Salir' });
+
+    act(() => {
+      avisarCambioDeSesion('SIGNED_OUT', null);
+    });
+
+    expect(quedan()).toEqual([...DEL_DISPOSITIVO].sort());
+  });
+
+  it('si solo se renueva el token, nada se va', async () => {
+    dejarTodoEnElNavegador();
+    pintar();
+    await screen.findByRole('button', { name: 'Salir' });
+
+    act(() => {
+      avisarCambioDeSesion('TOKEN_REFRESHED', SESION);
+    });
+
+    expect(quedan()).toEqual([...LO_DE_LA_PERSONA, ...DEL_DISPOSITIVO].sort());
+  });
+
+  it('entrar no borra nada: el que entra es el dueno de lo que llegue', async () => {
+    getSession.mockResolvedValue({ data: { session: null } });
+    dejarTodoEnElNavegador();
+    pintar();
+    await screen.findByRole('button', { name: 'Salir' });
+
+    // Al arrancar sin sesion se olvida lo de la persona de antes.
+    act(() => {
+      avisarCambioDeSesion('INITIAL_SESSION', null);
+    });
+
+    expect(quedan()).toEqual([...DEL_DISPOSITIVO].sort());
+
+    window.localStorage.setItem('vsd-h:mascota-frases', '{}');
+
+    act(() => {
+      avisarCambioDeSesion('SIGNED_IN', SESION);
+    });
+
+    expect(quedan()).toContain('vsd-h:mascota-frases');
   });
 });
 
@@ -264,5 +349,142 @@ describe('el almacen local y la sesion (SCRUM-136)', () => {
 
     expect(alCambiarLaSesion).toHaveBeenLastCalledWith('id-de-beto', { persistente: true });
     expect(olvidarLosDatosDeLaSesionActual).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Abrir la aplicacion SIN CONEXION con el token de acceso vencido (SCRUM-137).
+ *
+ * El token dura una hora. Pasada esa hora Supabase intenta renovarlo, y sin red no
+ * puede: dice "sin sesion" aunque haya una guardada y valida. Sin esto, abrir la
+ * aplicacion sin conexion mas de una hora despues de la ultima vez mandaria a la
+ * pantalla de acceso.
+ */
+describe('abrir sin conexion con el token vencido (SCRUM-137)', () => {
+  const GUARDADA = {
+    access_token: 'token-vencido',
+    refresh_token: 'refresco',
+    expires_at: 1,
+    token_type: 'bearer',
+    user: { id: 'id-de-ana', email: 'ana@ejemplo.test' },
+  };
+  const SIN_RED = new AuthRetryableFetchError('Failed to fetch', 0);
+
+  function Quien() {
+    const { correo, cargando } = useSesion();
+
+    return <p>{cargando ? 'cargando' : (correo ?? 'sin sesion')}</p>;
+  }
+
+  function pintarQuien() {
+    render(
+      <ProveedorDeSesion>
+        <Quien />
+      </ProveedorDeSesion>,
+    );
+  }
+
+  beforeEach(() => {
+    window.localStorage.setItem(CLAVE_DE_LA_SESION, JSON.stringify(GUARDADA));
+    getSession.mockResolvedValue({ data: { session: null }, error: SIN_RED });
+  });
+
+  it('sigue siendo la misma persona: no se la manda al acceso', async () => {
+    pintarQuien();
+
+    expect(await screen.findByText('ana@ejemplo.test')).toBeInTheDocument();
+  });
+
+  it('se abre su almacen, que es lo que hace falta para usar la aplicacion', async () => {
+    pintarQuien();
+    await screen.findByText('ana@ejemplo.test');
+
+    expect(alCambiarLaSesion).toHaveBeenLastCalledWith('id-de-ana', { persistente: true });
+  });
+
+  it('si Supabase tambien avisa de que empezo sin sesion, no la pierde', async () => {
+    pintarQuien();
+    await screen.findByText('ana@ejemplo.test');
+
+    act(() => {
+      avisarCambioDeSesion('INITIAL_SESSION', null);
+    });
+
+    expect(screen.getByText('ana@ejemplo.test')).toBeInTheDocument();
+    expect(olvidarLosArchivosDeLaPersona).not.toHaveBeenCalled();
+  });
+
+  it('solo en el arranque: una sesion que se cierra de verdad (SIGNED_OUT) se cierra', async () => {
+    pintarQuien();
+    await screen.findByText('ana@ejemplo.test');
+
+    act(() => {
+      avisarCambioDeSesion('SIGNED_OUT', null);
+    });
+
+    expect(screen.getByText('sin sesion')).toBeInTheDocument();
+    expect(olvidarLosArchivosDeLaPersona).toHaveBeenCalledOnce();
+  });
+
+  it('cuando vuelve la red y Supabase renueva el token, esa es la sesion', async () => {
+    pintarQuien();
+    await screen.findByText('ana@ejemplo.test');
+
+    act(() => {
+      avisarCambioDeSesion('TOKEN_REFRESHED', {
+        ...GUARDADA,
+        access_token: 'token-nuevo',
+        user: { ...GUARDADA.user, email: 'ana-renovada@ejemplo.test' },
+      } as unknown as Session);
+    });
+
+    expect(screen.getByText('ana-renovada@ejemplo.test')).toBeInTheDocument();
+  });
+
+  it('si la renovacion falla por otra razon (no es la red), no hay sesion', async () => {
+    getSession.mockResolvedValue({
+      data: { session: null },
+      error: new AuthApiError('refresh token revocado', 400, 'refresh_token_not_found'),
+    });
+    pintarQuien();
+
+    expect(await screen.findByText('sin sesion')).toBeInTheDocument();
+  });
+
+  it('si no hay sesion y no hay error, no hay sesion aunque algo hubiera quedado guardado', async () => {
+    getSession.mockResolvedValue({ data: { session: null }, error: null });
+    pintarQuien();
+
+    expect(await screen.findByText('sin sesion')).toBeInTheDocument();
+  });
+
+  it('si fallo la red pero no hay nada guardado (o lo guardado no sirve), no hay sesion', async () => {
+    window.localStorage.setItem(CLAVE_DE_LA_SESION, '{"user":{}}');
+    pintarQuien();
+
+    expect(await screen.findByText('sin sesion')).toBeInTheDocument();
+  });
+
+  it('sin nada guardado y sin sesion al arrancar, se olvida lo de la persona de antes', async () => {
+    window.localStorage.clear();
+    getSession.mockResolvedValue({ data: { session: null }, error: null });
+    pintarQuien();
+    await screen.findByText('sin sesion');
+
+    act(() => {
+      avisarCambioDeSesion('INITIAL_SESSION', null);
+    });
+
+    expect(olvidarLosArchivosDeLaPersona).toHaveBeenCalledOnce();
+  });
+
+  it('con una sesion buena, es esa: lo guardado no se usa', async () => {
+    getSession.mockResolvedValue({
+      data: { session: { user: { id: 'id-de-beto', email: 'beto@ejemplo.test' } } },
+      error: null,
+    });
+    pintarQuien();
+
+    expect(await screen.findByText('beto@ejemplo.test')).toBeInTheDocument();
   });
 });

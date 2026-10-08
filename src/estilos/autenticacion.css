@@ -536,3 +536,89 @@
     transform: scaleX(1);
   }
 }
+
+/* ---------- Completa tu registro y la pantalla de rechazo (T-03) ---------- */
+
+/* Un enlace dentro de una nota de casilla va subrayado siempre: es texto
+   corrido, y distinguirlo solo por el color no basta. */
+.casilla__nota .acceso__enlace {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.casilla__nota .acceso__enlace::after {
+  display: none;
+}
+
+/* Un boton que se ve como el enlace de al lado: es una accion, no una direccion. */
+.acceso__enlace--boton {
+  padding: 0;
+  background: none;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.acceso__enlace--boton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Lo que se ve al ser menor de 18 anos. Sin rojo ni alarma: es una persona que
+   puede haber buscado ayuda y se encuentra con una puerta cerrada. */
+.solo-mayores {
+  display: grid;
+  gap: 14px;
+  text-align: left;
+}
+
+.solo-mayores__titulo {
+  margin: 0;
+  font-size: 1.0625rem;
+  letter-spacing: -0.01em;
+}
+
+.solo-mayores__texto,
+.solo-mayores__nota {
+  margin: 0;
+  color: var(--texto-tenue);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+.solo-mayores__lineas {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.solo-mayores__linea {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--fondo-sutil);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+.solo-mayores__linea-titulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 0;
+}
+
+.solo-mayores__cobertura {
+  color: var(--texto-apagado);
+  font-size: 0.8125rem;
+}
+
+.solo-mayores__descripcion {
+  margin: 0;
+  color: var(--texto-tenue);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}

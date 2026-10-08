@@ -464,7 +464,13 @@ export function MascotaFlotante({
           // Mientras acompana al asistente es solo un dibujo.
           aria-hidden={conAsistente || undefined}
         >
-          <button
+          {/* La cesion al pulsar va en el boton y no en la imagen (C-03 de la
+              auditoria 360): `whileTap` obliga a Framer Motion a anadirle
+              `tabindex="0"` a lo que no es enfocable, y una imagen decorativa
+              dentro de un boton quedaba como una segunda parada del teclado. Un
+              boton ya es enfocable, y asi la cesion no choca con la animacion de
+              la imagen, que son dos elementos. */}
+          <motion.button
             ref={boton}
             type="button"
             className="mascota__boton"
@@ -478,6 +484,7 @@ export function MascotaFlotante({
             onKeyDown={alPulsarTecla}
             onClick={alPulsar}
             onContextMenu={(evento) => evento.preventDefault()}
+            {...(sinMovimiento ? {} : { whileTap: { scale: 0.92 } })}
           >
             <motion.img
               className={`mascota__dibujo${esperandoLaPropia ? ' mascota__dibujo--esperando' : ''}`}
@@ -485,9 +492,8 @@ export function MascotaFlotante({
               alt=""
               draggable={false}
               animate={animacion(expresion, sinMovimiento, seDibujaLaPropia)}
-              {...(sinMovimiento ? {} : { whileTap: { scale: 0.92 } })}
             />
-          </button>
+          </motion.button>
 
           {/* Una mascota propia no puede cerrar los ojos: duerme con unas «z». */}
           {seDibujaLaPropia && expresion === 'dormida' && (

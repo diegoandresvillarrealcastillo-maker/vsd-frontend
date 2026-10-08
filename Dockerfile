@@ -44,6 +44,15 @@ COPY src ./src
 # `npm run build` termina comprobando el service worker ya compilado (SCRUM-135),
 # y falla si no esta este archivo.
 COPY scripts/comprobar-el-service-worker.mjs ./scripts/comprobar-el-service-worker.mjs
+# Y comprobando que las cabeceras de seguridad de Vercel y de nginx dicen lo mismo
+# y autorizan el script en linea de `index.html` (S-05 de la auditoria 360). Por
+# eso entran aqui `vercel.json` y las de nginx, ademas del script.
+COPY scripts/comprobar-las-cabeceras.mjs ./scripts/comprobar-las-cabeceras.mjs
+# Y escribiendo robots.txt, sitemap.xml, llms.txt y la pagina 404 segun el ambiente
+# (SEO-02): ese `npm run build` los deja en `dist/`, que es lo que se publica.
+COPY scripts/generar-los-archivos-de-busqueda.mjs ./scripts/generar-los-archivos-de-busqueda.mjs
+COPY vercel.json ./vercel.json
+COPY nginx ./nginx
 
 # Un ARG sin valor por omision queda sin definir, y la aplicacion usa entonces
 # su respaldo (la API en localhost:3000) o dice cual variable falta. Los ARG
@@ -53,6 +62,7 @@ ARG VITE_API_BASE_URL
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
 ARG VITE_PROVEEDOR_GOOGLE
+ARG VITE_URL_PUBLICA
 RUN npm run build
 
 # ---------- 2. Ejecucion ----------
@@ -60,6 +70,9 @@ FROM ${IMAGEN_DE_NGINX} AS ejecucion
 
 # nginx-unprivileged corre como el usuario `nginx` y escucha en el 8080.
 COPY nginx/default.conf /etc/nginx/conf.d/default.conf
+# Las cabeceras de seguridad, que `default.conf` incluye en cada bloque que declara
+# las suyas.
+COPY nginx/cabeceras-de-seguridad.conf /etc/nginx/cabeceras-de-seguridad.conf
 COPY --from=compilacion /app/dist /usr/share/nginx/html
 
 EXPOSE 8080

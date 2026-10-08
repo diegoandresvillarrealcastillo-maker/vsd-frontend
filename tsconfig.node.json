@@ -1,5 +1,6 @@
 {
-  // Lo que se ejecuta en Node, no en el navegador: la configuracion de Vite.
+  // Lo que se ejecuta en Node, no en el navegador: la configuracion de Vite y las
+  // pruebas de los scripts de compilacion (`scripts/*.spec.ts`).
   "compilerOptions": {
     "target": "ES2023",
     "lib": ["ES2023"],
@@ -23,5 +24,8 @@
 
     "types": ["node"]
   },
-  "include": ["vite.config.ts"]
+  // `src/rutas/rutas.ts` entra porque las pruebas de los scripts la leen (para que una
+  // ruta nueva no se quede sin reescritura ni sin clasificar). No tiene nada del
+  // navegador: son cadenas.
+  "include": ["vite.config.ts", "scripts/**/*.spec.ts", "src/rutas/rutas.ts"]
 }

@@ -204,6 +204,135 @@ que se descarga cualquiera:
 - **La clave de servicio de Supabase no puede aparecer.** Da acceso total a la
   base y salta el aislamiento por RLS. En el frontend no existe.
 
+### Los buscadores (SEO-02)
+
+Lo que Google y los asistentes de IA leen, y lo que no deben leer:
+
+- **`robots.txt`, `sitemap.xml`, `llms.txt` y `404.html`** no se escriben a mano:
+  los genera `scripts/generar-los-archivos-de-busqueda.mjs` al final de
+  `npm run build`, segun `VITE_APP_ENV`.
+  - **`production`**: permite la portada y los documentos legales, cierra
+    `/panel`, `/perfil`, `/diario`, `/modulo/`, `/actividad/` y
+    `/contrasena-nueva`, y publica el sitemap. **Exige `VITE_URL_PUBLICA`** (el
+    dominio con https): sin el, la compilacion falla en vez de publicar un
+    sitemap roto.
+  - **Cualquier otro** (PRE, local): `robots.txt` lo cierra todo, no hay sitemap,
+    la pagina lleva `<meta name="robots" content="noindex">` y Vercel manda la
+    cabecera `X-Robots-Tag: noindex` en PRE (`vsd-health-pre.vercel.app`) y en las
+    vistas previas de las ramas (`*-git-*.vercel.app`). PRE tiene cuentas y datos de
+    prueba; que se indexe no le sirve a nadie.
+  - **Por que la regla no cubre todo `*.vercel.app`**: el dominio de produccion
+    sera uno gratuito y generico de Vercel (`algo.vercel.app`), y una regla por
+    `vercel.app` lo cerraria a los buscadores. `scripts/comprobar-las-cabeceras.mjs`
+    lo vigila: falla si la regla deja de cubrir PRE o las vistas previas, o si pasa a
+    cubrir un posible dominio de produccion. **Si PROD estrena un dominio propio o
+    PRE cambia de nombre, hay que ajustar el host en `vercel.json`.**
+- **Solo existen las rutas que existen.** `vercel.json` y `nginx/default.conf`
+  reescriben a `index.html` unicamente las pantallas de `src/rutas/rutas.ts`; el
+  resto es un 404 real, con una pagina estatica y `noindex` (antes cualquier
+  direccion devolvia la portada con un 200, un «soft 404»). **Una ruta nueva en
+  `rutas.ts` hay que agregarla a las dos reescrituras y clasificarla** (publica,
+  privada o de acceso) en `scripts/generar-los-archivos-de-busqueda.spec.ts`: dos
+  pruebas fallan si falta, y es a proposito, porque sin la reescritura esa
+  pantalla daria 404 al recargarla.
+
+### La accesibilidad se comprueba sola (C-03 y SEO-04 de la auditoria 360)
+
+El contraste y el teclado se revisaron a mano, pantalla por pantalla; ahora hay tres
+redes para que una regresion no pase en silencio:
+
+- **`eslint-plugin-jsx-a11y`** (recomendado) sobre todo `src/**/*.tsx`: una imagen sin
+  `alt`, un enlace sin destino, un `div` con `onClick` y sin teclado. Es de 2024 y su
+  `peerDependencies` no nombra ESLint 10: por eso hay un `overrides` en
+  `package.json`, y se comprobo que sus reglas funcionan. Si dejara de funcionar con
+  una version futura de ESLint, es lo primero que se quita.
+- **axe en las pruebas de cada pantalla** (`src/pruebas/axe.ts`): `fallosDeAccesibilidad()`
+  corre axe sobre la pagina ya pintada, con las reglas de WCAG 2.1 A y AA y las buenas
+  practicas, y `cuantosH1()` comprueba que hay un solo encabezado de primer nivel. Va
+  en los archivos `*.spec.tsx` de cada pantalla y de cada ventana. jsdom no pinta, asi
+  que el **contraste** y los **puntos de referencia** de la pagina quedan fuera (los
+  cubre Lighthouse); `src/pruebas/axe.spec.tsx` le ensena al ayudante cada tipo de
+  fallo para comprobar que lo ve. Con `vi.useFakeTimers()` axe no termina: en esa
+  prueba, `vi.useRealTimers()`.
+- **Lighthouse en el CI** (`.github/workflows/lighthouse.yml`, `lighthouserc.json`):
+  mide la compilacion, en un navegador de verdad, en la portada y las tres pantallas
+  de acceso. Exige **95 en accesibilidad** y 90 en SEO (hoy 100 y 92: lo unico que
+  falla es que no hay `robots.txt`, de SEO-02). Se compila como produccion para que la
+  etiqueta `noindex` de los otros ambientes no cuente como un fallo de SEO. Para
+  correrlo en local: `npm run build` y `npx @lhci/cli@0.15.1 autorun` (con
+  `CHROME_PATH` si no encuentra Chrome). **Cuando `robots.txt` exista, el umbral de
+  SEO sube a 95**, y una pantalla publica nueva se agrega a `lighthouserc.json`.
+- **Las ventanas se cierran al pulsar el fondo con `alPulsarElFondo`**
+  (`src/componentes/`), no con un `onClick` en el fondo y otro en la caja que llama a
+  `stopPropagation`: el fondo lleva `role="presentation"` y quien usa teclado cierra
+  con Escape.
+- **No poner `whileTap` en lo que no es un boton o un enlace.** Framer Motion le anade
+  `tabindex="0"` a lo que no es enfocable, y una imagen dentro de un boton queda como
+  una segunda parada del teclado (le pasaba a la mascota; ver `Casilla.tsx`).
+
+### Analitica con consentimiento (SCRUM-161)
+
+La aplicacion puede contar visitas con **Google Analytics 4**, pero solo si la
+persona lo acepta, y sin saber quien es. Esta **apagada por defecto**: sin
+`VITE_GA_ID` no hay analitica, ni banner, ni nada en los documentos legales que
+diga lo contrario.
+
+**Como se enciende** (lo hace quien administre el ambiente, no el codigo):
+
+1. Crear una propiedad de GA4 en [analytics.google.com](https://analytics.google.com)
+   y copiar su identificador de medicion (`G-XXXXXXXXXX`).
+2. Ponerlo como `VITE_GA_ID` **solo en el ambiente que deba medir** (produccion), con
+   su propia propiedad. En PRE se deja sin poner: el trafico de pruebas no debe
+   mezclarse con el real, y asi PRE sigue diciendo, con razon, que no mide nada.
+3. En la consola de GA4 (**Administrar**), ajustar lo que el codigo no puede. Los menus
+   de Google cambian de nombre con frecuencia: esto es lo que hay que buscar, no un
+   camino exacto.
+   - **Medicion mejorada** (en el flujo de datos web): apagarla o dejar solo las
+     visitas. Sus funciones de busqueda en el sitio, clics salientes y descargas leen la
+     direccion o lo que hay en ella.
+   - **Recopilacion y modificacion de datos**: apagar la recopilacion de **senales de
+     Google**.
+   - **Retencion de datos**: 2 meses (el minimo), que es lo que dicen los documentos
+     legales. Cuando esto este hecho, quitar la marca `[POR DEFINIR]` de la retencion en
+     `Cookies.tsx` y `TextosDeAnalitica.tsx`.
+   - No vincular Google Ads ni activar el uso compartido de datos con Google.
+
+**Que hace el codigo** (`src/analitica/`):
+
+- **Nada de Google existe antes de aceptar.** El script `gtag.js` se descarga al
+  aceptar, no antes; sin permiso no hay cookies ni peticiones a dominios de Google.
+  Rechazar o no contestar es lo mismo. Aceptar y rechazar pesan lo mismo en el banner.
+- **Solo visitas, y con la plantilla de la pantalla**: a Google le llega `/modulo/:modulo`
+  o `/actividad/:id`, **nunca la direccion real**, ni la consulta, ni el fragmento (el
+  enlace del correo de recuperar la contrasena trae un token ahi), ni el titulo de la
+  pagina. No hay identificador de cuenta ni eventos propios. `plantillaDeRuta.ts` es
+  quien lo garantiza, y su prueba comprueba que nada de la entrada sale en la salida.
+- **Apagado a proposito**: senales de Google, personalizacion de anuncios y todo el
+  almacenamiento de anuncios. Las cookies (`_ga`, `_ga_…`) duran 90 dias.
+- **Se puede cambiar de idea**: «Preferencias de analitica» al pie de las pantallas
+  con documentos legales, y los botones de la seccion de analitica de
+  `/cookies#analitica`. Retirar el permiso detiene el envio y borra las cookies en el
+  acto.
+- **La eleccion se guarda en el navegador** (`vsd.analitica`), con una version. Si cambia
+  lo que se mide, se sube `VERSION_DEL_CONSENTIMIENTO` y se vuelve a preguntar. Si el
+  navegador no deja guardar, se pregunta cada vez: sin constancia de un permiso, no se
+  mide.
+- **Los documentos legales lo cuentan solo donde existe** (`TextosDeAnalitica.tsx`,
+  `Cookies.tsx`): donde no hay analitica, la pagina de cookies sigue diciendo que no la
+  hay. Lo que ahi se afirma tiene que seguir siendo cierto de `ga4.ts`; si algo cambia,
+  cambian los dos.
+- **La politica de contenido** autoriza exactamente los dominios de Google Analytics
+  (`googletagmanager.com`, `*.google-analytics.com`, `*.analytics.google.com`) y nada
+  mas de Google. `scripts/comprobar-las-cabeceras.mjs` lleva la lista de dominios de
+  fuera: **agregar uno a la politica hace fallar la compilacion** hasta que se sume a esa
+  lista, que es la ocasion de preguntarse si hay que actualizar la pagina de cookies y
+  el aviso de privacidad.
+
+**Probarlo en local**: `VITE_GA_ID=G-TEST123456 npm run dev` (en PowerShell,
+`$env:VITE_GA_ID='G-TEST123456'; npm run dev`). Con un identificador de prueba el
+banner sale y el script se pide a Google, pero ningun dato llega a ninguna propiedad
+real.
+
 ### El almacen local: lo hecho sin conexion (SCRUM-136)
 
 `src/sincronizacion/` guarda en el dispositivo lo que la persona hace sin conexion
@@ -249,9 +378,240 @@ vencida; lo tercero, que en una sala de computo nadie lea lo de quien estuvo ant
 Con la sesion que no se recuerda en este equipo, o si el navegador no deja usar
 IndexedDB, todo vive **solo en memoria**.
 
-Este nucleo todavia no se ve en ninguna pantalla: las siguientes entregas lo
-conectan (el indicador de conexion y el boton «Sincronizar ahora», las actividades,
-el diario y los pendientes).
+### Lo que se ve: el indicador, «Sincronizar ahora» y el aviso (SCRUM-137)
+
+- **El indicador** (`src/conexion/IndicadorDeConexion.tsx`) esta en la barra de arriba
+  de toda pantalla de la aplicacion. Con todo enviado es un icono discreto; con algo
+  que decir se lee: «Sin conexión · 3 cambios guardados en este equipo». El estado
+  nunca se dice solo con color. Al pulsarlo abre un panel con el estado, el boton
+  **«Sincronizar ahora»** (no espera los reintentos programados; sin conexion no se
+  puede y lo dice) y la lista de lo guardado: el tipo de cada cambio, cuando se hizo y
+  que le pasa. **Nunca lo escrito.** Lo rechazado se puede reintentar o descartar, y
+  descartar pregunta primero.
+- **El aviso** (`AvisoDeSincronizacion.tsx`) sale al terminar una sincronizacion:
+  «Volviste a tener conexión. Enviamos 3 cambios que estaban guardados en este
+  equipo.» Es uno por tanda, no uno por cambio; no roba el foco; y si algo no salio
+  lleva a la lista. Si la sesion vencio, lleva a entrar. Si lo enviado sugiere
+  acompanamiento, ofrece las lineas de atencion.
+- **Sincroniza sola** (`disparadores.ts`) al volver la red, al abrir la aplicacion, al
+  volver a la pestana, cuando la cola cambia y cada 30 s si hay algo listo.
+  **Mientras la aplicacion esta abierta**, aunque sea en una pestana de fondo: no hay
+  Background Sync en Safari, y con la aplicacion cerrada se envia al abrirla (ADR 0019).
+- **Con la aplicacion en segundo plano**, si ya diste permiso a los avisos, una
+  notificacion neutra («Tus cambios guardados en este equipo ya se enviaron»), sin
+  nada de salud. Nunca pide el permiso por su cuenta.
+- **Abrir sin conexion con el token vencido.** El token dura una hora y sin red no se
+  puede renovar: Supabase diria «sin sesion». Si la renovacion fallo **por falta de
+  red**, se usa la sesion guardada para saber quien es y se abre su almacen; en cuanto
+  vuelve la red, Supabase renueva el token. Una sesion que se cierra de verdad
+  (`SIGNED_OUT`) se cierra.
+
+Quien agregue algo a la cola (las actividades, el diario, los pendientes) lo hace con
+`encolar()` de `ciclo.ts`: es el unico camino, y asi el indicador y las otras pestanas
+se enteran.
+
+### Las actividades sin conexion (SCRUM-138)
+
+- **Abrir una actividad sin red.** El catalogo se lee con copia local
+  (`lecturas.ts`, `catalogoLocal.ts`): se pregunta a la API con el `ETag` de la copia
+  (`If-None-Match`; un `304` no baja nada), y si no hay red o el servidor no responde se
+  usa la copia guardada. Si ya hay copia y la API tarda mas de **2,5 s**, se usa la
+  copia sin hacer esperar y la lectura sigue sola para renovarla. Una copia **no tapa**
+  una respuesta del servidor («no existe», «no tienes permiso»). Lo de una persona lleva
+  su propia regla: el diario (SCRUM-139) y los pendientes y el panel (SCRUM-140) estan mas
+  abajo. Al abrirse el almacen, y al volver la red, se precargan el catalogo, el diario,
+  el semaforo, el panel y las reglas de VSD IA (`precarga.ts`).
+- **Terminar una actividad sin red.** El resultado entra a la cola
+  (`resultado.registrar`) con un `operationId` estable, y la pantalla lo sigue
+  (`seguimiento.ts`) hasta **5 s**: si la API lo acepta, se ve la orientacion de
+  siempre; si no, dice «Guardado en este equipo» y **no promete lo que no sabe**. Pasa
+  sola a «Listo» cuando sale, y si la API lo rechaza lo explica por su codigo.
+- **La orientacion llega despues.** Lo que estuvo esperando mas de 30 s en el equipo se
+  muestra en el aviso de sincronizacion, con el nombre de la actividad (de la copia) y
+  su nivel. Lo que salio de inmediato no genera aviso.
+- **La hora es la del dispositivo** (`completedAt`): lo hecho sin red cuenta en el dia en
+  que se hizo, no en el que llego.
+
+### El diario sin conexion (SCRUM-139)
+
+El diario es lo mas delicado que guarda la aplicacion: **nada de lo escrito queda solo en
+la pantalla**. Todo entra a la cola de este equipo (durable y cifrada) antes de decir
+nada, y de ahi sale con un identificador estable, asi que reintentar no duplica.
+
+- **Escribir.** La anotacion entra a la cola (`diario.escribir`) y aparece **al instante**
+  en el historial, con «Guardada en este equipo · se enviara cuando haya conexion» si no
+  hay red. Lleva la hora del dispositivo (`escritaEn`): lo escrito sin red muestra la hora
+  en que se escribio y no la de cuando llega (ADR 0020). Si ni siquiera se puede guardar en
+  el equipo (no hay sesion, no hay espacio), lo dice y **deja lo escrito en el lienzo**.
+  Cerrar el navegador y volver a abrirlo no pierde nada: la anotacion sigue ahi y llega
+  una sola vez.
+- **Leer.** Los ultimos 30 dias tienen copia local cifrada (`diarioLocal.ts`), como las
+  demas lecturas (`lecturas.ts`), y se precargan al entrar. Sin conexion se ve esa copia y
+  la pantalla lo dice («Estas viendo lo que tenias guardado en este equipo»); en cuanto
+  vuelve la red se pone al dia sola. La copia se mantiene al dia con lo que el servidor
+  acepto despues de leer (`conciliarElDiario`), para que una anotacion recien enviada no
+  desaparezca sin conexion. Mas atras de 30 dias solo hay servidor.
+- **Corregir.** Entra a la cola (`diario.editar`) con la `version` que el dispositivo
+  tenia y la hora de la correccion (`editadaEn`: el plazo de una hora se mide contra ella,
+  no contra cuando llega). Una anotacion escrita sin conexion se puede corregir sin
+  conexion: `encolar()` encadena por si solo lo que es de la misma cosa, y la correccion
+  usa lo que respondio la creacion. Los diagramas viajan en la cola igual que el texto.
+- **Nunca se sobrescribe (ADR 0009).** Si al enviar la correccion el servidor dice que
+  otro dispositivo cambio la anotacion (`VERSION_DESACTUALIZADA`) o que ya paso su hora
+  (`EDICION_FUERA_DE_PLAZO`), lo escrito en este equipo se guarda como una **anotacion nueva
+  del mismo dia, marcada como copia** (`corregirUnaAnotacion` en `ejecutores.ts`). La
+  pantalla muestra «Copia» y de donde viene («...la anotacion de las 8:14 p. m. se habia
+  cambiado desde otro dispositivo y no quisimos pisarla»), lo avisa, y vuelve a leer para
+  ensenar las dos como estan. Si la hora ya paso al guardar, se hace de una vez.
+- **La respuesta perdida no hace una copia.** Si la correccion si se aplico y se perdio la
+  respuesta, el reintento choca consigo mismo; antes de hacer una copia se mira si el
+  servidor ya tiene exactamente lo que se queria escribir, y entonces no hay nada que
+  hacer.
+- **La marca de copia es de este equipo.** La API no tiene como marcar una copia, asi que
+  el dispositivo recuerda cuales son y de cual vienen (cifrado, en su almacen); en otro
+  dispositivo se ve como una anotacion mas. Se guarda al enviarse, no solo al abrir el
+  diario (`estado.ts`), porque lo enviado se conserva siete dias en la cola.
+- **El aviso de sincronizacion** tambien lo dice cuando una correccion se guardo como copia,
+  **haya esperado o no**: es lo unico del diario que la persona no espera encontrar. Lleva
+  al diario.
+
+### Pendientes y lecturas sin conexion (SCRUM-140)
+
+El semaforo se usa completo sin red, y el panel y el sendero se abren con lo ultimo que se
+supo. Lo que sigue **si necesita conexion** (SCRUM-142): cambiar la contrasena, el correo y
+la configuracion del perfil, y activar un modulo o completar la bienvenida.
+
+- **Anotar, cambiar y borrar pendientes.** Todo entra a la cola (`pendiente.crear`,
+  `pendiente.editar`, `pendiente.borrar`) y se ve **al instante**, tenga o no red
+  (`componerElSemaforo`, una funcion pura que pone lo de la cola encima de lo del
+  servidor). Cada uno dice en que punto esta, **sin depender solo del color**: «Guardado en
+  este equipo · se enviara cuando haya conexion», «Guardando…», «No se pudo enviar este
+  cambio» (con «Ver la lista» del panel de sincronizacion) o «Cambio en otro dispositivo».
+  Un pendiente anotado sin red se puede cambiar o borrar sin red: `encolar()` encadena por
+  entidad y la edicion usa lo que respondio la creacion. Borrar es idempotente.
+- **Leer.** El semaforo tiene copia local cifrada (`semaforoLocal.ts`), igual que el
+  diario, conciliada con lo que el servidor acepto despues de leer (`conciliarElSemaforo`):
+  un pendiente que ya salio no desaparece sin conexion, y uno borrado no reaparece.
+  **De la copia nunca sale un recordatorio**: lo decide el servidor con los dias de cada
+  color y la zona de la persona, y uno de hace horas puede ya no ser cierto.
+- **Nunca se sobrescribe (ADR 0009).** Si al enviar un cambio el servidor dice que otro
+  dispositivo cambio el mismo pendiente (`409 VERSION_DESACTUALIZADA`), el cambio queda
+  **detenido** y el semaforo muestra, lado a lado, «En el otro dispositivo» y «Tu cambio».
+  La persona elige: **«Quedarme con lo del otro dispositivo»** tira lo suyo, o **«Aplicar mi
+  cambio»** lo vuelve a mandar con la version que tiene el servidor ahora. Primero se
+  guarda lo nuevo y despues se tira lo viejo, asi que si algo falla no falta nada. Marcar
+  algo como hecho **no choca**: el servidor lo aplica aunque la version no coincida. Si el
+  pendiente se cambio varias veces sin red, el choque junta todo lo que quedo detras.
+- **El panel y el sendero con copia.** La cuenta y el progreso se leen y se guardan
+  **juntos** (`panelLocal.ts`). Sin red se ve la copia y la pantalla dice **de cuando es**
+  («Datos de hace 5 min. Se ponen al dia solo cuando haya conexion.»); en cuanto vuelve la
+  red se pregunta de nuevo. La zona horaria de la cuenta se vuelve a fijar desde la copia,
+  porque de ella depende que dia es hoy.
+- **Lo hecho hoy sin red sale como hecho.** El cliente no calcula el progreso por su
+  cuenta: lo que cuenta es la copia, y encima solo se pone lo que el servidor no puede
+  contradecir. Una actividad de **hoy** que esta en la cola (o que ya se envio) aparece
+  hecha, y si es lo primero del dia en ese modulo cuenta como una sesion mas, con la etapa
+  que le toca (`conLoQueEstaEnLaCola`). Una copia de otro dia no se toca.
+- **La precarga no da de alta la cuenta.** Leer por adelantado usa `GET /api/cuenta`;
+  `POST /api/cuenta` registra el consentimiento y solo lo hace una pantalla.
+
+### VSD IA sin conexion (SCRUM-141)
+
+VSD IA es un **asistente mixto**: sin conexion responde lo basico, y todo lo demas exige
+conexion y lo dice. **Nunca inventa una respuesta.** Con conexion no cambia nada.
+
+| Sin conexion, la persona escribe                   | Pasa                                                                      |
+| -------------------------------------------------- | ------------------------------------------------------------------------- |
+| Una expresion de riesgo                            | El mensaje de siempre y las lineas de su pais, **sin esperar la red**     |
+| «¿Donde busco ayuda?», «¿que lineas de ayuda hay?» | El mensaje y las lineas de su pais                                        |
+| Un saludo, un agradecimiento, una despedida        | Su respuesta (el saludo no invita a preguntar lo que sin red no se puede) |
+| Cualquier otra cosa                                | «Esto lo puedo responder cuando tengas conexion.», con «Reintentar»       |
+
+- **De donde sale lo que responde.** De **las mismas reglas que usa el servidor**: lo que
+  publica `GET /api/asistente/reglas-locales` (publica, con `ETag` y con la version de su
+  forma). **Esta aplicacion no lleva ninguna lista propia** de saludos, de expresiones de
+  riesgo ni de telefonos: `asistente/reglasLocales.ts` solo aplica el paquete, en el orden
+  del servidor (el riesgo primero y aparte, luego la charla si **el mensaje entero** lo es,
+  luego lo demas). Se guarda en el almacen de la persona (`reglasLocalesLocal.ts`, como el
+  catalogo), se precarga al entrar y se renueva al volver la red.
+- **Un paquete que no se entiende no se aplica.** Si el servidor publica otro `esquema`, o
+  lo guardado esta incompleto, se sigue con lo que valia, o con nada: nunca se aplica a medias
+  una regla que nadie reviso. Sin reglas guardadas (nunca se abrio con conexion) el asistente
+  se comporta como antes: dice que no pudo responder y deja a mano las lineas de respaldo.
+- **El pais sale de la zona horaria de la cuenta**, como en el servidor, y la zona se lee como
+  la lee IANA (`america/bogota`, `US/Eastern`). Quien esta en un lugar sin lineas verificadas
+  recibe el directorio internacional y **ningun telefono**: un numero de otro pais, ensenado
+  como si fuera suyo, es el peor error posible.
+- **Lo escrito sin conexion no se envia despues.** No entra a la cola de lo que se
+  sincroniza: se queda en la pantalla con su aviso, y la persona decide si lo reenvia
+  («Reintentar»). Al cerrar el asistente se olvida, como siempre.
+- **Cada respuesta dada asi lo dice** («Respondido sin conexion») y un aviso arriba explica que
+  sin conexion solo responde lo basico. Tambien se prueba lo mismo cuando el navegador dice
+  que hay red pero la peticion no llega, o tarda mas de 20 s; un error **del servidor**
+  (un 500, «vas muy rapido») se respeta tal cual.
+- **Una sola verdad, comprobada.** El algoritmo vive en dos repositorios; los datos, en uno.
+  Por eso `src/asistente/contrato/reglas-locales.json` es una **copia exacta** de
+  `docs/contratos/reglas-locales.json` del backend: el paquete que publica el servidor y lo que
+  tiene que responder el dispositivo a cada una de sus frases. `reglasLocales.spec.ts` prueba el
+  motor contra esa copia, y ademas contra cada expresion de riesgo, cada patron y cada zona del
+  paquete. **Si el backend cambia una regla, un texto o una linea, hay que copiar el archivo
+  nuevo y la prueba dice que respondia distinto.**
+
+### Lo que solo se puede con conexion, y la privacidad de lo guardado (SCRUM-142)
+
+Casi todo se guarda en el equipo y se envia despues. Lo siguiente **no**: lo decide el servidor
+en el momento, y guardarlo «para despues» seria decirle a la persona que ya paso algo que no ha
+pasado (HU_MF09_001, criterio 3).
+
+| Exige conexion                                                                                                 | Sin conexion                                                    |
+| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Cambiar el nombre, la foto, los modulos, la mascota, el diario con recomendaciones, los avisos y la contrasena | Se ve, **deshabilitado**, con «Necesitas conexion para esto.»   |
+| Entrar, registrarse, recuperar la contrasena y elegir una nueva                                                | Igual: formulario deshabilitado y la explicacion escrita arriba |
+| Descargar los datos y borrar la cuenta                                                                         | Igual                                                           |
+| Una sesion que ya estaba iniciada                                                                              | **Sigue funcionando**                                           |
+
+- **Como.** `componentes/ExigeConexion.tsx` envuelve el contenido en un `<fieldset disabled>`: el
+  navegador deshabilita por si solo todo lo de dentro (y lo dice a los lectores de pantalla), nada
+  se desmonta y **lo escrito no se pierde**; al volver la conexion se sigue donde se estaba. Los
+  apartados del perfil lo piden por omision (`Apartado`), y el del correo, que solo muestra algo,
+  no. La explicacion va escrita y se anuncia sola: un `title` no se ve en el movil.
+- **Cerrar sesion pregunta si hay cambios sin enviar.** Cerrar sesion olvida todo lo guardado en
+  este equipo, y eso incluye lo que todavia no llego al servidor. Si hay algo (lo que espera, lo
+  que se esta enviando, lo que la API rechazo y lo que choco con otro dispositivo; **no** lo ilegible),
+  sale «¿Salir ahora? Tienes N cambios guardados en este equipo que no se han enviado. Si sales
+  ahora, se perderan.» con **Esperar** (el foco entra aqui), **Enviarlos ahora** (solo con
+  conexion; si se envia todo, sale) y **Salir y perderlos**. No dice cuales son: puede estar a la
+  vista de otra persona. Sin nada pendiente sale de una vez.
+- **«Descartar» una anotacion del diario avisa y deja copiar el texto.** En el panel de lo
+  guardado, descartar una anotacion que la API rechazo borra lo que la persona escribio: ahora
+  dice que se borra y ofrece **«Copiar el texto»** antes. Se copia al portapapeles **sin
+  mostrarlo**: el panel nunca ensena lo escrito. Los diagramas no se copian y se avisa. Al pedir
+  la confirmacion, el foco va a **«No, conservarla»** (lo seguro; el boton que se pulso ya no
+  esta) y, al conservarla, vuelve al titulo del panel; la pregunta es un grupo con nombre.
+- **El perfil se abre sin conexion con la copia de la cuenta** que guardo el panel (`leerLaCuentaGuardada`,
+  `usePerfil`), diciendo de cuando es («Datos de hace…», `DatosDeHace`) y con todo deshabilitado. Se
+  usa la copia cuando **no se pudo llegar a la API** (sin red, o un servidor que no responde
+  bien, como Render despertando: la misma regla que `leerConCopia`); una respuesta de verdad, como
+  un 403 o un 401, **no se tapa**. Sin copia, el error sale como antes. Al volver la conexion
+  pregunta de nuevo, sin pasar por «Cargando» (la copia sigue a la vista), y el nombre y la
+  mascota se rehacen con lo que llega (`lectura` del estado: cambia al leer, no al guardar).
+- **La descarga de datos incluye lo que este equipo todavia no ha enviado** (`sinEnviarDesdeEsteEquipo`
+  en el archivo, solo si hay algo): sin eso no seria «todo lo que se guarda de ti».
+- **Borrar la cuenta borra tambien el almacen local** (la copia, la cola y la clave que las
+  cifraba), antes de cerrar sesion para que no dependa de que cerrarla salga bien. Si la API no
+  borra la cuenta, no se toca nada.
+- **Que queda en el navegador despues de salir** (la prueba esta en `ProveedorDeSesion.spec.tsx`):
+  - **IndexedDB:** nada de la persona. Se borran su base y su clave (`olvidarLosDatosDeLaSesionActual`),
+    y si entra otra persona se borra lo de las demas (`olvidarLosAjenos`).
+  - **Cache Storage:** nada de la persona. El service worker solo guarda la aplicacion y la
+    tipografia, y nunca una respuesta de la API (SCRUM-135).
+  - **`localStorage`:** solo **preferencias del dispositivo** que no dicen nada de nadie: el tema
+    (`vsd.tema`), donde dejo la mascota (`vsd-h:mascota-posicion`) y si ya vio la induccion del
+    semaforo (`vsd-h:semaforo-induccion-vista`). Lo que la mascota ya le dijo a la persona
+    (`vsd-h:mascota-frases`) **si se borra**, que antes se quedaba.
+- **Falta decidir el texto del aviso de tratamiento de datos.** Pide una version nueva que diga que
+  el equipo guarda una copia local y cifrada de actividades, diario y pendientes. El texto lo decide
+  el equipo, y subir la version vuelve a pedir el consentimiento a quien ya lo dio: no se hizo aqui.
 
 ---
 
@@ -301,9 +661,10 @@ docker run --rm -p 8080:8080 vsd-web
   compilar, no al ejecutar: para cambiar la direccion de la API hay que volver a
   construirla. Son valores publicos; nunca pasar un secreto como `--build-arg`.
 - `.env.local` no entra a la imagen (`.dockerignore` es una lista blanca).
-- Se sirve en el **8080**, sin privilegios. Todas las rutas devuelven la
-  aplicacion salvo los archivos que existen, como hace Vercel; `index.html` y
-  `sw.js` se validan en cada visita y los archivos con hash se guardan un ano.
+- Se sirve en el **8080**, sin privilegios. Las pantallas de la aplicacion y los
+  archivos que existen se sirven, como hace Vercel; **cualquier otra direccion es
+  un 404 de verdad** (ver «Los buscadores»). `index.html` y `sw.js` se validan en
+  cada visita y los archivos con hash se guardan un ano.
 - Que lo anterior sea cierto lo comprueba el CI (trabajo «Imagen de Docker»).
 
 ## Variables de entorno
@@ -315,9 +676,63 @@ este repositorio solo pueden existir valores publicos. Las credenciales
 de base de datos y la clave de rol de servicio de Supabase viven
 exclusivamente en `vsd-backend`.
 
+Dos de ellas deciden mas que un valor: `VITE_APP_ENV` define si los buscadores
+pueden indexar el sitio (solo con `production`), y `VITE_URL_PUBLICA` es el
+dominio publico, obligatorio con `production` para escribir el sitemap.
+
 El valor que toma cada variable en desarrollo, preproduccion y produccion
 esta documentado en
 [vsd-backend/docs/ambientes.md](https://github.com/diegoandresvillarrealcastillo-maker/vsd-backend/blob/desarrollo/docs/ambientes.md).
+
+---
+
+## CAPTCHA con Cloudflare Turnstile (SCRUM-165)
+
+Sin CAPTCHA, cualquiera puede automatizar altas, intentos de acceso y envios de
+correo de recuperacion, y el correo saliente tiene un tope diario. En el plan
+gratuito de Supabase hay una proteccion que si esta disponible: un CAPTCHA en
+registro, acceso y recuperacion de la contrasena. Cloudflare Turnstile es gratuito
+y casi nunca pide resolver nada.
+
+**Que hace el codigo.** Con `VITE_TURNSTILE_SITE_KEY` puesta, las pantallas de
+registro, acceso y recuperar muestran la verificacion (`src/captcha/`) y mandan el
+`captchaToken` a Supabase en `signUp`, `signInWithPassword` y
+`resetPasswordForEmail`. **Sin la variable no hay nada**: ni widget, ni descarga del
+script de Cloudflare, y todo funciona como antes.
+
+- Un envio antes de que Cloudflare termine no se hace; la pantalla dice que espera
+  (no se apaga el boton: un boton apagado sin explicacion deja sin saber por que a
+  quien usa un lector de pantalla).
+- **Cada token vale una vez.** Tras cada intento, salga bien o mal, se pide uno nuevo.
+- El widget solo se ve si Cloudflare necesita que la persona haga algo
+  (`interaction-only`); debajo siempre hay una linea de estado que un lector de
+  pantalla anuncia, y si falla, un boton para reintentar.
+- «Continuar con Google» no pasa por el CAPTCHA: Supabase no lo pide para OAuth.
+- La politica de seguridad (CSP) autoriza `https://challenges.cloudflare.com` en
+  `script-src`, `frame-src` y `connect-src`, igual en `vercel.json` y en nginx, y
+  `scripts/comprobar-las-cabeceras.mjs` falla la compilacion si falta alguno o si se
+  cuela otro dominio de fuera.
+
+**Quien hace que, y en que orden.** El orden importa: al reves, nadie puede entrar.
+
+1. **Diego** crea la cuenta gratuita de Cloudflare y el widget de Turnstile con los
+   dominios de cada ambiente. Obtiene la clave **del sitio** (publica) y la
+   **secreta**.
+2. La clave **del sitio** se pone como `VITE_TURNSTILE_SITE_KEY` en Vercel (PRE y,
+   cuando exista, PROD) y se **despliega**. Mientras Supabase no lo exija, el
+   widget se muestra y nada mas.
+3. **Samuel**, solo despues, activa el CAPTCHA en Supabase (_Authentication >
+   Attack Protection > Enable CAPTCHA protection_, proveedor _Turnstile_) y pega
+   ahi la clave **secreta**. Nunca va en este repositorio, ni en Vercel, ni en un
+   chat, ni en una captura.
+4. Se comprueba en ese ambiente: registrarse, entrar y pedir la recuperacion.
+
+**Para apagarlo**, el orden inverso: primero se desactiva en Supabase y despues se
+quita la variable de Vercel.
+
+**En local**, Cloudflare publica claves de prueba (`1x00000000000000000000AA` siempre
+pasa); con Supabase solo sirven si su panel tiene la clave secreta de prueba que les
+corresponde. Sin la variable, el desarrollo no cambia.
 
 ---
 

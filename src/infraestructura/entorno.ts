@@ -41,10 +41,76 @@ if (!esAmbiente(nombreDeAmbiente)) {
   );
 }
 
+/**
+ * Una clave de sitio de Cloudflare Turnstile tiene un `0`, `1`, `2` o `3`, una `x`
+ * y entre 16 y 40 caracteres: las de verdad empiezan por `0x4` y las de prueba
+ * de Cloudflare por `1x`, `2x` y `3x`.
+ */
+const FORMA_DE_LA_CLAVE_DE_TURNSTILE = /^[0-3]x[A-Za-z0-9_-]{16,40}$/;
+
+/**
+ * La clave **del sitio** de Turnstile (SCRUM-165), o `null` si no hay CAPTCHA.
+ *
+ * Es publica por diseno: viaja al navegador en cada pagina con CAPTCHA. La clave
+ * **secreta** es otra, vive solo en el panel de Supabase y nunca llega aqui.
+ *
+ * Una clave con mala forma se trata como si no hubiera y avisa en la consola. Es
+ * preferible no mostrar el CAPTCHA a mostrar un widget que Cloudflare va a
+ * rechazar, dejando a nadie pasar. Pero hay que saberlo: por eso avisa.
+ */
+export function leerLaClaveDeTurnstile(valor: string | undefined): string | null {
+  const limpia = valor?.trim() ?? '';
+
+  if (limpia === '') {
+    return null;
+  }
+
+  if (!FORMA_DE_LA_CLAVE_DE_TURNSTILE.test(limpia)) {
+    console.warn(
+      'VITE_TURNSTILE_SITE_KEY no tiene la forma de una clave de sitio de Cloudflare Turnstile: el CAPTCHA queda apagado.',
+    );
+
+    return null;
+  }
+
+  return limpia;
+}
+
+/**
+ * El identificador de medicion de Google Analytics 4, o `null` si no hay.
+ *
+ * Con `null` la aplicacion no mide nada y tampoco muestra el banner: no se pide
+ * permiso para algo que no se hace. Un valor que no tiene la forma de un
+ * identificador (`G-` y de seis a doce letras o numeros) se trata igual que su
+ * ausencia, y avisa en la consola: es mejor no medir que mandar visitas a un
+ * identificador escrito a medias, o abrir la puerta a que otra cosa se cuele en la
+ * direccion del script que se descarga.
+ */
+export function leerElIdentificadorDeAnalitica(valor: string | undefined): string | null {
+  const limpio = valor?.trim() ?? '';
+
+  if (limpio === '') {
+    return null;
+  }
+
+  if (!/^G-[A-Z0-9]{6,12}$/.test(limpio)) {
+    console.warn('VITE_GA_ID no tiene la forma G-XXXXXXXXXX: la analitica queda apagada.');
+
+    return null;
+  }
+
+  return limpio;
+}
+
 export const entorno = {
   nombre: nombreDeAmbiente,
   esDesarrollo: nombreDeAmbiente === 'development',
   esProduccion: nombreDeAmbiente === 'production',
+
+  /** La analitica (SCRUM-161). Apagada mientras no haya identificador de medicion. */
+  analitica: {
+    idDeMedicion: leerElIdentificadorDeAnalitica(import.meta.env.VITE_GA_ID),
+  },
 
   /**
    * Si se ofrece entrar con Google.
@@ -62,6 +128,18 @@ export const entorno = {
    * aparece sin tocar una linea de codigo.
    */
   conGoogle: import.meta.env.VITE_PROVEEDOR_GOOGLE?.trim() === 'si',
+
+  /**
+   * El CAPTCHA de registro, acceso y recuperacion (SCRUM-165).
+   *
+   * Sin clave del sitio **no hay CAPTCHA**: las tres pantallas funcionan como
+   * antes. Es lo que permite desplegar este codigo **antes** de activar el
+   * CAPTCHA en Supabase, que es el orden obligatorio: al reves, nadie podria
+   * entrar, porque Supabase exigiria un token que el navegador no sabe pedir.
+   */
+  captcha: {
+    claveDelSitio: leerLaClaveDeTurnstile(import.meta.env.VITE_TURNSTILE_SITE_KEY),
+  },
 
   /** URL base de la API. Sin barra final, para poder concatenar sin dudar. */
   urlDeLaApi: (import.meta.env.VITE_API_BASE_URL?.trim() || 'http://localhost:3000').replace(

@@ -1,7 +1,10 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 
+import { alPulsarElFondo } from '../componentes/alPulsarElFondo.ts';
+import { AvisoOrientativo } from '../componentes/AvisoOrientativo.tsx';
 import { useDialogo } from '../componentes/useDialogo.ts';
+import { useEnLinea } from '../conexion/useEnLinea.ts';
 import '../estilos/actividad.css';
 import '../estilos/asistente.css';
 import {
@@ -15,9 +18,12 @@ import {
   esZonaDeColombia,
   lineasDeRespaldo,
 } from '../paginas/actividad/lineasParaMostrar.ts';
+import type { ReglasLocales } from '../infraestructura/api/reglasLocales.ts';
 import { zonaActual } from '../tiempo/zonaHoraria.ts';
 import type { Marco } from './marco.ts';
+import { lineasDeLaZona } from './reglasLocales.ts';
 import { useConversacion, type Mensaje, type MotivoDelFallo } from './useConversacion.ts';
+import { useReglasLocales } from './useReglasLocales.ts';
 
 /**
  * VSD IA, el asistente que se abre desde la mascota (SCRUM-100).
@@ -33,6 +39,10 @@ import { useConversacion, type Mensaje, type MotivoDelFallo } from './useConvers
  *   lineas nacionales.
  * - Se abre a la vez que la mascota vuela a su esquina. Con
  *   `prefers-reduced-motion`, aparece sin desplazarse.
+ * - **Sin conexion es un asistente mixto** (SCRUM-141): responde un saludo, un
+ *   agradecimiento, una despedida, donde buscar ayuda y las lineas de atencion si hay una
+ *   senal de riesgo, con lo que el servidor publico y este dispositivo guardo. Lo demas
+ *   exige conexion y lo dice. Cada respuesta dada asi lo dice tambien.
  */
 
 /** Para empezar: una por cada cosa que el asistente sabe responder. */
@@ -44,10 +54,16 @@ const SUGERENCIAS = [
 
 const TEXTO_DEL_FALLO: Readonly<Record<MotivoDelFallo, string>> = {
   'sin-conexion': 'No tienes conexión, así que no pude responderte.',
+  // Hay con que responder lo basico, pero esto no es basico (SCRUM-141).
+  'exige-conexion': 'Esto lo puedo responder cuando tengas conexión.',
   tarda: 'Estoy tardando más de la cuenta en responder.',
   muchas: 'Vas más rápido de lo que puedo responder. Espera un momento.',
   otro: 'Algo falló y no pude responderte.',
 };
+
+/** Lo que se dice arriba mientras no hay conexion y hay con que responder lo basico. */
+const AVISO_SIN_CONEXION =
+  'Sin conexión. Puedo saludarte y decirte dónde buscar ayuda; lo demás lo respondo cuando vuelvas a tener conexión.';
 
 export function Asistente({
   marco,
@@ -67,7 +83,9 @@ export function Asistente({
   const idDelTitulo = useId();
   const idDelCampo = useId();
   const [texto, setTexto] = useState('');
-  const { mensajes, esperando, enviar } = useConversacion();
+  const reglas = useReglasLocales();
+  const enLinea = useEnLinea();
+  const { mensajes, esperando, enviar } = useConversacion(reglas, nombreDeLaMascota);
 
   // Lo ultimo siempre a la vista.
   useEffect(() => {
@@ -98,13 +116,10 @@ export function Asistente({
   } as CSSProperties;
 
   return (
-    <div className="asistente-velo" onClick={alCerrar}>
-      {/* El marco lo pone en su sitio; dentro, lo que se anima. */}
-      <div
-        className="asistente-marco"
-        style={estilo}
-        onClick={(evento) => evento.stopPropagation()}
-      >
+    <div className="asistente-velo" role="presentation" onClick={alPulsarElFondo(alCerrar)}>
+      {/* El marco lo pone en su sitio; dentro, lo que se anima. Pulsar en el
+          marco, que no es el fondo, no cierra. */}
+      <div className="asistente-marco" style={estilo}>
         <motion.div
           ref={caja}
           role="dialog"
@@ -125,6 +140,9 @@ export function Asistente({
                 VSD IA
               </h2>
               <p className="asistente__subtitulo">Con {nombreDeLaMascota}</p>
+              {/* En la cabecera y no en cada respuesta: se ve desde que se abre,
+                  antes de preguntar nada (L-03 de la auditoria 360). */}
+              <AvisoOrientativo />
             </div>
             <button
               type="button"
@@ -137,6 +155,12 @@ export function Asistente({
           </header>
 
           <div className="asistente__conversacion">
+            {!enLinea && reglas !== null && (
+              <p className="asistente__sin-conexion" role="status">
+                {AVISO_SIN_CONEXION}
+              </p>
+            )}
+
             <p className="asistente__nota">
               Pregúntame por tu descanso, por lo que significa un resultado o por dónde buscar
               ayuda. Lo que escribas aquí no se guarda.
@@ -158,21 +182,26 @@ export function Asistente({
               </ul>
             )}
 
-            {/* Un registro: lo nuevo se anuncia sin interrumpir. */}
-            <ol className="asistente__mensajes" role="log" aria-label="Conversación">
-              {mensajes.map((mensaje) => (
-                <li
-                  key={mensaje.id}
-                  className={`asistente__mensaje asistente__mensaje--${mensaje.de}`}
-                >
-                  <ContenidoDelMensaje
-                    mensaje={mensaje}
-                    esperando={esperando}
-                    alReintentar={(pregunta) => void enviar(pregunta, { reintento: true })}
-                  />
-                </li>
-              ))}
-            </ol>
+            {/* Un registro: lo nuevo se anuncia sin interrumpir. El rol va en un
+                contenedor y no en la propia lista (C-03 de la auditoria 360): un
+                `<ol role="log">` deja de ser una lista, y sus `<li>` quedan sueltos. */}
+            <div role="log" aria-label="Conversación">
+              <ol className="asistente__mensajes">
+                {mensajes.map((mensaje) => (
+                  <li
+                    key={mensaje.id}
+                    className={`asistente__mensaje asistente__mensaje--${mensaje.de}`}
+                  >
+                    <ContenidoDelMensaje
+                      mensaje={mensaje}
+                      reglas={reglas}
+                      esperando={esperando}
+                      alReintentar={(pregunta) => void enviar(pregunta, { reintento: true })}
+                    />
+                  </li>
+                ))}
+              </ol>
+            </div>
 
             {esperando && (
               <p className="asistente__esperando" role="status">
@@ -221,10 +250,12 @@ export function Asistente({
 
 function ContenidoDelMensaje({
   mensaje,
+  reglas,
   esperando,
   alReintentar,
 }: {
   mensaje: Mensaje;
+  reglas: ReglasLocales | null;
   esperando: boolean;
   alReintentar: (pregunta: string) => void;
 }) {
@@ -237,7 +268,7 @@ function ContenidoDelMensaje({
         </p>
       );
     case 'asistente':
-      return <Respuesta respuesta={mensaje.respuesta} />;
+      return <Respuesta respuesta={mensaje.respuesta} sinConexion={mensaje.sinConexion} />;
     case 'fallo':
       return (
         <div className="asistente__fallo" role="alert">
@@ -251,7 +282,7 @@ function ContenidoDelMensaje({
             Reintentar
           </button>
           <p className="asistente__respaldo">
-            <RespaldoDelFallo />
+            <RespaldoDelFallo reglas={reglas} />
           </p>
         </div>
       );
@@ -262,12 +293,33 @@ function ContenidoDelMensaje({
  * Los telefonos a mano cuando no se pudo responder (SCRUM-124).
  *
  * Como no se sabe que habria respondido el servidor, quedan a mano los de
- * respaldo. Solo hay telefonos para quien esta en Colombia: a cualquier otra
+ * respaldo: las lineas del pais de la persona que el servidor publico y este
+ * dispositivo guardo (SCRUM-141) o, si no hay nada guardado, las de Colombia. Solo hay
+ * telefonos para quien esta en un pais con lineas verificadas: a cualquier otra
  * persona se le manda al directorio, porque un numero de otro pais ensenado
  * como suyo es el peor error posible.
  */
-function RespaldoDelFallo() {
+function RespaldoDelFallo({ reglas }: { reglas: ReglasLocales | null }) {
   const zona = zonaActual();
+
+  // Con las lineas que el servidor publico (SCRUM-141), las del pais de la persona: las
+  // mismas que ve con conexion. Solo las que atienden en todo el pais, que son las que
+  // sirven a quien no sabe de que ciudad es cada una.
+  const delPais =
+    reglas === null
+      ? []
+      : lineasDeLaZona(reglas, zona).filter(
+          (linea) => linea.tipo === 'contacto' && linea.cobertura === 'nacional',
+        );
+
+  if (delPais.length > 0) {
+    return (
+      <>
+        Si necesitas hablar con alguien ahora, estas líneas atienden por teléfono en todo el país:{' '}
+        {delPais.map((linea) => linea.titulo).join(' · ')}.
+      </>
+    );
+  }
 
   if (esZonaDeColombia(zona)) {
     return (
@@ -299,7 +351,13 @@ function RespaldoDelFallo() {
 }
 
 /** Lo que respondio el asistente, con sus recursos. */
-function Respuesta({ respuesta }: { respuesta: RespuestaDelAsistente }) {
+function Respuesta({
+  respuesta,
+  sinConexion,
+}: {
+  respuesta: RespuestaDelAsistente;
+  sinConexion: boolean;
+}) {
   const contactos = respuesta.recursos.filter((recurso) => recurso.tipo === 'contacto');
   const otros = respuesta.recursos.filter((recurso) => recurso.tipo !== 'contacto');
 
@@ -317,6 +375,9 @@ function Respuesta({ respuesta }: { respuesta: RespuestaDelAsistente }) {
       )}
 
       {otros.length > 0 && <Recursos recursos={otros} />}
+
+      {/* Lo respondio este dispositivo con lo que tenia guardado: se dice, no se disfraza. */}
+      {sinConexion && <p className="asistente__origen">Respondido sin conexión</p>}
     </div>
   );
 }

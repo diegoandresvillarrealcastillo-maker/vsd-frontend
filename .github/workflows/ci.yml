@@ -187,12 +187,23 @@ jobs:
           codigo() { curl --silent --output /dev/null --write-out '%{http_code}' "$@"; }
           cabecera() { curl --silent --show-error --fail --head "$@"; }
 
+          # `grep -q` sale en cuanto encuentra la primera coincidencia. Si `curl`
+          # todavia esta escribiendo, recibe un error de escritura (codigo 23) o
+          # SIGPIPE, y con `pipefail` el paso falla de forma intermitente aunque
+          # la comprobacion se cumpla. Por eso, donde se usa `grep -q`, la salida
+          # de `curl` se guarda antes en una variable y `grep` la lee con `<<<`,
+          # sin tuberia de por medio: `echo "$x" | grep -q` falla igual cuando el
+          # texto pasa del bufer de la tuberia (64 KB). Los `grep` sin `-q` leen
+          # todo y no tienen este problema.
+
           echo "La raiz es la aplicacion"
-          curl --silent --show-error --fail "$base/" | grep -q 'id="raiz"'
+          pagina="$(curl --silent --show-error --fail "$base/")"
+          grep -q 'id="raiz"' <<<"$pagina"
 
           echo "Una ruta interna devuelve la aplicacion, no un 404 (recargar /panel)"
           test "$(codigo "$base/panel")" = "200"
-          curl --silent --show-error --fail "$base/panel" | grep -q 'id="raiz"'
+          pagina="$(curl --silent --show-error --fail "$base/panel")"
+          grep -q 'id="raiz"' <<<"$pagina"
 
           echo "Un archivo de la compilacion que no existe es un 404 de verdad"
           test "$(codigo "$base/assets/no-existe.js")" = "404"
@@ -219,11 +230,75 @@ jobs:
           cabecera "$base$js" | grep -i '^cache-control:.*immutable'
           curl --silent --show-error --fail --head -H 'Accept-Encoding: gzip' "$base$js" | grep -i '^content-encoding: gzip'
 
+          # Las cabeceras de seguridad (S-05 de la auditoria 360) tienen que salir en
+          # TODO, no solo en la portada: un `location` de nginx que declara sus
+          # propias cabeceras borra las del nivel de arriba, y es justo lo que pasa
+          # sin que nadie lo note con `index.html`, `sw.js` o los archivos con hash.
+          # Tambien en los errores: de ahi el 404.
+          echo "Las cabeceras de seguridad salen en toda respuesta"
+          for ruta in "/" "/panel" "/index.html" "/sw.js" "/manifest.webmanifest" "$js" "/assets/no-existe.js"; do
+            encabezados="$(curl --silent --show-error --head "$base$ruta")"
+            for esperada in \
+              'x-content-type-options: nosniff' \
+              'x-frame-options: DENY' \
+              'referrer-policy: strict-origin-when-cross-origin' \
+              'permissions-policy: ' \
+              'content-security-policy-report-only: '; do
+              if ! echo "$encabezados" | grep -qi "^${esperada}"; then
+                echo "::error::${ruta} no trae '${esperada}'"
+                exit 1
+              fi
+            done
+          done
+
+          echo "La politica de contenido no deja encuadrar la aplicacion ni cargar letras de Google"
+          politica="$(cabecera "$base/" | grep -i '^content-security-policy-report-only:')"
+          echo "$politica" | grep -q "frame-ancestors 'none'"
+          echo "$politica" | grep -q "object-src 'none'"
+          if echo "$politica" | grep -qi 'fonts\.\(googleapis\|gstatic\)\.com'; then
+            echo "::error::La politica vuelve a nombrar Google Fonts."
+            exit 1
+          fi
+
           echo "No dice que version de nginx es"
           if cabecera "$base/" | grep -i '^server: .*[0-9]'; then
             echo "::error::La cabecera Server revela la version."
             exit 1
           fi
+
+          # Lo que ven los buscadores (SEO-02 de la auditoria 360). Aqui la imagen se
+          # compila sin VITE_APP_ENV, es decir como desarrollo: todo cerrado.
+          echo "Cada pantalla de la aplicacion carga, con y sin barra final"
+          for ruta in /acceso /registro /recuperar /contrasena-nueva /privacidad /terminos /cookies \
+            /panel /perfil /diario /modulo/emociones /actividad/abc-123 /panel/; do
+            test "$(codigo "$base$ruta")" = "200" || { echo "::error::${ruta} no devolvio 200"; exit 1; }
+            pagina="$(curl --silent --show-error --fail "$base$ruta")"
+            grep -q 'id="raiz"' <<<"$pagina"
+          done
+
+          echo "Una direccion inventada es un 404 de verdad, con su pagina y sin indexar"
+          for ruta in /no-existe /aceso /panel/otro /modulo /wp-login.php /.env; do
+            test "$(codigo "$base$ruta")" = "404" || { echo "::error::${ruta} no devolvio 404"; exit 1; }
+          done
+          pagina="$(curl --silent "$base/no-existe")"
+          echo "$pagina" | grep -q 'No encontramos esta página'
+          echo "$pagina" | grep -q 'name="robots" content="noindex'
+          if echo "$pagina" | grep -q 'id="raiz"'; then
+            echo "::error::El 404 devuelve la aplicacion en lugar de su propia pagina."
+            exit 1
+          fi
+
+          echo "Fuera de produccion todo esta cerrado a los buscadores: etiqueta, cabecera y robots.txt"
+          pagina="$(curl --silent --show-error --fail "$base/")"
+          grep -q 'name="robots" content="noindex' <<<"$pagina"
+          encabezados="$(cabecera "$base/")"
+          grep -qi '^x-robots-tag: noindex' <<<"$encabezados"
+          encabezados="$(curl --silent --head "$base/no-existe")"
+          grep -qi '^x-robots-tag: noindex' <<<"$encabezados"
+          test "$(curl --silent --show-error --fail "$base/robots.txt")" = "$(printf 'User-agent: *\nDisallow: /')"
+          cabecera "$base/robots.txt" | grep -i '^content-type: text/plain'
+          test "$(codigo "$base/sitemap.xml")" = "404"
+          test "$(codigo "$base/llms.txt")" = "200"
 
       - name: Revisar la imagen por dentro
         run: |

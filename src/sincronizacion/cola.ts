@@ -242,6 +242,42 @@ function estaBloqueada(
   );
 }
 
+/**
+ * Las operaciones que dependen de `operationId`, directa o indirectamente.
+ *
+ * Sirve para descartar: si se tira una que fallo, las que esperaban su resultado
+ * (editar algo que nunca se creo) no tienen a que aplicarse y quedarian detenidas
+ * para siempre. No incluye a la propia `operationId`.
+ */
+export function dependientesDe(
+  operaciones: readonly Operacion[],
+  operationId: string,
+): readonly Operacion[] {
+  const dependientes: Operacion[] = [];
+  const vistas = new Set<string>([operationId]);
+  let pendientes = [operationId];
+
+  while (pendientes.length > 0) {
+    const siguientes: string[] = [];
+
+    for (const operacion of operaciones) {
+      if (
+        operacion.dependeDe !== null &&
+        pendientes.includes(operacion.dependeDe) &&
+        !vistas.has(operacion.operationId)
+      ) {
+        vistas.add(operacion.operationId);
+        dependientes.push(operacion);
+        siguientes.push(operacion.operationId);
+      }
+    }
+
+    pendientes = siguientes;
+  }
+
+  return dependientes;
+}
+
 /** La ultima operacion de una cosa que sigue sin terminar, o `undefined`. */
 export function ultimaPendienteDe(
   operaciones: readonly Operacion[],

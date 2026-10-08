@@ -1,0 +1,969 @@
+{
+  "paquete": {
+    "esquema": 1,
+    "riesgo": {
+      "expresiones": [
+        "quiero morir",
+        "quiero morirme",
+        "me quiero morir",
+        "quiero matarme",
+        "me quiero matar",
+        "voy a matarme",
+        "matarme",
+        "suicidarme",
+        "suicidio",
+        "quitarme la vida",
+        "acabar con todo",
+        "no quiero seguir viviendo",
+        "no quiero vivir",
+        "no vale la pena vivir",
+        "estaria mejor muerto",
+        "estaria mejor muerta",
+        "seria mejor no estar",
+        "hacerme dano",
+        "lastimarme",
+        "cortarme",
+        "nadie me va a extranar",
+        "ya no puedo mas",
+        "no aguanto mas"
+      ],
+      "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas."
+    },
+    "charla": {
+      "reglas": [
+        {
+          "intencion": "que_puedes_hacer",
+          "patrones": [
+            "que puedes hacer",
+            "que sabes hacer",
+            "que sabes",
+            "que haces",
+            "para que sirves",
+            "quien eres",
+            "que eres",
+            "como te llamas",
+            "como funcionas",
+            "que es vsd ia",
+            "en que me puedes ayudar",
+            "en que puedes ayudarme",
+            "en que me ayudas",
+            "como me puedes ayudar",
+            "que puedo preguntarte",
+            "que puedo preguntar"
+          ],
+          "mensaje": null,
+          "variantes": []
+        },
+        {
+          "intencion": "como_estas",
+          "patrones": [
+            "como estas",
+            "como te va",
+            "como vas",
+            "como andas",
+            "como te encuentras",
+            "como te sientes",
+            "como amaneciste",
+            "que tal"
+          ],
+          "mensaje": null,
+          "variantes": []
+        },
+        {
+          "intencion": "despedida",
+          "patrones": [
+            "adios",
+            "chao",
+            "chau",
+            "bye",
+            "hasta luego",
+            "hasta manana",
+            "hasta pronto",
+            "hasta la proxima",
+            "nos vemos",
+            "nos hablamos",
+            "me despido",
+            "cuidate",
+            "buenas noches",
+            "que descanses",
+            "que duermas bien",
+            "me voy a dormir",
+            "voy a dormir"
+          ],
+          "mensaje": "Hasta pronto. Aquí estaré cuando quieras volver.",
+          "variantes": [
+            {
+              "patrones": [
+                "buenas noches"
+              ],
+              "mensaje": "¡Buenas noches! Aquí estoy si quieres preguntarme algo. Y si ya vas a descansar, que sea una noche tranquila."
+            }
+          ]
+        },
+        {
+          "intencion": "agradecimiento",
+          "patrones": [
+            "gracias*",
+            "agradezco",
+            "agradecid*",
+            "muy amable",
+            "thanks",
+            "thx",
+            "dar las gracias",
+            "darte las gracias"
+          ],
+          "mensaje": "¡Con gusto! Si te surge otra duda, aquí estoy.",
+          "variantes": []
+        },
+        {
+          "intencion": "saludo",
+          "patrones": [
+            "hola",
+            "holi",
+            "holis",
+            "hey",
+            "ey",
+            "hello",
+            "hi",
+            "buenas",
+            "buenos dias",
+            "buen dia",
+            "buenas tardes",
+            "saludo*",
+            "saludar*"
+          ],
+          "mensaje": "¡Hola! Qué bueno tenerte por aquí. Sin conexión puedo saludarte y decirte dónde buscar ayuda; lo demás te lo respondo cuando vuelvas a tener conexión.",
+          "variantes": []
+        }
+      ],
+      "relleno": [
+        "vsd",
+        "ia",
+        "mil",
+        "muy",
+        "muchas",
+        "mucho",
+        "tambien",
+        "igualmente",
+        "amigo",
+        "amiga",
+        "por",
+        "favor",
+        "hoy",
+        "otra",
+        "vez",
+        "de",
+        "nuevo",
+        "ok",
+        "okay",
+        "vale",
+        "listo",
+        "perfecto",
+        "genial",
+        "super",
+        "excelente",
+        "bueno",
+        "entendido",
+        "claro",
+        "solo",
+        "queria",
+        "pasaba",
+        "a",
+        "te",
+        "lo",
+        "un",
+        "ahi"
+      ]
+    },
+    "intenciones": [
+      {
+        "intencion": "donde_busco_ayuda",
+        "patrones": [
+          "ayud*",
+          "psicolog*",
+          "profesional*",
+          "terapia*",
+          "con quien hablo",
+          "donde acudo"
+        ],
+        "mensaje": "Pedir ayuda es una buena decisión. Estos son lugares donde te van a escuchar.",
+        "conLineas": true
+      },
+      {
+        "intencion": "como_duermo_mejor",
+        "patrones": [
+          "dormir*",
+          "duerm*",
+          "sueno",
+          "descans*",
+          "insomnio",
+          "trasnoch*"
+        ],
+        "mensaje": null,
+        "conLineas": false
+      },
+      {
+        "intencion": "que_significa_mi_resultado",
+        "patrones": [
+          "resultado*",
+          "nivel*",
+          "puntaje*",
+          "signific*",
+          "que saque",
+          "como me fue"
+        ],
+        "mensaje": null,
+        "conLineas": false
+      },
+      {
+        "intencion": "me_siento_mal",
+        "patrones": [
+          "me siento",
+          "triste*",
+          "mal",
+          "mala",
+          "malo",
+          "animo*",
+          "desanim*",
+          "llorar*",
+          "vacio*",
+          "cansad*",
+          "estoy solo",
+          "estoy sola",
+          "muy solo",
+          "muy sola",
+          "siempre solo",
+          "siempre sola"
+        ],
+        "mensaje": null,
+        "conLineas": false
+      }
+    ],
+    "paises": {
+      "CO": {
+        "zonas": [
+          "America/Bogota"
+        ],
+        "lineas": [
+          {
+            "id": "0192c0de-0000-4000-8000-000000000192",
+            "titulo": "Línea 192, opción 4",
+            "descripcion": "Orientación en salud mental del Ministerio de Salud. Funciona en todo el país: se marca 192 y se elige la opción 4. Atiende un equipo de profesionales.",
+            "tipo": "contacto",
+            "cobertura": "nacional",
+            "enlace": "https://www.minsalud.gov.co"
+          },
+          {
+            "id": "0123c0de-0000-4000-8000-000000000123",
+            "titulo": "Línea 123",
+            "descripcion": "Línea única de emergencias, en todo el país. Es la que hay que marcar si hay riesgo inmediato para la vida de alguien.",
+            "tipo": "contacto",
+            "cobertura": "nacional"
+          },
+          {
+            "id": "0106c0de-0000-4000-8000-000000000106",
+            "titulo": "Línea 106, el poder de ser escuchado",
+            "descripcion": "Apoyo psicológico gratuito de la Secretaría Distrital de Salud, las 24 horas, todos los días del año. Se marca 106 desde Bogotá; también responde por WhatsApp al 300 754 8933 y en linea106@saludcapital.gov.co.",
+            "tipo": "contacto",
+            "cobertura": "bogota",
+            "enlace": "https://www.saludcapital.gov.co"
+          }
+        ]
+      },
+      "MX": {
+        "zonas": [
+          "America/Bahia_Banderas",
+          "America/Cancun",
+          "America/Chihuahua",
+          "America/Ciudad_Juarez",
+          "America/Hermosillo",
+          "America/Matamoros",
+          "America/Mazatlan",
+          "America/Merida",
+          "America/Mexico_City",
+          "America/Monterrey",
+          "America/Ojinaga",
+          "America/Tijuana"
+        ],
+        "lineas": [
+          {
+            "id": "8009c0de-0000-4000-8000-000000911200",
+            "titulo": "Línea de la Vida, 800 911 2000",
+            "descripcion": "Orientación gratuita en salud mental de la Secretaría de Salud, las 24 horas, todos los días del año. Se marca 800 911 2000.",
+            "tipo": "contacto",
+            "cobertura": "nacional",
+            "enlace": "https://www.gob.mx/lineadelavida"
+          },
+          {
+            "id": "0911c0de-0000-4000-8000-000000000911",
+            "titulo": "Línea 911",
+            "descripcion": "Línea única de emergencias, en todo el país, las 24 horas, todos los días del año. Es la que hay que marcar si hay riesgo inmediato para la vida de alguien.",
+            "tipo": "contacto",
+            "cobertura": "nacional"
+          }
+        ]
+      },
+      "ES": {
+        "zonas": [
+          "Africa/Ceuta",
+          "Atlantic/Canary",
+          "Europe/Madrid"
+        ],
+        "lineas": [
+          {
+            "id": "0024c0de-0000-4000-8000-000000000024",
+            "titulo": "Línea 024, llama a la vida",
+            "descripcion": "Línea del Ministerio de Sanidad: gratuita, confidencial y las 24 horas, todos los días del año. Escucha a quien lo está pasando mal y también a su familia y sus allegados. Se marca 024.",
+            "tipo": "contacto",
+            "cobertura": "nacional",
+            "enlace": "https://www.sanidad.gob.es/linea024/home.htm"
+          },
+          {
+            "id": "0112c0de-0000-4000-8000-000000000112",
+            "titulo": "Línea 112",
+            "descripcion": "Teléfono de emergencias. Es el que hay que marcar si hay riesgo inmediato para la vida de alguien.",
+            "tipo": "contacto",
+            "cobertura": "nacional"
+          }
+        ]
+      },
+      "US": {
+        "zonas": [
+          "America/Adak",
+          "America/Anchorage",
+          "America/Boise",
+          "America/Chicago",
+          "America/Denver",
+          "America/Detroit",
+          "America/Indiana/Knox",
+          "America/Indiana/Marengo",
+          "America/Indiana/Petersburg",
+          "America/Indiana/Tell_City",
+          "America/Indiana/Vevay",
+          "America/Indiana/Vincennes",
+          "America/Indiana/Winamac",
+          "America/Indianapolis",
+          "America/Juneau",
+          "America/Kentucky/Monticello",
+          "America/Los_Angeles",
+          "America/Louisville",
+          "America/Menominee",
+          "America/Metlakatla",
+          "America/New_York",
+          "America/Nome",
+          "America/North_Dakota/Beulah",
+          "America/North_Dakota/Center",
+          "America/North_Dakota/New_Salem",
+          "America/Phoenix",
+          "America/Sitka",
+          "America/Yakutat",
+          "Pacific/Honolulu",
+          "America/Indiana/Indianapolis",
+          "America/Kentucky/Louisville"
+        ],
+        "lineas": [
+          {
+            "id": "0988c0de-0000-4000-8000-000000000988",
+            "titulo": "Línea 988",
+            "descripcion": "Apoyo gratuito y confidencial por llamada, mensaje de texto o chat, las 24 horas, todos los días del año. Para hablar en español, marca 988 y presiona 2, o envía AYUDA por mensaje de texto al 988.",
+            "tipo": "contacto",
+            "cobertura": "nacional",
+            "enlace": "https://988lifeline.org/get-help/"
+          },
+          {
+            "id": "1911c0de-0000-4000-8000-000000000911",
+            "titulo": "Línea 911",
+            "descripcion": "Número de emergencias, las 24 horas. Es el que hay que marcar si hay riesgo inmediato para la vida de alguien.",
+            "tipo": "contacto",
+            "cobertura": "nacional"
+          }
+        ]
+      }
+    },
+    "internacional": [
+      {
+        "id": "0ffec0de-0000-4000-8000-00000000f1de",
+        "titulo": "Directorio internacional de líneas de ayuda",
+        "descripcion": "Todavía no tenemos verificadas las líneas del lugar donde estás, y preferimos no darte un número que podría no ser el tuyo. Este directorio, que recomienda la Asociación Internacional para la Prevención del Suicidio, reúne líneas gratuitas de muchos países, por teléfono, chat o mensaje. Si hay riesgo inmediato para la vida de alguien, llama al número de emergencias del lugar donde estás.",
+        "tipo": "contacto",
+        "cobertura": "internacional",
+        "enlace": "https://findahelpline.com/"
+      }
+    ]
+  },
+  "casos": [
+    {
+      "texto": "me siento muy mal, quiero hacerme daño",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "me siento muy mal, quiero hacerme daño",
+      "zona": "Europe/Madrid",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0024c0de-0000-4000-8000-000000000024",
+          "0112c0de-0000-4000-8000-000000000112"
+        ]
+      }
+    },
+    {
+      "texto": "me siento muy mal, quiero hacerme daño",
+      "zona": "Asia/Tokyo",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0ffec0de-0000-4000-8000-00000000f1de"
+        ]
+      }
+    },
+    {
+      "texto": "QUIERO MORIRME",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "ya no puedo más",
+      "zona": "America/Mexico_City",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "8009c0de-0000-4000-8000-000000911200",
+          "0911c0de-0000-4000-8000-000000000911"
+        ]
+      }
+    },
+    {
+      "texto": "a veces pienso en suicidarme",
+      "zona": "America/New_York",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0988c0de-0000-4000-8000-000000000988",
+          "1911c0de-0000-4000-8000-000000000911"
+        ]
+      }
+    },
+    {
+      "texto": "no quiero morirme",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "hola, quiero matarme",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "buenas noches, no aguanto mas",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "quiero morirme",
+      "zona": "Narnia/Cair_Paravel",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0ffec0de-0000-4000-8000-00000000f1de"
+        ]
+      }
+    },
+    {
+      "texto": "quiero morirme",
+      "zona": "america/bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "quiero morirme",
+      "zona": "US/Eastern",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0988c0de-0000-4000-8000-000000000988",
+          "1911c0de-0000-4000-8000-000000000911"
+        ]
+      }
+    },
+    {
+      "texto": "quiero morirme",
+      "zona": "Atlantic/Canary",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0024c0de-0000-4000-8000-000000000024",
+          "0112c0de-0000-4000-8000-000000000112"
+        ]
+      }
+    },
+    {
+      "texto": "donde busco ayuda",
+      "zona": "Asia/Calcutta",
+      "esperado": {
+        "tipo": "ayuda",
+        "intencion": "donde_busco_ayuda",
+        "mensaje": "Pedir ayuda es una buena decisión. Estos son lugares donde te van a escuchar.",
+        "lineas": [
+          "0ffec0de-0000-4000-8000-00000000f1de"
+        ]
+      }
+    },
+    {
+      "texto": "hola",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "saludo",
+        "mensaje": "¡Hola! Qué bueno tenerte por aquí. Sin conexión puedo saludarte y decirte dónde buscar ayuda; lo demás te lo respondo cuando vuelvas a tener conexión."
+      }
+    },
+    {
+      "texto": "Hola!!!",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "saludo",
+        "mensaje": "¡Hola! Qué bueno tenerte por aquí. Sin conexión puedo saludarte y decirte dónde buscar ayuda; lo demás te lo respondo cuando vuelvas a tener conexión."
+      }
+    },
+    {
+      "texto": "holaaaaa",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "saludo",
+        "mensaje": "¡Hola! Qué bueno tenerte por aquí. Sin conexión puedo saludarte y decirte dónde buscar ayuda; lo demás te lo respondo cuando vuelvas a tener conexión."
+      }
+    },
+    {
+      "texto": "buenos días",
+      "zona": "Europe/Madrid",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "saludo",
+        "mensaje": "¡Hola! Qué bueno tenerte por aquí. Sin conexión puedo saludarte y decirte dónde buscar ayuda; lo demás te lo respondo cuando vuelvas a tener conexión."
+      }
+    },
+    {
+      "texto": "buenas tardes",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "saludo",
+        "mensaje": "¡Hola! Qué bueno tenerte por aquí. Sin conexión puedo saludarte y decirte dónde buscar ayuda; lo demás te lo respondo cuando vuelvas a tener conexión."
+      }
+    },
+    {
+      "texto": "hey",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "saludo",
+        "mensaje": "¡Hola! Qué bueno tenerte por aquí. Sin conexión puedo saludarte y decirte dónde buscar ayuda; lo demás te lo respondo cuando vuelvas a tener conexión."
+      }
+    },
+    {
+      "texto": "gracias",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "agradecimiento",
+        "mensaje": "¡Con gusto! Si te surge otra duda, aquí estoy."
+      }
+    },
+    {
+      "texto": "muchas gracias",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "agradecimiento",
+        "mensaje": "¡Con gusto! Si te surge otra duda, aquí estoy."
+      }
+    },
+    {
+      "texto": "mil gracias, amigo",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "agradecimiento",
+        "mensaje": "¡Con gusto! Si te surge otra duda, aquí estoy."
+      }
+    },
+    {
+      "texto": "thx",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "agradecimiento",
+        "mensaje": "¡Con gusto! Si te surge otra duda, aquí estoy."
+      }
+    },
+    {
+      "texto": "adiós",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "despedida",
+        "mensaje": "Hasta pronto. Aquí estaré cuando quieras volver."
+      }
+    },
+    {
+      "texto": "chao, hasta pronto",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "despedida",
+        "mensaje": "Hasta pronto. Aquí estaré cuando quieras volver."
+      }
+    },
+    {
+      "texto": "nos vemos",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "despedida",
+        "mensaje": "Hasta pronto. Aquí estaré cuando quieras volver."
+      }
+    },
+    {
+      "texto": "buenas noches",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "despedida",
+        "mensaje": "¡Buenas noches! Aquí estoy si quieres preguntarme algo. Y si ya vas a descansar, que sea una noche tranquila."
+      }
+    },
+    {
+      "texto": "me voy a dormir",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "despedida",
+        "mensaje": "Hasta pronto. Aquí estaré cuando quieras volver."
+      }
+    },
+    {
+      "texto": "hola luma",
+      "zona": "America/Bogota",
+      "mascota": "Luma",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "saludo",
+        "mensaje": "¡Hola! Qué bueno tenerte por aquí. Sin conexión puedo saludarte y decirte dónde buscar ayuda; lo demás te lo respondo cuando vuelvas a tener conexión."
+      }
+    },
+    {
+      "texto": "buenas noches, Luma",
+      "zona": "America/Bogota",
+      "mascota": "Luma",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "despedida",
+        "mensaje": "¡Buenas noches! Aquí estoy si quieres preguntarme algo. Y si ya vas a descansar, que sea una noche tranquila."
+      }
+    },
+    {
+      "texto": "gracias Luma",
+      "zona": "America/Bogota",
+      "mascota": "Luma",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "agradecimiento",
+        "mensaje": "¡Con gusto! Si te surge otra duda, aquí estoy."
+      }
+    },
+    {
+      "texto": "hola luma",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "hola, como estas",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "como estas",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "que puedes hacer",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "adios y gracias por todo",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "hola, quiero desaparecer",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "solo queria saludar",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "saludo",
+        "mensaje": "¡Hola! Qué bueno tenerte por aquí. Sin conexión puedo saludarte y decirte dónde buscar ayuda; lo demás te lo respondo cuando vuelvas a tener conexión."
+      }
+    },
+    {
+      "texto": "hola, necesito hablar con alguien",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "¿Qué líneas de ayuda hay?",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "ayuda",
+        "intencion": "donde_busco_ayuda",
+        "mensaje": "Pedir ayuda es una buena decisión. Estos son lugares donde te van a escuchar.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "donde busco ayuda",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "ayuda",
+        "intencion": "donde_busco_ayuda",
+        "mensaje": "Pedir ayuda es una buena decisión. Estos son lugares donde te van a escuchar.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "donde busco ayuda",
+      "zona": "Europe/Madrid",
+      "esperado": {
+        "tipo": "ayuda",
+        "intencion": "donde_busco_ayuda",
+        "mensaje": "Pedir ayuda es una buena decisión. Estos son lugares donde te van a escuchar.",
+        "lineas": [
+          "0024c0de-0000-4000-8000-000000000024",
+          "0112c0de-0000-4000-8000-000000000112"
+        ]
+      }
+    },
+    {
+      "texto": "donde busco ayuda",
+      "zona": "Asia/Tokyo",
+      "esperado": {
+        "tipo": "ayuda",
+        "intencion": "donde_busco_ayuda",
+        "mensaje": "Pedir ayuda es una buena decisión. Estos son lugares donde te van a escuchar.",
+        "lineas": [
+          "0ffec0de-0000-4000-8000-00000000f1de"
+        ]
+      }
+    },
+    {
+      "texto": "necesito un psicólogo",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "ayuda",
+        "intencion": "donde_busco_ayuda",
+        "mensaje": "Pedir ayuda es una buena decisión. Estos son lugares donde te van a escuchar.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "con quien hablo",
+      "zona": "America/Mexico_City",
+      "esperado": {
+        "tipo": "ayuda",
+        "intencion": "donde_busco_ayuda",
+        "mensaje": "Pedir ayuda es una buena decisión. Estos son lugares donde te van a escuchar.",
+        "lineas": [
+          "8009c0de-0000-4000-8000-000000911200",
+          "0911c0de-0000-4000-8000-000000000911"
+        ]
+      }
+    },
+    {
+      "texto": "quiero ir a terapia",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "ayuda",
+        "intencion": "donde_busco_ayuda",
+        "mensaje": "Pedir ayuda es una buena decisión. Estos son lugares donde te van a escuchar.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "necesito ayuda para dormir",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "ayuda",
+        "intencion": "donde_busco_ayuda",
+        "mensaje": "Pedir ayuda es una buena decisión. Estos son lugares donde te van a escuchar.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "como duermo mejor",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "no puedo dormir",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "que significa mi resultado",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "que nivel saque",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "me siento triste",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "estoy muy sola",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "cuanto cuesta el parqueadero",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "asdf qwerty",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "esto es normal",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    }
+  ]
+}

@@ -53,6 +53,44 @@ describe('entorno', () => {
   });
 });
 
+describe('la analitica (SCRUM-161)', () => {
+  it('esta apagada mientras no haya identificador de medicion', async () => {
+    vi.stubEnv('VITE_GA_ID', '');
+
+    const { entorno } = await cargarEntorno();
+
+    expect(entorno.analitica.idDeMedicion).toBeNull();
+  });
+
+  it('con un identificador valido, queda encendida con ese valor', async () => {
+    vi.stubEnv('VITE_GA_ID', '  G-ABC123DEF4 ');
+
+    const { entorno } = await cargarEntorno();
+
+    expect(entorno.analitica.idDeMedicion).toBe('G-ABC123DEF4');
+  });
+
+  it.each([
+    ['sin el prefijo', 'ABC123DEF4'],
+    ['de Universal Analytics, que ya no existe', 'UA-12345-1'],
+    ['con minusculas', 'g-abc123def4'],
+    ['demasiado corto', 'G-AB'],
+    ['con algo mas dentro', 'G-ABC123&x=1'],
+    ['con una direccion', 'https://evil.example/x.js'],
+  ])('un identificador %s se trata como si no hubiera, y avisa', async (_caso, valor) => {
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    vi.stubEnv('VITE_GA_ID', valor);
+
+    const { entorno } = await cargarEntorno();
+
+    expect(entorno.analitica.idDeMedicion).toBeNull();
+    expect(aviso).toHaveBeenCalledWith(expect.stringContaining('VITE_GA_ID'));
+
+    aviso.mockRestore();
+  });
+});
+
 describe('credencialesDeSupabase', () => {
   it('devuelve las credenciales cuando estan completas', async () => {
     vi.stubEnv('VITE_APP_ENV', 'development');
@@ -87,5 +125,73 @@ describe('credencialesDeSupabase', () => {
     const { credencialesDeSupabase } = await cargarEntorno();
 
     expect(() => credencialesDeSupabase()).toThrow(/VITE_SUPABASE_URL/);
+  });
+});
+
+describe('la clave de Turnstile (SCRUM-165)', () => {
+  it('sin la variable no hay CAPTCHA', async () => {
+    vi.stubEnv('VITE_TURNSTILE_SITE_KEY', '');
+
+    const { entorno } = await cargarEntorno();
+
+    expect(entorno.captcha.claveDelSitio).toBeNull();
+  });
+
+  it.each([
+    ['una clave de verdad', '0x4AAAAAAABkMYinukE8nzYxQ'],
+    ['la de prueba que siempre pasa', '1x00000000000000000000AA'],
+    ['la de prueba que siempre bloquea', '2x00000000000000000000AB'],
+    ['la de prueba que pide interaccion', '3x00000000000000000000FF'],
+  ])('acepta %s', async (_cual, clave) => {
+    vi.stubEnv('VITE_TURNSTILE_SITE_KEY', clave);
+
+    const { entorno } = await cargarEntorno();
+
+    expect(entorno.captcha.claveDelSitio).toBe(clave);
+  });
+
+  it('quita los espacios de alrededor', async () => {
+    vi.stubEnv('VITE_TURNSTILE_SITE_KEY', '  1x00000000000000000000AA \n');
+
+    const { entorno } = await cargarEntorno();
+
+    expect(entorno.captcha.claveDelSitio).toBe('1x00000000000000000000AA');
+  });
+
+  it.each([
+    ['con espacios dentro', '1x0000000000 0000000000AA'],
+    ['demasiado corta', '0x4AAAA'],
+    ['sin la x', '04AAAAAAABkMYinukE8nzYxQ'],
+    [
+      'la clave secreta de prueba, que no es de sitio',
+      'secreto-que-no-tiene-la-forma-de-una-clave',
+    ],
+    ['con caracteres raros', '0x4AAAAAAABkMYinukE8nz<script>'],
+  ])('trata como ausente una clave %s, y avisa', async (_cual, clave) => {
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    vi.stubEnv('VITE_TURNSTILE_SITE_KEY', clave);
+
+    const { entorno } = await cargarEntorno();
+
+    expect(entorno.captcha.claveDelSitio).toBeNull();
+    expect(aviso).toHaveBeenCalledOnce();
+    // El aviso dice cual variable es, no repite lo que se puso: podria ser un secreto
+    // pegado donde no va.
+    expect(String(aviso.mock.calls[0]?.[0])).toContain('VITE_TURNSTILE_SITE_KEY');
+    expect(String(aviso.mock.calls[0]?.[0])).not.toContain(clave);
+
+    aviso.mockRestore();
+  });
+
+  it('una variable vacia no avisa: es no querer CAPTCHA', async () => {
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    vi.stubEnv('VITE_TURNSTILE_SITE_KEY', '   ');
+    await cargarEntorno();
+
+    expect(aviso).not.toHaveBeenCalled();
+
+    aviso.mockRestore();
   });
 });
