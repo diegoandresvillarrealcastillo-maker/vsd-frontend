@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { VERSIONES_PUBLICADAS } from './datosLegales.ts';
 import { DatoDelResponsable, PaginaLegal, PorDefinir, type SeccionLegal } from './PaginaLegal.tsx';
+import { DatosDeLaAnalitica, ProveedorGoogleAnalytics } from './TextosDeAnalitica.tsx';
 
 /**
  * El aviso de privacidad y la politica de tratamiento de datos personales.
@@ -118,6 +119,9 @@ const SECCIONES: readonly SeccionLegal[] = [
           dirección IP y el tipo de navegador. Los necesitan para que el servicio funcione y para
           detectar abusos.
         </p>
+
+        {/* Solo donde hay analitica (SCRUM-161). */}
+        <DatosDeLaAnalitica />
       </>
     ),
   },
@@ -196,6 +200,7 @@ const SECCIONES: readonly SeccionLegal[] = [
           <li>
             <strong>Google</strong>: solo si eliges entrar con Google.
           </li>
+          <ProveedorGoogleAnalytics />
           <li>
             El servicio de avisos de tu navegador (según cuál uses, Google, Apple o Mozilla), solo
             si activas los avisos.

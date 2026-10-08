@@ -1,0 +1,146 @@
+/* ============================================================
+   El banner de la analitica (SCRUM-161)
+   ============================================================
+   Usa solo los colores globales, no los de `.app`: se ve igual en la
+   portada, en el acceso, en las paginas legales y dentro de la aplicacion,
+   y en los dos temas.
+
+   Arriba del aviso de version nueva (z-index 50) y por debajo de los
+   dialogos (60): una decision sobre la privacidad no puede quedar tapada
+   por un aviso de actualizacion, pero un dialogo abierto es una tarea a
+   medias y esto puede esperar.
+
+   NO es un dialogo: no bloquea la pantalla, no oscurece lo de atras y no
+   roba el foco. Se puede seguir leyendo y usando la aplicacion sin
+   contestar.
+   ============================================================ */
+
+.analitica {
+  position: fixed;
+  z-index: 55;
+  right: 0;
+  left: 0;
+  bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  justify-content: center;
+  padding: 0 0.75rem;
+  /* El contenedor ocupa todo el ancho pero no recibe toques: solo la tarjeta. */
+  pointer-events: none;
+}
+
+@media (max-width: 767px) {
+  /* Con el dock del movil (y el boton del semaforo) no se tapa nada: queda encima,
+     como el aviso de version nueva. */
+  body:has(.app__nav-inferior) .analitica {
+    bottom: calc(8.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.analitica__tarjeta {
+  display: grid;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 34rem;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--radio-grande);
+  background: var(--fondo-elevado);
+  color: var(--texto);
+  box-shadow: var(--sombra);
+  pointer-events: auto;
+  animation: analitica-entra var(--medio) var(--curva) both;
+}
+
+@keyframes analitica-entra {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .analitica__tarjeta {
+    animation: none;
+  }
+}
+
+.analitica__titulo {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: var(--peso-titulo);
+  line-height: 1.35;
+}
+
+.analitica__texto {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.analitica__actual {
+  margin: 0;
+  color: var(--texto-tenue);
+  font-size: 0.8125rem;
+}
+
+.analitica__enlace {
+  color: var(--acento);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.analitica__enlace:hover {
+  text-decoration-thickness: 2px;
+}
+
+.analitica__enlace:focus-visible,
+.analitica__boton:focus-visible {
+  outline: 3px solid var(--acento-claro);
+  outline-offset: 2px;
+}
+
+.analitica__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Aceptar y rechazar son el MISMO boton: mismo tamano, mismo color, mismo peso.
+   Si uno se viera mas importante que el otro, la eleccion no seria libre. */
+.analitica__boton {
+  flex: 1 1 8rem;
+  min-height: 2.75rem;
+  padding: 0.625rem 1rem;
+  border: 2px solid var(--acento);
+  border-radius: 0.75rem;
+  background: var(--acento);
+  color: var(--acento-contraste);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.analitica__boton:hover {
+  filter: brightness(1.06);
+}
+
+/* «Cerrar» no es una tercera opcion sobre los datos: solo guarda el banner. */
+.analitica__boton--discreto {
+  flex: 0 1 auto;
+  background: transparent;
+  color: var(--texto);
+  border-color: var(--borde-fuerte);
+}
+
+@media (forced-colors: active) {
+  .analitica__tarjeta {
+    border: 2px solid CanvasText;
+  }
+}

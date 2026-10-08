@@ -206,6 +206,58 @@ comprobar(
   !/fonts\.(googleapis|gstatic)\.com/.test(politica),
 );
 
+// ----- los unicos dominios de fuera -----
+//
+// Cada dominio de otra parte que la politica autoriza es un tercero que puede ver
+// algo de quien usa la aplicacion, y que los documentos legales tienen que nombrar.
+// Por eso la lista esta aqui, a la vista, y no solo en la politica: agregar un
+// dominio hace fallar esta comprobacion hasta que se agregue tambien a esta lista, y
+// esa es la ocasion de preguntarse si hay que actualizar la pagina de cookies y el
+// aviso de privacidad (SCRUM-161).
+//
+// Y al reves: si falta uno de los de Google Analytics, la analitica dejaria de
+// funcionar sin que nada lo avise.
+const EXTERNOS_AUTORIZADOS = {
+  'script-src': ['https://www.googletagmanager.com'],
+  'img-src': ['https://*.google-analytics.com', 'https://*.googletagmanager.com'],
+  'font-src': ['https://esm.sh'],
+  'connect-src': [
+    'https://*.onrender.com',
+    'https://*.supabase.co',
+    'https://esm.sh',
+    'https://*.google-analytics.com',
+    'https://*.analytics.google.com',
+    'https://*.googletagmanager.com',
+  ],
+};
+
+for (const [directiva, autorizados] of Object.entries(EXTERNOS_AUTORIZADOS)) {
+  const valores = directivas.get(directiva) ?? [];
+  const externos = valores.filter((valor) => valor.startsWith('https://'));
+
+  for (const externo of externos) {
+    comprobar(
+      `${directiva} autoriza ${externo}, que no esta en la lista de dominios de fuera: si es un tercero nuevo, hay que sumarlo a esta lista y a los documentos legales`,
+      autorizados.includes(externo),
+    );
+  }
+
+  for (const autorizado of autorizados) {
+    comprobar(
+      `${directiva} tiene que autorizar ${autorizado}: sin el, algo que depende de el deja de funcionar`,
+      externos.includes(autorizado),
+    );
+  }
+}
+
+comprobar(
+  'ni img-src ni connect-src admiten https: entero ni comodines',
+  ['img-src', 'connect-src', 'font-src'].every(
+    (directiva) =>
+      !(directivas.get(directiva) ?? []).some((valor) => ['*', 'https:', 'http:'].includes(valor)),
+  ),
+);
+
 // ----- los scripts en linea de la compilacion -----
 
 const rutaDelHtml = 'dist/index.html';
