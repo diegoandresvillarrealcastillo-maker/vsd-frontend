@@ -23,12 +23,20 @@ import {
 } from './SesionContexto.ts';
 
 /**
- * Al registrarse y al entrar con Google, la sesion se recuerda.
+ * Al registrarse con correo, el almacen es el duradero.
  *
- * La pregunta de si recordar el equipo solo la hace la pantalla de inicio de
- * sesion. Al crear una cuenta no tiene sentido —acabas de hacerla y vas a
- * entrar igual— y ponerla ahi seria una casilla mas que leer en el peor
- * momento para pedir atencion.
+ * La pregunta de «Mantener la sesion en este equipo» solo la hace la pantalla de
+ * acceso (SCRUM-164): al crear una cuenta no tiene sentido —acabas de hacerla y
+ * vas a entrar igual— y seria una casilla mas que leer en el peor momento.
+ *
+ * Aqui se elige el almacen duradero por una razon tecnica, no de producto: el
+ * flujo PKCE guarda un verificador al registrarse, y el enlace del correo casi
+ * siempre se abre en **otra pestana**, que no veria uno guardado solo en la
+ * pestana donde se registro.
+ *
+ * Limite conocido: la sesion que nace de ese enlace queda guardada en el equipo.
+ * Quien se registra en un equipo compartido tiene que cerrar sesion al terminar.
+ * Cerrar ese hueco exige repensar la confirmacion por correo y es otro ticket.
  */
 const RECORDAR_SIEMPRE = true;
 
