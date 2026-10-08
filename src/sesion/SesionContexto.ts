@@ -75,7 +75,10 @@ export interface DatosDeEntrada extends DatosDeAcceso {
  */
 export interface ResultadoDeAcceso {
   readonly ok: boolean;
-  /** Mensaje ya listo para mostrar. Vacio cuando `ok`. */
+  /**
+   * Mensaje ya listo para mostrar. Vacio cuando `ok`, salvo al cambiar la
+   * contrasena: ahi dice que paso con la sesion de los demas dispositivos.
+   */
   readonly mensaje?: string;
 }
 
