@@ -231,6 +231,49 @@ describe('ContrasenaNueva', () => {
 
     expect(cambiarContrasena).toHaveBeenCalledWith('UnaContrasena#2026');
   });
+
+  it('dice que cerro la sesion de los demas dispositivos (SCRUM-154)', async () => {
+    const cambiarContrasena = vi
+      .fn()
+      .mockResolvedValue({ ok: true, mensaje: 'Cerramos tu sesión en los demás dispositivos.' });
+    pintar(<ContrasenaNueva />, estado({ sesion: conSesion, cambiarContrasena }));
+
+    await escribir(screen.getByLabelText('Contraseña nueva'), 'UnaContrasena#2026');
+    await escribir(screen.getByLabelText('Repítela'), 'UnaContrasena#2026');
+    await usuario.click(screen.getByRole('button', { name: 'Guardar y entrar' }));
+
+    // El medidor de la contrasena tambien es un `status`: se busca por el texto.
+    expect(
+      await screen.findByText('Cerramos tu sesión en los demás dispositivos.'),
+    ).toBeInTheDocument();
+  });
+
+  it('si el cierre no se pudo, tambien lo dice, y la contrasena queda cambiada', async () => {
+    const cambiarContrasena = vi.fn().mockResolvedValue({
+      ok: true,
+      mensaje: 'No pudimos cerrar tu sesión en los demás dispositivos.',
+    });
+    pintar(<ContrasenaNueva />, estado({ sesion: conSesion, cambiarContrasena }));
+
+    await escribir(screen.getByLabelText('Contraseña nueva'), 'UnaContrasena#2026');
+    await escribir(screen.getByLabelText('Repítela'), 'UnaContrasena#2026');
+    await usuario.click(screen.getByRole('button', { name: 'Guardar y entrar' }));
+
+    expect(await screen.findByText(/No pudimos cerrar tu sesión/)).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('sin nada que decir de las demas sesiones, no pinta ningun aviso', async () => {
+    const cambiarContrasena = vi.fn().mockResolvedValue({ ok: true });
+    pintar(<ContrasenaNueva />, estado({ sesion: conSesion, cambiarContrasena }));
+
+    await escribir(screen.getByLabelText('Contraseña nueva'), 'UnaContrasena#2026');
+    await escribir(screen.getByLabelText('Repítela'), 'UnaContrasena#2026');
+    await usuario.click(screen.getByRole('button', { name: 'Guardar y entrar' }));
+
+    expect(cambiarContrasena).toHaveBeenCalled();
+    expect(screen.queryByText(/demás dispositivos/)).not.toBeInTheDocument();
+  });
 });
 
 describe('Acceso', () => {

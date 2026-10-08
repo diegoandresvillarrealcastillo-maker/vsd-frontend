@@ -609,7 +609,10 @@ function Contrasena({ correo }: { correo: string }) {
     setCodigo('');
     setNueva('');
     setRepetida('');
-    setAviso({ tipo: 'bien', texto: 'Tu contraseña quedó cambiada.' });
+    setAviso({
+      tipo: 'bien',
+      texto: ['Tu contraseña quedó cambiada.', resultado.mensaje].filter(Boolean).join(' '),
+    });
   }
 
   return (
