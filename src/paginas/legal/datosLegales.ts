@@ -40,12 +40,20 @@ export const TEXTOS_REVISADOS = false;
  * Quien responde por los datos (Ley 1581 de 2012, articulo 17: el responsable
  * tiene que identificarse). Lo decide el equipo antes de promocionar a
  * produccion (D3).
+ *
+ * ## Solo lo que la ley pide
+ *
+ * Este archivo es publico (el repositorio y la pagina de privacidad lo son), asi
+ * que lleva lo minimo para que una persona pueda ejercer sus derechos: nombre,
+ * ciudad, correo y telefono. **No hay campo para un documento de identidad, un
+ * NIT ni una direccion de calle**: la ley no los exige en el aviso y, una vez
+ * publicados, no se pueden retirar. Si alguna vez hiciera falta uno, que lo
+ * decida quien revise los textos, no que se agregue sin mas.
  */
 export const DATOS_DEL_RESPONSABLE = {
-  nombre: POR_DEFINIR,
-  identificacion: POR_DEFINIR,
-  domicilio: POR_DEFINIR,
-  correo: POR_DEFINIR,
+  nombre: 'Diego Andrés Villarreal Castillo',
+  domicilio: 'Fusagasugá (Cundinamarca), Colombia',
+  correo: 'diegoandresvillarrealcastillo@gmail.com',
   telefono: POR_DEFINIR,
 } as const;
 

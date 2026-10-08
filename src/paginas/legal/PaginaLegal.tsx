@@ -51,7 +51,6 @@ export function PorDefinir({ que }: { que: string }) {
 
 const ETIQUETA_DEL_DATO: Record<keyof typeof DATOS_DEL_RESPONSABLE, string> = {
   nombre: 'nombre o razón social del responsable',
-  identificacion: 'NIT o documento de identidad',
   domicilio: 'dirección y ciudad',
   correo: 'correo de contacto',
   telefono: 'teléfono de contacto',

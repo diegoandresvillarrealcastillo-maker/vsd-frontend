@@ -6,7 +6,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { App } from '../../App.tsx';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
-import { POR_DEFINIR, TEXTOS_REVISADOS, VERSIONES_PUBLICADAS } from './datosLegales.ts';
+import {
+  DATOS_DEL_RESPONSABLE,
+  POR_DEFINIR,
+  TEXTOS_REVISADOS,
+  VERSIONES_PUBLICADAS,
+} from './datosLegales.ts';
 
 /**
  * Se construye el estado a mano, igual que en `App.spec.tsx`: estas pruebas
@@ -172,6 +177,35 @@ describe('Aviso de privacidad', () => {
 
     expect(seccion).toHaveTextContent(/nombre o razón social/i);
     expect(seccion).toHaveTextContent(/correo para ejercer tus derechos/i);
+  });
+
+  it('muestra el nombre, la ciudad y el correo del responsable, tal como están en datosLegales', () => {
+    pintar(RUTAS.PRIVACIDAD);
+
+    const seccion = screen.getByRole('region', { name: /quién es el responsable/i });
+
+    expect(DATOS_DEL_RESPONSABLE.nombre).not.toBe(POR_DEFINIR);
+    expect(DATOS_DEL_RESPONSABLE.correo).toMatch(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+    expect(seccion).toHaveTextContent(DATOS_DEL_RESPONSABLE.nombre);
+    expect(seccion).toHaveTextContent(DATOS_DEL_RESPONSABLE.domicilio);
+    expect(seccion).toHaveTextContent(DATOS_DEL_RESPONSABLE.correo);
+  });
+
+  it('no publica un documento de identidad ni una dirección de calle del responsable', () => {
+    pintar(RUTAS.PRIVACIDAD);
+
+    const seccion = screen.getByRole('region', { name: /quién es el responsable/i });
+
+    // La ley no los exige en el aviso y, una vez publicados, no se retiran.
+    expect(Object.keys(DATOS_DEL_RESPONSABLE)).toEqual([
+      'nombre',
+      'domicilio',
+      'correo',
+      'telefono',
+    ]);
+    expect(seccion).not.toHaveTextContent(
+      /c[eé]dula|documento de identidad|NIT|identificaci[oó]n/i,
+    );
   });
 
   it('nombra los datos sensibles y dice que darlos es voluntario', () => {

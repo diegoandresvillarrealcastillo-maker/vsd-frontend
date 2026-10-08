@@ -30,9 +30,6 @@ const SECCIONES: readonly SeccionLegal[] = [
             Nombre o razón social: <DatoDelResponsable campo="nombre" />
           </li>
           <li>
-            Identificación: <DatoDelResponsable campo="identificacion" />
-          </li>
-          <li>
             Domicilio: <DatoDelResponsable campo="domicilio" />
           </li>
           <li>
