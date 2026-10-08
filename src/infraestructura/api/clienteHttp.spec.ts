@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ErrorDeLaApi, llamarALaApi, pedirBytesALaApi, segundosDeEspera } from './clienteHttp.ts';
+import {
+  ErrorDeLaApi,
+  leerSiCambio,
+  llamarALaApi,
+  pedirBytesALaApi,
+  segundosDeEspera,
+} from './clienteHttp.ts';
 
 /**
  * El cliente HTTP, comprobado sobre respuestas de verdad.
@@ -406,5 +412,101 @@ describe('pedirBytesALaApi (SCRUM-120)', () => {
       estado: 502,
       codigo: undefined,
     });
+  });
+});
+
+describe('leerSiCambio: una lectura que pregunta si lo que se tiene sigue valiendo (SCRUM-138)', () => {
+  function laPeticion(): RequestInit {
+    const llamada = vi.mocked(fetch).mock.calls[0];
+
+    if (llamada === undefined) {
+      throw new Error('no hubo ninguna llamada');
+    }
+
+    return llamada[1] ?? {};
+  }
+
+  function cabecerasDeLaPeticion(): Headers {
+    return new Headers(laPeticion().headers);
+  }
+
+  it('sin copia, es una lectura corriente: no manda If-None-Match y devuelve lo nuevo con su ETag', async () => {
+    cuandoLaApiResponde(respuesta([{ id: 'a' }], 200, { ETag: 'W/"abc"' }));
+
+    const resultado = await leerSiCambio<{ id: string }[]>('/api/catalogo');
+
+    expect(resultado).toEqual({ estado: 'nuevo', valor: [{ id: 'a' }], etag: 'W/"abc"' });
+    expect(cabecerasDeLaPeticion().has('If-None-Match')).toBe(false);
+  });
+
+  it('con el ETag de la copia, lo manda como If-None-Match', async () => {
+    cuandoLaApiResponde(respuesta([{ id: 'b' }], 200, { ETag: 'W/"nuevo"' }));
+
+    const resultado = await leerSiCambio('/api/catalogo', { etag: 'W/"viejo"' });
+
+    expect(cabecerasDeLaPeticion().get('If-None-Match')).toBe('W/"viejo"');
+    expect(resultado).toEqual({ estado: 'nuevo', valor: [{ id: 'b' }], etag: 'W/"nuevo"' });
+  });
+
+  it('un 304 es "sigue valiendo", no un fallo', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 304 })));
+
+    expect(await leerSiCambio('/api/catalogo', { etag: 'W/"abc"' })).toEqual({
+      estado: 'sin_cambios',
+    });
+  });
+
+  it('un 304 que nadie pidio SI es un fallo: no hay con que quedarse', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 304 })));
+
+    await expect(leerSiCambio('/api/catalogo')).rejects.toBeInstanceOf(ErrorDeLaApi);
+  });
+
+  it('un ETag nulo es lo mismo que no tener copia', async () => {
+    cuandoLaApiResponde(respuesta([]));
+
+    await leerSiCambio('/api/catalogo', { etag: null });
+
+    expect(cabecerasDeLaPeticion().has('If-None-Match')).toBe(false);
+  });
+
+  it('si la respuesta no trae ETag, queda en nulo', async () => {
+    cuandoLaApiResponde(respuesta([]));
+
+    expect(await leerSiCambio('/api/catalogo')).toMatchObject({ estado: 'nuevo', etag: null });
+  });
+
+  it('un error de la API sigue siendo un error, con su codigo', async () => {
+    cuandoLaApiResponde(respuesta({ codigo: 'NO_ENCONTRADO', mensaje: 'no' }, 404));
+
+    await expect(leerSiCambio('/api/catalogo', { etag: 'W/"abc"' })).rejects.toMatchObject({
+      estado: 404,
+      codigo: 'NO_ENCONTRADO',
+    });
+  });
+
+  it('una sesion que no vale tambien cierra la sesion', async () => {
+    cuandoLaApiResponde(respuesta({}, 401));
+
+    await expect(leerSiCambio('/api/catalogo')).rejects.toBeInstanceOf(ErrorDeLaApi);
+    expect(signOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('pasa la senal de cancelacion', async () => {
+    cuandoLaApiResponde(respuesta([]));
+
+    const control = new AbortController();
+
+    await leerSiCambio('/api/catalogo', { senal: control.signal });
+
+    expect(laPeticion().signal).toBe(control.signal);
+  });
+
+  it('la lectura de siempre no manda If-None-Match ni se confunde con un 304', async () => {
+    cuandoLaApiResponde(respuesta({ ok: true }));
+
+    await llamarALaApi('/api/cuenta');
+
+    expect(cabecerasDeLaPeticion().has('If-None-Match')).toBe(false);
   });
 });

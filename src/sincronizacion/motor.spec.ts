@@ -245,6 +245,8 @@ describe('cuando hay conexion', () => {
         operationId: 'a',
         tipo: 'pendiente.crear',
         recibo: { id: 'srv-a', version: 1, tipo: 'pendiente.crear' },
+        // Cuando se guardo: sirve para saber si salio de inmediato o espero (SCRUM-138).
+        creadaEn: AHORA.toISOString(),
       },
     ]);
   });

@@ -1,9 +1,10 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LINEAS_DE_RESPALDO_DE_COLOMBIA } from '../paginas/actividad/lineasParaMostrar.ts';
+import { nombreDeLaActividad } from '../sincronizacion/catalogoLocal.ts';
 import {
   descartarElAviso,
   pedirVerLaLista,
@@ -16,6 +17,9 @@ const mundo = vi.hoisted(() => ({
   aviso: null as AvisoVisible | null,
 }));
 
+vi.mock('../sincronizacion/catalogoLocal.ts', () => ({
+  nombreDeLaActividad: vi.fn(() => Promise.resolve(null)),
+}));
 vi.mock('../sincronizacion/estado.ts', () => ({
   useSincronizacion: () => ({ aviso: mundo.aviso }) as unknown as EstadoDeLaSincronizacion,
   descartarElAviso: vi.fn(),
@@ -36,6 +40,7 @@ function aviso(cambios: Partial<AvisoVisible> = {}): AvisoVisible {
     pedirEntrar: false,
     sugiereAcompanamiento: false,
     lineasDeAtencion: [],
+    orientaciones: [],
     ...cambios,
   };
 }
@@ -52,6 +57,8 @@ beforeEach(() => {
   mundo.aviso = null;
   vi.mocked(descartarElAviso).mockClear();
   vi.mocked(pedirVerLaLista).mockClear();
+  vi.mocked(nombreDeLaActividad).mockReset();
+  vi.mocked(nombreDeLaActividad).mockResolvedValue(null);
 });
 
 describe('AvisoDeSincronizacion: la region', () => {
@@ -216,5 +223,122 @@ describe('AvisoDeSincronizacion: el acompanamiento', () => {
     pintar();
 
     expect(screen.queryByText(/urgente|alerta|peligro/i)).toBeNull();
+  });
+});
+
+describe('AvisoDeSincronizacion: la orientacion al sincronizar (SCRUM-138)', () => {
+  it('un resultado hecho sin conexion se ensena con el nombre de la actividad y su nivel', async () => {
+    vi.mocked(nombreDeLaActividad).mockResolvedValue('Cómo dormiste anoche');
+    mundo.aviso = aviso({
+      orientaciones: [{ activityId: 'a1', nivelOrientativo: 'favorable' }],
+    });
+    pintar();
+
+    expect(await screen.findByText('Tu resultado de «Cómo dormiste anoche»:')).toBeInTheDocument();
+    expect(screen.getByText(/Vas bien\. Sigue así\./)).toBeInTheDocument();
+    expect(nombreDeLaActividad).toHaveBeenCalledWith('a1');
+  });
+
+  it('con el mismo texto que la pantalla de la actividad, en sus tres niveles', async () => {
+    mundo.aviso = aviso({
+      orientaciones: [
+        { activityId: 'a1', nivelOrientativo: 'favorable' },
+        { activityId: 'a2', nivelOrientativo: 'en_seguimiento' },
+        { activityId: 'a3', nivelOrientativo: 'requiere_atencion' },
+      ],
+    });
+    pintar();
+    await screen.findAllByText(/Tu resultado de/);
+
+    expect(screen.getByText(/Vas bien\. Sigue así\./)).toBeInTheDocument();
+    expect(screen.getByText(/Va razonable, con margen para mejorar\./)).toBeInTheDocument();
+    expect(screen.getByText(/Conviene prestarle atención estos días\./)).toBeInTheDocument();
+  });
+
+  it('si no se sabe como se llama, dice "una actividad" y no inventa nada', async () => {
+    mundo.aviso = aviso({
+      orientaciones: [{ activityId: 'a1', nivelOrientativo: 'favorable' }],
+    });
+    pintar();
+
+    expect(await screen.findByText('Tu resultado de «una actividad»:')).toBeInTheDocument();
+  });
+
+  it('el nombre llega un instante despues y reemplaza al texto de respaldo', async () => {
+    let resolver: (nombre: string) => void = () => undefined;
+
+    vi.mocked(nombreDeLaActividad).mockReturnValue(
+      new Promise<string>((resolve) => {
+        resolver = resolve;
+      }),
+    );
+    mundo.aviso = aviso({
+      orientaciones: [{ activityId: 'a1', nivelOrientativo: 'favorable' }],
+    });
+    pintar();
+
+    expect(screen.getByText('Tu resultado de «una actividad»:')).toBeInTheDocument();
+
+    await act(async () => {
+      resolver('Parejas de cartas');
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText('Tu resultado de «Parejas de cartas»:')).toBeInTheDocument();
+  });
+
+  it('un nombre que llega cuando el aviso ya se quito no rompe nada', async () => {
+    let resolver: (nombre: string) => void = () => undefined;
+
+    vi.mocked(nombreDeLaActividad).mockReturnValue(
+      new Promise<string>((resolve) => {
+        resolver = resolve;
+      }),
+    );
+    mundo.aviso = aviso({
+      orientaciones: [{ activityId: 'a1', nivelOrientativo: 'favorable' }],
+    });
+
+    const { unmount } = pintar();
+
+    unmount();
+
+    await act(async () => {
+      resolver('Tarde');
+      await Promise.resolve();
+    });
+
+    expect(document.body.textContent).toBe('');
+  });
+
+  it('nunca dice un numero: ni puntaje ni "nivel 8"', async () => {
+    mundo.aviso = aviso({
+      orientaciones: [{ activityId: 'a1', nivelOrientativo: 'requiere_atencion' }],
+    });
+    pintar();
+    await screen.findByText(/Tu resultado de/);
+
+    expect(screen.getByRole('status').textContent).not.toMatch(
+      /\d+ (de|sobre) \d+|nivel \d|puntaje/i,
+    );
+  });
+
+  it('sin orientaciones, no hay lista de resultados', () => {
+    mundo.aviso = aviso({ orientaciones: [] });
+    pintar();
+
+    expect(screen.queryByText(/Tu resultado de/)).toBeNull();
+  });
+
+  it('cada resultado tiene su renglon, aunque sean de la misma actividad', async () => {
+    mundo.aviso = aviso({
+      orientaciones: [
+        { activityId: 'a1', nivelOrientativo: 'favorable' },
+        { activityId: 'a1', nivelOrientativo: 'en_seguimiento' },
+      ],
+    });
+    pintar();
+
+    expect(await screen.findAllByText(/Tu resultado de/)).toHaveLength(2);
   });
 });

@@ -1,6 +1,6 @@
 import type { LineaDeAtencion } from '../infraestructura/api/resultados.ts';
 import type { EstadoDeOperacion, ErrorDeOperacion, Operacion, TipoDeOperacion } from './cola.ts';
-import type { MotivoDeSincronizacion, ResultadoDeSincronizacion } from './motor.ts';
+import type { MotivoDeSincronizacion, ReciboDeEnvio, ResultadoDeSincronizacion } from './motor.ts';
 
 /**
  * Lo que la persona lee sobre lo guardado en su equipo (SCRUM-137): el indicador
@@ -283,6 +283,32 @@ export function cambiosParaMostrar(
 // El aviso de despues de sincronizar
 // ---------------------------------------------------------------------------
 
+/** Lo que la API orienta de un resultado. Ver `ResultadoRegistrado.nivelOrientativo`. */
+export type NivelOrientativo = 'favorable' | 'en_seguimiento' | 'requiere_atencion';
+
+const NIVELES_ORIENTATIVOS: ReadonlySet<unknown> = new Set<NivelOrientativo>([
+  'favorable',
+  'en_seguimiento',
+  'requiere_atencion',
+]);
+
+/**
+ * La orientacion de una actividad hecha sin conexion, que se ensena **al sincronizar**
+ * (decision del equipo): el calculo sigue en un solo lugar, el servidor, y los umbrales
+ * no salen de la API. Nunca lleva el puntaje: la API no lo devuelve.
+ */
+export interface OrientacionDelAviso {
+  readonly activityId: string;
+  readonly nivelOrientativo: NivelOrientativo;
+}
+
+/**
+ * Lo que salio en menos de esto desde que se guardo, salio "de inmediato": se hizo con
+ * conexion y la pantalla de quien lo hizo ya se lo dijo. Avisarlo otra vez ("Enviamos 1
+ * cambio que estaba guardado en este equipo") seria ruido en cada accion.
+ */
+export const ESPERA_PARA_QUE_CUENTE_COMO_GUARDADO_EN_MS = 30_000;
+
 export interface Aviso {
   readonly texto: string;
   /**
@@ -302,6 +328,8 @@ export interface Aviso {
    */
   readonly sugiereAcompanamiento: boolean;
   readonly lineasDeAtencion: readonly LineaDeAtencion[];
+  /** La orientacion de los resultados que se enviaron despues de esperar en este equipo. */
+  readonly orientaciones: readonly OrientacionDelAviso[];
 }
 
 export interface EntradaDelAviso {
@@ -309,24 +337,60 @@ export interface EntradaDelAviso {
   readonly motivo: MotivoDeSincronizacion;
   /** Si se supo que no habia conexion desde el ultimo aviso. */
   readonly estabaSinConexion: boolean;
+  /** El momento en que termino la tanda. Por omision, ahora. */
+  readonly ahora?: Date;
 }
 
 function esObjeto(valor: unknown): valor is Record<string, unknown> {
   return typeof valor === 'object' && valor !== null && !Array.isArray(valor);
 }
 
+/** Lo que de verdad espero en este equipo antes de salir: no salio de inmediato. */
+function losQueEsperaron(recibos: readonly ReciboDeEnvio[], ahora: Date): readonly ReciboDeEnvio[] {
+  return recibos.filter(
+    (recibo) =>
+      ahora.getTime() - new Date(recibo.creadaEn).getTime() >=
+      ESPERA_PARA_QUE_CUENTE_COMO_GUARDADO_EN_MS,
+  );
+}
+
+/**
+ * La orientacion de los resultados enviados: la actividad y el nivel. Lo que no tiene
+ * la forma esperada se salta.
+ */
+function orientacionesDe(recibos: readonly ReciboDeEnvio[]): readonly OrientacionDelAviso[] {
+  const orientaciones: OrientacionDelAviso[] = [];
+
+  for (const { tipo, recibo } of recibos) {
+    if (
+      tipo === 'resultado.registrar' &&
+      esObjeto(recibo) &&
+      typeof recibo.activityId === 'string' &&
+      recibo.activityId !== '' &&
+      NIVELES_ORIENTATIVOS.has(recibo.nivelOrientativo)
+    ) {
+      orientaciones.push({
+        activityId: recibo.activityId,
+        nivelOrientativo: recibo.nivelOrientativo as NivelOrientativo,
+      });
+    }
+  }
+
+  return orientaciones;
+}
+
 /**
  * Lo que la API respondio a lo enviado que pide acompanar, con sus lineas. Se
  * quitan repetidas: dos resultados seguidos devuelven las mismas.
  */
-function acompanamientoDe(resultado: ResultadoDeSincronizacion): {
+function acompanamientoDe(recibos: readonly ReciboDeEnvio[]): {
   readonly sugiere: boolean;
   readonly lineas: readonly LineaDeAtencion[];
 } {
   const lineas = new Map<string, LineaDeAtencion>();
   let sugiere = false;
 
-  for (const { recibo } of resultado.resumen.recibos) {
+  for (const { recibo } of recibos) {
     if (!esObjeto(recibo) || recibo.sugiereAcompanamiento !== true) {
       continue;
     }
@@ -346,17 +410,6 @@ function acompanamientoDe(resultado: ResultadoDeSincronizacion): {
 }
 
 /**
- * El aviso de una tanda de sincronizacion, o `null` si no hay nada que decir.
- *
- * **Uno por tanda, no uno por cambio.** Cinco cosas enviadas de golpe son un
- * aviso: "Enviamos 5 cambios".
- *
- * Callar tambien es una decision. Una tanda que no pudo empezar porque no hay
- * conexion no avisa: el indicador ya lo dice. Una que no tenia nada que enviar
- * tampoco, salvo que la persona la haya pedido ("Sincronizar ahora" tiene que
- * contestar algo) o que acabe de volver la conexion.
- */
-/**
  * El aviso de que se perdio la conexion. Tranquiliza: lo que se haga no se pierde.
  */
 export function avisoDeSinConexion(): Aviso {
@@ -369,19 +422,38 @@ export function avisoDeSinConexion(): Aviso {
     pedirEntrar: false,
     sugiereAcompanamiento: false,
     lineasDeAtencion: [],
+    orientaciones: [],
   };
 }
 
+/**
+ * El aviso de una tanda de sincronizacion, o `null` si no hay nada que decir.
+ *
+ * **Uno por tanda, no uno por cambio.** Cinco cosas enviadas de golpe son un
+ * aviso: "Enviamos 5 cambios".
+ *
+ * Callar tambien es una decision:
+ *
+ * - Una tanda que no pudo empezar porque no hay conexion no avisa: el indicador ya lo
+ *   dice.
+ * - Una que no tenia nada que enviar tampoco, salvo que la persona la haya pedido
+ *   ("Sincronizar ahora" tiene que contestar algo) o que acabe de volver la conexion.
+ * - **Lo que salio de inmediato, tampoco.** Con conexion, todo pasa por la cola y sale
+ *   en el acto; la pantalla de quien lo hizo ya se lo dijo, y avisarlo en cada accion
+ *   seria ruido. Solo se avisa lo que **espero** en este equipo.
+ */
 export function construirAviso(entrada: EntradaDelAviso): Aviso | null {
-  const { resultado, motivo, estabaSinConexion } = entrada;
+  const { resultado, motivo, estabaSinConexion, ahora = new Date() } = entrada;
   const { resumen } = resultado;
   const volvioLaConexion = estabaSinConexion && motivo !== 'manual';
+  const esperaron = losQueEsperaron(resumen.recibos, ahora);
   const base = {
     enviadas: resumen.enviadas,
     verLista: false,
     pedirEntrar: false,
     sugiereAcompanamiento: false,
     lineasDeAtencion: [] as readonly LineaDeAtencion[],
+    orientaciones: [] as readonly OrientacionDelAviso[],
   };
 
   if (resultado.estado === 'sesion_vencida') {
@@ -428,10 +500,13 @@ export function construirAviso(entrada: EntradaDelAviso): Aviso | null {
 
   const { enviadas, requierenAtencion, conflictos, pendientes } = resumen;
   const problemas = requierenAtencion + conflictos;
-  const acompanamiento = acompanamientoDe(resultado);
+  // El acompanamiento y la orientacion son de lo que espero: lo que salio de inmediato lo
+  // ensena la pantalla de quien lo hizo.
+  const acompanamiento = acompanamientoDe(esperaron);
   const extra = {
     sugiereAcompanamiento: acompanamiento.sugiere,
     lineasDeAtencion: acompanamiento.lineas,
+    orientaciones: orientacionesDe(esperaron),
   };
 
   if (enviadas === 0 && problemas === 0 && pendientes === 0) {
@@ -446,7 +521,13 @@ export function construirAviso(entrada: EntradaDelAviso): Aviso | null {
 
   // Todo salio bien.
   if (problemas === 0 && pendientes === 0) {
-    const guardados = `${cambios(enviadas)} que ${enviadas === 1 ? 'estaba guardado' : 'estaban guardados'} en este equipo`;
+    // Si todo salio de inmediato y nadie lo pidio, la pantalla ya lo dijo.
+    if (esperaron.length === 0 && motivo !== 'manual' && !volvioLaConexion) {
+      return null;
+    }
+
+    const cuantos = esperaron.length > 0 ? esperaron.length : enviadas;
+    const guardados = `${cambios(cuantos)} que ${cuantos === 1 ? 'estaba guardado' : 'estaban guardados'} en este equipo`;
 
     return {
       ...base,

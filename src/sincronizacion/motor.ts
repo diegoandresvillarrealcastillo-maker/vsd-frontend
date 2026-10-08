@@ -68,6 +68,12 @@ export interface ReciboDeEnvio {
   readonly operationId: string;
   readonly tipo: TipoDeOperacion;
   readonly recibo: unknown;
+  /**
+   * Cuando se guardo la operacion, en ISO 8601. Sirve para distinguir lo que salio de
+   * inmediato (se acababa de guardar) de lo que estuvo esperando en este equipo: solo
+   * lo segundo merece un aviso.
+   */
+  readonly creadaEn: string;
 }
 
 export interface ResumenDeSincronizacion {
@@ -356,7 +362,12 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
           proximoIntento: null,
         });
 
-        recibos.push({ operationId: hecha.operationId, tipo: hecha.tipo, recibo: reciboDeLaApi });
+        recibos.push({
+          operationId: hecha.operationId,
+          tipo: hecha.tipo,
+          recibo: reciboDeLaApi,
+          creadaEn: hecha.creadaEn,
+        });
         emitir({ tipo: 'enviada', operacion: hecha, recibo: reciboDeLaApi });
       } else {
         const { error } = falloDelEnvio;

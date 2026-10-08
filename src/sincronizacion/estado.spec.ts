@@ -105,11 +105,32 @@ const SIN_NADA: ResumenDeSincronizacion = {
   recibos: [],
 };
 
+/** Un recibo de lo que espero en este equipo: se guardo hace horas. */
+const recibo = (n: number): ResumenDeSincronizacion['recibos'][number] => ({
+  operationId: `op-${String(n)}`,
+  tipo: 'diario.escribir',
+  recibo: null,
+  creadaEn: '2026-10-07T10:00:00.000Z',
+});
+
+/**
+ * El resultado de una tanda. Como el motor de verdad, trae un recibo por cada cambio
+ * enviado: si no se dicen, son de cosas que esperaron horas en este equipo.
+ */
 function resultado(
   estado: ResultadoDeSincronizacion['estado'],
   resumen: Partial<ResumenDeSincronizacion> = {},
 ): ResultadoDeSincronizacion {
-  return { estado, resumen: { ...SIN_NADA, ...resumen } };
+  const enviadas = resumen.enviadas ?? 0;
+
+  return {
+    estado,
+    resumen: {
+      ...SIN_NADA,
+      recibos: Array.from({ length: enviadas }, (_valor, i) => recibo(i)),
+      ...resumen,
+    },
+  };
 }
 
 /** Un ciclo abierto de mentira: sus operaciones, sus meta y su motor se mueven desde la prueba. */
@@ -198,6 +219,7 @@ function armar(cambios: Partial<DependenciasDelEstado> = {}) {
   const ventana = new EventTarget();
   const documento = Object.assign(new EventTarget(), { visibilityState: 'visible' });
   const notificar = vi.fn();
+  const precargar = vi.fn();
   const red = { hay: true };
   const cancelar = vi.fn();
   const apagar = iniciarLaSincronizacionAutomatica({
@@ -208,10 +230,11 @@ function armar(cambios: Partial<DependenciasDelEstado> = {}) {
     programar: () => 'programacion',
     cancelar,
     notificarEnSegundoPlano: notificar,
+    precargar,
     ...cambios,
   });
 
-  return { ventana, documento, notificar, red, apagar, cancelar };
+  return { ventana, documento, notificar, precargar, red, apagar, cancelar };
 }
 
 beforeEach(() => {
@@ -391,6 +414,73 @@ describe('el almacen se abre y se cierra', () => {
 
     expect(obtenerElEstado().hayAlmacen).toBe(true);
     expect(obtenerElEstado().cambios).toEqual([]);
+
+    t.apagar();
+  });
+});
+
+describe('lo que se guarda por adelantado para usar sin conexion (SCRUM-138)', () => {
+  it('al abrirse el almacen con conexion, se precarga', async () => {
+    const t = armar();
+
+    await abrir(crearCiclo());
+
+    expect(t.precargar).toHaveBeenCalledTimes(1);
+
+    t.apagar();
+  });
+
+  it('sin conexion no se intenta: no hay de donde', async () => {
+    const t = armar({ hayRed: () => false });
+
+    await abrir(crearCiclo());
+
+    expect(t.precargar).not.toHaveBeenCalled();
+
+    t.apagar();
+  });
+
+  it('al cerrarse el almacen no se precarga nada', async () => {
+    const t = armar();
+
+    await abrir(crearCiclo());
+    t.precargar.mockClear();
+    await cerrar();
+
+    expect(t.precargar).not.toHaveBeenCalled();
+
+    t.apagar();
+  });
+
+  it('si el almacen ya estaba abierto al arrancar, tambien', () => {
+    const c = crearCiclo();
+
+    mundo.ciclo = c.ciclo;
+
+    const t = armar();
+
+    expect(t.precargar).toHaveBeenCalledTimes(1);
+
+    t.apagar();
+  });
+
+  it('cuando vuelve la red con una persona dentro, se vuelve a intentar: lo de antes pudo no llegar', async () => {
+    const t = armar({ hayRed: () => false });
+
+    await abrir(crearCiclo());
+    t.ventana.dispatchEvent(new Event('online'));
+
+    expect(t.precargar).toHaveBeenCalledTimes(1);
+
+    t.apagar();
+  });
+
+  it('cuando vuelve la red sin nadie dentro, no hay nada que guardar', () => {
+    const t = armar();
+
+    t.ventana.dispatchEvent(new Event('online'));
+
+    expect(t.precargar).not.toHaveBeenCalled();
 
     t.apagar();
   });

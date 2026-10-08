@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { nuevaOperacion, type Operacion, type TipoDeOperacion } from './cola.ts';
 import type {
   MotivoDeSincronizacion,
+  ReciboDeEnvio,
   ResultadoDeSincronizacion,
   ResumenDeSincronizacion,
 } from './motor.ts';
 import {
+  ESPERA_PARA_QUE_CUENTE_COMO_GUARDADO_EN_MS,
   avisoDeSinConexion,
   cambioParaMostrar,
   cambios,
@@ -49,11 +51,39 @@ const SIN_NADA: ResumenDeSincronizacion = {
   recibos: [],
 };
 
+/** Lo que esta guardado desde hace horas: salio despues de esperar en este equipo. */
+const GUARDADO_DESDE_HACE_HORAS = '2026-10-07T10:00:00.000Z';
+
+/** Un recibo de prueba: si no se dice cuando se guardo, hace horas. */
+type ReciboDePrueba = Omit<ReciboDeEnvio, 'creadaEn'> & { readonly creadaEn?: string };
+
 function resultado(
   estado: ResultadoDeSincronizacion['estado'],
-  resumen: Partial<ResumenDeSincronizacion> = {},
+  resumen: Partial<Omit<ResumenDeSincronizacion, 'recibos'>> & {
+    readonly recibos?: readonly ReciboDePrueba[];
+  } = {},
 ): ResultadoDeSincronizacion {
-  return { estado, resumen: { ...SIN_NADA, ...resumen } };
+  const { enviadas = 0, ...demas } = resumen;
+  // Como el motor de verdad: un recibo por cada cambio enviado. Si no se dicen, son de
+  // cosas que esperaron horas en este equipo.
+  const {
+    recibos = Array.from({ length: enviadas }, (_valor, i) => ({
+      operationId: `op-${String(i)}`,
+      tipo: 'diario.escribir' as const,
+      recibo: null,
+    })),
+    ...sinRecibos
+  } = demas;
+
+  return {
+    estado,
+    resumen: {
+      ...SIN_NADA,
+      ...sinRecibos,
+      enviadas,
+      recibos: recibos.map((recibo) => ({ creadaEn: GUARDADO_DESDE_HACE_HORAS, ...recibo })),
+    },
+  };
 }
 
 function aviso(
@@ -61,7 +91,7 @@ function aviso(
   motivo: MotivoDeSincronizacion = 'conexion',
   estabaSinConexion = false,
 ) {
-  return construirAviso({ resultado: r, motivo, estabaSinConexion });
+  return construirAviso({ resultado: r, motivo, estabaSinConexion, ahora: AHORA });
 }
 
 describe('cambios', () => {
@@ -591,7 +621,259 @@ describe('construirAviso: uno por tanda, no uno por cambio', () => {
         pedirEntrar: false,
         sugiereAcompanamiento: false,
         lineasDeAtencion: [],
+        orientaciones: [],
       });
+    });
+  });
+
+  describe('lo que salio de inmediato no se avisa (SCRUM-138)', () => {
+    /** Recibos de cosas que se guardaron hace unos segundos y salieron en el acto. */
+    const alMomento = (
+      cuantos = 1,
+      segundos = 5,
+      tipo: ReciboDePrueba['tipo'] = 'resultado.registrar',
+    ) =>
+      Array.from({ length: cuantos }, (_valor, i) => ({
+        operationId: `op-${String(i)}`,
+        tipo,
+        recibo: null,
+        creadaEn: new Date(AHORA.getTime() - segundos * 1000).toISOString(),
+      }));
+
+    it.each<MotivoDeSincronizacion>(['programada', 'apertura', 'conexion'])(
+      'con conexion y por %s: la pantalla de quien lo hizo ya se lo dijo, no hay aviso',
+      (motivo) => {
+        expect(
+          aviso(resultado('terminada', { enviadas: 1, recibos: alMomento() }), motivo),
+        ).toBeNull();
+      },
+    );
+
+    it('lo que esperaba 30 segundos justos ya cuenta como guardado en este equipo', () => {
+      const a = aviso(
+        resultado('terminada', {
+          enviadas: 1,
+          recibos: alMomento(1, ESPERA_PARA_QUE_CUENTE_COMO_GUARDADO_EN_MS / 1000),
+        }),
+        'programada',
+      );
+
+      expect(a?.texto).toBe('Enviamos 1 cambio que estaba guardado en este equipo.');
+    });
+
+    it('un milisegundo menos, salio de inmediato', () => {
+      const recibos = alMomento(1, 0).map((r) => ({
+        ...r,
+        creadaEn: new Date(
+          AHORA.getTime() - (ESPERA_PARA_QUE_CUENTE_COMO_GUARDADO_EN_MS - 1),
+        ).toISOString(),
+      }));
+
+      expect(aviso(resultado('terminada', { enviadas: 1, recibos }), 'programada')).toBeNull();
+    });
+
+    it('el limite es de 30 segundos', () => {
+      expect(ESPERA_PARA_QUE_CUENTE_COMO_GUARDADO_EN_MS).toBe(30_000);
+    });
+
+    it('si la persona pidio sincronizar, se le contesta aunque haya salido en el acto', () => {
+      expect(
+        aviso(resultado('terminada', { enviadas: 1, recibos: alMomento() }), 'manual')?.texto,
+      ).toBe('Listo. Enviamos 1 cambio que estaba guardado en este equipo.');
+    });
+
+    it('si acababa de volver la conexion, tambien se dice, con lo que se envio', () => {
+      expect(
+        aviso(resultado('terminada', { enviadas: 2, recibos: alMomento(2) }), 'conexion', true)
+          ?.texto,
+      ).toBe('Volviste a tener conexión. Enviamos 2 cambios que estaban guardados en este equipo.');
+    });
+
+    it('mezclado con lo que espero, el aviso cuenta solo lo que espero', () => {
+      const a = aviso(
+        resultado('terminada', {
+          enviadas: 3,
+          recibos: [...alMomento(1, 5), ...alMomento(2, 3600)],
+        }),
+        'programada',
+      );
+
+      expect(a?.texto).toBe('Enviamos 2 cambios que estaban guardados en este equipo.');
+      expect(a?.enviadas).toBe(3);
+    });
+
+    it('un rechazo se avisa siempre, aunque lo demas saliera de inmediato', () => {
+      const a = aviso(
+        resultado('terminada', { enviadas: 1, requierenAtencion: 1, recibos: alMomento() }),
+        'programada',
+      );
+
+      expect(a).toMatchObject({
+        texto: 'Enviamos 1 cambio. 1 cambio necesita tu atención.',
+        tono: 'atencion',
+        verLista: true,
+      });
+    });
+
+    it('y lo de ese aviso que salio en el acto no trae orientacion ni acompanamiento: ya se vio en su pantalla', () => {
+      const recibos = alMomento(1).map((r) => ({
+        ...r,
+        recibo: {
+          activityId: 'a1',
+          nivelOrientativo: 'favorable',
+          sugiereAcompanamiento: true,
+          lineasDeAtencion: [{ id: 'l1', titulo: 'Linea', tipo: 'contacto' }],
+        },
+      }));
+      const a = aviso(
+        resultado('terminada', { enviadas: 1, requierenAtencion: 1, recibos }),
+        'programada',
+      );
+
+      expect(a?.orientaciones).toEqual([]);
+      expect(a?.sugiereAcompanamiento).toBe(false);
+      expect(a?.lineasDeAtencion).toEqual([]);
+    });
+  });
+
+  describe('la orientacion, al sincronizar (SCRUM-138)', () => {
+    const resultadoCon = (
+      recibo: unknown,
+      tipo: ReciboDePrueba['tipo'] = 'resultado.registrar',
+    ) => ({
+      operationId: 'op-r',
+      tipo,
+      recibo,
+    });
+
+    it('un resultado hecho sin conexion trae su actividad y su nivel', () => {
+      const a = aviso(
+        resultado('terminada', {
+          enviadas: 1,
+          recibos: [resultadoCon({ activityId: 'a1', nivelOrientativo: 'favorable' })],
+        }),
+        'conexion',
+        true,
+      );
+
+      expect(a?.orientaciones).toEqual([{ activityId: 'a1', nivelOrientativo: 'favorable' }]);
+    });
+
+    it('los tres niveles', () => {
+      const a = aviso(
+        resultado('terminada', {
+          enviadas: 3,
+          recibos: [
+            resultadoCon({ activityId: 'a1', nivelOrientativo: 'favorable' }),
+            resultadoCon({ activityId: 'a2', nivelOrientativo: 'en_seguimiento' }),
+            resultadoCon({ activityId: 'a3', nivelOrientativo: 'requiere_atencion' }),
+          ],
+        }),
+        'conexion',
+        true,
+      );
+
+      expect(a?.orientaciones.map((o) => o.nivelOrientativo)).toEqual([
+        'favorable',
+        'en_seguimiento',
+        'requiere_atencion',
+      ]);
+    });
+
+    it('varios resultados de la misma actividad son varios', () => {
+      const a = aviso(
+        resultado('terminada', {
+          enviadas: 2,
+          recibos: [
+            resultadoCon({ activityId: 'a1', nivelOrientativo: 'favorable' }),
+            resultadoCon({ activityId: 'a1', nivelOrientativo: 'en_seguimiento' }),
+          ],
+        }),
+        'conexion',
+        true,
+      );
+
+      expect(a?.orientaciones).toHaveLength(2);
+    });
+
+    it('una actividad que no se valora (sin nivel) no trae orientacion', () => {
+      const a = aviso(
+        resultado('terminada', {
+          enviadas: 1,
+          recibos: [resultadoCon({ activityId: 'a1' })],
+        }),
+        'conexion',
+        true,
+      );
+
+      expect(a?.orientaciones).toEqual([]);
+    });
+
+    it.each([
+      [
+        'de otro tipo',
+        resultadoCon({ activityId: 'a1', nivelOrientativo: 'favorable' }, 'pendiente.crear'),
+      ],
+      [
+        'con un nivel que no se conoce',
+        resultadoCon({ activityId: 'a1', nivelOrientativo: 'excelente' }),
+      ],
+      ['sin actividad', resultadoCon({ nivelOrientativo: 'favorable' })],
+      ['con la actividad vacia', resultadoCon({ activityId: '', nivelOrientativo: 'favorable' })],
+      [
+        'con la actividad que no es texto',
+        resultadoCon({ activityId: 7, nivelOrientativo: 'favorable' }),
+      ],
+      ['que no es un objeto', resultadoCon('favorable')],
+      ['nulo', resultadoCon(null)],
+    ])('un recibo %s se salta', (_nombre, recibo) => {
+      const a = aviso(resultado('terminada', { enviadas: 1, recibos: [recibo] }), 'conexion', true);
+
+      expect(a?.orientaciones).toEqual([]);
+    });
+
+    it('nunca lleva el puntaje, ni nada mas que la actividad y el nivel', () => {
+      const a = aviso(
+        resultado('terminada', {
+          enviadas: 1,
+          recibos: [
+            resultadoCon({
+              activityId: 'a1',
+              nivelOrientativo: 'favorable',
+              score: 38,
+              metadata: { x: 1 },
+            }),
+          ],
+        }),
+        'conexion',
+        true,
+      );
+
+      expect(JSON.stringify(a?.orientaciones)).not.toContain('38');
+      expect(Object.keys(a?.orientaciones[0] ?? {}).sort()).toEqual([
+        'activityId',
+        'nivelOrientativo',
+      ]);
+    });
+
+    it('viaja tambien en un aviso de que algo no salio', () => {
+      const a = aviso(
+        resultado('terminada', {
+          enviadas: 1,
+          requierenAtencion: 1,
+          recibos: [resultadoCon({ activityId: 'a1', nivelOrientativo: 'favorable' })],
+        }),
+        'manual',
+      );
+
+      expect(a?.tono).toBe('atencion');
+      expect(a?.orientaciones).toHaveLength(1);
+    });
+
+    it('sin resultados, no hay orientaciones', () => {
+      expect(
+        aviso(resultado('terminada', { enviadas: 2 }), 'conexion', true)?.orientaciones,
+      ).toEqual([]);
     });
   });
 

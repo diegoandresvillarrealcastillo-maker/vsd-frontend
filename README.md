@@ -281,6 +281,27 @@ Quien agregue algo a la cola (las actividades, el diario, los pendientes) lo hac
 `encolar()` de `ciclo.ts`: es el unico camino, y asi el indicador y las otras pestanas
 se enteran.
 
+### Las actividades sin conexion (SCRUM-138)
+
+- **Abrir una actividad sin red.** El catalogo se lee con copia local
+  (`lecturas.ts`, `catalogoLocal.ts`): se pregunta a la API con el `ETag` de la copia
+  (`If-None-Match`; un `304` no baja nada), y si no hay red o el servidor no responde se
+  usa la copia guardada. Si ya hay copia y la API tarda mas de **2,5 s**, se usa la
+  copia sin hacer esperar y la lectura sigue sola para renovarla. Una copia **no tapa**
+  una respuesta del servidor («no existe», «no tienes permiso»). Solo se copia lo que es
+  igual para todos: lo de una persona es otro tema (SCRUM-139 y 140). Al abrirse el
+  almacen, y al volver la red, se precarga el catalogo (`precarga.ts`).
+- **Terminar una actividad sin red.** El resultado entra a la cola
+  (`resultado.registrar`) con un `operationId` estable, y la pantalla lo sigue
+  (`seguimiento.ts`) hasta **5 s**: si la API lo acepta, se ve la orientacion de
+  siempre; si no, dice «Guardado en este equipo» y **no promete lo que no sabe**. Pasa
+  sola a «Listo» cuando sale, y si la API lo rechaza lo explica por su codigo.
+- **La orientacion llega despues.** Lo que estuvo esperando mas de 30 s en el equipo se
+  muestra en el aviso de sincronizacion, con el nombre de la actividad (de la copia) y
+  su nivel. Lo que salio de inmediato no genera aviso.
+- **La hora es la del dispositivo** (`completedAt`): lo hecho sin red cuenta en el dia en
+  que se hizo, no en el que llego.
+
 ---
 
 ## Stack

@@ -16,6 +16,7 @@ import {
   type ResultadoDeSincronizacion,
 } from './motor.ts';
 import { avisarEnSegundoPlano } from './notificacionLocal.ts';
+import { precargarLasLecturas } from './precarga.ts';
 import { planDeEnvio } from './cola.ts';
 import {
   avisoDeSinConexion,
@@ -181,6 +182,8 @@ export interface DependenciasDelEstado {
   readonly cancelar: (programacion: unknown) => void;
   /** Muestra la notificacion de "se enviaron". Nunca lanza. */
   readonly notificarEnSegundoPlano: () => void;
+  /** Guarda por adelantado lo que sirve para usar la aplicacion sin conexion (SCRUM-138). */
+  readonly precargar: () => void;
 }
 
 function dependenciasReales(): DependenciasDelEstado {
@@ -196,6 +199,9 @@ function dependenciasReales(): DependenciasDelEstado {
     notificarEnSegundoPlano: () => {
       void avisarEnSegundoPlano();
     },
+    precargar: () => {
+      void precargarLasLecturas();
+    },
   };
 }
 
@@ -208,7 +214,7 @@ let contadorDeAvisos = 0;
 export function iniciarLaSincronizacionAutomatica(
   dependencias: DependenciasDelEstado = dependenciasReales(),
 ): () => void {
-  const { ventana, documento, hayRed, reloj, notificarEnSegundoPlano } = dependencias;
+  const { ventana, documento, hayRed, reloj, notificarEnSegundoPlano, precargar } = dependencias;
   let dejarDeEscucharAlMotor: (() => void) | null = null;
   let motivoActual: MotivoDeSincronizacion = 'apertura';
   /** Se supo que no habia conexion desde el ultimo aviso. */
@@ -281,7 +287,12 @@ export function iniciarLaSincronizacionAutomatica(
       cambiar({ sincronizando: false });
     }
 
-    const aviso = construirAviso({ resultado, motivo: motivoActual, estabaSinConexion });
+    const aviso = construirAviso({
+      resultado,
+      motivo: motivoActual,
+      estabaSinConexion,
+      ahora: reloj(),
+    });
 
     if (aviso !== null) {
       contadorDeAvisos += 1;
@@ -354,6 +365,12 @@ export function iniciarLaSincronizacionAutomatica(
     });
     void leerLoGuardado();
     void leerLaUltimaSincronizacion(ciclo);
+
+    // Con conexion y una persona dentro, se deja guardado lo que hace falta para
+    // usar la aplicacion cuando no la haya.
+    if (hayRed()) {
+      precargar();
+    }
   }
 
   // -------------------------------- la red --------------------------------
@@ -373,6 +390,11 @@ export function iniciarLaSincronizacionAutomatica(
       conexion: 'con_conexion',
       ...(estado.aviso?.tono === 'info' ? { aviso: null } : {}),
     });
+
+    // Si algo no se pudo guardar por adelantado por falta de red, ahora si.
+    if (estado.hayAlmacen) {
+      precargar();
+    }
   }
 
   // ------------------------------- poner en marcha -------------------------------
