@@ -1,6 +1,7 @@
 import js from '@eslint/js';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
@@ -17,6 +18,16 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
+
+  // Accesibilidad en el codigo (C-03 de la auditoria 360): lo que se puede ver sin
+  // ejecutar nada, como una imagen sin `alt`, un enlace sin destino o un `div` con
+  // `onClick` y sin teclado. Lo que solo se ve con la pagina pintada —nombres,
+  // contraste, orden de los encabezados— lo comprueban las pruebas con axe
+  // (`src/pruebas/axe.ts`) y Lighthouse en el CI.
+  {
+    ...jsxA11y.flatConfigs.recommended,
+    files: ['src/**/*.tsx'],
+  },
 
   {
     files: ['src/**/*.{ts,tsx}'],

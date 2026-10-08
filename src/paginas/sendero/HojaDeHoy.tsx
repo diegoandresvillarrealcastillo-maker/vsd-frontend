@@ -2,6 +2,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useId, useRef } from 'react';
 import { Link } from 'react-router-dom';
 
+import { alPulsarElFondo } from '../../componentes/alPulsarElFondo.ts';
 import type { ActividadDeHoy } from '../../infraestructura/api/progreso.ts';
 import { rutaDeActividad } from '../../rutas/rutas.ts';
 import { Icono } from '../panel/Icono.tsx';
@@ -54,13 +55,12 @@ export function HojaDeHoy({
   }, []);
 
   return (
-    <div className="hoja" onClick={alCerrar}>
+    <div className="hoja" role="presentation" onClick={alPulsarElFondo(alCerrar)}>
       <motion.div
         role="dialog"
         aria-modal="true"
         aria-labelledby={idDelTitulo}
         className="hoja__caja"
-        onClick={(evento) => evento.stopPropagation()}
         initial={sinMovimiento ? false : { opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={
