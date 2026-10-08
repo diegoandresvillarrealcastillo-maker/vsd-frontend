@@ -54,6 +54,7 @@ export const RUTAS_PRIVADAS = [
   '/modulo/',
   '/actividad/',
   '/contrasena-nueva',
+  '/completa-tu-registro',
 ];
 
 const ENTORNOS = ['development', 'preproduction', 'production'];

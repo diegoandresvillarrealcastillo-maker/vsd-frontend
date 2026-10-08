@@ -117,6 +117,9 @@ function TablaDeElementos({ elementos }: { elementos: readonly Elemento[] }) {
         className="legal__tabla-envoltorio"
         role="group"
         aria-label="Tabla de elementos, se puede desplazar de lado"
+        // La regla pide no dar foco a lo que no es un control, pero una zona que se
+        // desplaza tiene que poder recibirlo (WCAG 2.1.1; axe: scrollable-region-focusable).
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
         tabIndex={0}
       >
         <table className="legal__tabla">
