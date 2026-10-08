@@ -15,6 +15,7 @@ import '../../estilos/autenticacion.css';
 import { ACOMPANADO, ENTRADA } from '../../estilos/movimiento.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
+import { EnlacesLegales } from '../legal/EnlacesLegales.tsx';
 
 interface Props {
   titulo: string;
@@ -148,6 +149,10 @@ export function LienzoDeAcceso({ titulo, entradilla, children, pie }: Props) {
         </svg>
         Volver al inicio
       </Link>
+
+      {/* Los documentos se tienen que poder leer antes de aceptarlos, y la
+          pantalla donde se aceptan es esta. */}
+      <EnlacesLegales className="acceso__legal" />
     </main>
   );
 }

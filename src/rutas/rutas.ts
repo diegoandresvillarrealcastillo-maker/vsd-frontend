@@ -16,6 +16,27 @@ export const RUTAS = {
   /** A donde lleva el enlace del correo de recuperacion. */
   CONTRASENA_NUEVA: '/contrasena-nueva',
 
+  /**
+   * Los documentos legales. Publicos, con sesion o sin ella: se tienen que
+   * poder leer antes de aceptarlos, y despues de hacerlo.
+   */
+  PRIVACIDAD: '/privacidad',
+  TERMINOS: '/terminos',
+  COOKIES: '/cookies',
+
+  /**
+   * La fecha de nacimiento y las casillas, para quien tiene sesion y todavia no
+   * las dio: entro con Google, confirmo su correo en otro dispositivo o es una
+   * cuenta de antes de que se pidieran.
+   */
+  COMPLETAR_REGISTRO: '/completa-tu-registro',
+
+  /**
+   * Lo que ve quien resulta menor de 18 anos. Publica: se llega a ella despues de
+   * cerrar la sesion, y no guarda ni pide nada.
+   */
+  SOLO_MAYORES: '/solo-mayores',
+
   /** Primera pantalla despues de entrar. */
   PANEL: '/panel',
 

@@ -110,28 +110,6 @@ export function esPantallaDeLaApp(direccion: URL, origenDeLaApp: string): boolea
 }
 
 /**
- * Los dos sitios de los que sale la tipografia (Google Fonts). Se guardan la
- * primera vez que se piden para que, sin conexion, no se pierdan.
- */
-export const ORIGEN_DE_LAS_HOJAS_DE_FUENTES = 'https://fonts.googleapis.com';
-export const ORIGEN_DE_LOS_ARCHIVOS_DE_FUENTES = 'https://fonts.gstatic.com';
-
-export type ClaseDeFuente = 'hoja' | 'archivo';
-
-/** Si la direccion es de la tipografia y de que clase; `null` si no lo es. */
-export function claseDeFuente(direccion: URL): ClaseDeFuente | null {
-  if (direccion.origin === ORIGEN_DE_LAS_HOJAS_DE_FUENTES) {
-    return 'hoja';
-  }
-
-  if (direccion.origin === ORIGEN_DE_LOS_ARCHIVOS_DE_FUENTES) {
-    return 'archivo';
-  }
-
-  return null;
-}
-
-/**
  * El mensaje con el que la pagina le dice a un service worker nuevo que tome el
  * control. Es de la forma que manda `vite-plugin-pwa`.
  */

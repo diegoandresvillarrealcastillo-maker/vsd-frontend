@@ -2,11 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   avisoDesde,
-  claseDeFuente,
   esOrdenDeActualizar,
   esPantallaDeLaApp,
-  ORIGEN_DE_LAS_HOJAS_DE_FUENTES,
-  ORIGEN_DE_LOS_ARCHIVOS_DE_FUENTES,
   RUTA_POR_OMISION,
   rutaPropia,
 } from './reglasDelServiceWorker.ts';
@@ -162,35 +159,6 @@ describe('esPantallaDeLaApp', () => {
     ['el mismo dominio con http', 'http://vsd-health.example/panel'],
   ])('%s nunca es una pantalla de la aplicacion', (_nombre, completa) => {
     expect(esPantallaDeLaApp(new URL(completa), ORIGEN)).toBe(false);
-  });
-});
-
-describe('claseDeFuente', () => {
-  it('reconoce las hojas de estilo de Google Fonts', () => {
-    expect(
-      claseDeFuente(new URL('https://fonts.googleapis.com/css2?family=Manrope:wght@500')),
-    ).toBe('hoja');
-  });
-
-  it('reconoce los archivos de la letra', () => {
-    expect(claseDeFuente(new URL('https://fonts.gstatic.com/s/manrope/v15/a.woff2'))).toBe(
-      'archivo',
-    );
-  });
-
-  it.each([
-    ['la propia aplicacion', `${ORIGEN}/assets/x.css`],
-    ['otro dominio', 'https://cdn.example/fonts.css'],
-    ['un dominio que solo contiene el nombre', 'https://fonts.googleapis.com.evil.example/css'],
-    ['otro subdominio de Google', 'https://www.googleapis.com/css'],
-    ['la API', 'https://vsd-api.example/api/pendientes'],
-  ])('%s no es tipografia', (_nombre, completa) => {
-    expect(claseDeFuente(new URL(completa))).toBeNull();
-  });
-
-  it('los origenes son los que usa index.html', () => {
-    expect(ORIGEN_DE_LAS_HOJAS_DE_FUENTES).toBe('https://fonts.googleapis.com');
-    expect(ORIGEN_DE_LOS_ARCHIVOS_DE_FUENTES).toBe('https://fonts.gstatic.com');
   });
 });
 

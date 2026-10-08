@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -60,6 +60,17 @@ async function escribir(campo: HTMLElement, valor: string): Promise<void> {
   await usuario.paste(valor);
 }
 
+/**
+ * Lo que se le pide a quien se registra ademas del correo y la contrasena: su
+ * fecha de nacimiento y las dos casillas, cada una con su documento.
+ */
+async function rellenarLoLegal(fecha = '1998-03-14'): Promise<void> {
+  // El campo de fecha se rellena de una vez: tecla a tecla, jsdom lo deja a medias.
+  fireEvent.change(screen.getByLabelText('Fecha de nacimiento'), { target: { value: fecha } });
+  await usuario.click(screen.getByLabelText(/Acepto el aviso de privacidad/));
+  await usuario.click(screen.getByLabelText(/Acepto los términos/));
+}
+
 function pintar(pantalla: React.ReactNode, valor: EstadoDeSesion) {
   return render(
     <SesionContexto.Provider value={valor}>
@@ -96,7 +107,7 @@ describe('Registro', () => {
     await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
     await escribir(screen.getByLabelText('Contraseña'), 'UnaContrasena#2026');
     await escribir(screen.getByLabelText('Repite la contraseña'), 'OtraDistinta#2026');
-    await usuario.click(screen.getByLabelText(/Acepto el tratamiento/));
+    await rellenarLoLegal();
 
     await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
@@ -111,7 +122,7 @@ describe('Registro', () => {
     await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
     await escribir(screen.getByLabelText('Contraseña'), 'corta');
     await escribir(screen.getByLabelText('Repite la contraseña'), 'corta');
-    await usuario.click(screen.getByLabelText(/Acepto el tratamiento/));
+    await rellenarLoLegal();
 
     await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
@@ -131,7 +142,7 @@ describe('Registro', () => {
     await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
     await escribir(screen.getByLabelText('Contraseña'), 'todoenminusculas');
     await escribir(screen.getByLabelText('Repite la contraseña'), 'todoenminusculas');
-    await usuario.click(screen.getByLabelText(/Acepto el tratamiento/));
+    await rellenarLoLegal();
 
     await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
@@ -155,7 +166,7 @@ describe('Registro', () => {
     await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
     await escribir(screen.getByLabelText('Contraseña'), 'Con_guion.Bajo7');
     await escribir(screen.getByLabelText('Repite la contraseña'), 'Con_guion.Bajo7');
-    await usuario.click(screen.getByLabelText(/Acepto el tratamiento/));
+    await rellenarLoLegal();
 
     await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
@@ -191,7 +202,7 @@ describe('Registro', () => {
     await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
     await escribir(screen.getByLabelText('Contraseña'), 'UnaContrasena#2026');
     await escribir(screen.getByLabelText('Repite la contraseña'), 'UnaContrasena#2026');
-    await usuario.click(screen.getByLabelText(/Acepto el tratamiento/));
+    await rellenarLoLegal();
 
     await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
@@ -199,6 +210,7 @@ describe('Registro', () => {
       correo: 'alguien@ejemplo.com',
       contrasena: 'UnaContrasena#2026',
       aceptaElAviso: true,
+      aceptaLosTerminos: true,
     });
   });
 });
@@ -231,6 +243,49 @@ describe('ContrasenaNueva', () => {
 
     expect(cambiarContrasena).toHaveBeenCalledWith('UnaContrasena#2026');
   });
+
+  it('dice que cerro la sesion de los demas dispositivos (SCRUM-154)', async () => {
+    const cambiarContrasena = vi
+      .fn()
+      .mockResolvedValue({ ok: true, mensaje: 'Cerramos tu sesión en los demás dispositivos.' });
+    pintar(<ContrasenaNueva />, estado({ sesion: conSesion, cambiarContrasena }));
+
+    await escribir(screen.getByLabelText('Contraseña nueva'), 'UnaContrasena#2026');
+    await escribir(screen.getByLabelText('Repítela'), 'UnaContrasena#2026');
+    await usuario.click(screen.getByRole('button', { name: 'Guardar y entrar' }));
+
+    // El medidor de la contrasena tambien es un `status`: se busca por el texto.
+    expect(
+      await screen.findByText('Cerramos tu sesión en los demás dispositivos.'),
+    ).toBeInTheDocument();
+  });
+
+  it('si el cierre no se pudo, tambien lo dice, y la contrasena queda cambiada', async () => {
+    const cambiarContrasena = vi.fn().mockResolvedValue({
+      ok: true,
+      mensaje: 'No pudimos cerrar tu sesión en los demás dispositivos.',
+    });
+    pintar(<ContrasenaNueva />, estado({ sesion: conSesion, cambiarContrasena }));
+
+    await escribir(screen.getByLabelText('Contraseña nueva'), 'UnaContrasena#2026');
+    await escribir(screen.getByLabelText('Repítela'), 'UnaContrasena#2026');
+    await usuario.click(screen.getByRole('button', { name: 'Guardar y entrar' }));
+
+    expect(await screen.findByText(/No pudimos cerrar tu sesión/)).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('sin nada que decir de las demas sesiones, no pinta ningun aviso', async () => {
+    const cambiarContrasena = vi.fn().mockResolvedValue({ ok: true });
+    pintar(<ContrasenaNueva />, estado({ sesion: conSesion, cambiarContrasena }));
+
+    await escribir(screen.getByLabelText('Contraseña nueva'), 'UnaContrasena#2026');
+    await escribir(screen.getByLabelText('Repítela'), 'UnaContrasena#2026');
+    await usuario.click(screen.getByRole('button', { name: 'Guardar y entrar' }));
+
+    expect(cambiarContrasena).toHaveBeenCalled();
+    expect(screen.queryByText(/demás dispositivos/)).not.toBeInTheDocument();
+  });
 });
 
 describe('Acceso', () => {
@@ -238,9 +293,9 @@ describe('Acceso', () => {
     vi.clearAllMocks();
   });
 
-  it('recuerda el dispositivo si no se toca la casilla', async () => {
-    // Marcada por defecto: es lo que espera quien entra desde su propio
-    // equipo, que son la mayoria.
+  it('no mantiene la sesion en el equipo si no se toca la casilla', async () => {
+    // Desmarcada por defecto (SCRUM-164, D9): en una sala de computo lo seguro
+    // es lo que pasa si nadie toca nada.
     const entrar = vi.fn().mockResolvedValue({ ok: true });
     pintar(<Acceso />, estado({ entrar }));
 
@@ -252,33 +307,33 @@ describe('Acceso', () => {
     expect(entrar).toHaveBeenCalledWith({
       correo: 'alguien@ejemplo.com',
       contrasena: 'loQueSea123',
-      recordar: true,
+      recordar: false,
     });
   });
 
-  it('deja de recordarlo al desmarcar la casilla', async () => {
-    // Es la casilla de las salas de computo de la universidad. Si el valor no
-    // viajara, la sesion quedaria abierta en un equipo compartido.
+  it('mantiene la sesion en el equipo al marcar la casilla', async () => {
+    // Es la opcion de quien entra desde su propio equipo. Si el valor no
+    // viajara, nadie podria conservar su sesion.
     const entrar = vi.fn().mockResolvedValue({ ok: true });
     pintar(<Acceso />, estado({ entrar }));
 
     await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
     await escribir(screen.getByLabelText('Contraseña'), 'loQueSea123');
-    await usuario.click(screen.getByLabelText(/Recordar en este dispositivo/));
+    await usuario.click(screen.getByLabelText(/Mantener la sesión en este equipo/));
 
     await usuario.click(screen.getByRole('button', { name: 'Entrar' }));
 
     expect(entrar).toHaveBeenCalledWith(
-      expect.objectContaining({ recordar: false }) as Record<string, unknown>,
+      expect.objectContaining({ recordar: true }) as Record<string, unknown>,
     );
   });
 
-  it('no pregunta por recordar el dispositivo al registrarse', () => {
+  it('no pregunta por mantener la sesion al registrarse', () => {
     // Al crear la cuenta la pregunta no tiene sentido: acabas de hacerla y vas
     // a entrar igual. La unica casilla que queda ahi es la del consentimiento.
     pintar(<Registro />, estado());
 
-    expect(screen.queryByLabelText(/Recordar en este dispositivo/)).toBeNull();
+    expect(screen.queryByLabelText(/Mantener la sesión en este equipo/)).toBeNull();
   });
 
   it('muestra el error sin decir si la cuenta existe', async () => {

@@ -21,6 +21,9 @@ interface ErroresDeContrasena {
   repetida?: string;
 }
 
+/** Cuanto se queda el mensaje de las demas sesiones antes de entrar al panel. */
+const PAUSA_PARA_LEER_EN_MS = 2600;
+
 /**
  * A donde lleva el enlace del correo de recuperacion.
  *
@@ -39,6 +42,7 @@ export function ContrasenaNueva() {
   const [repetida, setRepetida] = useState('');
   const [estado, setEstado] = useState<EstadoDeEnvio>('listo');
   const [error, setError] = useState<string | null>(null);
+  const [nota, setNota] = useState<string | null>(null);
   const [errorDeCampo, setErrorDeCampo] = useState<ErroresDeContrasena>({});
   const idMedidor = useId();
 
@@ -75,7 +79,13 @@ export function ContrasenaNueva() {
     }
 
     setEstado('hecho');
-    setTimeout(() => navegar(RUTAS.PANEL, { replace: true }), 420);
+    setNota(resultado.mensaje ?? null);
+    // Con algo que leer —que paso con la sesion de los demas dispositivos— se
+    // espera un poco mas antes de seguir (SCRUM-154).
+    setTimeout(
+      () => navegar(RUTAS.PANEL, { replace: true }),
+      resultado.mensaje === undefined ? 420 : PAUSA_PARA_LEER_EN_MS,
+    );
   }
 
   if (cargando) {
@@ -177,6 +187,14 @@ export function ContrasenaNueva() {
             Guardar y entrar
           </BotonDeEnvio>
         </Aparece>
+
+        {nota !== null && (
+          <Aparece>
+            <p className="aviso aviso--bien" role="status">
+              {nota}
+            </p>
+          </Aparece>
+        )}
       </form>
     </LienzoDeAcceso>
   );

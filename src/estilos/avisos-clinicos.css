@@ -1,0 +1,62 @@
+/* ============================================================
+   Los avisos de que VSD Health no diagnostica
+   ============================================================
+   Dos piezas, las dos con el color de lo que tienen alrededor
+   (`inherit`) y sin opacidad: asi se leen igual en el tema claro, en el
+   oscuro y dentro de la tarjeta del asistente, y el contraste es el del
+   texto que las rodea y no uno propio que haya que cuidar aparte.
+
+   - `.aviso-orientativo`: una linea bajo cada resultado y en la cabecera
+     del asistente.
+   - `.pie-de-la-app`: el pie breve del panel y del perfil.
+   ============================================================ */
+
+.aviso-orientativo {
+  margin: 0;
+  color: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.pie-de-la-app {
+  display: grid;
+  gap: 8px;
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  color: var(--app-tenue, inherit);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.pie-de-la-app__texto {
+  max-width: 62ch;
+  margin: 0;
+}
+
+.pie-de-la-app__enlaces .enlaces-legales__lista {
+  gap: 2px 16px;
+}
+
+.pie-de-la-app__enlaces .enlaces-legales__enlace {
+  color: inherit;
+}
+
+.pie-de-la-app__enlaces .enlaces-legales__enlace:hover,
+.pie-de-la-app__enlaces .enlaces-legales__enlace[aria-current='page'] {
+  color: var(--app-tinta, inherit);
+}
+
+/* En el resultado de una actividad va debajo del nivel, con el mismo margen que
+   los demas parrafos de la tarjeta, y en el tono bajo de la pantalla. */
+.actividad__caja .aviso-orientativo {
+  margin: -8px 0 20px;
+  color: var(--texto-tenue);
+}
+
+/* En la cabecera del asistente va debajo del titulo, en una linea aparte. */
+.asistente__cabecera .aviso-orientativo {
+  margin-top: 4px;
+  color: var(--app-tenue);
+  font-size: 0.75rem;
+}

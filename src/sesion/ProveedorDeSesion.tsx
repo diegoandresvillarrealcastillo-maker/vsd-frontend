@@ -14,7 +14,7 @@ import { dejarDeAvisarAEsteNavegador } from '../notificaciones/navegador.ts';
 import { RUTAS } from '../rutas/rutas.ts';
 import { alCambiarLaSesion, olvidarLosDatosDeLaSesionActual } from '../sincronizacion/ciclo.ts';
 import { olvidarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
-import { consultarLaVersionDelAviso } from '../infraestructura/api/aviso.ts';
+import { consultarLosTextosVigentes, type TextosVigentes } from '../infraestructura/api/aviso.ts';
 import {
   SesionContexto,
   type DatosDeAcceso,
@@ -24,12 +24,20 @@ import {
 } from './SesionContexto.ts';
 
 /**
- * Al registrarse y al entrar con Google, la sesion se recuerda.
+ * Al registrarse con correo, el almacen es el duradero.
  *
- * La pregunta de si recordar el equipo solo la hace la pantalla de inicio de
- * sesion. Al crear una cuenta no tiene sentido —acabas de hacerla y vas a
- * entrar igual— y ponerla ahi seria una casilla mas que leer en el peor
- * momento para pedir atencion.
+ * La pregunta de «Mantener la sesion en este equipo» solo la hace la pantalla de
+ * acceso (SCRUM-164): al crear una cuenta no tiene sentido —acabas de hacerla y
+ * vas a entrar igual— y seria una casilla mas que leer en el peor momento.
+ *
+ * Aqui se elige el almacen duradero por una razon tecnica, no de producto: el
+ * flujo PKCE guarda un verificador al registrarse, y el enlace del correo casi
+ * siempre se abre en **otra pestana**, que no veria uno guardado solo en la
+ * pestana donde se registro.
+ *
+ * Limite conocido: la sesion que nace de ese enlace queda guardada en el equipo.
+ * Quien se registra en un equipo compartido tiene que cerrar sesion al terminar.
+ * Cerrar ese hueco exige repensar la confirmacion por correo y es otro ticket.
  */
 const RECORDAR_SIEMPRE = true;
 
@@ -66,6 +74,41 @@ function clienteONulo(): ReturnType<typeof supabase> | null {
 }
 
 const DEMASIADOS_INTENTOS = 'Demasiados intentos seguidos. Espera un momento y vuelve.';
+
+const DEMAS_SESIONES_CERRADAS = 'Cerramos tu sesión en los demás dispositivos.';
+
+const DEMAS_SESIONES_ABIERTAS =
+  'No pudimos cerrar tu sesión en los demás dispositivos. Si alguno no es tuyo, cambia la contraseña otra vez en un momento.';
+
+/**
+ * Despues de cambiar la contrasena, cierra la sesion de todos los demas
+ * dispositivos y deja abierta solo esta (SCRUM-154).
+ *
+ * Cambiar la contrasena porque alguien mas pudo entrar no sirve de nada si esa
+ * persona conserva su sesion: Supabase no la cierra por su cuenta. Es lo que
+ * hace que cambiarla sea de verdad el remedio de "creo que entraron a mi
+ * cuenta".
+ *
+ * La contrasena ya cambio cuando se llega aqui, asi que un fallo no la
+ * deshace ni se vuelve un error: la persona tiene que saberlo, porque quedo con
+ * la sensacion de haber cerrado algo que sigue abierto. Por eso el resultado es
+ * siempre `ok` y lo que cambia es el mensaje.
+ *
+ * Los demas dispositivos pierden la sesion en cuanto intentan renovarla; el
+ * token que ya tengan sigue valiendo hasta que caduque (una hora por defecto en
+ * Supabase).
+ */
+async function cerrarLasDemasSesiones(
+  cliente: ReturnType<typeof supabase>,
+): Promise<ResultadoDeAcceso> {
+  try {
+    const { error } = await cliente.auth.signOut({ scope: 'others' });
+
+    return { ok: true, mensaje: error ? DEMAS_SESIONES_ABIERTAS : DEMAS_SESIONES_CERRADAS };
+  } catch {
+    return { ok: true, mensaje: DEMAS_SESIONES_ABIERTAS };
+  }
+}
 
 /** Cada codigo de error de Supabase con su texto en espanol. */
 const MENSAJES: Readonly<Record<string, string>> = {
@@ -242,12 +285,20 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
       correo,
       contrasena,
       aceptaElAviso,
-    }: DatosDeAcceso & { aceptaElAviso: boolean }): Promise<ResultadoDeAcceso> => {
-      if (!aceptaElAviso) {
+      aceptaLosTerminos,
+    }: DatosDeAcceso & {
+      aceptaElAviso: boolean;
+      aceptaLosTerminos: boolean;
+    }): Promise<ResultadoDeAcceso> => {
+      if (!aceptaElAviso || !aceptaLosTerminos) {
         // No es una validacion de formulario cualquiera. Sin autorizacion
         // previa y expresa no hay base legal para guardar un solo dato de
-        // salud, asi que la cuenta no puede crearse.
-        return { ok: false, mensaje: 'Para crear la cuenta hace falta aceptar el aviso.' };
+        // salud, asi que la cuenta no puede crearse. Son dos casillas porque
+        // son dos documentos: el aviso de privacidad y los terminos.
+        return {
+          ok: false,
+          mensaje: 'Para crear la cuenta hace falta aceptar el aviso de privacidad y los términos.',
+        };
       }
 
       recordarEnEsteEquipo(RECORDAR_SIEMPRE);
@@ -258,14 +309,14 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
         return SIN_CONFIGURAR;
       }
 
-      // La version del aviso se pide a la API, que es su unica fuente
-      // (SCRUM-85). Si no se puede saber cual esta vigente no se crea la
-      // cuenta: registrarla con una version supuesta seria guardar un
+      // Las versiones del aviso y de los terminos se piden a la API, que es su
+      // unica fuente (SCRUM-85). Si no se puede saber cuales estan vigentes no
+      // se crea la cuenta: registrarla con una version supuesta seria guardar un
       // consentimiento que nadie puede demostrar.
-      let versionDelAviso: string;
+      let textos: TextosVigentes;
 
       try {
-        versionDelAviso = await consultarLaVersionDelAviso();
+        textos = await consultarLosTextosVigentes();
       } catch {
         return SIN_SERVIDOR;
       }
@@ -274,8 +325,14 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
         email: correo,
         password: contrasena,
         options: {
+          // Solo lo que se acepto y cuando, como constancia de que se marcaron
+          // las casillas al registrarse. La fecha de nacimiento no va aqui: no
+          // hace falta para crear la identidad y no tiene por que viajar en el
+          // token de cada peticion. El consentimiento que vale lo registra la
+          // API al crear la cuenta.
           data: {
-            version_aviso: versionDelAviso,
+            version_aviso: textos.aviso,
+            version_terminos: textos.terminos,
             acepto_en: new Date().toISOString(),
           },
           emailRedirectTo: `${window.location.origin}${RUTAS.PANEL}`,
@@ -356,7 +413,11 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
 
     const { error } = await cliente.auth.updateUser({ password: nueva });
 
-    return traducir(error);
+    if (error) {
+      return traducir(error);
+    }
+
+    return cerrarLasDemasSesiones(cliente);
   }, []);
 
   /**
@@ -390,7 +451,11 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
 
       const { error } = await cliente.auth.updateUser({ password: nueva, nonce: codigo.trim() });
 
-      return traducir(error);
+      if (error) {
+        return traducir(error);
+      }
+
+      return cerrarLasDemasSesiones(cliente);
     },
     [],
   );

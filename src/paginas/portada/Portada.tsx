@@ -9,6 +9,7 @@ import { entorno } from '../../infraestructura/entorno.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
+import { EnlacesLegales } from '../legal/EnlacesLegales.tsx';
 import { AnillosDeConstancia } from './AnillosDeConstancia.tsx';
 import { BarrasDeSueno, MEDIA_DE_SUENO } from './BarrasDeSueno.tsx';
 import { InvitacionAlEntrar } from './InvitacionAlEntrar.tsx';
@@ -76,11 +77,36 @@ function Marca({ children }: { children: ReactNode }) {
   );
 }
 
-const NO_HACE: readonly string[] = [
-  'No diagnostica ningún trastorno, ni lo insinúa.',
-  'No formula, sugiere ni desaconseja medicamentos.',
-  'No reemplaza a un psicólogo, un médico ni un psiquiatra.',
-  'No le muestra tu información a nadie más, ni siquiera a quien administra la aplicación.',
+interface Limite {
+  readonly clave: string;
+  readonly texto: ReactNode;
+}
+
+/**
+ * Lo que VSD Health no hace.
+ *
+ * Cada linea tiene que poder demostrarse. La ultima decia que nadie veia tus
+ * datos «ni siquiera quien administra la aplicacion»: una promesa absoluta que no
+ * se cumple al pie de la letra, porque los proveedores que alojan el servicio
+ * procesan los datos y quien tenga la credencial de la base podria leerlos
+ * (L-04 de la auditoria 360). Se dice lo que si es cierto y se puede comprobar: la
+ * aplicacion no le ensena a nadie del equipo el diario ni los resultados, y cada
+ * persona puede llevarselos o borrarlos.
+ */
+const NO_HACE: readonly Limite[] = [
+  { clave: 'diagnostico', texto: 'No diagnostica ningún trastorno, ni lo insinúa.' },
+  { clave: 'medicamentos', texto: 'No formula, sugiere ni desaconseja medicamentos.' },
+  { clave: 'profesionales', texto: 'No reemplaza a un psicólogo, un médico ni un psiquiatra.' },
+  {
+    clave: 'equipo',
+    texto: (
+      <>
+        No le muestra tu diario ni tus resultados a nadie del equipo desde la aplicación. Puedes
+        descargarlos o borrarlos cuando quieras.{' '}
+        <Link to={RUTAS.PRIVACIDAD}>Cómo cuidamos tus datos</Link>
+      </>
+    ),
+  },
 ];
 
 interface Paso {
@@ -145,7 +171,7 @@ export function Portada() {
 
             <p className="heroe__entradilla">
               Registra cómo te sientes, cuánto dormiste y qué hiciste hoy. Con los días vas a ver
-              cómo cambia todo eso. Sin diagnósticos y sin ponerte una nota.
+              cómo cambia todo eso. Sin diagnósticos y sin compararte con nadie.
             </p>
 
             {/* A quien ya entró no se le ofrece crear una cuenta ni entrar: ya
@@ -183,7 +209,8 @@ export function Portada() {
             <div className="garantias">
               <Marca>No diagnostica</Marca>
               <Marca>No formula medicamentos</Marca>
-              <Marca>Tus datos son solo tuyos</Marca>
+              <Marca>Descargas o borras tus datos</Marca>
+              <Marca>Solo para mayores de 18 años</Marca>
             </div>
           </motion.div>
         </header>
@@ -193,7 +220,7 @@ export function Portada() {
           <Entra>
             <h2 className="seccion__titulo">Lo que ves cada día</h2>
             <p className="seccion__entradilla">
-              Todo lo que aparece aquí lo registraste tú. No hay calificaciones ni puntajes.
+              Todo lo que aparece aquí lo registraste tú. No te comparamos con nadie.
             </p>
           </Entra>
 
@@ -271,8 +298,8 @@ export function Portada() {
               </p>
 
               <ul className="limite__lista">
-                {NO_HACE.map((linea) => (
-                  <li className="limite__punto" key={linea}>
+                {NO_HACE.map(({ clave, texto }) => (
+                  <li className="limite__punto" key={clave}>
                     <svg
                       className="limite__cruz"
                       viewBox="0 0 24 24"
@@ -288,7 +315,7 @@ export function Portada() {
                         strokeLinecap="round"
                       />
                     </svg>
-                    {linea}
+                    <span>{texto}</span>
                   </li>
                 ))}
               </ul>
@@ -311,7 +338,7 @@ export function Portada() {
             <p className="cierre__texto">
               {sesion
                 ? 'Tu sesión sigue abierta en este dispositivo.'
-                : 'Crear la cuenta te toma menos de un minuto y solo te pedimos lo necesario.'}
+                : 'Crear la cuenta es rápido y solo te pedimos lo necesario: tu correo, una contraseña y tu fecha de nacimiento.'}
             </p>
 
             <motion.span {...REACCION_DE_BOTON}>
@@ -332,7 +359,8 @@ export function Portada() {
             <Logo className="pie__marca-logo" />
             <p className="pie__aviso">
               Lo que VSD Health ofrece es orientativo y de apoyo: no diagnostica, no formula
-              medicamentos y no reemplaza la atención de psicólogos, médicos ni psiquiatras.
+              medicamentos y no reemplaza la atención de psicólogos, médicos ni psiquiatras. Es solo
+              para mayores de 18 años.
             </p>
           </div>
 
@@ -355,7 +383,11 @@ export function Portada() {
 
           <div className="pie__legal">
             <span>© {new Date().getFullYear()} VSD Health</span>
-            <span>Ambiente: {entorno.nombre}</span>
+            <EnlacesLegales />
+            {/* El ambiente es un dato interno: ayuda a quien prueba en desarrollo o en
+                PRE a saber donde esta, y a nadie mas. En produccion no se muestra
+                (L-07 de la auditoria 360). */}
+            {entorno.nombre !== 'production' && <span>Ambiente: {entorno.nombre}</span>}
           </div>
         </div>
       </footer>

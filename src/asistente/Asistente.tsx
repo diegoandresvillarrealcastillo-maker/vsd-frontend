@@ -1,6 +1,7 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 
+import { AvisoOrientativo } from '../componentes/AvisoOrientativo.tsx';
 import { useDialogo } from '../componentes/useDialogo.ts';
 import { useEnLinea } from '../conexion/useEnLinea.ts';
 import '../estilos/actividad.css';
@@ -141,6 +142,9 @@ export function Asistente({
                 VSD IA
               </h2>
               <p className="asistente__subtitulo">Con {nombreDeLaMascota}</p>
+              {/* En la cabecera y no en cada respuesta: se ve desde que se abre,
+                  antes de preguntar nada (L-03 de la auditoria 360). */}
+              <AvisoOrientativo />
             </div>
             <button
               type="button"
