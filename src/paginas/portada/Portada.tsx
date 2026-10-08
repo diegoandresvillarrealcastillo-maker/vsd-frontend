@@ -9,6 +9,7 @@ import { entorno } from '../../infraestructura/entorno.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
+import { EnlacesLegales } from '../legal/EnlacesLegales.tsx';
 import { AnillosDeConstancia } from './AnillosDeConstancia.tsx';
 import { BarrasDeSueno, MEDIA_DE_SUENO } from './BarrasDeSueno.tsx';
 import { InvitacionAlEntrar } from './InvitacionAlEntrar.tsx';
@@ -355,6 +356,7 @@ export function Portada() {
 
           <div className="pie__legal">
             <span>© {new Date().getFullYear()} VSD Health</span>
+            <EnlacesLegales />
             <span>Ambiente: {entorno.nombre}</span>
           </div>
         </div>

@@ -11,6 +11,9 @@ import { Acceso } from './paginas/autenticacion/Acceso.tsx';
 import { ContrasenaNueva } from './paginas/autenticacion/ContrasenaNueva.tsx';
 import { Recuperar } from './paginas/autenticacion/Recuperar.tsx';
 import { Registro } from './paginas/autenticacion/Registro.tsx';
+import { Cookies } from './paginas/legal/Cookies.tsx';
+import { Privacidad } from './paginas/legal/Privacidad.tsx';
+import { Terminos } from './paginas/legal/Terminos.tsx';
 import { Portada } from './paginas/portada/Portada.tsx';
 import { RutaDeInvitado } from './rutas/RutaDeInvitado.tsx';
 import { RutaProtegida } from './rutas/RutaProtegida.tsx';
@@ -31,7 +34,8 @@ const Diario = lazy(() =>
  * Tres clases de ruta, y ninguna se cuela en otra
  * ---------------------------------------------------------------------------
  *
- * - **Publicas**: la portada. Cualquiera, con sesion o sin ella.
+ * - **Publicas**: la portada y los documentos legales (privacidad, terminos y
+ *   cookies). Cualquiera, con sesion o sin ella.
  * - **De invitado**: entrar, registrarse y pedir una contrasena nueva. Solo
  *   tienen sentido sin sesion; con sesion abierta llevan al panel. Rellenar un
  *   formulario que no va a cambiar nada es peor que no verlo.
@@ -70,6 +74,9 @@ export function App() {
         <Routes location={ubicacion} key={ubicacion.pathname}>
           {/* ---------- Publicas ---------- */}
           <Route path={RUTAS.INICIO} element={<Portada />} />
+          <Route path={RUTAS.PRIVACIDAD} element={<Privacidad />} />
+          <Route path={RUTAS.TERMINOS} element={<Terminos />} />
+          <Route path={RUTAS.COOKIES} element={<Cookies />} />
 
           {/* ---------- Solo sin sesion ---------- */}
           <Route
