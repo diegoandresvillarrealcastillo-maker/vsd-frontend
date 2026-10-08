@@ -4,6 +4,7 @@ import { consultarLaVersionDelAviso } from '../../infraestructura/api/aviso.ts';
 import { darDeAltaLaCuenta } from '../../infraestructura/api/cuenta.ts';
 import { consultarElDiario, type Anotacion } from '../../infraestructura/api/diario.ts';
 import type { LineaDeAtencion } from '../../infraestructura/api/resultados.ts';
+import { useAlVolverLaRed } from '../../conexion/useAlVolverLaRed.ts';
 import { reintentarCambio } from '../../sincronizacion/acciones.ts';
 import {
   esAnotacionCopiada,
@@ -196,23 +197,11 @@ export function useDiario() {
   }, [desde, desdeInicial, hoy, intento, releerLoLocal]);
 
   // Si lo que se ve es la copia, en cuanto vuelve la conexion se pregunta de nuevo.
-  const mostrandoLaCopia = deLaCopia !== null;
+  const preguntarDeNuevo = useCallback(() => {
+    setIntento((antes) => antes + 1);
+  }, []);
 
-  useEffect(() => {
-    if (!mostrandoLaCopia) {
-      return undefined;
-    }
-
-    function alVolverLaRed(): void {
-      setIntento((antes) => antes + 1);
-    }
-
-    window.addEventListener('online', alVolverLaRed);
-
-    return () => {
-      window.removeEventListener('online', alVolverLaRed);
-    };
-  }, [mostrandoLaCopia]);
+  useAlVolverLaRed(deLaCopia !== null, preguntarDeNuevo);
 
   // ---------------------------------------------------------- el historial
 

@@ -7,6 +7,7 @@ import {
 import type { Operacion } from '../../sincronizacion/cola.ts';
 import type { MarcaDeCopia, MarcasDeCopia } from '../../sincronizacion/diarioLocal.ts';
 import { idLocalDe } from '../../sincronizacion/ejecutores.ts';
+import { estadoDeUnCambio } from '../../sincronizacion/estadoDeUnCambio.ts';
 import { minutosParaEditar } from './calendarioDelDiario.ts';
 
 /**
@@ -75,23 +76,10 @@ function elPeor(uno: EstadoDeLaEntrada, otro: EstadoDeLaEntrada): EstadoDeLaEntr
 }
 
 function estadoDe(operacion: Operacion, sincronizando: boolean, ahora: Date): EstadoDeLaEntrada {
-  switch (operacion.estado) {
-    case 'requiere_atencion':
-    case 'conflicto':
-      return 'error';
+  const estado = estadoDeUnCambio(operacion, sincronizando, ahora);
 
-    case 'enviando':
-      return 'guardando';
-
-    default: {
-      // Una pendiente que espera su proximo reintento no se esta enviando aunque otra si.
-      const lista =
-        operacion.proximoIntento === null ||
-        Date.parse(operacion.proximoIntento) <= ahora.getTime();
-
-      return sincronizando && lista ? 'guardando' : 'en_este_equipo';
-    }
-  }
+  // Una anotacion no se resuelve eligiendo: un conflicto de una correccion se vuelve copia.
+  return estado === 'conflicto' ? 'error' : estado;
 }
 
 type Objeto = Readonly<Record<string, unknown>>;

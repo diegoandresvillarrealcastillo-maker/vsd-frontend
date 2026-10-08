@@ -373,3 +373,14 @@
   outline: 3px solid var(--acento-claro);
   outline-offset: 2px;
 }
+
+/* Lo que dice una pantalla que ensena la copia de este equipo (SCRUM-140). */
+.datos-de-hace {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  color: var(--app-tenue, #5b6b62);
+  background: var(--app-superficie, transparent);
+  border: 1px dashed var(--app-borde, currentColor);
+  border-radius: 12px;
+  font-size: 0.8125rem;
+}
