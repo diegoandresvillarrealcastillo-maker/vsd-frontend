@@ -8,6 +8,7 @@ import {
 import type { MouseEvent, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
+import { ExigeConexion } from '../../componentes/ExigeConexion.tsx';
 import { Logo } from '../../componentes/Logo.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/autenticacion.css';
@@ -122,7 +123,8 @@ export function LienzoDeAcceso({ titulo, entradilla, children, pie }: Props) {
             <p className="acceso__entradilla">{entradilla}</p>
           </Aparece>
 
-          {children}
+          {/* Entrar, registrarse y recuperar la contrasena exigen conexion (SCRUM-142). */}
+          <ExigeConexion>{children}</ExigeConexion>
 
           {pie !== undefined && (
             <Aparece>

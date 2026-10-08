@@ -7,6 +7,7 @@ import {
   ESPERA_CON_COPIA_EN_MS,
   leerConCopia,
   leerSoloLaCopia,
+  leerSoloLaCopiaConFecha,
   modificarLaCopia,
 } from './lecturas.ts';
 
@@ -402,6 +403,47 @@ describe('leerSoloLaCopia', () => {
     await leerConCopia('cero', () => Promise.resolve(nuevo(0)));
 
     expect(await leerSoloLaCopia('cero')).toBe(0);
+  });
+});
+
+describe('leerSoloLaCopiaConFecha (SCRUM-142)', () => {
+  it('devuelve lo guardado y cuando se guardo, sin preguntar a nadie', async () => {
+    const antes = Date.now();
+
+    await leerConCopia(CLAVE, () => Promise.resolve(nuevo({ a: 1 })));
+
+    const guardada = await leerSoloLaCopiaConFecha<{ a: number }>(CLAVE);
+
+    expect(guardada?.valor).toEqual({ a: 1 });
+    expect(Date.parse(guardada?.guardadoEn ?? '')).toBeGreaterThanOrEqual(antes);
+    expect(Date.parse(guardada?.guardadoEn ?? '')).toBeLessThanOrEqual(Date.now());
+  });
+
+  it('lo que no se guardo, nulo', async () => {
+    expect(await leerSoloLaCopiaConFecha('otra-clave')).toBeNull();
+  });
+
+  it('un valor falso o cero se devuelve tal cual, no como si no hubiera nada', async () => {
+    await leerConCopia('cero', () => Promise.resolve(nuevo(0)));
+
+    expect((await leerSoloLaCopiaConFecha<number>('cero'))?.valor).toBe(0);
+  });
+
+  it('sin almacen abierto, nulo', async () => {
+    reiniciarElCicloParaLasPruebas();
+
+    expect(await leerSoloLaCopiaConFecha(CLAVE)).toBeNull();
+  });
+
+  it('dice lo mismo que dice la lectura sin red', async () => {
+    await leerConCopia(CLAVE, () => Promise.resolve(nuevo('la copia')));
+
+    const sinRed = await leerConCopia(CLAVE, () =>
+      Promise.reject(new TypeError('Failed to fetch')),
+    );
+    const guardada = await leerSoloLaCopiaConFecha<string>(CLAVE);
+
+    expect(guardada).toEqual({ valor: sinRed.valor, guardadoEn: sinRed.guardadoEn });
   });
 });
 

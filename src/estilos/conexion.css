@@ -384,3 +384,117 @@
   border-radius: 12px;
   font-size: 0.8125rem;
 }
+
+/* Lo que solo se puede hacer con conexion (SCRUM-142). */
+.exige-conexion {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* Sin conexion se ve pero no se puede usar: tenue, y la explicacion va escrita arriba. */
+.exige-conexion:disabled {
+  opacity: 0.6;
+}
+
+.exige-conexion__aviso {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  color: var(--app-tinta, inherit);
+  background: var(--app-superficie, transparent);
+  border: 1px dashed var(--app-borde, currentColor);
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* En las pantallas de acceso no hay una rejilla que separe el aviso del formulario. */
+.acceso__contenido > .exige-conexion__aviso {
+  margin-bottom: 18px;
+}
+
+/* Lo que se pregunta antes de cerrar sesion con cambios sin enviar (SCRUM-142). */
+.confirmar-salida {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 0.55);
+}
+
+.confirmar-salida__caja {
+  display: grid;
+  gap: 0.75rem;
+  width: min(26rem, 100%);
+  padding: 1.25rem;
+  background: var(--app-lienzo, #fff);
+  color: var(--app-tinta, inherit);
+  border: 1px solid var(--app-borde, currentColor);
+  border-radius: 20px;
+  box-shadow: 0 24px 48px -12px rgb(0 0 0 / 0.6);
+}
+
+.confirmar-salida__titulo {
+  margin: 0;
+  font-family: var(--app-fuente-titulos, inherit);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.confirmar-salida__texto,
+.confirmar-salida__ayuda {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.confirmar-salida__ayuda {
+  color: var(--app-tenue, inherit);
+  font-size: 0.8125rem;
+}
+
+.confirmar-salida__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.confirmar-salida__boton {
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--app-borde, currentColor);
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.confirmar-salida__boton[aria-disabled='true'] {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.confirmar-salida__boton--principal {
+  color: var(--app-sobre-primario, inherit);
+  background: var(--app-primario, transparent);
+  border-color: var(--app-primario, currentColor);
+}
+
+/* Lo que pierde algo se distingue por el texto y por el borde, no solo por el color. */
+.confirmar-salida__boton--peligro {
+  color: var(--app-emociones-acento, inherit);
+  border-color: var(--app-emociones-acento, currentColor);
+}
+
+.confirmar-salida__boton:focus-visible {
+  outline: 3px solid var(--app-primario, currentColor);
+  outline-offset: 2px;
+}

@@ -557,6 +557,62 @@ conexion y lo dice. **Nunca inventa una respuesta.** Con conexion no cambia nada
   paquete. **Si el backend cambia una regla, un texto o una linea, hay que copiar el archivo
   nuevo y la prueba dice que respondia distinto.**
 
+### Lo que solo se puede con conexion, y la privacidad de lo guardado (SCRUM-142)
+
+Casi todo se guarda en el equipo y se envia despues. Lo siguiente **no**: lo decide el servidor
+en el momento, y guardarlo «para despues» seria decirle a la persona que ya paso algo que no ha
+pasado (HU_MF09_001, criterio 3).
+
+| Exige conexion                                                                                                 | Sin conexion                                                    |
+| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Cambiar el nombre, la foto, los modulos, la mascota, el diario con recomendaciones, los avisos y la contrasena | Se ve, **deshabilitado**, con «Necesitas conexion para esto.»   |
+| Entrar, registrarse, recuperar la contrasena y elegir una nueva                                                | Igual: formulario deshabilitado y la explicacion escrita arriba |
+| Descargar los datos y borrar la cuenta                                                                         | Igual                                                           |
+| Una sesion que ya estaba iniciada                                                                              | **Sigue funcionando**                                           |
+
+- **Como.** `componentes/ExigeConexion.tsx` envuelve el contenido en un `<fieldset disabled>`: el
+  navegador deshabilita por si solo todo lo de dentro (y lo dice a los lectores de pantalla), nada
+  se desmonta y **lo escrito no se pierde**; al volver la conexion se sigue donde se estaba. Los
+  apartados del perfil lo piden por omision (`Apartado`), y el del correo, que solo muestra algo,
+  no. La explicacion va escrita y se anuncia sola: un `title` no se ve en el movil.
+- **Cerrar sesion pregunta si hay cambios sin enviar.** Cerrar sesion olvida todo lo guardado en
+  este equipo, y eso incluye lo que todavia no llego al servidor. Si hay algo (lo que espera, lo
+  que se esta enviando, lo que la API rechazo y lo que choco con otro dispositivo; **no** lo ilegible),
+  sale «¿Salir ahora? Tienes N cambios guardados en este equipo que no se han enviado. Si sales
+  ahora, se perderan.» con **Esperar** (el foco entra aqui), **Enviarlos ahora** (solo con
+  conexion; si se envia todo, sale) y **Salir y perderlos**. No dice cuales son: puede estar a la
+  vista de otra persona. Sin nada pendiente sale de una vez.
+- **«Descartar» una anotacion del diario avisa y deja copiar el texto.** En el panel de lo
+  guardado, descartar una anotacion que la API rechazo borra lo que la persona escribio: ahora
+  dice que se borra y ofrece **«Copiar el texto»** antes. Se copia al portapapeles **sin
+  mostrarlo**: el panel nunca ensena lo escrito. Los diagramas no se copian y se avisa. Al pedir
+  la confirmacion, el foco va a **«No, conservarla»** (lo seguro; el boton que se pulso ya no
+  esta) y, al conservarla, vuelve al titulo del panel; la pregunta es un grupo con nombre.
+- **El perfil se abre sin conexion con la copia de la cuenta** que guardo el panel (`leerLaCuentaGuardada`,
+  `usePerfil`), diciendo de cuando es («Datos de hace…», `DatosDeHace`) y con todo deshabilitado. Se
+  usa la copia cuando **no se pudo llegar a la API** (sin red, o un servidor que no responde
+  bien, como Render despertando: la misma regla que `leerConCopia`); una respuesta de verdad, como
+  un 403 o un 401, **no se tapa**. Sin copia, el error sale como antes. Al volver la conexion
+  pregunta de nuevo, sin pasar por «Cargando» (la copia sigue a la vista), y el nombre y la
+  mascota se rehacen con lo que llega (`lectura` del estado: cambia al leer, no al guardar).
+- **La descarga de datos incluye lo que este equipo todavia no ha enviado** (`sinEnviarDesdeEsteEquipo`
+  en el archivo, solo si hay algo): sin eso no seria «todo lo que se guarda de ti».
+- **Borrar la cuenta borra tambien el almacen local** (la copia, la cola y la clave que las
+  cifraba), antes de cerrar sesion para que no dependa de que cerrarla salga bien. Si la API no
+  borra la cuenta, no se toca nada.
+- **Que queda en el navegador despues de salir** (la prueba esta en `ProveedorDeSesion.spec.tsx`):
+  - **IndexedDB:** nada de la persona. Se borran su base y su clave (`olvidarLosDatosDeLaSesionActual`),
+    y si entra otra persona se borra lo de las demas (`olvidarLosAjenos`).
+  - **Cache Storage:** nada de la persona. El service worker solo guarda la aplicacion y la
+    tipografia, y nunca una respuesta de la API (SCRUM-135).
+  - **`localStorage`:** solo **preferencias del dispositivo** que no dicen nada de nadie: el tema
+    (`vsd.tema`), donde dejo la mascota (`vsd-h:mascota-posicion`) y si ya vio la induccion del
+    semaforo (`vsd-h:semaforo-induccion-vista`). Lo que la mascota ya le dijo a la persona
+    (`vsd-h:mascota-frases`) **si se borra**, que antes se quedaba.
+- **Falta decidir el texto del aviso de tratamiento de datos.** Pide una version nueva que diga que
+  el equipo guarda una copia local y cifrada de actividades, diario y pendientes. El texto lo decide
+  el equipo, y subir la version vuelve a pedir el consentimiento a quien ya lo dio: no se hizo aqui.
+
 ---
 
 ## Stack

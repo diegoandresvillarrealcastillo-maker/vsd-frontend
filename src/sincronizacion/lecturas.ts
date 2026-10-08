@@ -84,6 +84,20 @@ export async function leerSoloLaCopia<T>(clave: string): Promise<T | null> {
   return (await leerLaCopia<T>(clave))?.copia.valor ?? null;
 }
 
+/**
+ * Lo mismo, y **cuando se guardo** (en ISO 8601): para quien tiene que decir de cuando son los
+ * datos que ensena (SCRUM-142). `null` si no hay nada guardado.
+ */
+export async function leerSoloLaCopiaConFecha<T>(
+  clave: string,
+): Promise<{ readonly valor: T; readonly guardadoEn: string } | null> {
+  const guardada = await leerLaCopia<T>(clave);
+
+  return guardada === null
+    ? null
+    : { valor: guardada.copia.valor, guardadoEn: guardada.guardadoEn };
+}
+
 async function guardarLaCopia<T>(clave: string, copia: Copia<T>): Promise<void> {
   try {
     await cicloActual()?.almacen.guardarLectura(clave, copia, new Date());

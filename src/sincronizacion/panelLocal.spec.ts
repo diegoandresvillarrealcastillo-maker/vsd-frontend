@@ -12,6 +12,7 @@ import {
   cuantosResultadosSinEnviar,
   guardarElPanel,
   leerElPanelConCopia,
+  leerLaCuentaGuardada,
   leerLosResultadosDeLaCola,
   precargarElPanel,
 } from './panelLocal.ts';
@@ -222,6 +223,53 @@ describe('leerElPanelConCopia', () => {
 
     expect(lectura.deLaCopia).toBe(false);
     expect(zonaActual()).toBe('Europe/Madrid');
+  });
+});
+
+describe('leerLaCuentaGuardada (SCRUM-142)', () => {
+  it('devuelve la cuenta que dejo el panel y cuando la dejo, sin preguntar a la API', async () => {
+    await guardarElPanel({ cuenta: cuenta({ nombre: 'Guardada' }), progreso: progreso() });
+
+    const guardada = await leerLaCuentaGuardada();
+
+    expect(guardada?.cuenta).toEqual(cuenta({ nombre: 'Guardada' }));
+    expect(Number.isNaN(Date.parse(guardada?.guardadoEn ?? ''))).toBe(false);
+    expect(consultarLaCuentaPropia).not.toHaveBeenCalled();
+    expect(darDeAltaLaCuenta).not.toHaveBeenCalled();
+  });
+
+  it('sin nada guardado, nulo: nunca se inventa una cuenta', async () => {
+    expect(await leerLaCuentaGuardada()).toBeNull();
+  });
+
+  it('sin almacen abierto, nulo', async () => {
+    reiniciarElCicloParaLasPruebas();
+
+    expect(await leerLaCuentaGuardada()).toBeNull();
+  });
+
+  it('vuelve a fijar la zona de la cuenta: de ella depende lo que dice la pantalla', async () => {
+    await guardarElPanel({
+      cuenta: cuenta({ zonaHoraria: 'Europe/Madrid' }),
+      progreso: progreso(),
+    });
+    fijarLaZonaDeLaCuenta('America/Bogota');
+
+    await leerLaCuentaGuardada();
+
+    expect(zonaActual()).toBe('Europe/Madrid');
+  });
+
+  it('una copia que no se entiende no se usa y no toca la zona', async () => {
+    await cicloActual()!.almacen.guardarLectura(
+      CLAVE_DEL_PANEL,
+      { valor: { cuenta: { id: 'c-1' }, progreso: [] }, etag: null },
+      new Date(),
+    );
+    fijarLaZonaDeLaCuenta('America/Bogota');
+
+    expect(await leerLaCuentaGuardada()).toBeNull();
+    expect(zonaActual()).toBe('America/Bogota');
   });
 });
 
