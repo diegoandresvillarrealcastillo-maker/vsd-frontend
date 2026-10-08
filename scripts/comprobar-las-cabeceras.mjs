@@ -143,6 +143,35 @@ comprobar(
     .some((fuente) => /^(?:https?:\/\/)?fonts\.(?:googleapis|gstatic)\.com$/.test(fuente)),
 );
 
+// ----- el CAPTCHA (SCRUM-165) -----
+//
+// Cloudflare Turnstile necesita tres cosas en la politica: poder descargar su
+// script, poder pintar su iframe y poder hablar con su dominio. Si falta alguna,
+// el CAPTCHA no carga y, con la proteccion activada en Supabase, nadie puede
+// entrar. Y es el unico dominio de fuera que se admite en estas tres directivas:
+// autorizar otro es una decision que se toma a proposito, no se cuela.
+
+const TURNSTILE = 'https://challenges.cloudflare.com';
+const conexiones = directivas.get('connect-src') ?? [];
+
+// Se compara fuente por fuente con `===`: `includes` sobre una direccion es la forma
+// que CodeQL marca como «subcadena en una URL», aunque aqui sea una lista de fuentes.
+const esTurnstile = (valor) => valor === TURNSTILE;
+
+comprobar(
+  `script-src autoriza ${TURNSTILE}: sin eso el CAPTCHA no se descarga`,
+  scripts.some(esTurnstile),
+);
+comprobar(
+  `script-src no autoriza ningun otro dominio de fuera: solo ${TURNSTILE}`,
+  scripts.filter((valor) => /^https?:\/\//.test(valor)).every((valor) => valor === TURNSTILE),
+);
+comprobar(
+  `frame-src es exactamente ${TURNSTILE}: el CAPTCHA es lo unico que se pinta en un iframe`,
+  (directivas.get('frame-src') ?? []).join(' ') === TURNSTILE,
+);
+comprobar(`connect-src autoriza ${TURNSTILE}`, conexiones.some(esTurnstile));
+
 // ----- los scripts en linea de la compilacion -----
 
 const rutaDelHtml = 'dist/index.html';

@@ -488,6 +488,56 @@ esta documentado en
 
 ---
 
+## CAPTCHA con Cloudflare Turnstile (SCRUM-165)
+
+Sin CAPTCHA, cualquiera puede automatizar altas, intentos de acceso y envios de
+correo de recuperacion, y el correo saliente tiene un tope diario. En el plan
+gratuito de Supabase hay una proteccion que si esta disponible: un CAPTCHA en
+registro, acceso y recuperacion de la contrasena. Cloudflare Turnstile es gratuito
+y casi nunca pide resolver nada.
+
+**Que hace el codigo.** Con `VITE_TURNSTILE_SITE_KEY` puesta, las pantallas de
+registro, acceso y recuperar muestran la verificacion (`src/captcha/`) y mandan el
+`captchaToken` a Supabase en `signUp`, `signInWithPassword` y
+`resetPasswordForEmail`. **Sin la variable no hay nada**: ni widget, ni descarga del
+script de Cloudflare, y todo funciona como antes.
+
+- Un envio antes de que Cloudflare termine no se hace; la pantalla dice que espera
+  (no se apaga el boton: un boton apagado sin explicacion deja sin saber por que a
+  quien usa un lector de pantalla).
+- **Cada token vale una vez.** Tras cada intento, salga bien o mal, se pide uno nuevo.
+- El widget solo se ve si Cloudflare necesita que la persona haga algo
+  (`interaction-only`); debajo siempre hay una linea de estado que un lector de
+  pantalla anuncia, y si falla, un boton para reintentar.
+- «Continuar con Google» no pasa por el CAPTCHA: Supabase no lo pide para OAuth.
+- La politica de seguridad (CSP) autoriza `https://challenges.cloudflare.com` en
+  `script-src`, `frame-src` y `connect-src`, igual en `vercel.json` y en nginx, y
+  `scripts/comprobar-las-cabeceras.mjs` falla la compilacion si falta alguno o si se
+  cuela otro dominio de fuera.
+
+**Quien hace que, y en que orden.** El orden importa: al reves, nadie puede entrar.
+
+1. **Diego** crea la cuenta gratuita de Cloudflare y el widget de Turnstile con los
+   dominios de cada ambiente. Obtiene la clave **del sitio** (publica) y la
+   **secreta**.
+2. La clave **del sitio** se pone como `VITE_TURNSTILE_SITE_KEY` en Vercel (PRE y,
+   cuando exista, PROD) y se **despliega**. Mientras Supabase no lo exija, el
+   widget se muestra y nada mas.
+3. **Samuel**, solo despues, activa el CAPTCHA en Supabase (_Authentication >
+   Attack Protection > Enable CAPTCHA protection_, proveedor _Turnstile_) y pega
+   ahi la clave **secreta**. Nunca va en este repositorio, ni en Vercel, ni en un
+   chat, ni en una captura.
+4. Se comprueba en ese ambiente: registrarse, entrar y pedir la recuperacion.
+
+**Para apagarlo**, el orden inverso: primero se desactiva en Supabase y despues se
+quita la variable de Vercel.
+
+**En local**, Cloudflare publica claves de prueba (`1x00000000000000000000AA` siempre
+pasa); con Supabase solo sirven si su panel tiene la clave secreta de prueba que les
+corresponde. Sin la variable, el desarrollo no cambia.
+
+---
+
 ## Como se trabaja
 
 El flujo de ramas, la convencion de commits y las reglas de seguridad
