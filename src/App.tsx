@@ -2,6 +2,7 @@ import { AnimatePresence } from 'framer-motion';
 import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
+import { BannerDeAnalitica } from './analitica/BannerDeAnalitica.tsx';
 import { SaltoAlContenido } from './componentes/SaltoAlContenido.tsx';
 import { LimiteDeErrores } from './errores/LimiteDeErrores.tsx';
 import { Actividad } from './paginas/actividad/Actividad.tsx';
@@ -72,6 +73,11 @@ export function App() {
       {/* Lo primero del documento, para que sea la primera parada al tabular
           en cualquier pantalla. */}
       <SaltoAlContenido />
+
+      {/* Sin identificador de medicion no se ve nunca (SCRUM-161). Va aqui, justo
+          despues del salto, para que quien navega con teclado lo alcance pronto
+          aunque se vea abajo. */}
+      <BannerDeAnalitica />
 
       {/* Un error al pintar una pantalla ya no deja la aplicacion en blanco
           (SCRUM-156): sale la pantalla de error con una salida y las lineas de

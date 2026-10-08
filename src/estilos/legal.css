@@ -271,6 +271,20 @@
   text-underline-offset: 3px;
 }
 
+/* «Preferencias de analitica» (SCRUM-161): un boton que se ve como los enlaces de al
+   lado, porque en el pie es una opcion mas. */
+.enlaces-legales__boton {
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.enlaces-legales__boton:focus-visible {
+  outline: 3px solid var(--acento-claro);
+  outline-offset: 2px;
+}
+
 .enlaces-legales__enlace:hover,
 .enlaces-legales__enlace[aria-current='page'] {
   color: var(--texto);

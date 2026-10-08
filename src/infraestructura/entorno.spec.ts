@@ -53,6 +53,44 @@ describe('entorno', () => {
   });
 });
 
+describe('la analitica (SCRUM-161)', () => {
+  it('esta apagada mientras no haya identificador de medicion', async () => {
+    vi.stubEnv('VITE_GA_ID', '');
+
+    const { entorno } = await cargarEntorno();
+
+    expect(entorno.analitica.idDeMedicion).toBeNull();
+  });
+
+  it('con un identificador valido, queda encendida con ese valor', async () => {
+    vi.stubEnv('VITE_GA_ID', '  G-ABC123DEF4 ');
+
+    const { entorno } = await cargarEntorno();
+
+    expect(entorno.analitica.idDeMedicion).toBe('G-ABC123DEF4');
+  });
+
+  it.each([
+    ['sin el prefijo', 'ABC123DEF4'],
+    ['de Universal Analytics, que ya no existe', 'UA-12345-1'],
+    ['con minusculas', 'g-abc123def4'],
+    ['demasiado corto', 'G-AB'],
+    ['con algo mas dentro', 'G-ABC123&x=1'],
+    ['con una direccion', 'https://evil.example/x.js'],
+  ])('un identificador %s se trata como si no hubiera, y avisa', async (_caso, valor) => {
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    vi.stubEnv('VITE_GA_ID', valor);
+
+    const { entorno } = await cargarEntorno();
+
+    expect(entorno.analitica.idDeMedicion).toBeNull();
+    expect(aviso).toHaveBeenCalledWith(expect.stringContaining('VITE_GA_ID'));
+
+    aviso.mockRestore();
+  });
+});
+
 describe('credencialesDeSupabase', () => {
   it('devuelve las credenciales cuando estan completas', async () => {
     vi.stubEnv('VITE_APP_ENV', 'development');

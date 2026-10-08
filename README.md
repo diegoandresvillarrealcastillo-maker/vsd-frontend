@@ -270,6 +270,69 @@ Lo que Google y los asistentes de IA leen, y lo que no deben leer:
   pruebas fallan si falta, y es a proposito, porque sin la reescritura esa
   pantalla daria 404 al recargarla.
 
+### Analitica con consentimiento (SCRUM-161)
+
+La aplicacion puede contar visitas con **Google Analytics 4**, pero solo si la
+persona lo acepta, y sin saber quien es. Esta **apagada por defecto**: sin
+`VITE_GA_ID` no hay analitica, ni banner, ni nada en los documentos legales que
+diga lo contrario.
+
+**Como se enciende** (lo hace quien administre el ambiente, no el codigo):
+
+1. Crear una propiedad de GA4 en [analytics.google.com](https://analytics.google.com)
+   y copiar su identificador de medicion (`G-XXXXXXXXXX`).
+2. Ponerlo como `VITE_GA_ID` **solo en el ambiente que deba medir** (produccion), con
+   su propia propiedad. En PRE se deja sin poner: el trafico de pruebas no debe
+   mezclarse con el real, y asi PRE sigue diciendo, con razon, que no mide nada.
+3. En la consola de GA4 (**Administrar**), ajustar lo que el codigo no puede. Los menus
+   de Google cambian de nombre con frecuencia: esto es lo que hay que buscar, no un
+   camino exacto.
+   - **Medicion mejorada** (en el flujo de datos web): apagarla o dejar solo las
+     visitas. Sus funciones de busqueda en el sitio, clics salientes y descargas leen la
+     direccion o lo que hay en ella.
+   - **Recopilacion y modificacion de datos**: apagar la recopilacion de **senales de
+     Google**.
+   - **Retencion de datos**: 2 meses (el minimo), que es lo que dicen los documentos
+     legales. Cuando esto este hecho, quitar la marca `[POR DEFINIR]` de la retencion en
+     `Cookies.tsx` y `TextosDeAnalitica.tsx`.
+   - No vincular Google Ads ni activar el uso compartido de datos con Google.
+
+**Que hace el codigo** (`src/analitica/`):
+
+- **Nada de Google existe antes de aceptar.** El script `gtag.js` se descarga al
+  aceptar, no antes; sin permiso no hay cookies ni peticiones a dominios de Google.
+  Rechazar o no contestar es lo mismo. Aceptar y rechazar pesan lo mismo en el banner.
+- **Solo visitas, y con la plantilla de la pantalla**: a Google le llega `/modulo/:modulo`
+  o `/actividad/:id`, **nunca la direccion real**, ni la consulta, ni el fragmento (el
+  enlace del correo de recuperar la contrasena trae un token ahi), ni el titulo de la
+  pagina. No hay identificador de cuenta ni eventos propios. `plantillaDeRuta.ts` es
+  quien lo garantiza, y su prueba comprueba que nada de la entrada sale en la salida.
+- **Apagado a proposito**: senales de Google, personalizacion de anuncios y todo el
+  almacenamiento de anuncios. Las cookies (`_ga`, `_ga_…`) duran 90 dias.
+- **Se puede cambiar de idea**: «Preferencias de analitica» al pie de las pantallas
+  con documentos legales, y los botones de la seccion de analitica de
+  `/cookies#analitica`. Retirar el permiso detiene el envio y borra las cookies en el
+  acto.
+- **La eleccion se guarda en el navegador** (`vsd.analitica`), con una version. Si cambia
+  lo que se mide, se sube `VERSION_DEL_CONSENTIMIENTO` y se vuelve a preguntar. Si el
+  navegador no deja guardar, se pregunta cada vez: sin constancia de un permiso, no se
+  mide.
+- **Los documentos legales lo cuentan solo donde existe** (`TextosDeAnalitica.tsx`,
+  `Cookies.tsx`): donde no hay analitica, la pagina de cookies sigue diciendo que no la
+  hay. Lo que ahi se afirma tiene que seguir siendo cierto de `ga4.ts`; si algo cambia,
+  cambian los dos.
+- **La politica de contenido** autoriza exactamente los dominios de Google Analytics
+  (`googletagmanager.com`, `*.google-analytics.com`, `*.analytics.google.com`) y nada
+  mas de Google. `scripts/comprobar-las-cabeceras.mjs` lleva la lista de dominios de
+  fuera: **agregar uno a la politica hace fallar la compilacion** hasta que se sume a esa
+  lista, que es la ocasion de preguntarse si hay que actualizar la pagina de cookies y
+  el aviso de privacidad.
+
+**Probarlo en local**: `VITE_GA_ID=G-TEST123456 npm run dev` (en PowerShell,
+`$env:VITE_GA_ID='G-TEST123456'; npm run dev`). Con un identificador de prueba el
+banner sale y el script se pide a Google, pero ningun dato llega a ninguna propiedad
+real.
+
 ### El almacen local: lo hecho sin conexion (SCRUM-136)
 
 `src/sincronizacion/` guarda en el dispositivo lo que la persona hace sin conexion
