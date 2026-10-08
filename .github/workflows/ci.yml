@@ -219,6 +219,36 @@ jobs:
           cabecera "$base$js" | grep -i '^cache-control:.*immutable'
           curl --silent --show-error --fail --head -H 'Accept-Encoding: gzip' "$base$js" | grep -i '^content-encoding: gzip'
 
+          # Las cabeceras de seguridad (S-05 de la auditoria 360) tienen que salir en
+          # TODO, no solo en la portada: un `location` de nginx que declara sus
+          # propias cabeceras borra las del nivel de arriba, y es justo lo que pasa
+          # sin que nadie lo note con `index.html`, `sw.js` o los archivos con hash.
+          # Tambien en los errores: de ahi el 404.
+          echo "Las cabeceras de seguridad salen en toda respuesta"
+          for ruta in "/" "/panel" "/index.html" "/sw.js" "/manifest.webmanifest" "$js" "/assets/no-existe.js"; do
+            encabezados="$(curl --silent --show-error --head "$base$ruta")"
+            for esperada in \
+              'x-content-type-options: nosniff' \
+              'x-frame-options: DENY' \
+              'referrer-policy: strict-origin-when-cross-origin' \
+              'permissions-policy: ' \
+              'content-security-policy-report-only: '; do
+              if ! echo "$encabezados" | grep -qi "^${esperada}"; then
+                echo "::error::${ruta} no trae '${esperada}'"
+                exit 1
+              fi
+            done
+          done
+
+          echo "La politica de contenido no deja encuadrar la aplicacion ni cargar letras de Google"
+          politica="$(cabecera "$base/" | grep -i '^content-security-policy-report-only:')"
+          echo "$politica" | grep -q "frame-ancestors 'none'"
+          echo "$politica" | grep -q "object-src 'none'"
+          if echo "$politica" | grep -qi 'fonts\.\(googleapis\|gstatic\)\.com'; then
+            echo "::error::La politica vuelve a nombrar Google Fonts."
+            exit 1
+          fi
+
           echo "No dice que version de nginx es"
           if cabecera "$base/" | grep -i '^server: .*[0-9]'; then
             echo "::error::La cabecera Server revela la version."

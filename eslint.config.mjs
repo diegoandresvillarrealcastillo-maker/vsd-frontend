@@ -107,7 +107,9 @@ export default tseslint.config(
   },
 
   {
-    files: ['vite.config.ts'],
+    // La configuracion de Vite y las pruebas de los scripts de compilacion: las dos
+    // corren en Node, no en el navegador, y comparten proyecto de TypeScript.
+    files: ['vite.config.ts', 'scripts/**/*.spec.ts'],
     languageOptions: {
       globals: globals.node,
       parserOptions: {
