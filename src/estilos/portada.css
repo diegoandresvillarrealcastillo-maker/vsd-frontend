@@ -522,6 +522,15 @@
   font-size: 1rem;
 }
 
+/* Un enlace dentro de una linea del limite toma el color del texto y va
+   subrayado: en esa seccion de fondo propio, el color de enlace de siempre no
+   tiene el contraste garantizado. */
+.limite__punto a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .limite__cruz {
   flex: none;
   margin-top: 3px;
