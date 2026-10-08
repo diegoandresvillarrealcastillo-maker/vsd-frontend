@@ -187,12 +187,23 @@ jobs:
           codigo() { curl --silent --output /dev/null --write-out '%{http_code}' "$@"; }
           cabecera() { curl --silent --show-error --fail --head "$@"; }
 
+          # `grep -q` sale en cuanto encuentra la primera coincidencia. Si `curl`
+          # todavia esta escribiendo, recibe un error de escritura (codigo 23) o
+          # SIGPIPE, y con `pipefail` el paso falla de forma intermitente aunque
+          # la comprobacion se cumpla. Por eso, donde se usa `grep -q`, la salida
+          # de `curl` se guarda antes en una variable y `grep` la lee con `<<<`,
+          # sin tuberia de por medio: `echo "$x" | grep -q` falla igual cuando el
+          # texto pasa del bufer de la tuberia (64 KB). Los `grep` sin `-q` leen
+          # todo y no tienen este problema.
+
           echo "La raiz es la aplicacion"
-          curl --silent --show-error --fail "$base/" | grep -q 'id="raiz"'
+          pagina="$(curl --silent --show-error --fail "$base/")"
+          grep -q 'id="raiz"' <<<"$pagina"
 
           echo "Una ruta interna devuelve la aplicacion, no un 404 (recargar /panel)"
           test "$(codigo "$base/panel")" = "200"
-          curl --silent --show-error --fail "$base/panel" | grep -q 'id="raiz"'
+          pagina="$(curl --silent --show-error --fail "$base/panel")"
+          grep -q 'id="raiz"' <<<"$pagina"
 
           echo "Un archivo de la compilacion que no existe es un 404 de verdad"
           test "$(codigo "$base/assets/no-existe.js")" = "404"
@@ -261,7 +272,8 @@ jobs:
           for ruta in /acceso /registro /recuperar /contrasena-nueva /privacidad /terminos /cookies \
             /panel /perfil /diario /modulo/emociones /actividad/abc-123 /panel/; do
             test "$(codigo "$base$ruta")" = "200" || { echo "::error::${ruta} no devolvio 200"; exit 1; }
-            curl --silent --show-error --fail "$base$ruta" | grep -q 'id="raiz"'
+            pagina="$(curl --silent --show-error --fail "$base$ruta")"
+            grep -q 'id="raiz"' <<<"$pagina"
           done
 
           echo "Una direccion inventada es un 404 de verdad, con su pagina y sin indexar"
@@ -277,9 +289,12 @@ jobs:
           fi
 
           echo "Fuera de produccion todo esta cerrado a los buscadores: etiqueta, cabecera y robots.txt"
-          curl --silent --show-error --fail "$base/" | grep -q 'name="robots" content="noindex'
-          cabecera "$base/" | grep -qi '^x-robots-tag: noindex'
-          curl --silent --head "$base/no-existe" | grep -qi '^x-robots-tag: noindex'
+          pagina="$(curl --silent --show-error --fail "$base/")"
+          grep -q 'name="robots" content="noindex' <<<"$pagina"
+          encabezados="$(cabecera "$base/")"
+          grep -qi '^x-robots-tag: noindex' <<<"$encabezados"
+          encabezados="$(curl --silent --head "$base/no-existe")"
+          grep -qi '^x-robots-tag: noindex' <<<"$encabezados"
           test "$(curl --silent --show-error --fail "$base/robots.txt")" = "$(printf 'User-agent: *\nDisallow: /')"
           cabecera "$base/robots.txt" | grep -i '^content-type: text/plain'
           test "$(codigo "$base/sitemap.xml")" = "404"
