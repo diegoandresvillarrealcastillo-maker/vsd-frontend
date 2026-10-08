@@ -17,6 +17,10 @@ import {
 } from './motor.ts';
 import { avisarEnSegundoPlano } from './notificacionLocal.ts';
 import { conciliarElDiario as conciliarLaCopiaDelDiario, esTipoDelDiario } from './diarioLocal.ts';
+import {
+  conciliarElSemaforo as conciliarLaCopiaDelSemaforo,
+  esTipoDelSemaforo,
+} from './semaforoLocal.ts';
 import { precargarLasLecturas } from './precarga.ts';
 import { planDeEnvio } from './cola.ts';
 import {
@@ -192,6 +196,11 @@ export interface DependenciasDelEstado {
    * marca de una copia se perderia. Nunca lanza.
    */
   readonly conciliarElDiario: () => void;
+  /**
+   * Lo mismo para el semaforo de pendientes (SCRUM-140): pasa a la copia local lo que el
+   * servidor acepto (anotado, cambiado, borrado). Nunca lanza.
+   */
+  readonly conciliarElSemaforo: () => void;
 }
 
 function dependenciasReales(): DependenciasDelEstado {
@@ -213,6 +222,9 @@ function dependenciasReales(): DependenciasDelEstado {
     conciliarElDiario: () => {
       void conciliarLaCopiaDelDiario();
     },
+    conciliarElSemaforo: () => {
+      void conciliarLaCopiaDelSemaforo();
+    },
   };
 }
 
@@ -233,6 +245,7 @@ export function iniciarLaSincronizacionAutomatica(
     notificarEnSegundoPlano,
     precargar,
     conciliarElDiario,
+    conciliarElSemaforo,
   } = dependencias;
   let dejarDeEscucharAlMotor: (() => void) | null = null;
   let motivoActual: MotivoDeSincronizacion = 'apertura';
@@ -331,6 +344,10 @@ export function iniciarLaSincronizacionAutomatica(
       conciliarElDiario();
     }
 
+    if (resumen.recibos.some((enviado) => esTipoDelSemaforo(enviado.tipo))) {
+      conciliarElSemaforo();
+    }
+
     if (ciclo !== null && resultado.estado === 'terminada') {
       void leerLaUltimaSincronizacion(ciclo);
     }
@@ -351,6 +368,10 @@ export function iniciarLaSincronizacionAutomatica(
       // Una tanda puede cortarse a la mitad: lo que ya salio se guarda sin esperar a su fin.
       if (esTipoDelDiario(evento.operacion.tipo)) {
         conciliarElDiario();
+      }
+
+      if (esTipoDelSemaforo(evento.operacion.tipo)) {
+        conciliarElSemaforo();
       }
     } else {
       alTerminarUnaTanda(evento.resultado);

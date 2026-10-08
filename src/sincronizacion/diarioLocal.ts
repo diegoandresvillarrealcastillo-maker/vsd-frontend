@@ -12,6 +12,7 @@ import {
   type MotivoDeLaCopia,
 } from './anotaciones.ts';
 import { cicloActual } from './ciclo.ts';
+import { crearFila } from './enFila.ts';
 import type { Operacion, TipoDeOperacion } from './cola.ts';
 import {
   leerConCopia,
@@ -158,13 +159,11 @@ export function esDelDiario(operacion: Operacion): boolean {
  * Nunca falla ni rechaza.
  */
 export function conciliarElDiario(): Promise<void> {
-  fila = fila.then(hacerLaConciliacion).catch(() => undefined);
-
-  return fila;
+  return enFila(hacerLaConciliacion);
 }
 
 /** Las conciliaciones se hacen de una en una: cada una lee, cambia y escribe. */
-let fila: Promise<void> = Promise.resolve();
+const enFila = crearFila();
 
 async function hacerLaConciliacion(): Promise<void> {
   const ciclo = cicloActual();

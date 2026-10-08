@@ -289,9 +289,9 @@ se enteran.
   usa la copia guardada. Si ya hay copia y la API tarda mas de **2,5 s**, se usa la
   copia sin hacer esperar y la lectura sigue sola para renovarla. Una copia **no tapa**
   una respuesta del servidor («no existe», «no tienes permiso»). Lo de una persona lleva
-  su propia regla: el diario esta mas abajo (SCRUM-139) y los pendientes llegan con
-  SCRUM-140. Al abrirse el almacen, y al volver la red, se precarga el catalogo y el
-  diario (`precarga.ts`).
+  su propia regla: el diario (SCRUM-139) y los pendientes y el panel (SCRUM-140) estan mas
+  abajo. Al abrirse el almacen, y al volver la red, se precargan el catalogo, el diario,
+  el semaforo y el panel (`precarga.ts`).
 - **Terminar una actividad sin red.** El resultado entra a la cola
   (`resultado.registrar`) con un `operationId` estable, y la pantalla lo sigue
   (`seguimiento.ts`) hasta **5 s**: si la API lo acepta, se ve la orientacion de
@@ -345,6 +345,46 @@ nada, y de ahi sale con un identificador estable, asi que reintentar no duplica.
 - **El aviso de sincronizacion** tambien lo dice cuando una correccion se guardo como copia,
   **haya esperado o no**: es lo unico del diario que la persona no espera encontrar. Lleva
   al diario.
+
+### Pendientes y lecturas sin conexion (SCRUM-140)
+
+El semaforo se usa completo sin red, y el panel y el sendero se abren con lo ultimo que se
+supo. Lo que sigue **si necesita conexion** (SCRUM-142): cambiar la contrasena, el correo y
+la configuracion del perfil, y activar un modulo o completar la bienvenida.
+
+- **Anotar, cambiar y borrar pendientes.** Todo entra a la cola (`pendiente.crear`,
+  `pendiente.editar`, `pendiente.borrar`) y se ve **al instante**, tenga o no red
+  (`componerElSemaforo`, una funcion pura que pone lo de la cola encima de lo del
+  servidor). Cada uno dice en que punto esta, **sin depender solo del color**: «Guardado en
+  este equipo · se enviara cuando haya conexion», «Guardando…», «No se pudo enviar este
+  cambio» (con «Ver la lista» del panel de sincronizacion) o «Cambio en otro dispositivo».
+  Un pendiente anotado sin red se puede cambiar o borrar sin red: `encolar()` encadena por
+  entidad y la edicion usa lo que respondio la creacion. Borrar es idempotente.
+- **Leer.** El semaforo tiene copia local cifrada (`semaforoLocal.ts`), igual que el
+  diario, conciliada con lo que el servidor acepto despues de leer (`conciliarElSemaforo`):
+  un pendiente que ya salio no desaparece sin conexion, y uno borrado no reaparece.
+  **De la copia nunca sale un recordatorio**: lo decide el servidor con los dias de cada
+  color y la zona de la persona, y uno de hace horas puede ya no ser cierto.
+- **Nunca se sobrescribe (ADR 0009).** Si al enviar un cambio el servidor dice que otro
+  dispositivo cambio el mismo pendiente (`409 VERSION_DESACTUALIZADA`), el cambio queda
+  **detenido** y el semaforo muestra, lado a lado, «En el otro dispositivo» y «Tu cambio».
+  La persona elige: **«Quedarme con lo del otro dispositivo»** tira lo suyo, o **«Aplicar mi
+  cambio»** lo vuelve a mandar con la version que tiene el servidor ahora. Primero se
+  guarda lo nuevo y despues se tira lo viejo, asi que si algo falla no falta nada. Marcar
+  algo como hecho **no choca**: el servidor lo aplica aunque la version no coincida. Si el
+  pendiente se cambio varias veces sin red, el choque junta todo lo que quedo detras.
+- **El panel y el sendero con copia.** La cuenta y el progreso se leen y se guardan
+  **juntos** (`panelLocal.ts`). Sin red se ve la copia y la pantalla dice **de cuando es**
+  («Datos de hace 5 min. Se ponen al dia solo cuando haya conexion.»); en cuanto vuelve la
+  red se pregunta de nuevo. La zona horaria de la cuenta se vuelve a fijar desde la copia,
+  porque de ella depende que dia es hoy.
+- **Lo hecho hoy sin red sale como hecho.** El cliente no calcula el progreso por su
+  cuenta: lo que cuenta es la copia, y encima solo se pone lo que el servidor no puede
+  contradecir. Una actividad de **hoy** que esta en la cola (o que ya se envio) aparece
+  hecha, y si es lo primero del dia en ese modulo cuenta como una sesion mas, con la etapa
+  que le toca (`conLoQueEstaEnLaCola`). Una copia de otro dia no se toca.
+- **La precarga no da de alta la cuenta.** Leer por adelantado usa `GET /api/cuenta`;
+  `POST /api/cuenta` registra el consentimiento y solo lo hace una pantalla.
 
 ---
 

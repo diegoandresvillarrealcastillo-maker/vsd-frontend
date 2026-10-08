@@ -1,5 +1,7 @@
 import { traerElCatalogoConCopia } from './catalogoLocal.ts';
 import { precargarElDiario } from './diarioLocal.ts';
+import { precargarElPanel } from './panelLocal.ts';
+import { precargarElSemaforo } from './semaforoLocal.ts';
 
 /**
  * Lo que se guarda por adelantado para poder usarlo sin conexion (SCRUM-138).
@@ -14,6 +16,12 @@ import { precargarElDiario } from './diarioLocal.ts';
  * almacen cifrado de la persona, para poder leerlos sin conexion. Esa lectura **no da de
  * alta la cuenta**: eso registra un consentimiento y solo lo hace una pantalla.
  *
+ * Y el semaforo de pendientes (SCRUM-140), por lo mismo: asi se puede usar completo sin red
+ * desde la primera vez. Sin recordatorios: esos los decide el servidor.
+ *
+ * Y el panel con el sendero (SCRUM-140): la cuenta y el progreso, para que abran sin red. Esa
+ * lectura tampoco da de alta la cuenta.
+ *
  * **Nunca falla ni molesta**: es una comodidad. Sin conexion, o si el servidor no
  * responde, no pasa nada; se intentara otra vez cuando vuelva la red.
  */
@@ -23,5 +31,7 @@ export async function precargarLasLecturas(): Promise<void> {
   await Promise.allSettled([
     Promise.resolve().then(() => traerElCatalogoConCopia()),
     Promise.resolve().then(() => precargarElDiario()),
+    Promise.resolve().then(() => precargarElSemaforo()),
+    Promise.resolve().then(() => precargarElPanel()),
   ]);
 }
