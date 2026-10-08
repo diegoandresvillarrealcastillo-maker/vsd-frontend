@@ -552,7 +552,14 @@
 
 .tarjeta-modulo__activar {
   align-self: flex-start;
+  /* Dentro de `ExigeConexion` (una rejilla) `align-self` no manda en horizontal. */
+  justify-self: start;
   margin-top: 1.5rem;
+}
+
+/* Sin conexion el aviso va entre el texto de la tarjeta y el boton (SCRUM-142). */
+.tarjeta-modulo__cuerpo > .exige-conexion__aviso {
+  margin-top: 1rem;
 }
 
 .tarjeta-modulo__fallo {

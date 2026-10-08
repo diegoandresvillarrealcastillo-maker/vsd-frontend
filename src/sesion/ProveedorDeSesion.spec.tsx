@@ -148,6 +148,88 @@ describe('la foto de perfil al terminar la sesion (SCRUM-120)', () => {
 });
 
 /**
+ * Lo que queda y lo que no en este navegador cuando termina una sesion (SCRUM-142).
+ *
+ * El criterio: tras cerrar sesion **no queda nada de la persona** en IndexedDB (eso lo hace
+ * `olvidarLosDatosDeLaSesionActual`, mas abajo), en la cache del service worker (que solo
+ * guarda la aplicacion y la tipografia, nunca lo de una persona: SCRUM-135) ni en
+ * `localStorage`. Esta prueba lo fija para `localStorage`: lo que es de la persona se va, y
+ * lo que se queda son **preferencias del dispositivo** que no dicen nada de nadie.
+ */
+describe('lo que queda en localStorage al terminar la sesion (SCRUM-142)', () => {
+  /** Lo que la mascota ya le dijo a esta persona: es suyo, no del dispositivo. */
+  const LO_DE_LA_PERSONA = ['vsd-h:mascota-frases'];
+
+  /** Preferencias de este dispositivo: el tema, donde dejo la mascota, si ya vio la induccion. */
+  const DEL_DISPOSITIVO = ['vsd.tema', 'vsd-h:mascota-posicion', 'vsd-h:semaforo-induccion-vista'];
+
+  function dejarTodoEnElNavegador() {
+    for (const clave of [...LO_DE_LA_PERSONA, ...DEL_DISPOSITIVO]) {
+      window.localStorage.setItem(clave, '{}');
+    }
+  }
+
+  const quedan = () => Object.keys(window.localStorage).sort();
+
+  it('al salir se va lo de la persona y se quedan las preferencias del dispositivo', async () => {
+    dejarTodoEnElNavegador();
+    pintar();
+
+    await act(async () => {
+      await userEvent.setup().click(await screen.findByRole('button', { name: 'Salir' }));
+    });
+
+    expect(quedan()).toEqual([...DEL_DISPOSITIVO].sort());
+  });
+
+  it('si la sesion termina sola —caduca, se revoca, se cierra en otra pestana—, tambien', async () => {
+    dejarTodoEnElNavegador();
+    pintar();
+    await screen.findByRole('button', { name: 'Salir' });
+
+    act(() => {
+      avisarCambioDeSesion('SIGNED_OUT', null);
+    });
+
+    expect(quedan()).toEqual([...DEL_DISPOSITIVO].sort());
+  });
+
+  it('si solo se renueva el token, nada se va', async () => {
+    dejarTodoEnElNavegador();
+    pintar();
+    await screen.findByRole('button', { name: 'Salir' });
+
+    act(() => {
+      avisarCambioDeSesion('TOKEN_REFRESHED', SESION);
+    });
+
+    expect(quedan()).toEqual([...LO_DE_LA_PERSONA, ...DEL_DISPOSITIVO].sort());
+  });
+
+  it('entrar no borra nada: el que entra es el dueno de lo que llegue', async () => {
+    getSession.mockResolvedValue({ data: { session: null } });
+    dejarTodoEnElNavegador();
+    pintar();
+    await screen.findByRole('button', { name: 'Salir' });
+
+    // Al arrancar sin sesion se olvida lo de la persona de antes.
+    act(() => {
+      avisarCambioDeSesion('INITIAL_SESSION', null);
+    });
+
+    expect(quedan()).toEqual([...DEL_DISPOSITIVO].sort());
+
+    window.localStorage.setItem('vsd-h:mascota-frases', '{}');
+
+    act(() => {
+      avisarCambioDeSesion('SIGNED_IN', SESION);
+    });
+
+    expect(quedan()).toContain('vsd-h:mascota-frases');
+  });
+});
+
+/**
  * El almacen local sigue a la sesion (SCRUM-136, HU_MF09_001).
  *
  * Hay dos finales de sesion y no son lo mismo. Si la persona sale, se olvida todo

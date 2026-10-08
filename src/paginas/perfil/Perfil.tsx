@@ -2,6 +2,7 @@ import { useId, useState, type CSSProperties, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { MedidorDeContrasena } from '../../componentes/MedidorDeContrasena.tsx';
+import { DatosDeHace } from '../../conexion/DatosDeHace.tsx';
 import { PieDeLaApp } from '../../componentes/PieDeLaApp.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/aplicacion.css';
@@ -31,10 +32,13 @@ import { sprite } from '../../mascota/sprites.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { Semaforo } from '../../semaforo/Semaforo.tsx';
 import { mensajeSiNoCumple } from '../../sesion/reglaDeContrasena.ts';
+import { olvidarLosDatosDeLaSesionActual } from '../../sincronizacion/ciclo.ts';
+import { exportarLoQueNoSeHaEnviado } from '../../sincronizacion/loGuardadoEnEsteEquipo.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { BarraSuperior } from '../panel/Estructura.tsx';
 import { Icono } from '../panel/Icono.tsx';
 import { MODULOS, ORDEN } from '../panel/modulos.ts';
+import { armarLaExportacion } from './exportacion.ts';
 import { Apartado, MensajeDeAviso, SIN_CONEXION, type Aviso } from './piezas.tsx';
 import { TuFoto } from './TuFoto.tsx';
 import { TuMascotaPropia } from './TuMascotaPropia.tsx';
@@ -96,13 +100,19 @@ export function Perfil() {
 
         {estado.fase === 'listo' && (
           <>
-            <Nombre cuenta={estado.cuenta} guardar={guardar} />
+            {/* Sin conexion se ve la copia de este equipo, y se dice de cuando es (SCRUM-142). */}
+            {estado.deLaCopia !== null && (
+              <DatosDeHace guardadoEn={estado.deLaCopia} ahora={estado.ahora} />
+            )}
+            {/* El nombre y la mascota parten del valor de la cuenta: si se vuelve a leer (llega lo
+                del servidor tras ver la copia), empiezan de nuevo con lo que llego. */}
+            <Nombre key={estado.lectura} cuenta={estado.cuenta} guardar={guardar} />
             <TuFoto actualizarCuenta={reemplazarCuenta} />
             <Modulos cuenta={estado.cuenta} guardar={guardar} />
             {/* Al subir o quitar la mascota propia, las opciones cambian y se parte de
                 cero. Guardar la eleccion no la cambia: asi no se pierde su aviso. */}
             <TuMascota
-              key={estado.cuenta.mascotaPropia?.actualizadaEl ?? 'sin-mascota-propia'}
+              key={`${String(estado.lectura)}:${estado.cuenta.mascotaPropia?.actualizadaEl ?? 'sin-mascota-propia'}`}
               cuenta={estado.cuenta}
               guardar={guardar}
             />
@@ -532,7 +542,11 @@ function TuDiario({
 
 function Correo({ correo }: { correo: string }) {
   return (
-    <Apartado titulo="Tu correo" ayuda="Es tu forma de entrar y no se puede cambiar desde aquí.">
+    <Apartado
+      titulo="Tu correo"
+      ayuda="Es tu forma de entrar y no se puede cambiar desde aquí."
+      exigeConexion={false}
+    >
       <p className="perfil__correo">{correo}</p>
     </Apartado>
   );
@@ -699,7 +713,12 @@ function Contrasena({ correo }: { correo: string }) {
   );
 }
 
-/** Descarga lo que VSD Health guarda de la persona, en un archivo JSON. */
+/**
+ * Descarga lo que VSD Health guarda de la persona, en un archivo JSON.
+ *
+ * Incluye lo que este equipo todavia tiene guardado y no ha enviado (SCRUM-142). Exige
+ * conexion: lo que guarda el servidor solo lo sabe el servidor.
+ */
 function TusDatos() {
   const [ocupado, setOcupado] = useState(false);
   const [aviso, setAviso] = useState<Aviso>(null);
@@ -709,7 +728,11 @@ function TusDatos() {
     setAviso(null);
 
     try {
-      const datos = await exportarMisDatos();
+      // Lo que dice el servidor y, aparte, lo que este equipo todavia no le ha enviado.
+      const datos = armarLaExportacion(
+        await exportarMisDatos(),
+        await exportarLoQueNoSeHaEnviado(),
+      );
       const archivo = new Blob([JSON.stringify(datos, null, 2)], { type: 'application/json' });
       const enlace = document.createElement('a');
 
@@ -729,7 +752,7 @@ function TusDatos() {
   return (
     <Apartado
       titulo="Tus datos"
-      ayuda="Descarga en un archivo todo lo que VSD Health guarda de ti: tu cuenta, tus resultados y tu diario."
+      ayuda="Descarga en un archivo todo lo que VSD Health guarda de ti: tu cuenta, tus resultados y tu diario. Si este equipo todavía guarda cambios que no se han enviado, también van."
     >
       <button
         type="button"
@@ -747,6 +770,10 @@ function TusDatos() {
 /**
  * Borrar la cuenta. No tiene vuelta atras, asi que pide escribir la frase
  * exacta antes de habilitar el boton, igual que la API.
+ *
+ * Si la API la borra, **tambien se borra todo lo que este equipo guardaba de ella**. Si no
+ * la borra, no se toca nada: la cuenta sigue ahi y lo guardado todavia tiene a quien
+ * enviarse.
  */
 function BorrarCuenta() {
   const { salir } = useSesion();
@@ -768,6 +795,10 @@ function BorrarCuenta() {
 
     try {
       await borrarMiCuenta(frase);
+      // La cuenta ya no existe: lo que este equipo guardaba de ella (la copia, la cola y la
+      // clave que las cifraba) no tiene a quien enviarse. Se olvida **antes** de cerrar
+      // sesion, para que no dependa de que cerrarla salga bien (SCRUM-142).
+      await olvidarLosDatosDeLaSesionActual();
       await salir();
       // react-router puede devolver una promesa; no hay nada que esperar.
       void navegar(RUTAS.INICIO, { replace: true });

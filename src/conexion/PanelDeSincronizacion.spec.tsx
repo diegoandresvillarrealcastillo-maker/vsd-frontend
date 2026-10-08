@@ -1,8 +1,9 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { cuantosDependenDe } from '../sincronizacion/acciones.ts';
+import { leerLoEscritoDe } from '../sincronizacion/loGuardadoEnEsteEquipo.ts';
 import { nuevaOperacion, type Operacion } from '../sincronizacion/cola.ts';
 import {
   descartar,
@@ -30,6 +31,9 @@ vi.mock('../sincronizacion/estado.ts', () => ({
 }));
 vi.mock('../sincronizacion/acciones.ts', () => ({
   cuantosDependenDe: vi.fn(() => Promise.resolve(0)),
+}));
+vi.mock('../sincronizacion/loGuardadoEnEsteEquipo.ts', () => ({
+  leerLoEscritoDe: vi.fn(() => Promise.resolve(null)),
 }));
 
 let contador = 0;
@@ -84,6 +88,13 @@ const RECHAZADA = {
   error: { codigo: 'SIN_RESPUESTA', momento: new Date().toISOString() },
 };
 
+/** Una operacion rechazada que no es del diario: lo que se pregunta al descartar es lo general. */
+const RECHAZADA_DE_UN_PENDIENTE = {
+  ...RECHAZADA,
+  tipo: 'pendiente.crear' as const,
+  payload: { texto: 'Llamar a la EPS' },
+};
+
 beforeEach(() => {
   vi.mocked(sincronizarAhora).mockClear();
   vi.mocked(reintentar).mockClear();
@@ -91,6 +102,8 @@ beforeEach(() => {
   vi.mocked(descartar).mockResolvedValue(1);
   vi.mocked(cuantosDependenDe).mockReset();
   vi.mocked(cuantosDependenDe).mockResolvedValue(0);
+  vi.mocked(leerLoEscritoDe).mockReset();
+  vi.mocked(leerLoEscritoDe).mockResolvedValue(null);
   armar();
 });
 
@@ -315,7 +328,7 @@ describe('PanelDeSincronizacion: reintentar', () => {
 
 describe('PanelDeSincronizacion: descartar pregunta primero', () => {
   it('al pulsar, no descarta: pregunta, y avisa que no se puede recuperar', async () => {
-    armar([operacion(RECHAZADA)]);
+    armar([operacion(RECHAZADA_DE_UN_PENDIENTE)]);
     pintar();
     await userEvent.setup().click(screen.getByRole('button', { name: 'Descartar' }));
 
@@ -328,7 +341,7 @@ describe('PanelDeSincronizacion: descartar pregunta primero', () => {
   });
 
   it('mientras pregunta, ya no ofrece reintentar ni descartar de ese cambio', async () => {
-    armar([operacion(RECHAZADA)]);
+    armar([operacion(RECHAZADA_DE_UN_PENDIENTE)]);
     pintar();
     await userEvent.setup().click(screen.getByRole('button', { name: 'Descartar' }));
     await screen.findByText(/¿Descartar este cambio\?/);
@@ -340,7 +353,7 @@ describe('PanelDeSincronizacion: descartar pregunta primero', () => {
   it('"No, conservarlo" vuelve a como estaba, sin descartar nada', async () => {
     const usuario = userEvent.setup();
 
-    armar([operacion(RECHAZADA)]);
+    armar([operacion(RECHAZADA_DE_UN_PENDIENTE)]);
     pintar();
     await usuario.click(screen.getByRole('button', { name: 'Descartar' }));
     await usuario.click(await screen.findByRole('button', { name: 'No, conservarlo' }));
@@ -348,6 +361,39 @@ describe('PanelDeSincronizacion: descartar pregunta primero', () => {
     expect(descartar).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Descartar' })).toBeInTheDocument();
     expect(screen.queryByText(/¿Descartar este cambio\?/)).toBeNull();
+  });
+
+  it('al preguntar, el foco va a lo seguro («No, conservarlo»): el boton que se pulso ya no esta', async () => {
+    armar([operacion(RECHAZADA_DE_UN_PENDIENTE)]);
+    pintar();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Descartar' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'No, conservarlo' })).toHaveFocus();
+    });
+  });
+
+  it('al conservarlo, el foco no se pierde: va al titulo del panel', async () => {
+    const usuario = userEvent.setup();
+
+    armar([operacion(RECHAZADA_DE_UN_PENDIENTE)]);
+    pintar();
+    await usuario.click(screen.getByRole('button', { name: 'Descartar' }));
+    await usuario.click(await screen.findByRole('button', { name: 'No, conservarlo' }));
+
+    expect(screen.getByRole('heading', { name: 'Lo guardado en este equipo' })).toHaveFocus();
+  });
+
+  it('la pregunta es un grupo con nombre: quien llega a sus botones oye de que se trata', async () => {
+    armar([operacion(RECHAZADA_DE_UN_PENDIENTE)]);
+    pintar();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Descartar' }));
+
+    expect(
+      await screen.findByRole('group', {
+        name: /¿Descartar este cambio\? No se podrá recuperar\./,
+      }),
+    ).toBeInTheDocument();
   });
 
   it('"Sí, descartar" lo descarta, lo anuncia en singular y lleva el foco al titulo', async () => {
@@ -393,7 +439,7 @@ describe('PanelDeSincronizacion: descartar pregunta primero', () => {
   });
 
   it('si nada depende de el, no dice nada de otros', async () => {
-    armar([operacion(RECHAZADA)]);
+    armar([operacion(RECHAZADA_DE_UN_PENDIENTE)]);
     pintar();
     await userEvent.setup().click(screen.getByRole('button', { name: 'Descartar' }));
     await screen.findByText(/¿Descartar este cambio\?/);
@@ -402,7 +448,10 @@ describe('PanelDeSincronizacion: descartar pregunta primero', () => {
   });
 
   it('la pregunta es solo del cambio que se pulso, no de los demas', async () => {
-    armar([operacion({ ...RECHAZADA, orden: 1 }), operacion({ ...RECHAZADA, orden: 2 })]);
+    armar([
+      operacion({ ...RECHAZADA_DE_UN_PENDIENTE, orden: 1 }),
+      operacion({ ...RECHAZADA_DE_UN_PENDIENTE, orden: 2 }),
+    ]);
     pintar();
 
     const primero = screen.getAllByRole('listitem')[0]!;
@@ -419,5 +468,181 @@ describe('PanelDeSincronizacion: descartar pregunta primero', () => {
     pintar();
 
     expect(screen.getByRole('status')).toBeEmptyDOMElement();
+  });
+});
+
+describe('PanelDeSincronizacion: descartar una anotacion del diario (SCRUM-142)', () => {
+  const ESCRITO = { texto: 'Un dia dificil\n\nNo pude dormir.', conDiagramas: false };
+
+  /**
+   * Pinta el panel y pulsa «Descartar». `portapapeles` es lo que el navegador tiene en
+   * `navigator.clipboard`; se pone **despues** de crear al usuario porque `user-event`
+   * instala el suyo al crearlo.
+   */
+  async function pedirDescartar(portapapeles?: unknown) {
+    const usuario = userEvent.setup();
+
+    if (portapapeles !== undefined) {
+      Object.defineProperty(navigator, 'clipboard', { value: portapapeles, configurable: true });
+    }
+
+    pintar();
+    await usuario.click(screen.getByRole('button', { name: 'Descartar' }));
+
+    return usuario;
+  }
+
+  beforeEach(() => {
+    vi.mocked(leerLoEscritoDe).mockResolvedValue(ESCRITO);
+  });
+
+  it('dice con todas las letras que se borra lo que se escribio', async () => {
+    armar([operacion(RECHAZADA)]);
+    await pedirDescartar();
+
+    expect(
+      await screen.findByText(
+        /¿Descartar esta anotación\? Se borra lo que escribiste en tu diario y no se podrá recuperar\./,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/¿Descartar este cambio\?/)).toBeNull();
+    expect(descartar).not.toHaveBeenCalled();
+  });
+
+  it('ofrece copiar el texto antes, y lo dice', async () => {
+    armar([operacion(RECHAZADA)]);
+    await pedirDescartar();
+
+    expect(await screen.findByRole('button', { name: 'Copiar el texto' })).toBeInTheDocument();
+    expect(screen.getByText('Si quieres conservarlo, copia el texto antes.')).toBeInTheDocument();
+  });
+
+  it('copiar no lo ensena: va al portapapeles y se anuncia, y no se descarta', async () => {
+    const copiar = vi.fn().mockResolvedValue(undefined);
+
+    armar([operacion(RECHAZADA)]);
+
+    const usuario = await pedirDescartar({ writeText: copiar });
+
+    await usuario.click(await screen.findByRole('button', { name: 'Copiar el texto' }));
+
+    expect(copiar).toHaveBeenCalledWith('Un dia dificil\n\nNo pude dormir.');
+    expect(
+      await screen.findByText('Texto copiado. Ya puedes pegarlo donde quieras conservarlo.'),
+    ).toBeInTheDocument();
+    // El panel puede estar a la vista de otra persona: lo escrito no se muestra nunca.
+    expect(document.body.textContent).not.toContain('No pude dormir');
+    expect(descartar).not.toHaveBeenCalled();
+    // Y se puede seguir decidiendo.
+    expect(screen.getByRole('button', { name: 'Sí, descartar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'No, conservarla' })).toBeInTheDocument();
+  });
+
+  it('si no se pudo copiar, lo dice y avisa que no lo descarte todavia', async () => {
+    armar([operacion(RECHAZADA)]);
+
+    const usuario = await pedirDescartar({
+      writeText: vi.fn().mockRejectedValue(new Error('sin permiso')),
+    });
+
+    await usuario.click(await screen.findByRole('button', { name: 'Copiar el texto' }));
+
+    expect(
+      await screen.findByText(
+        'No se pudo copiar el texto. Si quieres conservarlo, no lo descartes todavía.',
+      ),
+    ).toBeInTheDocument();
+    expect(descartar).not.toHaveBeenCalled();
+  });
+
+  it('sin portapapeles en el navegador, tambien lo dice', async () => {
+    armar([operacion(RECHAZADA)]);
+
+    // El navegador no tiene portapapeles: `navigator.clipboard` no existe.
+    const usuario = await pedirDescartar(null);
+
+    await usuario.click(await screen.findByRole('button', { name: 'Copiar el texto' }));
+
+    expect(await screen.findByText(/No se pudo copiar el texto/)).toBeInTheDocument();
+  });
+
+  it('con diagramas, avisa que esos no se copian', async () => {
+    vi.mocked(leerLoEscritoDe).mockResolvedValue({ texto: 'Mira', conDiagramas: true });
+    armar([operacion(RECHAZADA)]);
+    await pedirDescartar();
+
+    expect(await screen.findByText(/Los diagramas no se copian\./)).toBeInTheDocument();
+  });
+
+  it('sin diagramas, no dice nada de diagramas', async () => {
+    armar([operacion(RECHAZADA)]);
+    await pedirDescartar();
+
+    await screen.findByRole('button', { name: 'Copiar el texto' });
+
+    expect(screen.queryByText(/diagramas/)).toBeNull();
+  });
+
+  it('si no hay nada escrito que copiar, no ofrece copiar, pero si avisa que se borra', async () => {
+    vi.mocked(leerLoEscritoDe).mockResolvedValue(null);
+    armar([operacion(RECHAZADA)]);
+    await pedirDescartar();
+
+    expect(await screen.findByText(/¿Descartar esta anotación\?/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copiar el texto' })).toBeNull();
+    expect(screen.queryByText('Si quieres conservarlo, copia el texto antes.')).toBeNull();
+  });
+
+  it('una correccion del diario tambien se trata como el diario', async () => {
+    armar([operacion({ ...RECHAZADA, tipo: 'diario.editar' })]);
+    await pedirDescartar();
+
+    expect(await screen.findByText(/¿Descartar esta anotación\?/)).toBeInTheDocument();
+    expect(leerLoEscritoDe).toHaveBeenCalled();
+  });
+
+  it('lo que no es del diario no pregunta por lo escrito ni ofrece copiar', async () => {
+    armar([operacion(RECHAZADA_DE_UN_PENDIENTE)]);
+    await pedirDescartar();
+
+    await screen.findByText(/¿Descartar este cambio\?/);
+
+    expect(leerLoEscritoDe).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Copiar el texto' })).toBeNull();
+  });
+
+  it('«No, conservarla»: vuelve a como estaba, sin descartar', async () => {
+    armar([operacion(RECHAZADA)]);
+
+    const usuario = await pedirDescartar();
+
+    await usuario.click(await screen.findByRole('button', { name: 'No, conservarla' }));
+
+    expect(descartar).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Descartar' })).toBeInTheDocument();
+  });
+
+  it('«Sí, descartar» lo descarta, como siempre', async () => {
+    armar([operacion(RECHAZADA)]);
+
+    const usuario = await pedirDescartar();
+
+    await usuario.click(await screen.findByRole('button', { name: 'Sí, descartar' }));
+
+    expect(descartar).toHaveBeenCalledWith(mundo.estado.cambios[0]?.operationId);
+  });
+
+  it('el anuncio de lo copiado no sobrevive a una nueva pregunta', async () => {
+    armar([operacion(RECHAZADA)]);
+
+    const usuario = await pedirDescartar({ writeText: vi.fn().mockResolvedValue(undefined) });
+
+    await usuario.click(await screen.findByRole('button', { name: 'Copiar el texto' }));
+    await screen.findByText(/Texto copiado/);
+    await usuario.click(screen.getByRole('button', { name: 'No, conservarla' }));
+    await usuario.click(screen.getByRole('button', { name: 'Descartar' }));
+    await screen.findByRole('button', { name: 'Copiar el texto' });
+
+    expect(screen.queryByText(/Texto copiado/)).toBeNull();
   });
 });

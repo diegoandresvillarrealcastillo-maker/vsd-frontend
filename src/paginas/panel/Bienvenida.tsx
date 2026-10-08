@@ -1,5 +1,6 @@
 import { useId, useState, type CSSProperties, type FormEvent } from 'react';
 
+import { ExigeConexion } from '../../componentes/ExigeConexion.tsx';
 import type { Cuenta, Modulo } from '../../infraestructura/api/cuenta.ts';
 import { Icono } from './Icono.tsx';
 import { MODULOS, ORDEN } from './modulos.ts';
@@ -137,10 +138,14 @@ export function Bienvenida({
           </p>
         )}
 
-        <button type="submit" className="app__boton bienvenida__empezar" disabled={enviando}>
-          {enviando ? 'Preparando tu espacio…' : 'Empezar'}
-          {!enviando && <Icono nombre="arrow" tamano={16} />}
-        </button>
+        {/* Guardar la eleccion cambia la cuenta: sin conexion se puede elegir, pero no empezar
+            (SCRUM-142). Lo elegido no se pierde. */}
+        <ExigeConexion>
+          <button type="submit" className="app__boton bienvenida__empezar" disabled={enviando}>
+            {enviando ? 'Preparando tu espacio…' : 'Empezar'}
+            {!enviando && <Icono nombre="arrow" tamano={16} />}
+          </button>
+        </ExigeConexion>
       </form>
     </section>
   );

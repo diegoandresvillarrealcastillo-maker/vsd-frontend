@@ -9,6 +9,7 @@ import {
   recordarEnEsteEquipo,
 } from '../infraestructura/supabase/almacenamiento.ts';
 import { supabase } from '../infraestructura/supabase/cliente.ts';
+import { reiniciarLasFrases } from '../mascota/bancoDeFrases.ts';
 import { dejarDeAvisarAEsteNavegador } from '../notificaciones/navegador.ts';
 import { RUTAS } from '../rutas/rutas.ts';
 import { alCambiarLaSesion, olvidarLosDatosDeLaSesionActual } from '../sincronizacion/ciclo.ts';
@@ -256,11 +257,12 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
           nueva === null && evento === 'INITIAL_SESSION' ? leerLaSesionGuardada() : null;
         const actual = nueva ?? sinRenovar;
 
-        // Sin sesion, lo que era de quien estaba —su foto, su mascota propia— no
-        // se queda. `salir` ya lo suelta, pero la sesion tambien termina sin
-        // pasar por ahi: caduca, se revoca, o se cierra en otra pestana.
+        // Sin sesion, lo que era de quien estaba —su foto, su mascota propia, lo que su
+        // mascota ya le dijo— no se queda. `salir` ya lo suelta, pero la sesion tambien
+        // termina sin pasar por ahi: caduca, se revoca, o se cierra en otra pestana.
         if (actual === null) {
           olvidarLosArchivosDeLaPersona();
+          reiniciarLasFrases();
         }
 
         setSesion(actual);
@@ -491,7 +493,7 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     // para la siguiente persona. Tiene que ir antes de soltar el token porque
     // sabe de quien es lo que borra por la sesion que todavia esta abierta.
     // Avisar de que quedan cambios sin enviar, antes de llegar aqui, es de quien
-    // llama a `salir` (SCRUM-142): aqui ya no hay vuelta atras.
+    // llama a `salir` (el menu de la cuenta, SCRUM-142): aqui ya no hay vuelta atras.
     const olvido = olvidarLosDatosDeLaSesionActual();
 
     // Antes de soltar el token: este navegador deja de recibir los avisos de
@@ -500,9 +502,11 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     await clienteONulo()?.auth.signOut();
     await olvido;
     olvidarPreferenciaDePestana();
-    // La zona y los archivos de esa cuenta no se quedan para la siguiente persona.
+    // La zona y los archivos de esa cuenta no se quedan para la siguiente persona, ni
+    // el historial de lo que su mascota le dijo (SCRUM-142).
     olvidarLaZonaDeLaCuenta();
     olvidarLosArchivosDeLaPersona();
+    reiniciarLasFrases();
     setSesion(null);
   }, []);
 

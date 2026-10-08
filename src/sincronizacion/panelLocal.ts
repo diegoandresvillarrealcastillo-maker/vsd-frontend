@@ -8,7 +8,12 @@ import { consultarElProgreso, type ProgresoDelModulo } from '../infraestructura/
 import { fijarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
 import { cicloActual } from './ciclo.ts';
 import type { Operacion } from './cola.ts';
-import { leerConCopia, modificarLaCopia, type LecturaConCopia } from './lecturas.ts';
+import {
+  leerConCopia,
+  leerSoloLaCopiaConFecha,
+  modificarLaCopia,
+  type LecturaConCopia,
+} from './lecturas.ts';
 
 /**
  * La cuenta y el progreso con copia en este dispositivo (SCRUM-140): lo que necesitan el panel
@@ -106,6 +111,30 @@ export async function leerElPanelConCopia(
   }
 
   return lectura;
+}
+
+/**
+ * La cuenta que hay guardada, **sin preguntar a nadie** (SCRUM-142): el perfil la ensena sin
+ * conexion, con todo deshabilitado, para que se vea que es lo que hay y que cambiarlo exige
+ * conexion. `null` si no hay copia o no se entiende.
+ *
+ * Como en `leerElPanelConCopia`, la zona horaria de la cuenta se vuelve a fijar: de ella depende
+ * lo que dice la pantalla (la hora de los avisos, por ejemplo), y eso lo hace la API al responder,
+ * no la copia.
+ */
+export async function leerLaCuentaGuardada(): Promise<{
+  readonly cuenta: Cuenta;
+  readonly guardadoEn: string;
+} | null> {
+  const guardada = await leerSoloLaCopiaConFecha<unknown>(CLAVE_DEL_PANEL);
+
+  if (guardada === null || !esDatosDelPanel(guardada.valor)) {
+    return null;
+  }
+
+  fijarLaZonaDeLaCuenta(guardada.valor.cuenta.zonaHoraria);
+
+  return { cuenta: guardada.valor.cuenta, guardadoEn: guardada.guardadoEn };
 }
 
 /**

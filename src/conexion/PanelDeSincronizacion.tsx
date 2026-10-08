@@ -7,6 +7,7 @@ import {
   sincronizarAhora,
   useSincronizacion,
 } from '../sincronizacion/estado.ts';
+import { leerLoEscritoDe } from '../sincronizacion/loGuardadoEnEsteEquipo.ts';
 import { cambios, cuandoFue, type CambioGuardado } from '../sincronizacion/resumen.ts';
 
 /**
@@ -25,7 +26,15 @@ import { cambios, cuandoFue, type CambioGuardado } from '../sincronizacion/resum
  * - **Reintentar** lo que se rechazo: vuelve a la cola de una vez.
  * - **Descartar** lo que se rechazo o chocó con otro dispositivo. **Pregunta
  *   primero**: tirar un cambio es perderlo, y con el van los que dependian de el.
+ *   Si es una **anotacion del diario**, ademas lo dice con todas las letras (se borra lo que
+ *   la persona escribio) y ofrece **copiar el texto** antes (SCRUM-142). Se copia sin
+ *   mostrarlo: el panel puede quedar abierto frente a otra persona.
  */
+/** Si el cambio es una anotacion del diario: lo unico que la persona escribe con sus palabras. */
+function esDelDiario(cambio: CambioGuardado): boolean {
+  return cambio.tipo === 'diario.escribir' || cambio.tipo === 'diario.editar';
+}
+
 export function PanelDeSincronizacion({
   id,
   alCerrar,
@@ -42,8 +51,16 @@ export function PanelDeSincronizacion({
   const { conexion, sincronizando, cambios: lista, ultimaSincronizacion } = useSincronizacion();
   const idDelTitulo = useId();
   const idDeLaAyuda = useId();
+  const idDeLaPregunta = useId();
   const titulo = useRef<HTMLHeadingElement>(null);
-  const [confirmando, setConfirmando] = useState<{ id: string; dependientes: number } | null>(null);
+  /** El boton de "no, conservarlo" de la confirmacion que este abierta (solo hay una). */
+  const conservar = useRef<HTMLButtonElement>(null);
+  const [confirmando, setConfirmando] = useState<{
+    id: string;
+    dependientes: number;
+    /** Lo que se escribio, si es del diario y hay algo que copiar. */
+    escrito: { texto: string; conDiagramas: boolean } | null;
+  } | null>(null);
   const [anuncio, setAnuncio] = useState('');
   const sinConexion = conexion === 'sin_conexion';
   const noSePuedeSincronizar = sinConexion || sincronizando;
@@ -54,6 +71,14 @@ export function PanelDeSincronizacion({
       titulo.current?.focus();
     }
   }, [enfocar]);
+
+  // Al pedir la confirmacion, el boton que se pulso desaparece: el foco no puede quedarse en el
+  // aire. Va a lo seguro (conservar), como en la confirmacion de salir (SCRUM-142).
+  useEffect(() => {
+    if (confirmando !== null) {
+      conservar.current?.focus();
+    }
+  }, [confirmando]);
 
   async function alSincronizar() {
     // `aria-disabled` deja el boton enfocable, pero no hace nada.
@@ -66,10 +91,22 @@ export function PanelDeSincronizacion({
   }
 
   async function pedirConfirmacion(cambio: CambioGuardado) {
+    setAnuncio('');
     setConfirmando({
       id: cambio.operationId,
       dependientes: await cuantosDependenDe(cambio.operationId),
+      escrito: esDelDiario(cambio) ? await leerLoEscritoDe(cambio.operationId) : null,
     });
+  }
+
+  /** Copia lo que se escribio al portapapeles, sin ensenarlo. */
+  async function alCopiar(texto: string) {
+    try {
+      await navigator.clipboard.writeText(texto);
+      setAnuncio('Texto copiado. Ya puedes pegarlo donde quieras conservarlo.');
+    } catch {
+      setAnuncio('No se pudo copiar el texto. Si quieres conservarlo, no lo descartes todavía.');
+    }
   }
 
   async function alReintentar(cambio: CambioGuardado) {
@@ -140,13 +177,32 @@ export function PanelDeSincronizacion({
               <p className="conexion__cambio-detalle">{cambio.detalle}</p>
 
               {confirmando?.id === cambio.operationId ? (
-                <div className="conexion__confirmar">
-                  <p>
-                    ¿Descartar este cambio? No se podrá recuperar.
+                <div className="conexion__confirmar" role="group" aria-labelledby={idDeLaPregunta}>
+                  <p id={idDeLaPregunta}>
+                    {esDelDiario(cambio)
+                      ? '¿Descartar esta anotación? Se borra lo que escribiste en tu diario y no se podrá recuperar.'
+                      : '¿Descartar este cambio? No se podrá recuperar.'}
                     {confirmando.dependientes > 0 &&
                       ` También se descartará${confirmando.dependientes === 1 ? '' : 'n'} ${cambios(confirmando.dependientes)} que ${confirmando.dependientes === 1 ? 'depende' : 'dependen'} de este.`}
                   </p>
+                  {confirmando.escrito !== null && (
+                    <p className="conexion__ayuda">
+                      Si quieres conservarlo, copia el texto antes.
+                      {confirmando.escrito.conDiagramas && ' Los diagramas no se copian.'}
+                    </p>
+                  )}
                   <div className="conexion__cambio-acciones">
+                    {confirmando.escrito !== null && (
+                      <button
+                        type="button"
+                        className="conexion__accion"
+                        onClick={() => {
+                          void alCopiar(confirmando.escrito?.texto ?? '');
+                        }}
+                      >
+                        Copiar el texto
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="conexion__accion conexion__accion--peligro"
@@ -157,13 +213,16 @@ export function PanelDeSincronizacion({
                       Sí, descartar
                     </button>
                     <button
+                      ref={conservar}
                       type="button"
                       className="conexion__accion"
                       onClick={() => {
                         setConfirmando(null);
+                        // El boton que se pulso desaparece con la confirmacion.
+                        titulo.current?.focus();
                       }}
                     >
-                      No, conservarlo
+                      {esDelDiario(cambio) ? 'No, conservarla' : 'No, conservarlo'}
                     </button>
                   </div>
                 </div>

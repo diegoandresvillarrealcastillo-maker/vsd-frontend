@@ -1,7 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RUTAS } from '../../rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
@@ -404,5 +404,112 @@ describe('el boton de Google', () => {
 
       unmount();
     }
+  });
+});
+
+describe('sin conexion (SCRUM-142)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function sinConexion() {
+    return vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+  }
+
+  /** Todo lo que se puede escribir o pulsar dentro del contenido de la tarjeta de acceso. */
+  function controlesDelFormulario(): Element[] {
+    return [...document.querySelectorAll('.acceso__contenido input, .acceso__contenido button')];
+  }
+
+  it.each([
+    ['entrar', <Acceso />, 'Entrar'],
+    ['registrarse', <Registro />, 'Crear cuenta'],
+    ['recuperar la contraseña', <Recuperar />, 'Enviarme el enlace'],
+  ])('para %s dice que hace falta conexion y no deja usar nada', (_nombre, pantalla, boton) => {
+    sinConexion();
+    pintar(pantalla, estado());
+
+    expect(screen.getByText('Necesitas conexión para esto.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: boton })).toBeDisabled();
+
+    const controles = controlesDelFormulario();
+
+    expect(controles.length).toBeGreaterThan(1);
+
+    for (const control of controles) {
+      expect(control).toBeDisabled();
+    }
+  });
+
+  it('elegir una contraseña nueva, despues del enlace, tambien exige conexion', () => {
+    sinConexion();
+    // Basta con que haya sesion: es lo que deja el enlace del correo.
+    pintar(
+      <ContrasenaNueva />,
+      estado({ sesion: { user: { id: 'u1' } } as unknown as EstadoDeSesion['sesion'] }),
+    );
+
+    expect(screen.getByText('Necesitas conexión para esto.')).toBeInTheDocument();
+
+    for (const control of controlesDelFormulario()) {
+      expect(control).toBeDisabled();
+    }
+  });
+
+  it('con conexion no hay aviso y todo se puede usar', () => {
+    pintar(<Acceso />, estado());
+
+    expect(screen.queryByText('Necesitas conexión para esto.')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Correo')).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Entrar' })).toBeEnabled();
+  });
+
+  it('sin conexion no se intenta entrar ni se simula que se entro', async () => {
+    const entrar = vi.fn().mockResolvedValue({ ok: true });
+
+    sinConexion();
+    pintar(<Acceso />, estado({ entrar }));
+
+    await usuario.click(screen.getByRole('button', { name: 'Entrar' }));
+
+    expect(entrar).not.toHaveBeenCalled();
+    expect(screen.queryByText('Entrando')).not.toBeInTheDocument();
+  });
+
+  it('lo escrito no se pierde si se va la conexion y vuelve', async () => {
+    const red = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true);
+    const entrar = vi.fn().mockResolvedValue({ ok: true });
+
+    pintar(<Acceso />, estado({ entrar }));
+    await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
+    await escribir(screen.getByLabelText('Contraseña'), 'UnaContrasena#2026');
+
+    act(() => {
+      red.mockReturnValue(false);
+      window.dispatchEvent(new Event('offline'));
+    });
+
+    expect(screen.getByLabelText('Correo')).toBeDisabled();
+    expect(screen.getByLabelText('Correo')).toHaveValue('alguien@ejemplo.com');
+    expect(screen.getByLabelText('Contraseña')).toHaveValue('UnaContrasena#2026');
+
+    act(() => {
+      red.mockReturnValue(true);
+      window.dispatchEvent(new Event('online'));
+    });
+    await usuario.click(screen.getByRole('button', { name: 'Entrar' }));
+
+    expect(entrar).toHaveBeenCalledWith(
+      expect.objectContaining({ correo: 'alguien@ejemplo.com', contrasena: 'UnaContrasena#2026' }),
+    );
+  });
+
+  it('los enlaces a las otras pantallas y el de volver siguen ahi', () => {
+    sinConexion();
+    pintar(<Acceso />, estado());
+
+    expect(screen.getByRole('link', { name: 'Crea una' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Olvidé mi contraseña' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Volver al inicio/ })).toBeInTheDocument();
   });
 });
