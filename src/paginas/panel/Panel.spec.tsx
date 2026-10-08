@@ -7,8 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
 import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
 import type { ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
+import { abrirUnAlmacenDePrueba, cerrarElAlmacenDePrueba } from '../../pruebas/almacenDePrueba.ts';
 import { cuantosH1, fallosDeAccesibilidad } from '../../pruebas/axe.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
+import { encolar } from '../../sincronizacion/ciclo.ts';
 import { Panel } from './Panel.tsx';
 
 /**
@@ -159,7 +161,11 @@ describe('Dashboard', () => {
 
       pintar();
 
-      expect(await screen.findByRole('alert')).toHaveTextContent(/No se pudo conectar/);
+      // Sin red y sin una copia en este equipo no hay nada que ensenar: se dice que hace falta
+      // conectarse una vez (SCRUM-140).
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        /Todavía no hay una copia de tu panel en este equipo/,
+      );
 
       await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
 
@@ -498,10 +504,33 @@ describe('Dashboard', () => {
       expect(tarjeta(/Cognición/)).toHaveAttribute('href', '/modulo/cognicion');
       expect(tarjeta(/Bienestar/)).toHaveAttribute('href', '/modulo/bienestar');
       // El plan diario sigue mostrando lo de todos los modulos.
-      expect(within(screen.getByRole('list')).getByText('Parejas')).toBeInTheDocument();
+      // Hay mas de una lista en la pantalla (el pie lleva la de los documentos
+      // legales), asi que se mira que cada actividad este dentro de alguna.
+      const listas = screen.getAllByRole('list');
+
+      expect(listas.some((lista) => within(lista).queryByText('Parejas') !== null)).toBe(true);
       expect(
-        within(screen.getByRole('list')).getByText('Cómo dormiste anoche'),
-      ).toBeInTheDocument();
+        listas.some((lista) => within(lista).queryByText('Cómo dormiste anoche') !== null),
+      ).toBe(true);
+    });
+
+    it('lleva el pie con lo que no es y para quien es, y el camino a los documentos (L-03)', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: 'Tu plan diario' });
+
+      const pie = screen.getByRole('contentinfo');
+
+      expect(pie).toHaveTextContent(/no diagnostica, no formula medicamentos y no reemplaza/i);
+      expect(pie).toHaveTextContent('Es solo para mayores de 18 años');
+      expect(within(pie).getByRole('link', { name: 'Términos' })).toHaveAttribute(
+        'href',
+        '/terminos',
+      );
+      expect(within(pie).getByRole('link', { name: 'Privacidad' })).toHaveAttribute(
+        'href',
+        '/privacidad',
+      );
     });
 
     it('añadir un modulo lo activa y lo pinta sin recargar', async () => {
@@ -604,5 +633,92 @@ describe('Dashboard', () => {
 
       expect(salir).toHaveBeenCalled();
     });
+  });
+});
+
+describe('Dashboard sin conexion (SCRUM-140)', () => {
+  beforeEach(async () => {
+    await abrirUnAlmacenDePrueba();
+  });
+
+  afterEach(() => {
+    cerrarElAlmacenDePrueba();
+    darDeAltaLaCuenta.mockReset();
+  });
+
+  it('se abre con la copia de este equipo, y dice de cuando es', async () => {
+    const primera = pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+    primera.unmount();
+    darDeAltaLaCuenta.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    pintar();
+
+    expect(await screen.findByRole('heading', { name: /Hola, Marina/ })).toBeInTheDocument();
+    expect(screen.getByText(/Datos de hace un momento/)).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('en cuanto vuelve la conexion se pone al dia y deja de decirlo', async () => {
+    const primera = pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+    primera.unmount();
+    darDeAltaLaCuenta.mockRejectedValue(new TypeError('Failed to fetch'));
+    pintar();
+    await screen.findByText(/Datos de hace/);
+
+    darDeAltaLaCuenta.mockResolvedValue({ ...CUENTA, nombre: 'Marina Isabel' });
+    fireEvent(window, new Event('online'));
+
+    expect(await screen.findByRole('heading', { name: /Hola, Marina Isabel/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Datos de hace/)).toBeNull();
+  });
+
+  it('con conexion no hay nada que decir de la copia', async () => {
+    pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    expect(screen.queryByText(/Datos de hace/)).toBeNull();
+  });
+
+  it('lo que se hizo sin conexion se dice, para que se sepa que se contara al enviarse', async () => {
+    const primera = pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+    primera.unmount();
+    darDeAltaLaCuenta.mockRejectedValue(new TypeError('Failed to fetch'));
+    await encolar({
+      operationId: 'res-1',
+      tipo: 'resultado.registrar',
+      entidad: 'resultado:res-1',
+      payload: {
+        clientOperationId: 'res-1',
+        activityId: '0acd0000-0000-4000-8000-000000000002',
+        completedAt: new Date().toISOString(),
+      },
+    });
+
+    pintar();
+
+    expect(
+      await screen.findByText(/Lo que hiciste sin conexión se contará cuando se envíe/),
+    ).toBeInTheDocument();
+  });
+
+  it('sin nada hecho sin conexion, no dice eso', async () => {
+    const primera = pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+    primera.unmount();
+    darDeAltaLaCuenta.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    pintar();
+
+    await screen.findByText(/Datos de hace/);
+
+    expect(screen.queryByText(/se contará cuando se envíe/)).toBeNull();
   });
 });

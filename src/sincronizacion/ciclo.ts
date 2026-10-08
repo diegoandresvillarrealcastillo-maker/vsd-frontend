@@ -8,6 +8,12 @@ import {
   type AlmacenLocal,
 } from './almacenLocal.ts';
 import { crearLlaveroEnIndexedDB, type Llavero } from './llavero.ts';
+import {
+  nuevaOperacion,
+  ultimaPendienteDe,
+  type DatosDeOperacionNueva,
+  type Operacion,
+} from './cola.ts';
 import { crearMotor, type MotorDeSincronizacion } from './motor.ts';
 
 /**
@@ -43,6 +49,18 @@ export interface CicloAbierto {
   readonly motor: MotorDeSincronizacion;
 }
 
+/**
+ * Por donde las pestanas se avisan de que la cola cambio. Lo que se manda es solo
+ * de quien es la cola: nunca el contenido de una operacion.
+ */
+export interface CanalDeLaCola {
+  publicar(persona: string): void;
+  escuchar(oyente: (persona: string) => void): void;
+  cerrar(): void;
+}
+
+const NOMBRE_DEL_CANAL = 'vsd-cola';
+
 /** Lo que se puede cambiar para probar el ciclo sin un navegador de verdad. */
 export interface FabricasDelCiclo {
   readonly hayIndexedDB: () => boolean;
@@ -52,6 +70,8 @@ export interface FabricasDelCiclo {
   readonly borrarBase: (persona: string) => Promise<void>;
   readonly confirmarConexion: () => Promise<boolean>;
   readonly pedirPersistencia: () => void;
+  /** `null` donde el navegador no tiene `BroadcastChannel`: entonces cada pestana va por su lado. */
+  readonly crearCanalDeLaCola: () => CanalDeLaCola | null;
 }
 
 const FABRICAS_REALES: FabricasDelCiclo = {
@@ -67,6 +87,31 @@ const FABRICAS_REALES: FabricasDelCiclo = {
     // nada.
     void navigator.storage?.persist?.().catch(() => undefined);
   },
+  crearCanalDeLaCola: () => {
+    if (typeof BroadcastChannel === 'undefined') {
+      return null;
+    }
+
+    const canal = new BroadcastChannel(NOMBRE_DEL_CANAL);
+
+    return {
+      publicar: (persona) => {
+        canal.postMessage({ persona });
+      },
+      escuchar: (oyente) => {
+        canal.addEventListener('message', (evento: MessageEvent<unknown>) => {
+          const datos = evento.data as { persona?: unknown } | null;
+
+          if (typeof datos?.persona === 'string') {
+            oyente(datos.persona);
+          }
+        });
+      },
+      cerrar: () => {
+        canal.close();
+      },
+    };
+  },
 };
 
 let fabricas = FABRICAS_REALES;
@@ -76,6 +121,8 @@ let llaveroDelAbierto: Llavero | null = null;
 let personaDeLaSesion: string | null = null;
 let ocupado: Promise<void> = Promise.resolve();
 const oyentes = new Set<() => void>();
+const oyentesDeLaCola = new Set<() => void>();
+let canalDeLaCola: CanalDeLaCola | null = null;
 
 function avisar(): void {
   oyentes.forEach((oyente) => {
@@ -94,6 +141,91 @@ export function suscribirAlCiclo(oyente: () => void): () => void {
   return () => {
     oyentes.delete(oyente);
   };
+}
+
+/**
+ * Quien quiera enterarse de que la cola cambio —se agrego algo, se envio, se
+ * descarto—, en esta pestana o en otra de la misma persona.
+ */
+export function suscribirALaCola(oyente: () => void): () => void {
+  oyentesDeLaCola.add(oyente);
+
+  // El canal se abre cuando alguien escucha por primera vez, no antes.
+  if (canalDeLaCola === null) {
+    canalDeLaCola = fabricas.crearCanalDeLaCola();
+    canalDeLaCola?.escuchar((persona) => {
+      // Lo de otra persona (otra sesion en este navegador) no es de esta pestana.
+      if (persona === abierto?.persona) {
+        avisarALosOyentesDeLaCola();
+      }
+    });
+  }
+
+  return () => {
+    oyentesDeLaCola.delete(oyente);
+  };
+}
+
+function avisarALosOyentesDeLaCola(): void {
+  oyentesDeLaCola.forEach((oyente) => {
+    oyente();
+  });
+}
+
+/**
+ * Avisa que la cola cambio: a quien escucha en esta pestana y a las otras
+ * pestanas de la misma persona. Quien cambia la cola sin pasar por `encolar` (el
+ * motor al enviar, una persona al descartar) lo llama al terminar.
+ */
+export function avisarQueLaColaCambio(): void {
+  avisarALosOyentesDeLaCola();
+
+  if (abierto !== null) {
+    canalDeLaCola?.publicar(abierto.persona);
+  }
+}
+
+export class SinAlmacenAbierto extends Error {
+  constructor() {
+    super('No hay un almacen abierto: hace falta una sesion.');
+    this.name = 'SinAlmacenAbierto';
+  }
+}
+
+/**
+ * Guarda una operacion en la cola de la persona que tiene la sesion. **Es el unico
+ * camino para agregar algo**: asi la cola y quien la mira nunca se desencuentran.
+ *
+ * Espera a que termine de abrirse el almacen si se esta abriendo. La operacion
+ * queda guardada **antes** de volver, y el aviso de que la cola cambio (que es lo
+ * que dispara el envio) va despues: nada se envia sin estar guardado.
+ *
+ * **El orden sobre una misma cosa se encadena solo** (SCRUM-139): si ya hay algo sin
+ * terminar sobre la misma `entidad`, la nueva depende de la ultima. Escribir una
+ * anotacion y corregirla sin conexion son dos operaciones que salen en ese orden, y la
+ * correccion usa lo que respondio la creacion. Quien quiera otra cosa pasa `dependeDe`
+ * (incluso `null`, para no depender de nada).
+ *
+ * @throws {SinAlmacenAbierto} Si no hay sesion.
+ */
+export async function encolar(datos: DatosDeOperacionNueva): Promise<Operacion> {
+  await ocupado;
+
+  if (abierto === null) {
+    throw new SinAlmacenAbierto();
+  }
+
+  const dependeDe =
+    datos.dependeDe === undefined
+      ? (ultimaPendienteDe(await abierto.almacen.operaciones(), datos.entidad)?.operationId ?? null)
+      : datos.dependeDe;
+  const guardada = await abierto.almacen.agregarOperacion(
+    nuevaOperacion({ ...datos, dependeDe }, new Date()),
+  );
+
+  avisarQueLaColaCambio();
+
+  return guardada;
 }
 
 /**
@@ -250,5 +382,8 @@ export function reiniciarElCicloParaLasPruebas(nuevas: FabricasDelCiclo = FABRIC
   personaDeLaSesion = null;
   ocupado = Promise.resolve();
   oyentes.clear();
+  oyentesDeLaCola.clear();
+  canalDeLaCola?.cerrar();
+  canalDeLaCola = null;
   fabricas = nuevas;
 }

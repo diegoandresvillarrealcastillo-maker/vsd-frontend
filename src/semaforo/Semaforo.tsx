@@ -17,9 +17,13 @@ import {
   textoDelRecordatorio,
   vencimiento,
 } from './niveles.ts';
+import { pedirVerLaLista } from '../sincronizacion/estado.ts';
+import { haceCuanto } from '../tiempo/haceCuanto.ts';
 import { diaEnLaZona } from '../tiempo/zonaHoraria.ts';
 import { useDialogo } from '../componentes/useDialogo.ts';
-import { useSemaforo } from './useSemaforo.ts';
+import { describirCambios, describirPendiente } from './choques.ts';
+import type { EstadoDelPendiente, PendienteEnPantalla } from './composicion.ts';
+import { useSemaforo, type Choque } from './useSemaforo.ts';
 
 /**
  * El semaforo de pendientes, flotante (SCRUM-98).
@@ -57,7 +61,52 @@ function recordarQueLaVio(): void {
   }
 }
 
-const SIN_CONEXION = 'No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.';
+/**
+ * Lo que se dice cuando ni siquiera se pudo guardar **en este equipo** (no hay una sesion
+ * abierta, o no hay espacio). Sin conexion no es un fallo: lo guardado se envia solo despues.
+ */
+const NO_SE_PUDO_GUARDAR = 'No se pudo guardar en este equipo. Inténtalo de nuevo.';
+
+/**
+ * Lo que se dice de un pendiente que todavia no esta del todo en el servidor (SCRUM-140), o
+ * `null` si lo esta. Nunca depende solo del color.
+ */
+function textoDelEstado(estado: EstadoDelPendiente): string | null {
+  switch (estado) {
+    case 'en_este_equipo':
+      return 'Guardado en este equipo · se enviará cuando haya conexión';
+    case 'guardando':
+      return 'Guardando…';
+    case 'error':
+      return 'No se pudo enviar este cambio. Sigue guardado en este equipo.';
+    case 'choco':
+      return 'Cambió en otro dispositivo. Elige con cuál quedarte.';
+    default:
+      return null;
+  }
+}
+
+/** El estado de un pendiente, en una linea bajo su texto. */
+function EstadoDelPendienteEnPantalla({ pendiente }: { pendiente: PendienteEnPantalla }) {
+  const texto = textoDelEstado(pendiente.estado);
+
+  if (texto === null) {
+    return null;
+  }
+
+  return pendiente.estado === 'error' ? (
+    <p className="semaforo-tarea__estado semaforo-tarea__estado--error" role="alert">
+      {texto}{' '}
+      <button type="button" className="semaforo__accion" onClick={pedirVerLaLista}>
+        Ver la lista
+      </button>
+    </p>
+  ) : (
+    <p className="semaforo-tarea__estado" role="status">
+      {texto}
+    </p>
+  );
+}
 
 /** El dibujo del semaforo. Con `encendida`, solo esa luz tiene color. */
 function IconoSemaforo({
@@ -136,11 +185,11 @@ export function Semaforo() {
         ref={boton}
         type="button"
         className="semaforo__boton"
-        aria-label={
+        aria-label={`${
           urgentes === 0
             ? 'Abrir tu semáforo de pendientes'
             : `Abrir tu semáforo de pendientes: ${urgentes} ${urgentes === 1 ? 'urgente' : 'urgentes'}`
-        }
+        }${semaforo.choques.length > 0 ? ', con cambios por resolver' : ''}`}
         aria-haspopup="dialog"
         onClick={() => abrir()}
       >
@@ -250,7 +299,7 @@ function RecordatorioJuntoAlBoton({
 
       {fallo && (
         <p className="semaforo__fallo" role="alert">
-          {SIN_CONEXION}
+          {NO_SE_PUDO_GUARDAR}
         </p>
       )}
 
@@ -374,7 +423,7 @@ function Ventana({
   const [ocupado, setOcupado] = useState<string | null>(null);
   const enfocar = useRef<'deshacer' | 'titulo' | null>(null);
   const deshacer = useRef<HTMLButtonElement>(null);
-  const { estado, reintentar, editar, borrar } = semaforo;
+  const { estado, choques, reintentar, editar, borrar, resolver } = semaforo;
 
   useEffect(() => {
     if (resaltado !== null) {
@@ -407,7 +456,7 @@ function Ventana({
       setAviso(resultado);
       setConfirmando(null);
     } catch {
-      setAviso({ tipo: 'fallo', texto: SIN_CONEXION });
+      setAviso({ tipo: 'fallo', texto: NO_SE_PUDO_GUARDAR });
     } finally {
       setOcupado(null);
     }
@@ -487,6 +536,25 @@ function Ventana({
     );
   }
 
+  /** La persona eligio con cual quedarse cuando un cambio choco con otro dispositivo. */
+  function elegir(choque: Choque, eleccion: 'servidor' | 'mio') {
+    void hacer(
+      choque.id,
+      async () => {
+        await resolver(choque.id, eleccion);
+
+        return {
+          tipo: 'bien',
+          texto:
+            eleccion === 'servidor'
+              ? `Te quedaste con lo del otro dispositivo en «${choque.mio.texto}».`
+              : `Se enviará tu cambio en «${choque.mio.texto}».`,
+        };
+      },
+      'titulo',
+    );
+  }
+
   async function alDeshacer(accion: () => Promise<void>) {
     // El boton de deshacer se va con el aviso: el foco pasa al titulo.
     enfocar.current = 'titulo';
@@ -496,7 +564,7 @@ function Ventana({
       await accion();
       setAviso({ tipo: 'bien', texto: 'Listo, vuelve a estar pendiente.' });
     } catch {
-      setAviso({ tipo: 'fallo', texto: SIN_CONEXION });
+      setAviso({ tipo: 'fallo', texto: NO_SE_PUDO_GUARDAR });
     }
   }
 
@@ -543,6 +611,15 @@ function Ventana({
             </button>
           </div>
         )}
+
+        {estado.fase === 'listo' && estado.deLaCopia !== null && (
+          <p className="semaforo__copia" role="status">
+            Datos de {haceCuanto(estado.deLaCopia, ahora)}. Se ponen al día solo cuando haya
+            conexión.
+          </p>
+        )}
+
+        <Choques choques={choques} ocupado={ocupado} alElegir={elegir} />
 
         {grupos !== null && (
           <>
@@ -607,6 +684,117 @@ function Ventana({
   );
 }
 
+/**
+ * Los cambios que chocaron con otro dispositivo (SCRUM-140, ADR 0009): lo del servidor y lo
+ * que la persona cambio, lado a lado, para que elija. Nada se descarta hasta que elija.
+ */
+function Choques({
+  choques,
+  ocupado,
+  alElegir,
+}: {
+  choques: readonly Choque[];
+  ocupado: string | null;
+  alElegir: (choque: Choque, eleccion: 'servidor' | 'mio') => void;
+}) {
+  const idDelTitulo = useId();
+
+  if (choques.length === 0) {
+    return null;
+  }
+
+  const hoy = diaEnLaZona(new Date());
+
+  return (
+    <section className="semaforo-choques" aria-labelledby={idDelTitulo}>
+      <h3 id={idDelTitulo} className="semaforo-choques__titulo">
+        {choques.length === 1
+          ? 'Un cambio chocó con otro dispositivo'
+          : `${String(choques.length)} cambios chocaron con otro dispositivo`}
+      </h3>
+      <p className="semaforo__nota">
+        Lo cambiaste sin conexión y, mientras tanto, se cambió en otro dispositivo. Elige con cuál
+        quedarte: no se pierde nada hasta que elijas.
+      </p>
+
+      {choques.map((choque) => (
+        <UnChoque
+          key={choque.id}
+          choque={choque}
+          hoy={hoy}
+          ocupado={ocupado === choque.id}
+          alElegir={(eleccion) => alElegir(choque, eleccion)}
+        />
+      ))}
+    </section>
+  );
+}
+
+/** Un cambio que choco: lo del otro dispositivo y lo de la persona, y como elegir. */
+function UnChoque({
+  choque,
+  hoy,
+  ocupado,
+  alElegir,
+}: {
+  choque: Choque;
+  hoy: string;
+  ocupado: boolean;
+  alElegir: (eleccion: 'servidor' | 'mio') => void;
+}) {
+  const idDelOtro = useId();
+  const idDeMio = useId();
+
+  return (
+    <article className="semaforo-choque">
+      <p className="semaforo-choque__texto">{choque.mio.texto}</p>
+
+      <div className="semaforo-choque__columnas">
+        <section className="semaforo-choque__columna" aria-labelledby={idDelOtro}>
+          <h4 id={idDelOtro}>En el otro dispositivo</h4>
+          {choque.delServidor === undefined ? (
+            <p className="semaforo__nota">No se puede ver ahora. Conéctate para compararlo.</p>
+          ) : (
+            <ul>
+              {describirPendiente(choque.delServidor, hoy).map((linea) => (
+                <li key={linea}>{linea}</li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="semaforo-choque__columna" aria-labelledby={idDeMio}>
+          <h4 id={idDeMio}>Tu cambio</h4>
+          <ul>
+            {describirCambios(choque.cambios, choque.eliminar, hoy).map((linea) => (
+              <li key={linea}>{linea}</li>
+            ))}
+          </ul>
+        </section>
+      </div>
+
+      <div className="semaforo__acciones">
+        <button
+          type="button"
+          className="semaforo__accion"
+          disabled={ocupado}
+          onClick={() => alElegir('servidor')}
+        >
+          Quedarme con lo del otro dispositivo
+        </button>
+        <button
+          type="button"
+          className="semaforo__accion semaforo__accion--principal"
+          disabled={ocupado}
+          onClick={() => alElegir('mio')}
+        >
+          Aplicar mi cambio
+        </button>
+      </div>
+    </article>
+  );
+}
+
 function Nivel({
   nivel,
   pendientes,
@@ -624,7 +812,7 @@ function Nivel({
   alEliminar,
 }: {
   nivel: NivelDePendiente;
-  pendientes: readonly Pendiente[];
+  pendientes: readonly PendienteEnPantalla[];
   ahora: Date;
   resaltado: string | null;
   confirmando: string | null;
@@ -680,6 +868,7 @@ function Nivel({
                     {vencimiento(pendiente.fechaLimite, hoy).texto}
                   </p>
                 )}
+                <EstadoDelPendienteEnPantalla pendiente={pendiente} />
 
                 {confirmando === pendiente.id ? (
                   <ConfirmarEliminar
@@ -859,7 +1048,7 @@ function Hechos({
   ocupado,
   alVolver,
 }: {
-  hechos: readonly Pendiente[];
+  hechos: readonly PendienteEnPantalla[];
   ocupado: string | null;
   alVolver: (pendiente: Pendiente) => void;
 }) {
@@ -878,6 +1067,12 @@ function Hechos({
             <li key={pendiente.id} className="semaforo-hechos__fila">
               <span id={idDelTexto} className="semaforo-hechos__texto">
                 {pendiente.texto}
+                {textoDelEstado(pendiente.estado) !== null && (
+                  <span className="semaforo-hechos__estado">
+                    {' '}
+                    · {textoDelEstado(pendiente.estado)}
+                  </span>
+                )}
               </span>
               <button
                 type="button"
@@ -930,7 +1125,7 @@ function Nuevo({
       setFecha('');
       alGuardar({ tipo: 'bien', texto: `Anotado en ${NIVEL[nivel].nombre}.` });
     } catch {
-      alGuardar({ tipo: 'fallo', texto: SIN_CONEXION });
+      alGuardar({ tipo: 'fallo', texto: NO_SE_PUDO_GUARDAR });
     } finally {
       setOcupado(false);
     }

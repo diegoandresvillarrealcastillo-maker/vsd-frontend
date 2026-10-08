@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useMemo } from 'react';
 
-import { consultarLaVersionDelAviso } from '../../infraestructura/api/aviso.ts';
-import { darDeAltaLaCuenta, type Mascota, type Modulo } from '../../infraestructura/api/cuenta.ts';
-import { consultarElProgreso, type ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
-import { explicar } from '../panel/useDatosDelPanel.ts';
+import type { Mascota, Modulo } from '../../infraestructura/api/cuenta.ts';
+import type { ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
+import { useLecturaDelPanel } from '../panel/useLecturaDelPanel.ts';
 
 export type EstadoDelSendero =
   | { readonly fase: 'cargando' }
@@ -11,6 +10,11 @@ export type EstadoDelSendero =
       readonly fase: 'listo';
       readonly progreso: ProgresoDelModulo;
       readonly mascota: Mascota | null;
+      /** Cuando se guardo la copia que se esta ensenando, o `null` si es lo del servidor. */
+      readonly deLaCopia: string | null;
+      /** Cuantos resultados hechos sin conexion siguen sin enviarse. */
+      readonly sinEnviar: number;
+      readonly ahora: Date;
     }
   /** El modulo existe pero la persona no lo tiene activo. */
   | { readonly fase: 'inactivo'; readonly mascota: Mascota | null }
@@ -19,55 +23,36 @@ export type EstadoDelSendero =
 /**
  * El progreso de un solo modulo.
  *
- * Se pide al montar la pantalla, asi que al volver de una actividad el anillo
- * de hoy ya trae lo que se acaba de hacer, sin recargar. Va precedido del alta
- * por lo mismo que el perfil: alguien puede abrir esta direccion directamente.
+ * Se pide al montar la pantalla, asi que al volver de una actividad el anillo de hoy ya trae lo
+ * que se acaba de hacer, sin recargar. Va precedido del alta por lo mismo que el perfil: alguien
+ * puede abrir esta direccion directamente. Lo lee, igual que el panel, con copia en este equipo
+ * (SCRUM-140): sin conexion se ve la copia, y lo que se hizo hoy esta hecho.
  */
 export function useSendero(modulo: Modulo): {
   readonly estado: EstadoDelSendero;
   readonly reintentar: () => void;
 } {
-  const [estado, setEstado] = useState<EstadoDelSendero>({ fase: 'cargando' });
-  const [intento, setIntento] = useState(0);
+  const { estado: lectura, reintentar } = useLecturaDelPanel();
 
-  const reintentar = useCallback(() => {
-    setEstado({ fase: 'cargando' });
-    setIntento((anterior) => anterior + 1);
-  }, []);
-
-  useEffect(() => {
-    const control = new AbortController();
-
-    async function cargar(): Promise<void> {
-      try {
-        const version = await consultarLaVersionDelAviso(control.signal);
-        const { mascota } = await darDeAltaLaCuenta(version, control.signal);
-        const progreso = await consultarElProgreso(control.signal);
-
-        if (control.signal.aborted) {
-          return;
-        }
-
-        const suyo = progreso.find((uno) => uno.modulo === modulo);
-
-        setEstado(
-          suyo === undefined
-            ? { fase: 'inactivo', mascota }
-            : { fase: 'listo', progreso: suyo, mascota },
-        );
-      } catch (error) {
-        if (!control.signal.aborted) {
-          setEstado({ fase: 'error', mensaje: explicar(error) });
-        }
-      }
+  const estado = useMemo((): EstadoDelSendero => {
+    if (lectura.fase !== 'listo') {
+      return lectura;
     }
 
-    void cargar();
+    const { mascota } = lectura.cuenta;
+    const suyo = lectura.progreso.find((uno) => uno.modulo === modulo);
 
-    return () => {
-      control.abort();
-    };
-  }, [modulo, intento]);
+    return suyo === undefined
+      ? { fase: 'inactivo', mascota }
+      : {
+          fase: 'listo',
+          progreso: suyo,
+          mascota,
+          deLaCopia: lectura.deLaCopia,
+          sinEnviar: lectura.sinEnviar,
+          ahora: lectura.ahora,
+        };
+  }, [lectura, modulo]);
 
   return { estado, reintentar };
 }

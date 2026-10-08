@@ -433,6 +433,27 @@ describe('Perfil', () => {
       expect(screen.getByRole('status')).toHaveTextContent('quedó cambiada');
     });
 
+    it('al cambiarla dice que cerro la sesion de los demas dispositivos (SCRUM-154)', async () => {
+      pintar(
+        sesion({
+          cambiarContrasenaConCodigo: vi.fn().mockResolvedValue({
+            ok: true,
+            mensaje: 'Cerramos tu sesión en los demás dispositivos.',
+          }),
+        }),
+      );
+
+      await usuario.click(await screen.findByRole('button', { name: 'Enviarme un código' }));
+      await usuario.type(screen.getByLabelText('Código del correo'), '123456');
+      await usuario.type(screen.getByLabelText('Contraseña nueva'), 'UnaClave#Nueva9');
+      await usuario.type(screen.getByLabelText('Repite la contraseña nueva'), 'UnaClave#Nueva9');
+      await usuario.click(screen.getByRole('button', { name: 'Cambiar contraseña' }));
+
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Tu contraseña quedó cambiada. Cerramos tu sesión en los demás dispositivos.',
+      );
+    });
+
     it('sin el codigo no la cambia', async () => {
       const valor = pintar();
 

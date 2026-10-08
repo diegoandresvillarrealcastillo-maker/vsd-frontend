@@ -4,20 +4,33 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { TEXTO_DEL_AVISO_ORIENTATIVO } from '../../../componentes/AvisoOrientativo.tsx';
 import { rutaDeActividad, RUTAS } from '../../../rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../../sesion/SesionContexto.ts';
+import { cicloActual } from '../../../sincronizacion/ciclo.ts';
 import { Actividad } from '../Actividad.tsx';
+import {
+  abrirUnAlmacenDePrueba,
+  cerrarElAlmacenDePrueba,
+} from '../../../pruebas/almacenDePrueba.ts';
 
 /**
  * Las tres actividades de Emociones (SCRUM-94), dentro del motor de verdad y
  * con la API simulada.
  */
-const { buscarActividad, registrarResultado } = vi.hoisted(() => ({
+const { buscarActividad, registrarResultado, hayConexionConLaApi } = vi.hoisted(() => ({
   buscarActividad: vi.fn(),
   registrarResultado: vi.fn(),
+  hayConexionConLaApi: vi.fn(),
 }));
 
-vi.mock('../../../infraestructura/api/catalogo.ts', () => ({ buscarActividad }));
+// El catalogo sale de la copia local cuando no hay conexion (SCRUM-138); aqui es un doble.
+vi.mock('../../../sincronizacion/catalogoLocal.ts', () => ({
+  buscarActividadConCopia: buscarActividad,
+  nombreDeLaActividad: vi.fn(() => Promise.resolve(null)),
+}));
+// Lo que se termina entra a la cola y la envia el motor de verdad: solo se simula la red.
+vi.mock('../../../infraestructura/api/conexion.ts', () => ({ hayConexionConLaApi }));
 vi.mock('../../../infraestructura/api/resultados.ts', () => ({ registrarResultado }));
 
 const SIENTES = '0acd0000-0000-4000-8000-000000000007';
@@ -109,7 +122,13 @@ beforeEach(() => {
   });
 });
 
+beforeEach(async () => {
+  hayConexionConLaApi.mockResolvedValue(true);
+  await abrirUnAlmacenDePrueba();
+});
+
 afterEach(() => {
+  cerrarElAlmacenDePrueba();
   vi.restoreAllMocks();
   vi.clearAllMocks();
 });
@@ -336,8 +355,12 @@ describe('Un momento bueno del día', () => {
     pintar(MOMENTO);
     await escribir(TEXTO);
     await terminar();
-    await usuario.click(await screen.findByRole('button', { name: 'Reintentar' }));
-    await screen.findByRole('heading', { name: 'Listo' });
+
+    // Falla el envio: queda guardado en este equipo (SCRUM-138) y, al volver la
+    // conexion, sale. Lo escrito no puede salir por la consola en ninguno de los dos.
+    await screen.findByText(/Guardado en este equipo/);
+    await cicloActual()?.motor.sincronizar('conexion');
+    await screen.findByText(/Quedó registrado/);
 
     // Sanity: el texto si llego a la peticion. Lo que no puede es salir por
     // ningun otro lado.
@@ -379,6 +402,10 @@ describe('Emociones, lo que se lee en pantalla', () => {
     await terminar();
     await screen.findByRole('region', { name: 'Si te sirve hablarlo con alguien' });
 
-    expect(document.body.textContent).not.toMatch(CLINICO);
+    // La linea fija «Orientativo. No es un diagnostico...» (L-03 de la auditoria
+    // 360) es la unica que puede nombrar el diagnostico, y solo para negarlo. Se
+    // comprueba que esta, y se quita para mirar todo lo demas.
+    expect(screen.getByText(TEXTO_DEL_AVISO_ORIENTATIVO)).toBeInTheDocument();
+    expect(document.body.textContent.replace(TEXTO_DEL_AVISO_ORIENTATIVO, '')).not.toMatch(CLINICO);
   });
 });

@@ -270,15 +270,18 @@ await preguntar(
   true,
 );
 await preguntar(`un archivo de la compilacion (${primerJs})`, peticion(`/${primerJs}`), true);
+// La tipografia ya no se pide a Google: viaja con la aplicacion, y sus archivos
+// estan en la lista de arriba. Si alguna vez volviera a pedirse a un tercero, este
+// service worker no debe guardarlo.
 await preguntar(
-  'la hoja de estilos de Google Fonts',
+  'la hoja de estilos de Google Fonts (ya no se usa)',
   peticion('https://fonts.googleapis.com/css2?family=Manrope'),
-  true,
+  false,
 );
 await preguntar(
-  'una letra de Google Fonts',
+  'una letra de Google Fonts (ya no se usa)',
   peticion('https://fonts.gstatic.com/s/manrope/v15/a.woff2'),
-  true,
+  false,
 );
 
 await preguntar(

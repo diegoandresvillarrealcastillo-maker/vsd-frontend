@@ -7,6 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { rutaDeActividad, RUTAS } from '../../../rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../../sesion/SesionContexto.ts';
 import { Actividad } from '../Actividad.tsx';
+import {
+  abrirUnAlmacenDePrueba,
+  cerrarElAlmacenDePrueba,
+} from '../../../pruebas/almacenDePrueba.ts';
 import { repartir, tiempoAlaVista } from './cognicion.ts';
 
 /**
@@ -17,12 +21,19 @@ import { repartir, tiempoAlaVista } from './cognicion.ts';
  * prueba sabe donde esta cada pareja, que digitos salen y que casilla cambia,
  * y puede jugar partidas perfectas y malas a proposito.
  */
-const { buscarActividad, registrarResultado } = vi.hoisted(() => ({
+const { buscarActividad, registrarResultado, hayConexionConLaApi } = vi.hoisted(() => ({
   buscarActividad: vi.fn(),
   registrarResultado: vi.fn(),
+  hayConexionConLaApi: vi.fn(),
 }));
 
-vi.mock('../../../infraestructura/api/catalogo.ts', () => ({ buscarActividad }));
+// El catalogo sale de la copia local cuando no hay conexion (SCRUM-138); aqui es un doble.
+vi.mock('../../../sincronizacion/catalogoLocal.ts', () => ({
+  buscarActividadConCopia: buscarActividad,
+  nombreDeLaActividad: vi.fn(() => Promise.resolve(null)),
+}));
+// Lo que se termina entra a la cola y la envia el motor de verdad: solo se simula la red.
+vi.mock('../../../infraestructura/api/conexion.ts', () => ({ hayConexionConLaApi }));
 vi.mock('../../../infraestructura/api/resultados.ts', () => ({ registrarResultado }));
 
 const PAREJAS = '0acd0000-0000-4000-8000-000000000001';
@@ -92,7 +103,13 @@ beforeEach(() => {
   });
 });
 
+beforeEach(async () => {
+  hayConexionConLaApi.mockResolvedValue(true);
+  await abrirUnAlmacenDePrueba();
+});
+
 afterEach(() => {
+  cerrarElAlmacenDePrueba();
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.clearAllMocks();
