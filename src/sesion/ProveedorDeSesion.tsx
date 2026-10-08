@@ -126,22 +126,26 @@ function traducir(error: AuthError | null): ResultadoDeAcceso {
 /**
  * Lo mismo, pero para el registro.
  *
- * Una cuenta que ya existe se responde aparte porque en el registro **si hay
- * que decirlo**: sin eso la persona se queda sin saber por que no puede
- * continuar. La frase va en condicional para no afirmarlo de plano.
+ * Que el correo ya tenga una cuenta **tampoco se revela**: es la misma regla
+ * del inicio de sesion y de la recuperacion (S-08 de la auditoria 360). Una
+ * pantalla de registro que responde distinto segun el correo existe o no sirve
+ * para averiguar, direccion por direccion, quien usa una herramienta de salud
+ * mental. Antes aqui se hacia una concesion («Si ya tienes una cuenta...»);
+ * se quito porque el mensaje solo salia cuando la cuenta existia.
  *
- * Es una concesion consciente. En el inicio de sesion y en la recuperacion la
- * regla de no revelar se mantiene entera; aqui cede lo justo para que la
- * pantalla sirva de algo.
+ * Con la confirmacion por correo activada, Supabase ya responde igual en los
+ * dos casos y nunca devuelve estos codigos. Se tratan como exito por si el
+ * proveedor se configura sin confirmacion: sin esto, esa configuracion
+ * reabriria la fuga sin que nada fallara.
+ *
+ * La pantalla de registro cuenta el resto: dice lo mismo en los dos casos y
+ * deja a un enlace tanto entrar como recuperar la contrasena.
  */
 function traducirRegistro(error: AuthError | null): ResultadoDeAcceso {
   const codigo = error?.code ?? '';
 
   if (codigo === 'user_already_exists' || codigo === 'email_exists') {
-    return {
-      ok: false,
-      mensaje: 'Si ya tienes una cuenta con ese correo, entra desde la pantalla de acceso.',
-    };
+    return BIEN;
   }
 
   return traducir(error);
