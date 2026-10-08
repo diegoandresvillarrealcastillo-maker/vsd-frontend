@@ -75,6 +75,10 @@ const MENSAJES: Readonly<Record<string, string>> = {
   over_email_send_rate_limit: 'Se enviaron muchos correos seguidos. Espera unos minutos.',
   validation_failed: 'Revisa el correo: no tiene un formato válido.',
 
+  // El CAPTCHA (SCRUM-165). No acusa a nadie: el token pudo caducar o la red
+  // fallar a medias, y la pantalla ya pidio uno nuevo.
+  captcha_failed: 'No pudimos comprobar que eres una persona. Inténtalo de nuevo.',
+
   // Estos dos no son culpa de quien esta delante de la pantalla: son
   // configuracion que falta en Supabase. Decirle "el correo o la contrasena no
   // coinciden" la mandaria a revisar algo que esta bien.
@@ -222,6 +226,7 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     async ({
       correo,
       contrasena,
+      captchaToken,
       aceptaElAviso,
       aceptaLosTerminos,
     }: DatosDeAcceso & {
@@ -274,6 +279,7 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
             acepto_en: new Date().toISOString(),
           },
           emailRedirectTo: `${window.location.origin}${RUTAS.PANEL}`,
+          ...(captchaToken === undefined ? {} : { captchaToken }),
         },
       });
 
@@ -283,7 +289,12 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
   );
 
   const entrar = useCallback(
-    async ({ correo, contrasena, recordar }: DatosDeEntrada): Promise<ResultadoDeAcceso> => {
+    async ({
+      correo,
+      contrasena,
+      recordar,
+      captchaToken,
+    }: DatosDeEntrada): Promise<ResultadoDeAcceso> => {
       // Antes de iniciar sesion, no despues: el token se escribe durante la
       // llamada, y para entonces ya tiene que estar decidido donde va.
       recordarEnEsteEquipo(recordar);
@@ -297,6 +308,7 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
       const { error } = await cliente.auth.signInWithPassword({
         email: correo,
         password: contrasena,
+        ...(captchaToken === undefined ? {} : { options: { captchaToken } }),
       });
 
       return traducir(error);
@@ -321,26 +333,37 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     return traducir(error);
   }, []);
 
-  const pedirRecuperacion = useCallback(async (correo: string): Promise<ResultadoDeAcceso> => {
-    const cliente = clienteONulo();
+  const pedirRecuperacion = useCallback(
+    async (correo: string, captchaToken?: string): Promise<ResultadoDeAcceso> => {
+      const cliente = clienteONulo();
 
-    if (!cliente) {
-      return SIN_CONFIGURAR;
-    }
+      if (!cliente) {
+        return SIN_CONFIGURAR;
+      }
 
-    const { error } = await cliente.auth.resetPasswordForEmail(correo, {
-      redirectTo: `${window.location.origin}${RUTAS.CONTRASENA_NUEVA}`,
-    });
+      const { error } = await cliente.auth.resetPasswordForEmail(correo, {
+        redirectTo: `${window.location.origin}${RUTAS.CONTRASENA_NUEVA}`,
+        ...(captchaToken === undefined ? {} : { captchaToken }),
+      });
 
-    // Se responde lo mismo haya cuenta o no, y tambien si la llamada fallo por
-    // limite de peticiones. Decir "ese correo no existe" permitiria averiguar
-    // quien tiene cuenta probando direcciones una a una.
-    if (error?.status === 429) {
-      return { ok: false, mensaje: 'Demasiados intentos seguidos. Espera un momento y vuelve.' };
-    }
+      // Se responde lo mismo haya cuenta o no, y tambien si la llamada fallo por
+      // limite de peticiones. Decir "ese correo no existe" permitiria averiguar
+      // quien tiene cuenta probando direcciones una a una.
+      if (error?.status === 429) {
+        return { ok: false, mensaje: 'Demasiados intentos seguidos. Espera un momento y vuelve.' };
+      }
 
-    return BIEN;
-  }, []);
+      // Sin esto, un CAPTCHA que fallo diria «te enviamos el correo» cuando no se
+      // envio nada. Tampoco revela nada: el CAPTCHA se comprueba antes de mirar
+      // si el correo existe.
+      if (error?.code === 'captcha_failed') {
+        return traducir(error);
+      }
+
+      return BIEN;
+    },
+    [],
+  );
 
   const cambiarContrasena = useCallback(async (nueva: string): Promise<ResultadoDeAcceso> => {
     const cliente = clienteONulo();

@@ -138,6 +138,31 @@ comprobar(
   !/fonts\.(googleapis|gstatic)\.com/.test(politica),
 );
 
+// ----- el CAPTCHA (SCRUM-165) -----
+//
+// Cloudflare Turnstile necesita tres cosas en la politica: poder descargar su
+// script, poder pintar su iframe y poder hablar con su dominio. Si falta alguna,
+// el CAPTCHA no carga y, con la proteccion activada en Supabase, nadie puede
+// entrar. Y es el unico dominio de fuera que se admite en estas tres directivas:
+// autorizar otro es una decision que se toma a proposito, no se cuela.
+
+const TURNSTILE = 'https://challenges.cloudflare.com';
+const conexiones = directivas.get('connect-src') ?? [];
+
+comprobar(
+  `script-src autoriza ${TURNSTILE}: sin eso el CAPTCHA no se descarga`,
+  scripts.includes(TURNSTILE),
+);
+comprobar(
+  `script-src no autoriza ningun otro dominio de fuera: solo ${TURNSTILE}`,
+  scripts.filter((valor) => /^https?:\/\//.test(valor)).every((valor) => valor === TURNSTILE),
+);
+comprobar(
+  `frame-src es exactamente ${TURNSTILE}: el CAPTCHA es lo unico que se pinta en un iframe`,
+  (directivas.get('frame-src') ?? []).join(' ') === TURNSTILE,
+);
+comprobar(`connect-src autoriza ${TURNSTILE}`, conexiones.includes(TURNSTILE));
+
 // ----- los scripts en linea de la compilacion -----
 
 const rutaDelHtml = 'dist/index.html';

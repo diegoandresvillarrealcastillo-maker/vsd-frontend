@@ -29,7 +29,7 @@ export interface EstadoDeSesion {
   ) => Promise<ResultadoDeAcceso>;
   readonly entrar: (datos: DatosDeEntrada) => Promise<ResultadoDeAcceso>;
   readonly entrarConGoogle: (recordar: boolean) => Promise<ResultadoDeAcceso>;
-  readonly pedirRecuperacion: (correo: string) => Promise<ResultadoDeAcceso>;
+  readonly pedirRecuperacion: (correo: string, captchaToken?: string) => Promise<ResultadoDeAcceso>;
   readonly cambiarContrasena: (nueva: string) => Promise<ResultadoDeAcceso>;
   /**
    * Pide a Supabase que mande un codigo de verificacion al correo de la
@@ -51,6 +51,11 @@ export interface EstadoDeSesion {
 export interface DatosDeAcceso {
   readonly correo: string;
   readonly contrasena: string;
+  /**
+   * El token del CAPTCHA de Cloudflare Turnstile (SCRUM-165). Sin CAPTCHA en esta
+   * compilacion no hay token y no se manda. Supabase lo acepta una sola vez.
+   */
+  readonly captchaToken?: string;
 }
 
 /**
