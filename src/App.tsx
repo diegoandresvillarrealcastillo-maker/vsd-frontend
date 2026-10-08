@@ -3,6 +3,7 @@ import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import { SaltoAlContenido } from './componentes/SaltoAlContenido.tsx';
+import { LimiteDeErrores } from './errores/LimiteDeErrores.tsx';
 import { Actividad } from './paginas/actividad/Actividad.tsx';
 import { Panel } from './paginas/panel/Panel.tsx';
 import { Perfil } from './paginas/perfil/Perfil.tsx';
@@ -66,96 +67,101 @@ export function App() {
           en cualquier pantalla. */}
       <SaltoAlContenido />
 
-      <AnimatePresence mode="popLayout" initial={false}>
-        <Routes location={ubicacion} key={ubicacion.pathname}>
-          {/* ---------- Publicas ---------- */}
-          <Route path={RUTAS.INICIO} element={<Portada />} />
+      {/* Un error al pintar una pantalla ya no deja la aplicacion en blanco
+          (SCRUM-156): sale la pantalla de error con una salida y las lineas de
+          atencion, y navegar a otra ruta la quita sola. */}
+      <LimiteDeErrores origen="ruta" restablecerCon={ubicacion.pathname}>
+        <AnimatePresence mode="popLayout" initial={false}>
+          <Routes location={ubicacion} key={ubicacion.pathname}>
+            {/* ---------- Publicas ---------- */}
+            <Route path={RUTAS.INICIO} element={<Portada />} />
 
-          {/* ---------- Solo sin sesion ---------- */}
-          <Route
-            path={RUTAS.ACCESO}
-            element={
-              <RutaDeInvitado>
-                <Acceso />
-              </RutaDeInvitado>
-            }
-          />
-          <Route
-            path={RUTAS.REGISTRO}
-            element={
-              <RutaDeInvitado>
-                <Registro />
-              </RutaDeInvitado>
-            }
-          />
-          <Route
-            path={RUTAS.RECUPERAR}
-            element={
-              <RutaDeInvitado>
-                <Recuperar />
-              </RutaDeInvitado>
-            }
-          />
+            {/* ---------- Solo sin sesion ---------- */}
+            <Route
+              path={RUTAS.ACCESO}
+              element={
+                <RutaDeInvitado>
+                  <Acceso />
+                </RutaDeInvitado>
+              }
+            />
+            <Route
+              path={RUTAS.REGISTRO}
+              element={
+                <RutaDeInvitado>
+                  <Registro />
+                </RutaDeInvitado>
+              }
+            />
+            <Route
+              path={RUTAS.RECUPERAR}
+              element={
+                <RutaDeInvitado>
+                  <Recuperar />
+                </RutaDeInvitado>
+              }
+            />
 
-          {/* Se guarda sola: ver la nota de arriba. */}
-          <Route path={RUTAS.CONTRASENA_NUEVA} element={<ContrasenaNueva />} />
+            {/* Se guarda sola: ver la nota de arriba. */}
+            <Route path={RUTAS.CONTRASENA_NUEVA} element={<ContrasenaNueva />} />
 
-          {/* ---------- Protegidas ---------- */}
-          <Route
-            path={RUTAS.PANEL}
-            element={
-              <RutaProtegida>
-                <Panel />
-              </RutaProtegida>
-            }
-          />
-          <Route
-            path={RUTAS.PERFIL}
-            element={
-              <RutaProtegida>
-                <Perfil />
-              </RutaProtegida>
-            }
-          />
-          <Route
-            path={RUTAS.DIARIO}
-            element={
-              <RutaProtegida>
-                <Suspense
-                  fallback={
-                    <p className="solo-lectores" role="status">
-                      Cargando tu diario…
-                    </p>
-                  }
-                >
-                  <Diario />
-                </Suspense>
-              </RutaProtegida>
-            }
-          />
-          <Route
-            path={RUTAS.MODULO}
-            element={
-              <RutaProtegida>
-                <Sendero />
-              </RutaProtegida>
-            }
-          />
-          <Route
-            path={RUTAS.ACTIVIDAD}
-            element={
-              <RutaProtegida>
-                <Actividad />
-              </RutaProtegida>
-            }
-          />
+            {/* ---------- Protegidas ---------- */}
+            <Route
+              path={RUTAS.PANEL}
+              element={
+                <RutaProtegida>
+                  <Panel />
+                </RutaProtegida>
+              }
+            />
+            <Route
+              path={RUTAS.PERFIL}
+              element={
+                <RutaProtegida>
+                  <Perfil />
+                </RutaProtegida>
+              }
+            />
+            <Route
+              path={RUTAS.DIARIO}
+              element={
+                <RutaProtegida>
+                  <Suspense
+                    fallback={
+                      <p className="solo-lectores" role="status">
+                        Cargando tu diario…
+                      </p>
+                    }
+                  >
+                    <Diario />
+                  </Suspense>
+                </RutaProtegida>
+              }
+            />
+            <Route
+              path={RUTAS.MODULO}
+              element={
+                <RutaProtegida>
+                  <Sendero />
+                </RutaProtegida>
+              }
+            />
+            <Route
+              path={RUTAS.ACTIVIDAD}
+              element={
+                <RutaProtegida>
+                  <Actividad />
+                </RutaProtegida>
+              }
+            />
 
-          {/* Una direccion que no existe no merece una pantalla de error: se
+            {/* Una direccion que no existe no merece una pantalla de error: se
               vuelve a la portada, que es lo que la persona queria de todos
               modos. */}
-          <Route path="*" element={<Navigate to={RUTAS.INICIO} replace />} />
-        </Routes>
-      </AnimatePresence>
+            <Route path="*" element={<Navigate to={RUTAS.INICIO} replace />} />
+          </Routes>
+        </AnimatePresence>
+      </LimiteDeErrores>
     </>
   );
 }
