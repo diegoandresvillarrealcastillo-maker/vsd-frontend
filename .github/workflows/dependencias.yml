@@ -1,0 +1,60 @@
+# ============================================================
+#  VSD Health - Vulnerabilidades en las dependencias (SCRUM-155)
+# ============================================================
+#  Falla si las dependencias de produccion traen un aviso grave
+#  (high o critical) que no este aceptado por escrito en
+#  vulnerabilidades-aceptadas.json, con su motivo y su fecha.
+#
+#  Va aparte de ci.yml a proposito. Un aviso nuevo se publica
+#  cualquier dia y no tiene que poner en rojo un Pull Request que
+#  no toca las dependencias. Por eso corre:
+#
+#    - en los Pull Request que si las tocan;
+#    - al entrar a una rama de ambiente;
+#    - cada lunes, para enterarse de lo que se publico en la semana
+#      (solo la rama por defecto, `produccion`, ejecuta las tareas
+#      programadas);
+#    - a mano.
+# ============================================================
+
+name: Dependencias
+
+on:
+  pull_request:
+    paths:
+      - package.json
+      - package-lock.json
+      - vulnerabilidades-aceptadas.json
+      - scripts/revisar-dependencias.mjs
+      - .github/workflows/dependencias.yml
+  push:
+    branches: [desarrollo, preproduccion, produccion]
+  schedule:
+    # Lunes 06:00 en Bogota.
+    - cron: '0 11 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependencias-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vulnerabilidades:
+    name: Vulnerabilidades en las dependencias
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v7
+
+      - name: Preparar Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      # Sin `npm ci`: `npm audit` lee package-lock.json y no necesita las
+      # dependencias instaladas, y asi no se ejecuta ningun script de ellas.
+      - name: Revisar los avisos graves de produccion
+        run: node scripts/revisar-dependencias.mjs

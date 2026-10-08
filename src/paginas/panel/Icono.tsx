@@ -10,22 +10,34 @@ import type { ReactNode } from 'react';
  */
 export type NombreDeIcono =
   | 'activity'
+  | 'alert'
   | 'arrow'
   | 'book'
   | 'brain'
   | 'calendar'
   | 'check'
+  | 'cloud'
+  | 'cloud-off'
   | 'heart'
   | 'home'
   | 'leaf'
   | 'moon'
   | 'play'
   | 'plus'
+  | 'refresh'
   | 'sparkles'
   | 'user';
 
 const TRAZOS: Record<NombreDeIcono, ReactNode> = {
   activity: <path d="M4 12h3l2-6 4 12 2-6h5" />,
+  // Los cuatro siguientes son del indicador de conexion (SCRUM-137). No estan en el
+  // diseño; mismo trazo y grosor que el resto.
+  alert: (
+    <>
+      <path d="M12 4 2.5 20h19Z" />
+      <path d="M12 10v4m0 3h.01" />
+    </>
+  ),
   arrow: <path d="m9 18 6-6-6-6" />,
   book: (
     <>
@@ -47,6 +59,13 @@ const TRAZOS: Record<NombreDeIcono, ReactNode> = {
     </>
   ),
   check: <path d="m5 12 4 4L19 6" />,
+  cloud: <path d="M17.5 19a4.5 4.5 0 1 0-.9-8.9A6 6 0 0 0 5 12.2 3.9 3.9 0 0 0 5.5 19Z" />,
+  'cloud-off': (
+    <>
+      <path d="M5.8 18.9A3.9 3.9 0 0 1 5 12.2a6 6 0 0 1 1.9-3.5M10 5.3a6 6 0 0 1 6.6 4.8 4.5 4.5 0 0 1 3.2 6.9M9.5 19h8" />
+      <path d="m3 3 18 18" />
+    </>
+  ),
   heart: (
     <path d="M20.8 5.7a5.4 5.4 0 0 0-7.6 0L12 6.9l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 22l8.8-8.7a5.4 5.4 0 0 0 0-7.6Z" />
   ),
@@ -67,6 +86,7 @@ const TRAZOS: Record<NombreDeIcono, ReactNode> = {
   // No esta en el diseño: hace falta para "Añadir módulo". Mismo trazo y
   // grosor que el resto, para que no se note que llego despues.
   plus: <path d="M12 5v14M5 12h14" />,
+  refresh: <path d="M20 11a8 8 0 0 0-14.9-3M4 4v4h4M4 13a8 8 0 0 0 14.9 3M20 20v-4h-4" />,
   sparkles: (
     <>
       <path d="m12 3 1.2 3.8L17 8l-3.8 1.2L12 13l-1.2-3.8L7 8l3.8-1.2Z" />

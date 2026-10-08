@@ -249,9 +249,142 @@ vencida; lo tercero, que en una sala de computo nadie lea lo de quien estuvo ant
 Con la sesion que no se recuerda en este equipo, o si el navegador no deja usar
 IndexedDB, todo vive **solo en memoria**.
 
-Este nucleo todavia no se ve en ninguna pantalla: las siguientes entregas lo
-conectan (el indicador de conexion y el boton «Sincronizar ahora», las actividades,
-el diario y los pendientes).
+### Lo que se ve: el indicador, «Sincronizar ahora» y el aviso (SCRUM-137)
+
+- **El indicador** (`src/conexion/IndicadorDeConexion.tsx`) esta en la barra de arriba
+  de toda pantalla de la aplicacion. Con todo enviado es un icono discreto; con algo
+  que decir se lee: «Sin conexión · 3 cambios guardados en este equipo». El estado
+  nunca se dice solo con color. Al pulsarlo abre un panel con el estado, el boton
+  **«Sincronizar ahora»** (no espera los reintentos programados; sin conexion no se
+  puede y lo dice) y la lista de lo guardado: el tipo de cada cambio, cuando se hizo y
+  que le pasa. **Nunca lo escrito.** Lo rechazado se puede reintentar o descartar, y
+  descartar pregunta primero.
+- **El aviso** (`AvisoDeSincronizacion.tsx`) sale al terminar una sincronizacion:
+  «Volviste a tener conexión. Enviamos 3 cambios que estaban guardados en este
+  equipo.» Es uno por tanda, no uno por cambio; no roba el foco; y si algo no salio
+  lleva a la lista. Si la sesion vencio, lleva a entrar. Si lo enviado sugiere
+  acompanamiento, ofrece las lineas de atencion.
+- **Sincroniza sola** (`disparadores.ts`) al volver la red, al abrir la aplicacion, al
+  volver a la pestana, cuando la cola cambia y cada 30 s si hay algo listo.
+  **Mientras la aplicacion esta abierta**, aunque sea en una pestana de fondo: no hay
+  Background Sync en Safari, y con la aplicacion cerrada se envia al abrirla (ADR 0019).
+- **Con la aplicacion en segundo plano**, si ya diste permiso a los avisos, una
+  notificacion neutra («Tus cambios guardados en este equipo ya se enviaron»), sin
+  nada de salud. Nunca pide el permiso por su cuenta.
+- **Abrir sin conexion con el token vencido.** El token dura una hora y sin red no se
+  puede renovar: Supabase diria «sin sesion». Si la renovacion fallo **por falta de
+  red**, se usa la sesion guardada para saber quien es y se abre su almacen; en cuanto
+  vuelve la red, Supabase renueva el token. Una sesion que se cierra de verdad
+  (`SIGNED_OUT`) se cierra.
+
+Quien agregue algo a la cola (las actividades, el diario, los pendientes) lo hace con
+`encolar()` de `ciclo.ts`: es el unico camino, y asi el indicador y las otras pestanas
+se enteran.
+
+### Las actividades sin conexion (SCRUM-138)
+
+- **Abrir una actividad sin red.** El catalogo se lee con copia local
+  (`lecturas.ts`, `catalogoLocal.ts`): se pregunta a la API con el `ETag` de la copia
+  (`If-None-Match`; un `304` no baja nada), y si no hay red o el servidor no responde se
+  usa la copia guardada. Si ya hay copia y la API tarda mas de **2,5 s**, se usa la
+  copia sin hacer esperar y la lectura sigue sola para renovarla. Una copia **no tapa**
+  una respuesta del servidor («no existe», «no tienes permiso»). Lo de una persona lleva
+  su propia regla: el diario (SCRUM-139) y los pendientes y el panel (SCRUM-140) estan mas
+  abajo. Al abrirse el almacen, y al volver la red, se precargan el catalogo, el diario,
+  el semaforo y el panel (`precarga.ts`).
+- **Terminar una actividad sin red.** El resultado entra a la cola
+  (`resultado.registrar`) con un `operationId` estable, y la pantalla lo sigue
+  (`seguimiento.ts`) hasta **5 s**: si la API lo acepta, se ve la orientacion de
+  siempre; si no, dice «Guardado en este equipo» y **no promete lo que no sabe**. Pasa
+  sola a «Listo» cuando sale, y si la API lo rechaza lo explica por su codigo.
+- **La orientacion llega despues.** Lo que estuvo esperando mas de 30 s en el equipo se
+  muestra en el aviso de sincronizacion, con el nombre de la actividad (de la copia) y
+  su nivel. Lo que salio de inmediato no genera aviso.
+- **La hora es la del dispositivo** (`completedAt`): lo hecho sin red cuenta en el dia en
+  que se hizo, no en el que llego.
+
+### El diario sin conexion (SCRUM-139)
+
+El diario es lo mas delicado que guarda la aplicacion: **nada de lo escrito queda solo en
+la pantalla**. Todo entra a la cola de este equipo (durable y cifrada) antes de decir
+nada, y de ahi sale con un identificador estable, asi que reintentar no duplica.
+
+- **Escribir.** La anotacion entra a la cola (`diario.escribir`) y aparece **al instante**
+  en el historial, con «Guardada en este equipo · se enviara cuando haya conexion» si no
+  hay red. Lleva la hora del dispositivo (`escritaEn`): lo escrito sin red muestra la hora
+  en que se escribio y no la de cuando llega (ADR 0020). Si ni siquiera se puede guardar en
+  el equipo (no hay sesion, no hay espacio), lo dice y **deja lo escrito en el lienzo**.
+  Cerrar el navegador y volver a abrirlo no pierde nada: la anotacion sigue ahi y llega
+  una sola vez.
+- **Leer.** Los ultimos 30 dias tienen copia local cifrada (`diarioLocal.ts`), como las
+  demas lecturas (`lecturas.ts`), y se precargan al entrar. Sin conexion se ve esa copia y
+  la pantalla lo dice («Estas viendo lo que tenias guardado en este equipo»); en cuanto
+  vuelve la red se pone al dia sola. La copia se mantiene al dia con lo que el servidor
+  acepto despues de leer (`conciliarElDiario`), para que una anotacion recien enviada no
+  desaparezca sin conexion. Mas atras de 30 dias solo hay servidor.
+- **Corregir.** Entra a la cola (`diario.editar`) con la `version` que el dispositivo
+  tenia y la hora de la correccion (`editadaEn`: el plazo de una hora se mide contra ella,
+  no contra cuando llega). Una anotacion escrita sin conexion se puede corregir sin
+  conexion: `encolar()` encadena por si solo lo que es de la misma cosa, y la correccion
+  usa lo que respondio la creacion. Los diagramas viajan en la cola igual que el texto.
+- **Nunca se sobrescribe (ADR 0009).** Si al enviar la correccion el servidor dice que
+  otro dispositivo cambio la anotacion (`VERSION_DESACTUALIZADA`) o que ya paso su hora
+  (`EDICION_FUERA_DE_PLAZO`), lo escrito en este equipo se guarda como una **anotacion nueva
+  del mismo dia, marcada como copia** (`corregirUnaAnotacion` en `ejecutores.ts`). La
+  pantalla muestra «Copia» y de donde viene («...la anotacion de las 8:14 p. m. se habia
+  cambiado desde otro dispositivo y no quisimos pisarla»), lo avisa, y vuelve a leer para
+  ensenar las dos como estan. Si la hora ya paso al guardar, se hace de una vez.
+- **La respuesta perdida no hace una copia.** Si la correccion si se aplico y se perdio la
+  respuesta, el reintento choca consigo mismo; antes de hacer una copia se mira si el
+  servidor ya tiene exactamente lo que se queria escribir, y entonces no hay nada que
+  hacer.
+- **La marca de copia es de este equipo.** La API no tiene como marcar una copia, asi que
+  el dispositivo recuerda cuales son y de cual vienen (cifrado, en su almacen); en otro
+  dispositivo se ve como una anotacion mas. Se guarda al enviarse, no solo al abrir el
+  diario (`estado.ts`), porque lo enviado se conserva siete dias en la cola.
+- **El aviso de sincronizacion** tambien lo dice cuando una correccion se guardo como copia,
+  **haya esperado o no**: es lo unico del diario que la persona no espera encontrar. Lleva
+  al diario.
+
+### Pendientes y lecturas sin conexion (SCRUM-140)
+
+El semaforo se usa completo sin red, y el panel y el sendero se abren con lo ultimo que se
+supo. Lo que sigue **si necesita conexion** (SCRUM-142): cambiar la contrasena, el correo y
+la configuracion del perfil, y activar un modulo o completar la bienvenida.
+
+- **Anotar, cambiar y borrar pendientes.** Todo entra a la cola (`pendiente.crear`,
+  `pendiente.editar`, `pendiente.borrar`) y se ve **al instante**, tenga o no red
+  (`componerElSemaforo`, una funcion pura que pone lo de la cola encima de lo del
+  servidor). Cada uno dice en que punto esta, **sin depender solo del color**: «Guardado en
+  este equipo · se enviara cuando haya conexion», «Guardando…», «No se pudo enviar este
+  cambio» (con «Ver la lista» del panel de sincronizacion) o «Cambio en otro dispositivo».
+  Un pendiente anotado sin red se puede cambiar o borrar sin red: `encolar()` encadena por
+  entidad y la edicion usa lo que respondio la creacion. Borrar es idempotente.
+- **Leer.** El semaforo tiene copia local cifrada (`semaforoLocal.ts`), igual que el
+  diario, conciliada con lo que el servidor acepto despues de leer (`conciliarElSemaforo`):
+  un pendiente que ya salio no desaparece sin conexion, y uno borrado no reaparece.
+  **De la copia nunca sale un recordatorio**: lo decide el servidor con los dias de cada
+  color y la zona de la persona, y uno de hace horas puede ya no ser cierto.
+- **Nunca se sobrescribe (ADR 0009).** Si al enviar un cambio el servidor dice que otro
+  dispositivo cambio el mismo pendiente (`409 VERSION_DESACTUALIZADA`), el cambio queda
+  **detenido** y el semaforo muestra, lado a lado, «En el otro dispositivo» y «Tu cambio».
+  La persona elige: **«Quedarme con lo del otro dispositivo»** tira lo suyo, o **«Aplicar mi
+  cambio»** lo vuelve a mandar con la version que tiene el servidor ahora. Primero se
+  guarda lo nuevo y despues se tira lo viejo, asi que si algo falla no falta nada. Marcar
+  algo como hecho **no choca**: el servidor lo aplica aunque la version no coincida. Si el
+  pendiente se cambio varias veces sin red, el choque junta todo lo que quedo detras.
+- **El panel y el sendero con copia.** La cuenta y el progreso se leen y se guardan
+  **juntos** (`panelLocal.ts`). Sin red se ve la copia y la pantalla dice **de cuando es**
+  («Datos de hace 5 min. Se ponen al dia solo cuando haya conexion.»); en cuanto vuelve la
+  red se pregunta de nuevo. La zona horaria de la cuenta se vuelve a fijar desde la copia,
+  porque de ella depende que dia es hoy.
+- **Lo hecho hoy sin red sale como hecho.** El cliente no calcula el progreso por su
+  cuenta: lo que cuenta es la copia, y encima solo se pone lo que el servidor no puede
+  contradecir. Una actividad de **hoy** que esta en la cola (o que ya se envio) aparece
+  hecha, y si es lo primero del dia en ese modulo cuenta como una sesion mas, con la etapa
+  que le toca (`conLoQueEstaEnLaCola`). Una copia de otro dia no se toca.
+- **La precarga no da de alta la cuenta.** Leer por adelantado usa `GET /api/cuenta`;
+  `POST /api/cuenta` registra el consentimiento y solo lo hace una pantalla.
 
 ---
 

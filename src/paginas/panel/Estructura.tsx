@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { MarcaDeLaApp } from '../../componentes/MarcaDeLaApp.tsx';
+import { IndicadorDeConexion } from '../../conexion/IndicadorDeConexion.tsx';
 import { useFotoDePerfil } from '../../foto/fotoDePerfil.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
@@ -56,6 +57,8 @@ export function BarraSuperior({ conSecciones }: { conSecciones: boolean }) {
         )}
 
         <div className="app__acciones">
+          {/* Si hay conexion y cuanto sigue guardado en este equipo (SCRUM-137). */}
+          <IndicadorDeConexion />
           {/* Volvio con el modo claro (SCRUM-112). */}
           <SelectorDeTema variante="barra" />
           <MenuDeCuenta />

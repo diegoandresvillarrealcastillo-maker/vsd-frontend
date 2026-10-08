@@ -15,6 +15,7 @@ import { Celebracion } from './Celebracion.tsx';
 import { BarraSuperior, NavegacionInferior } from './Estructura.tsx';
 import { Icono } from './Icono.tsx';
 import { MODULOS, ORDEN } from './modulos.ts';
+import { DatosDeHace } from '../../conexion/DatosDeHace.tsx';
 import { useDatosDelPanel } from './useDatosDelPanel.ts';
 
 /**
@@ -99,6 +100,15 @@ export function VistaDelPanel({
             elegir la lista deja de estar vacia. */}
         {estado.fase === 'listo' && estado.cuenta.modulosActivos.length === 0 && (
           <Bienvenida cuenta={estado.cuenta} alTerminar={completarBienvenida} />
+        )}
+
+        {/* Sin conexion se ve la copia de este equipo, y se dice de cuando es (SCRUM-140). */}
+        {estado.fase === 'listo' && estado.deLaCopia !== null && (
+          <DatosDeHace
+            guardadoEn={estado.deLaCopia}
+            ahora={estado.ahora}
+            porEnviar={estado.sinEnviar}
+          />
         )}
 
         {estado.fase === 'listo' && estado.cuenta.modulosActivos.length > 0 && (

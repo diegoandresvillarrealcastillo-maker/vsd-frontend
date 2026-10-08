@@ -4,11 +4,13 @@ import { AvisoOrientativo } from '../../componentes/AvisoOrientativo.tsx';
 import { MarcaDeLaApp } from '../../componentes/MarcaDeLaApp.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/actividad.css';
+import type { ActividadConSuCategoria } from '../../infraestructura/api/catalogo.ts';
 import type { ResultadoRegistrado } from '../../infraestructura/api/resultados.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
 import { LineasDeAtencion } from './LineasDeAtencion.tsx';
 import { mecanicaDe } from './mecanicas/registro.tsx';
+import { textoDelNivel } from './textoDelNivel.ts';
 import { useCompletarActividad, type LoQueProduceLaActividad } from './useCompletarActividad.ts';
 
 /**
@@ -74,6 +76,10 @@ export function Actividad() {
             </>
           )}
 
+          {estado.fase === 'guardada' && (
+            <GuardadaEnEsteEquipo ficha={estado.ficha} alRepetir={empezarDeNuevo} />
+          )}
+
           {estado.fase === 'hecha' && (
             <Terminada resultado={estado.resultado} alRepetir={empezarDeNuevo} />
           )}
@@ -128,6 +134,48 @@ function Mecanica({
   }
 
   return mecanica({ alTerminar, enviando });
+}
+
+/**
+ * Lo que se ve al terminar **sin que haya salido todavia** (SCRUM-138): el resultado esta
+ * guardado en este equipo, y se envia solo cuando se pueda.
+ *
+ * Se dice con claridad y sin simular que se envio. Y la orientacion no se promete como
+ * ya hecha: la calcula el servidor, asi que se ensena **al sincronizar**. Si la
+ * actividad no se valora, no hay orientacion que esperar y no se dice nada de ella.
+ *
+ * Cuando el resultado salga con la pantalla abierta, esta se cambia sola por la de
+ * siempre.
+ */
+function GuardadaEnEsteEquipo({
+  ficha,
+  alRepetir,
+}: {
+  ficha: ActividadConSuCategoria;
+  alRepetir: () => void;
+}) {
+  return (
+    <>
+      <h1>Listo</h1>
+
+      <p className="actividad__texto" role="status">
+        Guardado en este equipo.{' '}
+        {ficha.actividad.produceNivel
+          ? 'Te mostraremos la orientación cuando te conectes.'
+          : 'Se enviará cuando te conectes.'}
+      </p>
+
+      <div className="actividad__acciones">
+        <button type="button" className="pildora pildora--fantasma" onClick={alRepetir}>
+          Hacerla otra vez
+        </button>
+
+        <Link className="pildora" to={RUTAS.PANEL}>
+          Volver al panel
+        </Link>
+      </div>
+    </>
+  );
 }
 
 /**
@@ -186,16 +234,4 @@ function Terminada({
       </div>
     </>
   );
-}
-
-function textoDelNivel(nivel: NonNullable<ResultadoRegistrado['nivelOrientativo']>): string {
-  if (nivel === 'favorable') {
-    return 'Vas bien. Sigue así.';
-  }
-
-  if (nivel === 'en_seguimiento') {
-    return 'Va razonable, con margen para mejorar.';
-  }
-
-  return 'Conviene prestarle atención estos días.';
 }

@@ -75,9 +75,10 @@ export default defineConfig(({ mode }) => ({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/pruebas/preparacion.ts'],
-    // Las de `scripts/` prueban los guardias que corren al compilar. Usan las
+    // Las de `scripts/` prueban los guardias que corren al compilar (cabeceras de
+    // seguridad, SCRUM-152; los guiones que deciden algo, SCRUM-155). Usan las
     // APIs de Node (procesos, archivos), que tambien existen bajo jsdom.
-    include: ['src/**/*.spec.{ts,tsx}', 'scripts/**/*.spec.ts'],
+    include: ['src/**/*.spec.{ts,tsx}', 'scripts/**/*.spec.{ts,mjs}'],
     css: true,
 
     coverage: {
