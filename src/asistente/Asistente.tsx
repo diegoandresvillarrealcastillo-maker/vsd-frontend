@@ -1,6 +1,7 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 
+import { alPulsarElFondo } from '../componentes/alPulsarElFondo.ts';
 import { useDialogo } from '../componentes/useDialogo.ts';
 import '../estilos/actividad.css';
 import '../estilos/asistente.css';
@@ -98,13 +99,10 @@ export function Asistente({
   } as CSSProperties;
 
   return (
-    <div className="asistente-velo" onClick={alCerrar}>
-      {/* El marco lo pone en su sitio; dentro, lo que se anima. */}
-      <div
-        className="asistente-marco"
-        style={estilo}
-        onClick={(evento) => evento.stopPropagation()}
-      >
+    <div className="asistente-velo" role="presentation" onClick={alPulsarElFondo(alCerrar)}>
+      {/* El marco lo pone en su sitio; dentro, lo que se anima. Pulsar en el
+          marco, que no es el fondo, no cierra. */}
+      <div className="asistente-marco" style={estilo}>
         <motion.div
           ref={caja}
           role="dialog"
@@ -158,21 +156,25 @@ export function Asistente({
               </ul>
             )}
 
-            {/* Un registro: lo nuevo se anuncia sin interrumpir. */}
-            <ol className="asistente__mensajes" role="log" aria-label="Conversación">
-              {mensajes.map((mensaje) => (
-                <li
-                  key={mensaje.id}
-                  className={`asistente__mensaje asistente__mensaje--${mensaje.de}`}
-                >
-                  <ContenidoDelMensaje
-                    mensaje={mensaje}
-                    esperando={esperando}
-                    alReintentar={(pregunta) => void enviar(pregunta, { reintento: true })}
-                  />
-                </li>
-              ))}
-            </ol>
+            {/* Un registro: lo nuevo se anuncia sin interrumpir. El rol va en un
+                contenedor y no en la propia lista (C-03 de la auditoria 360): un
+                `<ol role="log">` deja de ser una lista, y sus `<li>` quedan sueltos. */}
+            <div role="log" aria-label="Conversación">
+              <ol className="asistente__mensajes">
+                {mensajes.map((mensaje) => (
+                  <li
+                    key={mensaje.id}
+                    className={`asistente__mensaje asistente__mensaje--${mensaje.de}`}
+                  >
+                    <ContenidoDelMensaje
+                      mensaje={mensaje}
+                      esperando={esperando}
+                      alReintentar={(pregunta) => void enviar(pregunta, { reintento: true })}
+                    />
+                  </li>
+                ))}
+              </ol>
+            </div>
 
             {esperando && (
               <p className="asistente__esperando" role="status">

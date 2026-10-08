@@ -7,6 +7,7 @@ import type {
   Recordatorio,
   Semaforo as Datos,
 } from '../infraestructura/api/pendientes.ts';
+import { fallosDeAccesibilidad } from '../pruebas/axe.ts';
 import { Semaforo } from './Semaforo.tsx';
 import { olvidarLosRecordatoriosDejados } from './useSemaforo.ts';
 
@@ -175,6 +176,33 @@ describe('la induccion', () => {
     await usuario.keyboard('{Escape}');
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+});
+
+describe('la ventana, accesibilidad (C-03)', () => {
+  it('el boton flotante y la ventana abierta no tienen fallos de accesibilidad', async () => {
+    render(<Semaforo />);
+
+    await screen.findByRole('button', { name: /Abrir tu semáforo/ });
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+
+    await abrirLaVentana();
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+  });
+
+  it('se cierra al pulsar el fondo, y no al pulsar dentro', async () => {
+    render(<Semaforo />);
+
+    const ventana = await abrirLaVentana();
+
+    await usuario.click(within(ventana).getByRole('heading', { name: 'Tu semáforo' }));
+    expect(screen.getByRole('dialog', { name: 'Tu semáforo' })).toBeInTheDocument();
+
+    const fondo = ventana.parentElement;
+
+    expect(fondo).toHaveAttribute('role', 'presentation');
+    await usuario.click(fondo!);
+    expect(screen.queryByRole('dialog', { name: 'Tu semáforo' })).not.toBeInTheDocument();
   });
 });
 

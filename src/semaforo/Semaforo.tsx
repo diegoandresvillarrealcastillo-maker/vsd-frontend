@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 
+import { alPulsarElFondo } from '../componentes/alPulsarElFondo.ts';
 import { useEscribiendo } from '../componentes/useEscribiendo.ts';
 import '../estilos/semaforo.css';
 import type { NivelDePendiente, Pendiente } from '../infraestructura/api/pendientes.ts';
@@ -298,7 +299,11 @@ function Induccion({ alTerminar, alCerrar }: { alTerminar: () => void; alCerrar:
   }
 
   return (
-    <div className="semaforo-velo semaforo-velo--centro" onClick={alCerrar}>
+    <div
+      className="semaforo-velo semaforo-velo--centro"
+      role="presentation"
+      onClick={alPulsarElFondo(alCerrar)}
+    >
       <div
         ref={caja}
         role="dialog"
@@ -306,7 +311,6 @@ function Induccion({ alTerminar, alCerrar }: { alTerminar: () => void; alCerrar:
         aria-labelledby={idDelTitulo}
         aria-describedby={idDelTexto}
         className="semaforo-induccion"
-        onClick={(evento) => evento.stopPropagation()}
       >
         <IconoSemaforo encendida={datos.nivel} ancho={40} />
         <p className="semaforo-induccion__paso">
@@ -500,14 +504,13 @@ function Ventana({
   const grupos = estado.fase === 'listo' ? agrupar(estado.pendientes) : null;
 
   return (
-    <div className="semaforo-velo" onClick={alCerrar}>
+    <div className="semaforo-velo" role="presentation" onClick={alPulsarElFondo(alCerrar)}>
       <div
         ref={caja}
         role="dialog"
         aria-modal="true"
         aria-labelledby={idDelTitulo}
         className="semaforo-ventana"
-        onClick={(evento) => evento.stopPropagation()}
       >
         <div className="semaforo-ventana__asa" aria-hidden="true" />
 

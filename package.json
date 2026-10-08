@@ -47,7 +47,9 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "@vitest/coverage-v8": "^5.0.1",
+    "axe-core": "^4.14.0",
     "eslint": "^10.10.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "fake-indexeddb": "6.2.5",
@@ -69,6 +71,11 @@
     "workbox-routing": "7.4.1",
     "workbox-strategies": "7.4.1",
     "workbox-window": "7.4.1"
+  },
+  "overrides": {
+    "eslint-plugin-jsx-a11y": {
+      "eslint": "$eslint"
+    }
   },
   "lint-staged": {
     "*.{ts,tsx}": [

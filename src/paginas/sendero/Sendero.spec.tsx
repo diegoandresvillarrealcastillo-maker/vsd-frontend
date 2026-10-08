@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
 import type { ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
+import { cuantosH1, fallosDeAccesibilidad } from '../../pruebas/axe.ts';
 import { RUTAS, rutaDeModulo } from '../../rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { Sendero } from './Sendero.tsx';
@@ -113,6 +114,41 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks();
+});
+
+describe('Sendero, accesibilidad (C-03)', () => {
+  it('no tiene fallos de accesibilidad y tiene un solo h1', async () => {
+    pintar();
+    await screen.findByRole('heading', { name: 'Bienestar' });
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+    expect(cuantosH1()).toBe(1);
+  });
+
+  it('tampoco con la hoja de lo de hoy abierta', async () => {
+    pintar();
+    await usuario.click(await screen.findByRole('button', { name: /Ver lo de hoy/ }));
+    await screen.findByRole('dialog');
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+  });
+
+  it('la hoja se cierra al pulsar el fondo, y no al pulsar dentro', async () => {
+    pintar();
+    await usuario.click(await screen.findByRole('button', { name: /Ver lo de hoy/ }));
+
+    const hoja = screen.getByRole('dialog');
+
+    await usuario.click(within(hoja).getByRole('heading', { name: 'Lo de hoy' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    // El fondo es el elemento que la rodea, sin rol de control.
+    const fondo = hoja.parentElement;
+
+    expect(fondo).not.toBeNull();
+    await usuario.click(fondo!);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
 });
 
 describe('Sendero', () => {
