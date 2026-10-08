@@ -204,6 +204,31 @@ que se descarga cualquiera:
 - **La clave de servicio de Supabase no puede aparecer.** Da acceso total a la
   base y salta el aislamiento por RLS. En el frontend no existe.
 
+### Los buscadores (SEO-02)
+
+Lo que Google y los asistentes de IA leen, y lo que no deben leer:
+
+- **`robots.txt`, `sitemap.xml`, `llms.txt` y `404.html`** no se escriben a mano:
+  los genera `scripts/generar-los-archivos-de-busqueda.mjs` al final de
+  `npm run build`, segun `VITE_APP_ENV`.
+  - **`production`**: permite la portada y los documentos legales, cierra
+    `/panel`, `/perfil`, `/diario`, `/modulo/`, `/actividad/` y
+    `/contrasena-nueva`, y publica el sitemap. **Exige `VITE_URL_PUBLICA`** (el
+    dominio con https): sin el, la compilacion falla en vez de publicar un
+    sitemap roto.
+  - **Cualquier otro** (PRE, local): `robots.txt` lo cierra todo, no hay sitemap,
+    la pagina lleva `<meta name="robots" content="noindex">` y Vercel manda la
+    cabecera `X-Robots-Tag: noindex` en los `*.vercel.app`. PRE tiene cuentas y
+    datos de prueba; que se indexe no le sirve a nadie.
+- **Solo existen las rutas que existen.** `vercel.json` y `nginx/default.conf`
+  reescriben a `index.html` unicamente las pantallas de `src/rutas/rutas.ts`; el
+  resto es un 404 real, con una pagina estatica y `noindex` (antes cualquier
+  direccion devolvia la portada con un 200, un «soft 404»). **Una ruta nueva en
+  `rutas.ts` hay que agregarla a las dos reescrituras y clasificarla** (publica,
+  privada o de acceso) en `scripts/generar-los-archivos-de-busqueda.spec.ts`: dos
+  pruebas fallan si falta, y es a proposito, porque sin la reescritura esa
+  pantalla daria 404 al recargarla.
+
 ### El almacen local: lo hecho sin conexion (SCRUM-136)
 
 `src/sincronizacion/` guarda en el dispositivo lo que la persona hace sin conexion
@@ -301,9 +326,10 @@ docker run --rm -p 8080:8080 vsd-web
   compilar, no al ejecutar: para cambiar la direccion de la API hay que volver a
   construirla. Son valores publicos; nunca pasar un secreto como `--build-arg`.
 - `.env.local` no entra a la imagen (`.dockerignore` es una lista blanca).
-- Se sirve en el **8080**, sin privilegios. Todas las rutas devuelven la
-  aplicacion salvo los archivos que existen, como hace Vercel; `index.html` y
-  `sw.js` se validan en cada visita y los archivos con hash se guardan un ano.
+- Se sirve en el **8080**, sin privilegios. Las pantallas de la aplicacion y los
+  archivos que existen se sirven, como hace Vercel; **cualquier otra direccion es
+  un 404 de verdad** (ver «Los buscadores»). `index.html` y `sw.js` se validan en
+  cada visita y los archivos con hash se guardan un ano.
 - Que lo anterior sea cierto lo comprueba el CI (trabajo «Imagen de Docker»).
 
 ## Variables de entorno
@@ -314,6 +340,10 @@ Copiar [.env.example](.env.example) como `.env.local` y completar los valores.
 este repositorio solo pueden existir valores publicos. Las credenciales
 de base de datos y la clave de rol de servicio de Supabase viven
 exclusivamente en `vsd-backend`.
+
+Dos de ellas deciden mas que un valor: `VITE_APP_ENV` define si los buscadores
+pueden indexar el sitio (solo con `production`), y `VITE_URL_PUBLICA` es el
+dominio publico, obligatorio con `production` para escribir el sitemap.
 
 El valor que toma cada variable en desarrollo, preproduccion y produccion
 esta documentado en

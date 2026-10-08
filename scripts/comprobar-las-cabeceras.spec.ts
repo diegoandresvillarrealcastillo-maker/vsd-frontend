@@ -126,6 +126,91 @@ describe('el guardia de las cabeceras de seguridad', () => {
     expect(salida).toMatch(/nginx manda Referrer-Policy/);
   });
 
+  describe('no indexar fuera de produccion (SEO-02)', () => {
+    interface Regla {
+      source: string;
+      has?: unknown[];
+      headers: { key: string; value: string }[];
+    }
+
+    /** Aplica un cambio a la lista de reglas de cabeceras de vercel.json. */
+    function conReglas(cambio: (reglas: Regla[]) => Regla[]): string {
+      const configuracion = JSON.parse(buenos().vercel) as { headers: Regla[] };
+
+      return JSON.stringify({ ...configuracion, headers: cambio(configuracion.headers) });
+    }
+
+    it('los archivos de verdad mandan noindex en los vercel.app y en nginx', () => {
+      // Si esto falla, las pruebas de abajo no prueban lo que creen.
+      expect(VERCEL).toMatch(/"X-Robots-Tag"/);
+      expect(VERCEL).toMatch(/vercel\\\\\.app/);
+      expect(NGINX).toMatch(/add_header X-Robots-Tag "noindex/);
+    });
+
+    it('falla si Vercel manda noindex en TODAS las rutas: cerraria produccion a los buscadores', () => {
+      const archivos = buenos();
+
+      escribir({
+        ...archivos,
+        vercel: conReglas((reglas) =>
+          reglas.map((regla) =>
+            regla.has === undefined
+              ? {
+                  ...regla,
+                  headers: [...regla.headers, { key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
+                }
+              : regla,
+          ),
+        ),
+      });
+
+      const { aprobo, salida } = correr();
+
+      expect(aprobo).toBe(false);
+      expect(salida).toMatch(/cerraria produccion/);
+    });
+
+    it('falla si Vercel deja de mandar noindex en los vercel.app', () => {
+      const archivos = buenos();
+
+      escribir({
+        ...archivos,
+        vercel: conReglas((reglas) => reglas.filter((regla) => regla.has === undefined)),
+      });
+
+      const { aprobo, salida } = correr();
+
+      expect(aprobo).toBe(false);
+      expect(salida).toMatch(/manda X-Robots-Tag noindex en los \*\.vercel\.app/);
+    });
+
+    it('falla si nginx deja de mandar noindex', () => {
+      const archivos = buenos();
+
+      escribir({
+        ...archivos,
+        nginx: archivos.nginx
+          .split('\n')
+          .filter((linea) => !linea.startsWith('add_header X-Robots-Tag'))
+          .join('\n'),
+      });
+
+      const { aprobo, salida } = correr();
+
+      expect(aprobo).toBe(false);
+      expect(salida).toMatch(/nginx manda X-Robots-Tag noindex/);
+    });
+
+    it('esa cabecera de mas en nginx no cuenta como una diferencia con Vercel', () => {
+      escribir(buenos());
+
+      const { aprobo, salida } = correr();
+
+      expect(salida).not.toMatch(/exactamente las mismas cabeceras/);
+      expect(aprobo).toBe(true);
+    });
+  });
+
   it('falla si el script en linea cambia y su hash ya no vale, y dice cual es el bueno', () => {
     const archivos = buenos();
 

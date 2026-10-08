@@ -37,7 +37,11 @@ function comprobar(descripcion, cumple) {
 // ----- lo que manda Vercel -----
 
 const vercel = JSON.parse(readFileSync('vercel.json', 'utf8'));
-const reglas = (vercel.headers ?? []).filter((regla) => regla.source === '/(.*)');
+// Las de seguridad, que salen en TODOS los ambientes. La regla que solo sale en
+// algunos (la de `has`, abajo) no cuenta para esto.
+const reglas = (vercel.headers ?? []).filter(
+  (regla) => regla.source === '/(.*)' && regla.has === undefined,
+);
 
 comprobar(
   'vercel.json tiene una regla de cabeceras para todas las rutas (/(.*))',
@@ -45,6 +49,28 @@ comprobar(
 );
 
 const deVercel = new Map((reglas[0]?.headers ?? []).map(({ key, value }) => [key, value]));
+
+// ----- lo que Vercel manda solo fuera de produccion (SEO-02) -----
+
+const reglasDeLosVercelApp = (vercel.headers ?? []).filter(
+  (regla) =>
+    regla.source === '/(.*)' &&
+    (regla.has ?? []).some(
+      (condicion) => condicion.type === 'host' && /vercel/.test(condicion.value),
+    ),
+);
+const robotsDeVercel = reglasDeLosVercelApp
+  .flatMap((regla) => regla.headers)
+  .find(({ key }) => key === 'X-Robots-Tag');
+
+comprobar(
+  'vercel.json manda X-Robots-Tag noindex en los *.vercel.app (PRE y las vistas previas)',
+  robotsDeVercel !== undefined && /noindex/.test(robotsDeVercel.value),
+);
+comprobar(
+  'la cabecera noindex NO sale en todas las rutas de todos los ambientes: cerraria produccion',
+  !deVercel.has('X-Robots-Tag'),
+);
 
 // ----- lo que manda nginx -----
 
@@ -63,6 +89,18 @@ if (existsSync(rutaDeNginx)) {
     }
   }
 }
+
+// ----- lo que nginx manda de mas: la imagen nunca es publica -----
+
+const robotsDeNginx = deNginx.get('X-Robots-Tag');
+
+comprobar(
+  'nginx manda X-Robots-Tag noindex: la imagen es local y nunca se indexa',
+  robotsDeNginx !== undefined && /noindex/.test(robotsDeNginx),
+);
+
+// Se saca de la comparacion de abajo: en Vercel no sale en todos los ambientes.
+deNginx.delete('X-Robots-Tag');
 
 // ----- las mismas, con los mismos valores -----
 
