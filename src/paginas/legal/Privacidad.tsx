@@ -194,8 +194,7 @@ const SECCIONES: readonly SeccionLegal[] = [
             <strong>Brevo</strong>: el envío de los correos de activación y recuperación.
           </li>
           <li>
-            <strong>Google</strong>: solo si eliges entrar con Google, y por las tipografías del
-            sitio.
+            <strong>Google</strong>: solo si eliges entrar con Google.
           </li>
           <li>
             El servicio de avisos de tu navegador (según cuál uses, Google, Apple o Mozilla), solo

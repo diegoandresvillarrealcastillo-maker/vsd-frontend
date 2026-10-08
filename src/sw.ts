@@ -2,20 +2,19 @@
  * El service worker de VSD Health (SCRUM-102 para los avisos, SCRUM-135 para
  * abrir sin conexion).
  *
- * Hace tres cosas, y solo estas:
+ * Hace dos cosas, y solo estas:
  *
- * 1. **Guarda la aplicacion** (los archivos de la compilacion) para poder
- *    abrirla sin red.
+ * 1. **Guarda la aplicacion** (los archivos de la compilacion, tipografias
+ *    incluidas) para poder abrirla sin red.
  * 2. **Recibe los avisos** por Web Push y los muestra.
- * 3. **Guarda la tipografia** la primera vez que se pide, para no perderla.
  *
  * ---------------------------------------------------------------------------
  * Lo que NO hace, y es lo mas importante
  * ---------------------------------------------------------------------------
  *
  * **No toca la API, ni Supabase, ni nada que no sea de esta aplicacion.** Sus
- * rutas solo reconocen archivos de la compilacion, pantallas de la aplicacion
- * y la tipografia. Una respuesta de la API nunca pasa por la cache de este
+ * rutas solo reconocen archivos de la compilacion y pantallas de la
+ * aplicacion. Una respuesta de la API nunca pasa por la cache de este
  * service worker: lo que contiene es de una persona, y esa copia no se borraria
  * al cerrar sesion. Las copias propias de la aplicacion viven en IndexedDB, por
  * persona (SCRUM-136).
@@ -32,19 +31,15 @@
  * `pwa/reglasDelServiceWorker.ts`, donde se prueban.
  */
 import { clientsClaim } from 'workbox-core';
-import { CacheableResponsePlugin } from 'workbox-cacheable-response';
-import { ExpirationPlugin } from 'workbox-expiration';
 import {
   cleanupOutdatedCaches,
   createHandlerBoundToURL,
   precacheAndRoute,
 } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
-import { CacheFirst, StaleWhileRevalidate } from 'workbox-strategies';
 
 import {
   avisoDesde,
-  claseDeFuente,
   esOrdenDeActualizar,
   esPantallaDeLaApp,
   rutaPropia,
@@ -54,8 +49,6 @@ declare const self: ServiceWorkerGlobalScope & {
   // Lo reemplaza `vite-plugin-pwa` al compilar con la lista de archivos.
   __WB_MANIFEST: Parameters<typeof precacheAndRoute>[0];
 };
-
-const UN_ANO_EN_SEGUNDOS = 60 * 60 * 24 * 365;
 
 // ---------------------------------------------------------------------------
 // 1. La aplicacion
@@ -75,29 +68,9 @@ registerRoute(
   createHandlerBoundToURL('/index.html'),
 );
 
-// ---------------------------------------------------------------------------
-// 3. La tipografia
-// ---------------------------------------------------------------------------
-
-// La hoja de estilos de Google cambia poco: se sirve la guardada y se revisa
-// por detras.
-registerRoute(
-  ({ url }) => claseDeFuente(url) === 'hoja',
-  new StaleWhileRevalidate({ cacheName: 'vsd-fuentes-hojas' }),
-);
-
-// Los archivos de la letra no cambian nunca. Las respuestas de otro origen
-// llegan "opacas" (estado 0), y por eso se aceptan.
-registerRoute(
-  ({ url }) => claseDeFuente(url) === 'archivo',
-  new CacheFirst({
-    cacheName: 'vsd-fuentes-archivos',
-    plugins: [
-      new CacheableResponsePlugin({ statuses: [0, 200] }),
-      new ExpirationPlugin({ maxEntries: 30, maxAgeSeconds: UN_ANO_EN_SEGUNDOS }),
-    ],
-  }),
-);
+// La tipografia no necesita una regla propia: viaja con la aplicacion (L-06 de la
+// auditoria 360) y sus archivos van en la misma lista que se guarda arriba. Antes se
+// pedia a Google y aqui se guardaba la primera vez que se pedia.
 
 // ---------------------------------------------------------------------------
 // Las versiones nuevas

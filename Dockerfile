@@ -44,6 +44,12 @@ COPY src ./src
 # `npm run build` termina comprobando el service worker ya compilado (SCRUM-135),
 # y falla si no esta este archivo.
 COPY scripts/comprobar-el-service-worker.mjs ./scripts/comprobar-el-service-worker.mjs
+# Y comprobando que las cabeceras de seguridad de Vercel y de nginx dicen lo mismo
+# y autorizan el script en linea de `index.html` (S-05 de la auditoria 360). Por
+# eso entran aqui `vercel.json` y las de nginx, ademas del script.
+COPY scripts/comprobar-las-cabeceras.mjs ./scripts/comprobar-las-cabeceras.mjs
+COPY vercel.json ./vercel.json
+COPY nginx ./nginx
 
 # Un ARG sin valor por omision queda sin definir, y la aplicacion usa entonces
 # su respaldo (la API en localhost:3000) o dice cual variable falta. Los ARG
@@ -60,6 +66,9 @@ FROM ${IMAGEN_DE_NGINX} AS ejecucion
 
 # nginx-unprivileged corre como el usuario `nginx` y escucha en el 8080.
 COPY nginx/default.conf /etc/nginx/conf.d/default.conf
+# Las cabeceras de seguridad, que `default.conf` incluye en cada bloque que declara
+# las suyas.
+COPY nginx/cabeceras-de-seguridad.conf /etc/nginx/cabeceras-de-seguridad.conf
 COPY --from=compilacion /app/dist /usr/share/nginx/html
 
 EXPOSE 8080

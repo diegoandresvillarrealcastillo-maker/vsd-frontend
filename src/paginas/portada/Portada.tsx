@@ -357,7 +357,10 @@ export function Portada() {
           <div className="pie__legal">
             <span>© {new Date().getFullYear()} VSD Health</span>
             <EnlacesLegales />
-            <span>Ambiente: {entorno.nombre}</span>
+            {/* El ambiente es un dato interno: ayuda a quien prueba en desarrollo o en
+                PRE a saber donde esta, y a nadie mas. En produccion no se muestra
+                (L-07 de la auditoria 360). */}
+            {entorno.nombre !== 'production' && <span>Ambiente: {entorno.nombre}</span>}
           </div>
         </div>
       </footer>
