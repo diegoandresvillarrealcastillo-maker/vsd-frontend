@@ -293,9 +293,9 @@ describe('Acceso', () => {
     vi.clearAllMocks();
   });
 
-  it('recuerda el dispositivo si no se toca la casilla', async () => {
-    // Marcada por defecto: es lo que espera quien entra desde su propio
-    // equipo, que son la mayoria.
+  it('no mantiene la sesion en el equipo si no se toca la casilla', async () => {
+    // Desmarcada por defecto (SCRUM-164, D9): en una sala de computo lo seguro
+    // es lo que pasa si nadie toca nada.
     const entrar = vi.fn().mockResolvedValue({ ok: true });
     pintar(<Acceso />, estado({ entrar }));
 
@@ -307,33 +307,33 @@ describe('Acceso', () => {
     expect(entrar).toHaveBeenCalledWith({
       correo: 'alguien@ejemplo.com',
       contrasena: 'loQueSea123',
-      recordar: true,
+      recordar: false,
     });
   });
 
-  it('deja de recordarlo al desmarcar la casilla', async () => {
-    // Es la casilla de las salas de computo de la universidad. Si el valor no
-    // viajara, la sesion quedaria abierta en un equipo compartido.
+  it('mantiene la sesion en el equipo al marcar la casilla', async () => {
+    // Es la opcion de quien entra desde su propio equipo. Si el valor no
+    // viajara, nadie podria conservar su sesion.
     const entrar = vi.fn().mockResolvedValue({ ok: true });
     pintar(<Acceso />, estado({ entrar }));
 
     await escribir(screen.getByLabelText('Correo'), 'alguien@ejemplo.com');
     await escribir(screen.getByLabelText('Contraseña'), 'loQueSea123');
-    await usuario.click(screen.getByLabelText(/Recordar en este dispositivo/));
+    await usuario.click(screen.getByLabelText(/Mantener la sesión en este equipo/));
 
     await usuario.click(screen.getByRole('button', { name: 'Entrar' }));
 
     expect(entrar).toHaveBeenCalledWith(
-      expect.objectContaining({ recordar: false }) as Record<string, unknown>,
+      expect.objectContaining({ recordar: true }) as Record<string, unknown>,
     );
   });
 
-  it('no pregunta por recordar el dispositivo al registrarse', () => {
+  it('no pregunta por mantener la sesion al registrarse', () => {
     // Al crear la cuenta la pregunta no tiene sentido: acabas de hacerla y vas
     // a entrar igual. La unica casilla que queda ahi es la del consentimiento.
     pintar(<Registro />, estado());
 
-    expect(screen.queryByLabelText(/Recordar en este dispositivo/)).toBeNull();
+    expect(screen.queryByLabelText(/Mantener la sesión en este equipo/)).toBeNull();
   });
 
   it('muestra el error sin decir si la cuenta existe', async () => {
