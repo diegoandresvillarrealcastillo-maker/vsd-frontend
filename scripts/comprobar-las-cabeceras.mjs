@@ -154,9 +154,13 @@ comprobar(
 const TURNSTILE = 'https://challenges.cloudflare.com';
 const conexiones = directivas.get('connect-src') ?? [];
 
+// Se compara fuente por fuente con `===`: `includes` sobre una direccion es la forma
+// que CodeQL marca como «subcadena en una URL», aunque aqui sea una lista de fuentes.
+const esTurnstile = (valor) => valor === TURNSTILE;
+
 comprobar(
   `script-src autoriza ${TURNSTILE}: sin eso el CAPTCHA no se descarga`,
-  scripts.includes(TURNSTILE),
+  scripts.some(esTurnstile),
 );
 comprobar(
   `script-src no autoriza ningun otro dominio de fuera: solo ${TURNSTILE}`,
@@ -166,7 +170,7 @@ comprobar(
   `frame-src es exactamente ${TURNSTILE}: el CAPTCHA es lo unico que se pinta en un iframe`,
   (directivas.get('frame-src') ?? []).join(' ') === TURNSTILE,
 );
-comprobar(`connect-src autoriza ${TURNSTILE}`, conexiones.includes(TURNSTILE));
+comprobar(`connect-src autoriza ${TURNSTILE}`, conexiones.some(esTurnstile));
 
 // ----- los scripts en linea de la compilacion -----
 
