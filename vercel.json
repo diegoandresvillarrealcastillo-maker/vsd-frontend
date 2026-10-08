@@ -1,7 +1,18 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "rewrites": [
+    {
+      "source": "/(acceso|registro|recuperar|contrasena-nueva|privacidad|terminos|cookies|panel|perfil|diario)",
+      "destination": "/index.html"
+    },
+    { "source": "/(modulo|actividad)/:id", "destination": "/index.html" }
+  ],
   "headers": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "(vsd-health-pre|.*-git-.*)\\.vercel\\.app" }],
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
     {
       "source": "/(.*)",
       "headers": [
