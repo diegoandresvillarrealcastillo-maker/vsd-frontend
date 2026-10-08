@@ -216,10 +216,13 @@ comprobar(
 // Cloudflare Turnstile necesita tres cosas en la politica: poder descargar su
 // script, poder pintar su iframe y poder hablar con su dominio. Si falta alguna,
 // el CAPTCHA no carga y, con la proteccion activada en Supabase, nadie puede
-// entrar. Y es el unico dominio de fuera que se admite en estas tres directivas:
-// autorizar otro es una decision que se toma a proposito, no se cuela.
+// entrar. Y en el iframe es el unico dominio que se admite: autorizar otro es una
+// decision que se toma a proposito, no se cuela. En los scripts, el unico otro
+// dominio es el de la analitica (SCRUM-161), que tambien esta en la lista de mas
+// abajo.
 
 const TURNSTILE = 'https://challenges.cloudflare.com';
+const GOOGLE_TAG_MANAGER = 'https://www.googletagmanager.com';
 const conexiones = directivas.get('connect-src') ?? [];
 
 // Se compara fuente por fuente con `===`: `includes` sobre una direccion es la forma
@@ -231,14 +234,70 @@ comprobar(
   scripts.some(esTurnstile),
 );
 comprobar(
-  `script-src no autoriza ningun otro dominio de fuera: solo ${TURNSTILE}`,
-  scripts.filter((valor) => /^https?:\/\//.test(valor)).every((valor) => valor === TURNSTILE),
+  `script-src no autoriza ningun otro dominio de fuera: solo ${TURNSTILE} y ${GOOGLE_TAG_MANAGER}`,
+  scripts
+    .filter((valor) => /^https?:\/\//.test(valor))
+    .every((valor) => valor === TURNSTILE || valor === GOOGLE_TAG_MANAGER),
 );
 comprobar(
   `frame-src es exactamente ${TURNSTILE}: el CAPTCHA es lo unico que se pinta en un iframe`,
   (directivas.get('frame-src') ?? []).join(' ') === TURNSTILE,
 );
 comprobar(`connect-src autoriza ${TURNSTILE}`, conexiones.some(esTurnstile));
+
+// ----- los unicos dominios de fuera -----
+//
+// Cada dominio de otra parte que la politica autoriza es un tercero que puede ver
+// algo de quien usa la aplicacion, y que los documentos legales tienen que nombrar.
+// Por eso la lista esta aqui, a la vista, y no solo en la politica: agregar un
+// dominio hace fallar esta comprobacion hasta que se agregue tambien a esta lista, y
+// esa es la ocasion de preguntarse si hay que actualizar la pagina de cookies y el
+// aviso de privacidad (SCRUM-161).
+//
+// Y al reves: si falta uno de los de Google Analytics, la analitica dejaria de
+// funcionar sin que nada lo avise.
+const EXTERNOS_AUTORIZADOS = {
+  'script-src': [TURNSTILE, GOOGLE_TAG_MANAGER],
+  'img-src': ['https://*.google-analytics.com', 'https://*.googletagmanager.com'],
+  'font-src': ['https://esm.sh'],
+  'connect-src': [
+    'https://*.onrender.com',
+    'https://*.supabase.co',
+    'https://esm.sh',
+    'https://*.google-analytics.com',
+    'https://*.analytics.google.com',
+    'https://*.googletagmanager.com',
+    TURNSTILE,
+  ],
+  'frame-src': [TURNSTILE],
+};
+
+for (const [directiva, autorizados] of Object.entries(EXTERNOS_AUTORIZADOS)) {
+  const valores = directivas.get(directiva) ?? [];
+  const externos = valores.filter((valor) => valor.startsWith('https://'));
+
+  for (const externo of externos) {
+    comprobar(
+      `${directiva} autoriza ${externo}, que no esta en la lista de dominios de fuera: si es un tercero nuevo, hay que sumarlo a esta lista y a los documentos legales`,
+      autorizados.includes(externo),
+    );
+  }
+
+  for (const autorizado of autorizados) {
+    comprobar(
+      `${directiva} tiene que autorizar ${autorizado}: sin el, algo que depende de el deja de funcionar`,
+      externos.includes(autorizado),
+    );
+  }
+}
+
+comprobar(
+  'ni img-src ni connect-src admiten https: entero ni comodines',
+  ['img-src', 'connect-src', 'font-src'].every(
+    (directiva) =>
+      !(directivas.get(directiva) ?? []).some((valor) => ['*', 'https:', 'http:'].includes(valor)),
+  ),
+);
 
 // ----- los scripts en linea de la compilacion -----
 

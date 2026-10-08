@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { registerSW } from 'virtual:pwa-register';
 
 import { App } from './App.tsx';
+import { ProveedorDeAnalitica } from './analitica/ProveedorDeAnalitica.tsx';
 import { AvisoDeSincronizacion } from './conexion/AvisoDeSincronizacion.tsx';
 import { LimiteDeErrores } from './errores/LimiteDeErrores.tsx';
 import { reportarError } from './errores/reportarError.ts';
@@ -59,11 +60,15 @@ createRoot(raiz, {
         Las rutas tienen el suyo dentro de `App`, que deja viva la navegacion. */}
     <LimiteDeErrores origen="raiz">
       <BrowserRouter>
-        <ProveedorDeSesion>
-          <App />
-          <AvisoDeSincronizacion />
-          <AvisoDeVersionNueva />
-        </ProveedorDeSesion>
+        {/* Dentro del enrutador porque cada pantalla es una visita. Sin identificador
+            de medicion (VITE_GA_ID) no hace nada. */}
+        <ProveedorDeAnalitica>
+          <ProveedorDeSesion>
+            <App />
+            <AvisoDeSincronizacion />
+            <AvisoDeVersionNueva />
+          </ProveedorDeSesion>
+        </ProveedorDeAnalitica>
       </BrowserRouter>
     </LimiteDeErrores>
   </StrictMode>,
