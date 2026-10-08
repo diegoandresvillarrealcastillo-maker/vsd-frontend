@@ -135,7 +135,12 @@ comprobar(
 );
 comprobar(
   'la politica no abre la puerta a Google Fonts: las tipografias viajan con la aplicacion',
-  !/fonts\.(googleapis|gstatic)\.com/.test(politica),
+  // Fuente por fuente y con la regex anclada: buscar el dominio suelto en toda la
+  // cadena es lo que CodeQL marca como «sin ancla», con razon cuando se usa para
+  // decidir sobre una direccion.
+  !politica
+    .split(/[\s;]+/)
+    .some((fuente) => /^(?:https?:\/\/)?fonts\.(?:googleapis|gstatic)\.com$/.test(fuente)),
 );
 
 // ----- el CAPTCHA (SCRUM-165) -----
