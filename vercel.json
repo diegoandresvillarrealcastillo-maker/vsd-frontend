@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
-      "source": "/(acceso|registro|recuperar|contrasena-nueva|privacidad|terminos|cookies|panel|perfil|diario)",
+      "source": "/(acceso|registro|recuperar|contrasena-nueva|privacidad|terminos|cookies|completa-tu-registro|solo-mayores|panel|perfil|diario)",
       "destination": "/index.html"
     },
     { "source": "/(modulo|actividad)/:id", "destination": "/index.html" }
