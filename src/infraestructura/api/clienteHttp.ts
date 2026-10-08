@@ -166,6 +166,11 @@ interface Opciones {
    */
   readonly bytes?: Blob;
   readonly senal?: AbortSignal;
+  /**
+   * El `ETag` de la copia que ya se tiene (SCRUM-138). Se manda como
+   * `If-None-Match`, y un `304` ("sigue siendo la misma") deja de ser un fallo.
+   */
+  readonly etag?: string;
 }
 
 /**
@@ -189,6 +194,10 @@ async function pedir(ruta: string, opciones: Opciones, acepta: string): Promise<
 
   if (token) {
     cabeceras.set('Authorization', `Bearer ${token}`);
+  }
+
+  if (opciones.etag !== undefined) {
+    cabeceras.set('If-None-Match', opciones.etag);
   }
 
   const respuesta = await fetch(`${entorno.urlDeLaApi}${ruta}`, {
@@ -218,6 +227,11 @@ async function pedir(ruta: string, opciones: Opciones, acepta: string): Promise<
     throw new ErrorDeLaApi(401, 'Tu sesión caducó. Vuelve a entrar.', identificador, codigo);
   }
 
+  // "Sigue siendo la misma": lo que se pidio con `etag` y no cambio. No es un fallo.
+  if (respuesta.status === 304 && opciones.etag !== undefined) {
+    return respuesta;
+  }
+
   if (!respuesta.ok) {
     const { codigo, mensaje } = await explicacionDe(respuesta);
 
@@ -245,6 +259,47 @@ export async function llamarALaApi<T>(ruta: string, opciones: Opciones = {}): Pr
   }
 
   return (await respuesta.json()) as T;
+}
+
+/** Lo que responde una lectura condicional: o hay algo nuevo, o sigue valiendo lo que se tenia. */
+export type RespuestaCondicional<T> =
+  | { readonly estado: 'nuevo'; readonly valor: T; readonly etag: string | null }
+  | { readonly estado: 'sin_cambios' };
+
+/**
+ * Lee algo y, si ya se tiene una copia, le pregunta al servidor si sigue valiendo
+ * (SCRUM-138).
+ *
+ * Con `etag`, el servidor responde `304` si no cambio y no manda el cuerpo: ahorra
+ * bajar lo mismo cada vez. Sin `etag`, es una lectura corriente. El `ETag` de la
+ * respuesta nueva se devuelve para guardarlo junto a la copia; llega hasta aqui
+ * porque la API lo expone por CORS.
+ *
+ * **Es una lectura de lo publico.** Lo de una persona lleva `no-store` y no se
+ * guarda asi: ver `leerConCopia`, que solo se usa con lo que es igual para todos.
+ */
+export async function leerSiCambio<T>(
+  ruta: string,
+  opciones: { readonly etag?: string | null; readonly senal?: AbortSignal } = {},
+): Promise<RespuestaCondicional<T>> {
+  const respuesta = await pedir(
+    ruta,
+    {
+      ...(opciones.etag === undefined || opciones.etag === null ? {} : { etag: opciones.etag }),
+      ...(opciones.senal ? { senal: opciones.senal } : {}),
+    },
+    'application/json',
+  );
+
+  if (respuesta.status === 304) {
+    return { estado: 'sin_cambios' };
+  }
+
+  return {
+    estado: 'nuevo',
+    valor: (await respuesta.json()) as T,
+    etag: respuesta.headers.get('etag'),
+  };
 }
 
 /**

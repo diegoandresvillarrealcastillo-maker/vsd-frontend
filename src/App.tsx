@@ -9,9 +9,14 @@ import { Panel } from './paginas/panel/Panel.tsx';
 import { Perfil } from './paginas/perfil/Perfil.tsx';
 import { Sendero } from './paginas/sendero/Sendero.tsx';
 import { Acceso } from './paginas/autenticacion/Acceso.tsx';
+import { CompletarRegistro } from './paginas/autenticacion/CompletarRegistro.tsx';
 import { ContrasenaNueva } from './paginas/autenticacion/ContrasenaNueva.tsx';
 import { Recuperar } from './paginas/autenticacion/Recuperar.tsx';
 import { Registro } from './paginas/autenticacion/Registro.tsx';
+import { SoloMayores } from './paginas/autenticacion/SoloMayores.tsx';
+import { Cookies } from './paginas/legal/Cookies.tsx';
+import { Privacidad } from './paginas/legal/Privacidad.tsx';
+import { Terminos } from './paginas/legal/Terminos.tsx';
 import { Portada } from './paginas/portada/Portada.tsx';
 import { RutaDeInvitado } from './rutas/RutaDeInvitado.tsx';
 import { RutaProtegida } from './rutas/RutaProtegida.tsx';
@@ -32,7 +37,8 @@ const Diario = lazy(() =>
  * Tres clases de ruta, y ninguna se cuela en otra
  * ---------------------------------------------------------------------------
  *
- * - **Publicas**: la portada. Cualquiera, con sesion o sin ella.
+ * - **Publicas**: la portada y los documentos legales (privacidad, terminos y
+ *   cookies). Cualquiera, con sesion o sin ella.
  * - **De invitado**: entrar, registrarse y pedir una contrasena nueva. Solo
  *   tienen sentido sin sesion; con sesion abierta llevan al panel. Rellenar un
  *   formulario que no va a cambiar nada es peor que no verlo.
@@ -75,6 +81,9 @@ export function App() {
           <Routes location={ubicacion} key={ubicacion.pathname}>
             {/* ---------- Publicas ---------- */}
             <Route path={RUTAS.INICIO} element={<Portada />} />
+            <Route path={RUTAS.PRIVACIDAD} element={<Privacidad />} />
+            <Route path={RUTAS.TERMINOS} element={<Terminos />} />
+            <Route path={RUTAS.COOKIES} element={<Cookies />} />
 
             {/* ---------- Solo sin sesion ---------- */}
             <Route
@@ -104,6 +113,20 @@ export function App() {
 
             {/* Se guarda sola: ver la nota de arriba. */}
             <Route path={RUTAS.CONTRASENA_NUEVA} element={<ContrasenaNueva />} />
+
+            {/* Lo que ve quien resulta menor de 18 anos. Publica: se llega despues
+              de cerrar la sesion, y no pide ni guarda nada. */}
+            <Route path={RUTAS.SOLO_MAYORES} element={<SoloMayores />} />
+
+            {/* Pide sesion pero no el registro completo: es justo lo que hace. */}
+            <Route
+              path={RUTAS.COMPLETAR_REGISTRO}
+              element={
+                <RutaProtegida sinRegistro>
+                  <CompletarRegistro />
+                </RutaProtegida>
+              }
+            />
 
             {/* ---------- Protegidas ---------- */}
             <Route

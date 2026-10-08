@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ErrorDeLaApi } from '../infraestructura/api/clienteHttp.ts';
 import { nuevaOperacion, type Operacion, type TipoDeOperacion } from './cola.ts';
 import {
   EJECUTORES,
@@ -7,6 +8,7 @@ import {
   comprobarLaOperacion,
   esIdLocal,
   idLocalDe,
+  operacionDeUnIdLocal,
   resolverElId,
   type ContextoDeEjecucion,
 } from './ejecutores.ts';
@@ -15,6 +17,7 @@ const {
   registrarResultado,
   escribirEnElDiario,
   editarAnotacion,
+  consultarElDiario,
   crearPendiente,
   editarPendiente,
   borrarPendiente,
@@ -22,13 +25,19 @@ const {
   registrarResultado: vi.fn(),
   escribirEnElDiario: vi.fn(),
   editarAnotacion: vi.fn(),
+  consultarElDiario: vi.fn(),
   crearPendiente: vi.fn(),
   editarPendiente: vi.fn(),
   borrarPendiente: vi.fn(),
 }));
 
 vi.mock('../infraestructura/api/resultados.ts', () => ({ registrarResultado }));
-vi.mock('../infraestructura/api/diario.ts', () => ({ escribirEnElDiario, editarAnotacion }));
+vi.mock('../infraestructura/api/diario.ts', async (importar) => ({
+  ...(await importar<typeof import('../infraestructura/api/diario.ts')>()),
+  escribirEnElDiario,
+  editarAnotacion,
+  consultarElDiario,
+}));
 vi.mock('../infraestructura/api/pendientes.ts', () => ({
   crearPendiente,
   editarPendiente,
@@ -48,6 +57,8 @@ beforeEach(() => {
   ]) {
     f.mockResolvedValue({ respuesta: 'de la api' });
   }
+
+  consultarElDiario.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -218,6 +229,25 @@ describe('comprobarLaOperacion', () => {
       expect(comprobarLaOperacion(operacion('diario.escribir', sin))).toBeNull();
       expect(comprobarLaOperacion(con({ adjuntos: [] }))).toBeNull();
     });
+
+    it('si es copia de otra, de cual y por que: o los dos o ninguno, y que se entiendan', () => {
+      expect(
+        comprobarLaOperacion(con({ copiaDe: 'a-1', motivo: 'EDICION_FUERA_DE_PLAZO' })),
+      ).toBeNull();
+      expect(
+        comprobarLaOperacion(con({ copiaDe: 'a-1', motivo: 'VERSION_DESACTUALIZADA' })),
+      ).toBeNull();
+      expect(comprobarLaOperacion(con({ copiaDe: '' }))).toBe('PAYLOAD_INVALIDO');
+      expect(comprobarLaOperacion(con({ copiaDe: 5 }))).toBe('PAYLOAD_INVALIDO');
+      expect(comprobarLaOperacion(con({ motivo: 'OTRO' }))).toBe('PAYLOAD_INVALIDO');
+      expect(comprobarLaOperacion(con({ motivo: 7 }))).toBe('PAYLOAD_INVALIDO');
+    });
+
+    it('la hora en que se escribio es opcional, pero si esta tiene que ser una hora', () => {
+      expect(comprobarLaOperacion(con({ escritaEn: '2026-10-07T11:00:00.000Z' }))).toBeNull();
+      expect(comprobarLaOperacion(con({ escritaEn: 'ayer' }))).toBe('PAYLOAD_INVALIDO');
+      expect(comprobarLaOperacion(con({ escritaEn: 12 }))).toBe('PAYLOAD_INVALIDO');
+    });
   });
 
   describe('diario.editar', () => {
@@ -232,6 +262,16 @@ describe('comprobarLaOperacion', () => {
 
     it('el titulo puede ser nulo (quitarlo) y los adjuntos tambien', () => {
       expect(comprobarLaOperacion(con({ titulo: null, adjuntos: null }))).toBeNull();
+    });
+
+    it('el dia y la hora de la correccion son opcionales, pero si estan tienen que ser validos', () => {
+      expect(
+        comprobarLaOperacion(con({ dia: '2026-10-07', editadaEn: '2026-10-07T11:30:00.000Z' })),
+      ).toBeNull();
+      expect(comprobarLaOperacion(con({ dia: '07/10/2026' }))).toBe('PAYLOAD_INVALIDO');
+      expect(comprobarLaOperacion(con({ dia: '2026-10-07T00:00:00Z' }))).toBe('PAYLOAD_INVALIDO');
+      expect(comprobarLaOperacion(con({ editadaEn: 'hace un rato' }))).toBe('PAYLOAD_INVALIDO');
+      expect(comprobarLaOperacion(con({ editadaEn: 5 }))).toBe('PAYLOAD_INVALIDO');
     });
 
     it.each([
@@ -302,6 +342,12 @@ describe('los identificadores de lo creado sin conexion', () => {
     expect(esIdLocal('LOCAL:abc')).toBe(false);
   });
 
+  it('de un id local se sabe cual operacion lo creo; de uno de verdad, ninguna', () => {
+    expect(operacionDeUnIdLocal(idLocalDe('op-5'))).toBe('op-5');
+    expect(operacionDeUnIdLocal('3f1c6e6a-0000-4000-8000-000000000001')).toBeNull();
+    expect(operacionDeUnIdLocal('')).toBeNull();
+  });
+
   it('un id de verdad se queda como esta', () => {
     expect(resolverElId('a1b2c3', contextoCon())).toBe('a1b2c3');
   });
@@ -347,6 +393,63 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
     );
 
     expect(escribirEnElDiario).toHaveBeenCalledWith(VALIDOS['diario.escribir']);
+  });
+
+  describe('diario.escribir cuando es copia de otra anotacion', () => {
+    it('no le manda a la API de cual es copia, y lo agrega a lo que responde', async () => {
+      escribirEnElDiario.mockResolvedValue({ id: 'nueva', version: 1 });
+
+      const recibo = await EJECUTORES['diario.escribir'](
+        operacion('diario.escribir', {
+          clientOperationId: 'op-1',
+          dia: '2026-10-07',
+          contenido: { type: 'doc', content: [] },
+          copiaDe: 'a-1',
+          motivo: 'EDICION_FUERA_DE_PLAZO',
+        }),
+        contextoCon(),
+      );
+
+      expect(escribirEnElDiario).toHaveBeenCalledWith({
+        clientOperationId: 'op-1',
+        dia: '2026-10-07',
+        contenido: { type: 'doc', content: [] },
+      });
+      expect(recibo).toEqual({
+        id: 'nueva',
+        version: 1,
+        copiaDe: 'a-1',
+        motivo: 'EDICION_FUERA_DE_PLAZO',
+      });
+    });
+
+    it.each([
+      ['solo de cual es copia', { copiaDe: 'a-1' }],
+      ['solo el motivo', { motivo: 'EDICION_FUERA_DE_PLAZO' }],
+    ])(
+      'con %s, no es una copia: no se le agrega nada a lo que responde la API',
+      async (_n, extra) => {
+        escribirEnElDiario.mockResolvedValue({ id: 'nueva', version: 1 });
+
+        const recibo = await EJECUTORES['diario.escribir'](
+          operacion('diario.escribir', { ...(VALIDOS['diario.escribir'] as object), ...extra }),
+          contextoCon(),
+        );
+
+        expect(recibo).toEqual({ id: 'nueva', version: 1 });
+      },
+    );
+
+    it('una escritura normal devuelve lo que respondio la API, sin agregarle nada', async () => {
+      escribirEnElDiario.mockResolvedValue({ id: 'nueva', version: 1 });
+
+      expect(
+        await EJECUTORES['diario.escribir'](
+          operacion('diario.escribir', VALIDOS['diario.escribir']),
+          contextoCon(),
+        ),
+      ).toEqual({ id: 'nueva', version: 1 });
+    });
   });
 
   it('pendiente.crear manda el payload tal cual', async () => {
@@ -511,6 +614,28 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
       expect(editarAnotacion.mock.calls[0]?.[1]).toMatchObject({ version: 2 });
     });
 
+    it.each([0, -1, 1.5, '3', null])(
+      'un recibo con la version %s no fija ninguna: tampoco se envia',
+      async (version) => {
+        await expect(
+          EJECUTORES['diario.editar'](
+            operacion('diario.editar', { id: 'a-1', titulo: 'x' }, { dependeDe: 'op-0' }),
+            contextoCon({ 'op-0': { id: 'a-1', version } }),
+          ),
+        ).rejects.toThrow(/VERSION_SIN_CONOCER/);
+        expect(editarAnotacion).not.toHaveBeenCalled();
+      },
+    );
+
+    it('un recibo con el id vacio no manda a corregir otra anotacion', async () => {
+      await EJECUTORES['diario.editar'](
+        operacion('diario.editar', { id: 'a-1', version: 2 }, { dependeDe: 'op-0' }),
+        contextoCon({ 'op-0': { id: '', version: 5 } }),
+      );
+
+      expect(editarAnotacion).toHaveBeenCalledWith('a-1', { version: 2 });
+    });
+
     it('SIN version de ningun lado no se envia: pisar lo de otro dispositivo seria perder lo que escribio', async () => {
       await expect(
         EJECUTORES['diario.editar'](
@@ -544,6 +669,294 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
       );
 
       expect(editarAnotacion.mock.calls[0]?.[1]).not.toHaveProperty('id');
+    });
+
+    it('no manda el dia, que solo sirve por si hay que guardarla aparte', async () => {
+      await EJECUTORES['diario.editar'](
+        operacion('diario.editar', { id: 'a-1', version: 2, dia: '2026-10-07', titulo: 'x' }),
+        contextoCon(),
+      );
+
+      expect(editarAnotacion.mock.calls[0]?.[1]).not.toHaveProperty('dia');
+    });
+
+    it('manda la hora en que el dispositivo hizo la correccion', async () => {
+      await EJECUTORES['diario.editar'](
+        operacion('diario.editar', {
+          id: 'a-1',
+          version: 2,
+          editadaEn: '2026-10-07T11:30:00.000Z',
+        }),
+        contextoCon(),
+      );
+
+      expect(editarAnotacion).toHaveBeenCalledWith('a-1', {
+        version: 2,
+        editadaEn: '2026-10-07T11:30:00.000Z',
+      });
+    });
+
+    describe('cuando la API no deja corregirla (ADR 0009: nunca se sobrescribe)', () => {
+      const DIA = '2026-10-07';
+      const CONTENIDO = { type: 'doc', content: [{ type: 'paragraph' }] };
+      const DIAGRAMA = { id: 'd-1', tipo: 'diagrama', datos: { elements: [] } };
+      const EDICION = {
+        id: 'a-1',
+        version: 2,
+        dia: DIA,
+        titulo: 'Mi titulo',
+        contenido: CONTENIDO,
+        adjuntos: [DIAGRAMA],
+        editadaEn: '2026-10-07T11:30:00.000Z',
+      };
+
+      function rechazo(codigo: string, estado = 409): ErrorDeLaApi {
+        return new ErrorDeLaApi(estado, 'No se pudo', undefined, codigo);
+      }
+
+      function delServidor(extra: Record<string, unknown> = {}) {
+        return {
+          id: 'a-1',
+          dia: DIA,
+          titulo: 'Mi titulo',
+          contenido: CONTENIDO,
+          adjuntos: [DIAGRAMA],
+          version: 3,
+          creadaEn: '2026-10-07T11:00:00.000Z',
+          editadaEn: '2026-10-07T11:10:00.000Z',
+          editableHasta: '2026-10-07T12:00:00.000Z',
+          ...extra,
+        };
+      }
+
+      function corregir(payload: Record<string, unknown> = EDICION, id = 'op-9') {
+        return EJECUTORES['diario.editar'](
+          operacion('diario.editar', payload, { operationId: id }),
+          contextoCon(),
+        );
+      }
+
+      it.each(['VERSION_DESACTUALIZADA', 'EDICION_FUERA_DE_PLAZO'])(
+        '%s: lo escrito se guarda como una anotacion nueva del mismo dia',
+        async (codigo) => {
+          editarAnotacion.mockRejectedValue(rechazo(codigo));
+          escribirEnElDiario.mockResolvedValue({ id: 'copia-1', version: 1 });
+          // Otro dispositivo cambio otra cosa: no es lo que se queria escribir.
+          consultarElDiario.mockResolvedValue([delServidor({ titulo: 'Otro titulo' })]);
+
+          const recibo = await corregir();
+
+          expect(escribirEnElDiario).toHaveBeenCalledTimes(1);
+          expect(escribirEnElDiario).toHaveBeenCalledWith({
+            clientOperationId: 'op-9',
+            dia: DIA,
+            titulo: 'Mi titulo',
+            contenido: CONTENIDO,
+            adjuntos: [DIAGRAMA],
+            escritaEn: '2026-10-07T11:30:00.000Z',
+          });
+          // El recibo es la anotacion nueva, y dice de cual es copia y por que.
+          expect(recibo).toEqual({ id: 'copia-1', version: 1, copiaDe: 'a-1', motivo: codigo });
+        },
+      );
+
+      it('el identificador de la copia es el de la operacion: reintentar no hace otra', async () => {
+        editarAnotacion.mockRejectedValue(rechazo('EDICION_FUERA_DE_PLAZO'));
+
+        await corregir(EDICION, 'op-77');
+
+        expect(escribirEnElDiario.mock.calls[0]?.[0]).toMatchObject({
+          clientOperationId: 'op-77',
+        });
+      });
+
+      it('sin titulo, sin adjuntos y sin hora, la copia no los lleva', async () => {
+        editarAnotacion.mockRejectedValue(rechazo('EDICION_FUERA_DE_PLAZO'));
+
+        await corregir({
+          id: 'a-1',
+          version: 2,
+          dia: DIA,
+          titulo: null,
+          contenido: CONTENIDO,
+          adjuntos: null,
+        });
+
+        expect(escribirEnElDiario).toHaveBeenCalledWith({
+          clientOperationId: 'op-9',
+          dia: DIA,
+          contenido: CONTENIDO,
+        });
+
+        await corregir({ id: 'a-1', version: 2, dia: DIA, contenido: CONTENIDO, adjuntos: [] });
+
+        expect(escribirEnElDiario.mock.calls[1]?.[0]).not.toHaveProperty('adjuntos');
+      });
+
+      it('otro codigo, o un fallo que no es de la API, sale tal cual y no hace ninguna copia', async () => {
+        editarAnotacion.mockRejectedValueOnce(rechazo('PAYLOAD_INVALIDO', 400));
+
+        await expect(corregir()).rejects.toMatchObject({ codigo: 'PAYLOAD_INVALIDO' });
+
+        editarAnotacion.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+        await expect(corregir()).rejects.toBeInstanceOf(TypeError);
+        expect(escribirEnElDiario).not.toHaveBeenCalled();
+        expect(consultarElDiario).not.toHaveBeenCalled();
+      });
+
+      it('sin el dia, o sin el texto, no hay con que escribir otra: sale el error original', async () => {
+        const original = rechazo('EDICION_FUERA_DE_PLAZO');
+
+        editarAnotacion.mockRejectedValue(original);
+
+        const { dia: _dia, ...sinDia } = EDICION;
+        const { contenido: _contenido, ...sinTexto } = EDICION;
+
+        await expect(corregir(sinDia)).rejects.toBe(original);
+        await expect(corregir(sinTexto)).rejects.toBe(original);
+        expect(escribirEnElDiario).not.toHaveBeenCalled();
+      });
+
+      it('si no se puede guardar la copia, sale ese fallo: la operacion se reintenta, no se pierde', async () => {
+        editarAnotacion.mockRejectedValue(rechazo('EDICION_FUERA_DE_PLAZO'));
+        escribirEnElDiario.mockRejectedValue(new TypeError('Failed to fetch'));
+
+        await expect(corregir()).rejects.toBeInstanceOf(TypeError);
+      });
+
+      describe('la respuesta perdida: lo mismo que se queria escribir ya esta', () => {
+        it('no es un conflicto ni merece una copia: devuelve la anotacion como esta', async () => {
+          editarAnotacion.mockRejectedValue(rechazo('VERSION_DESACTUALIZADA'));
+          consultarElDiario.mockResolvedValue([delServidor({ id: 'otra' }), delServidor()]);
+
+          expect(await corregir()).toEqual(delServidor());
+          expect(consultarElDiario).toHaveBeenCalledWith(DIA, DIA);
+          expect(escribirEnElDiario).not.toHaveBeenCalled();
+        });
+
+        it('el orden de las claves no importa (la base de datos no lo guarda)', async () => {
+          editarAnotacion.mockRejectedValue(rechazo('VERSION_DESACTUALIZADA'));
+          consultarElDiario.mockResolvedValue([
+            delServidor({
+              contenido: { content: [{ type: 'paragraph' }], type: 'doc' },
+              adjuntos: [{ datos: { elements: [] }, tipo: 'diagrama', id: 'd-1' }],
+            }),
+          ]);
+
+          await corregir();
+
+          expect(escribirEnElDiario).not.toHaveBeenCalled();
+        });
+
+        it.each([
+          ['otro texto', { contenido: { type: 'doc', content: [] } }],
+          ['otro titulo', { titulo: 'Otro' }],
+          ['sin titulo', { titulo: null }],
+          ['otros adjuntos', { adjuntos: [] }],
+          ['un diagrama distinto', { adjuntos: [{ ...DIAGRAMA, datos: { elements: [1] } }] }],
+        ])(
+          'si el servidor tiene %s, es un conflicto de verdad y hace la copia',
+          async (_n, extra) => {
+            editarAnotacion.mockRejectedValue(rechazo('VERSION_DESACTUALIZADA'));
+            consultarElDiario.mockResolvedValue([delServidor(extra)]);
+
+            await corregir();
+
+            expect(escribirEnElDiario).toHaveBeenCalledTimes(1);
+          },
+        );
+
+        it('si la anotacion ya no aparece en ese dia, tambien es una copia', async () => {
+          editarAnotacion.mockRejectedValue(rechazo('VERSION_DESACTUALIZADA'));
+          consultarElDiario.mockResolvedValue([delServidor({ id: 'otra' })]);
+
+          await corregir();
+
+          expect(escribirEnElDiario).toHaveBeenCalledTimes(1);
+        });
+
+        it('si no se puede mirar lo que tiene el servidor, sale ese fallo y no se hace nada: se reintenta', async () => {
+          editarAnotacion.mockRejectedValue(rechazo('VERSION_DESACTUALIZADA'));
+          consultarElDiario.mockRejectedValue(new TypeError('Failed to fetch'));
+
+          await expect(corregir()).rejects.toBeInstanceOf(TypeError);
+          expect(escribirEnElDiario).not.toHaveBeenCalled();
+        });
+
+        it('fuera de plazo no se mira: pasada la hora la correccion no se aplico', async () => {
+          editarAnotacion.mockRejectedValue(rechazo('EDICION_FUERA_DE_PLAZO'));
+          consultarElDiario.mockResolvedValue([delServidor()]);
+
+          await corregir();
+
+          expect(consultarElDiario).not.toHaveBeenCalled();
+          expect(escribirEnElDiario).toHaveBeenCalledTimes(1);
+        });
+
+        it('sin el dia no se sabe donde mirar ni donde copiar: sale el error original', async () => {
+          editarAnotacion.mockRejectedValue(rechazo('VERSION_DESACTUALIZADA'));
+
+          const { dia: _dia, ...sinDia } = EDICION;
+
+          await expect(corregir(sinDia)).rejects.toMatchObject({
+            codigo: 'VERSION_DESACTUALIZADA',
+          });
+          expect(consultarElDiario).not.toHaveBeenCalled();
+        });
+      });
+
+      describe('una correccion que viene despues de una que se guardo aparte', () => {
+        const COPIA = {
+          id: 'copia-1',
+          version: 1,
+          copiaDe: 'a-1',
+          motivo: 'VERSION_DESACTUALIZADA',
+        };
+
+        function despuesDeLaCopia(payload: Record<string, unknown>) {
+          return EJECUTORES['diario.editar'](
+            operacion('diario.editar', payload, { dependeDe: 'op-0' }),
+            contextoCon({ 'op-0': COPIA }),
+          );
+        }
+
+        it('sigue a la copia, con la version de la copia y no la de la original', async () => {
+          await despuesDeLaCopia({ id: 'a-1', version: 2, contenido: CONTENIDO });
+
+          expect(editarAnotacion).toHaveBeenCalledWith('copia-1', {
+            contenido: CONTENIDO,
+            version: 1,
+          });
+        });
+
+        it('aunque no traiga version, sigue a la copia', async () => {
+          await despuesDeLaCopia({ id: 'a-1', contenido: CONTENIDO });
+
+          expect(editarAnotacion).toHaveBeenCalledWith('copia-1', {
+            contenido: CONTENIDO,
+            version: 1,
+          });
+        });
+
+        it('una correccion mas, despues de la que ya iba sobre la copia, tambien', async () => {
+          await EJECUTORES['diario.editar'](
+            operacion('diario.editar', { id: 'a-1', version: 2 }, { dependeDe: 'op-1' }),
+            contextoCon({ 'op-1': { id: 'copia-1', version: 4 } }),
+          );
+
+          expect(editarAnotacion).toHaveBeenCalledWith('copia-1', { version: 4 });
+        });
+
+        it('si la corregida era la misma de antes, nada cambia', async () => {
+          await EJECUTORES['diario.editar'](
+            operacion('diario.editar', { id: 'a-1', version: 2 }, { dependeDe: 'op-0' }),
+            contextoCon({ 'op-0': { id: 'a-1', version: 9 } }),
+          );
+
+          expect(editarAnotacion).toHaveBeenCalledWith('a-1', { version: 2 });
+        });
+      });
     });
   });
 });

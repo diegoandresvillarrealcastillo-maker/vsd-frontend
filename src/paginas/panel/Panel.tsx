@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 
+import { PieDeLaApp } from '../../componentes/PieDeLaApp.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/aplicacion.css';
 import type { Cuenta, Modulo } from '../../infraestructura/api/cuenta.ts';
@@ -14,6 +15,7 @@ import { Celebracion } from './Celebracion.tsx';
 import { BarraSuperior, NavegacionInferior } from './Estructura.tsx';
 import { Icono } from './Icono.tsx';
 import { MODULOS, ORDEN } from './modulos.ts';
+import { DatosDeHace } from '../../conexion/DatosDeHace.tsx';
 import { useDatosDelPanel } from './useDatosDelPanel.ts';
 
 /**
@@ -100,6 +102,15 @@ export function VistaDelPanel({
           <Bienvenida cuenta={estado.cuenta} alTerminar={completarBienvenida} />
         )}
 
+        {/* Sin conexion se ve la copia de este equipo, y se dice de cuando es (SCRUM-140). */}
+        {estado.fase === 'listo' && estado.deLaCopia !== null && (
+          <DatosDeHace
+            guardadoEn={estado.deLaCopia}
+            ahora={estado.ahora}
+            porEnviar={estado.sinEnviar}
+          />
+        )}
+
         {estado.fase === 'listo' && estado.cuenta.modulosActivos.length > 0 && (
           <Dashboard
             cuenta={estado.cuenta}
@@ -107,6 +118,10 @@ export function VistaDelPanel({
             activarModulo={activarModulo}
           />
         )}
+
+        {/* El aviso de la portada se ve una vez, antes de entrar. Este es el que
+            acompana a quien usa la aplicacion a diario (L-03 de la auditoria 360). */}
+        <PieDeLaApp />
       </main>
 
       {enDashboard && <NavegacionInferior />}

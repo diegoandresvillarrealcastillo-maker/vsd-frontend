@@ -13,6 +13,7 @@
 !package.json
 !package-lock.json
 !index.html
+!vercel.json
 !vite.config.ts
 !tsconfig.json
 !tsconfig.app.json

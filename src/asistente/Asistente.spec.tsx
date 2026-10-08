@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { TEXTO_DEL_AVISO_ORIENTATIVO } from '../componentes/AvisoOrientativo.tsx';
 import type { RespuestaDelAsistente } from '../infraestructura/api/asistente.ts';
 import { ErrorDeLaApi } from '../infraestructura/api/clienteHttp.ts';
 import { fijarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
@@ -88,6 +89,14 @@ describe('VSD IA', () => {
 
     expect(campo()).toHaveFocus();
     expect(dialogo).toHaveTextContent('Lo que escribas aquí no se guarda');
+  });
+
+  it('desde que se abre, y antes de preguntar nada, dice que es orientativo (L-03)', () => {
+    const { dialogo } = pintar();
+
+    const cabecera = within(dialogo).getByRole('banner');
+
+    expect(cabecera).toHaveTextContent(TEXTO_DEL_AVISO_ORIENTATIVO);
   });
 
   it('responde con su mensaje y sus recursos', async () => {

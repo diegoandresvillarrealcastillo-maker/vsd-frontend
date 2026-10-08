@@ -15,23 +15,16 @@
     <meta name="theme-color" content="#14161a" media="(prefers-color-scheme: dark)" />
 
     <!--
-      Manrope es la alternativa libre mas cercana a la tipografia de la
-      referencia: geometrica y humanista a la vez, con el mismo comportamiento
-      al apretarle el interletrado en tamanos grandes.
+      Las tipografias (Manrope, DM Sans y Newsreader) no se piden aqui: viajan con
+      la aplicacion, desde el propio dominio, y las importa
+      `src/estilos/tipografias.ts`. Antes se pedian a Google en cada visita, y la
+      direccion IP de quien llegaba le llegaba antes de cualquier aviso (L-06 de la
+      auditoria 360).
 
-      Si no hay red, la cadena de respaldo deja la tipografia del sistema y la
-      pagina sigue entera. Por eso los pesos se piden en una sola peticion y
-      con `display=swap`: el texto se ve desde el primer instante.
-
-      El service worker (src/sw.ts, SCRUM-135) guarda estas letras la primera vez
-      que se piden, asi que a partir de la segunda visita tambien se ven sin red.
+      Manrope es la alternativa libre mas cercana a la tipografia de la referencia.
+      Si no hay red, la cadena de respaldo de `--fuente` deja la tipografia del
+      sistema y la pagina sigue entera: los archivos usan `font-display: swap`.
     -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;800&family=DM+Sans:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@1,6..72,400;1,6..72,500&display=swap"
-      rel="stylesheet"
-    />
 
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 

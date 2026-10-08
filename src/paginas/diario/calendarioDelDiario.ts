@@ -1,5 +1,8 @@
 import type { Anotacion } from '../../infraestructura/api/diario.ts';
+import { diasAntes } from '../../tiempo/dias.ts';
 import { diaEnLaZona, formatoEn, zonaActual } from '../../tiempo/zonaHoraria.ts';
+
+export { diasAntes };
 
 /**
  * Los dias y las horas del diario, en la zona de la persona (SCRUM-96,
@@ -19,8 +22,6 @@ const FORMATO_DE_NOMBRE = new Intl.DateTimeFormat('es-CO', {
   month: 'long',
 });
 
-const UN_DIA = 24 * 60 * 60 * 1000;
-
 /**
  * La hora de ahora. Vive aqui y no en los componentes porque las reglas de
  * React no dejan leer el reloj durante el render: se llama desde un
@@ -33,11 +34,6 @@ export function ahoraMismo(): Date {
 /** El dia de un instante en la zona de la persona, AAAA-MM-DD. */
 export function diaDe(instante: Date): string {
   return diaEnLaZona(instante);
-}
-
-/** El dia `n` dias antes. */
-export function diasAntes(dia: string, n: number): string {
-  return new Date(Date.parse(`${dia}T12:00:00Z`) - n * UN_DIA).toISOString().slice(0, 10);
 }
 
 /** "8:14 p. m.", en la zona de la persona. */
