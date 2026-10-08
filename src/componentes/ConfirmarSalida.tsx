@@ -2,6 +2,7 @@ import { useId, useRef } from 'react';
 
 import '../estilos/conexion.css';
 import { useEnLinea } from '../conexion/useEnLinea.ts';
+import { alPulsarElFondo } from './alPulsarElFondo.ts';
 import { useDialogo } from './useDialogo.ts';
 
 /**
@@ -38,7 +39,7 @@ export function ConfirmarSalida({
   const caja = useDialogo<HTMLDivElement>(alEsperar, esperar);
 
   return (
-    <div className="confirmar-salida" onClick={alEsperar}>
+    <div className="confirmar-salida" role="presentation" onClick={alPulsarElFondo(alEsperar)}>
       <div
         ref={caja}
         role="alertdialog"
@@ -46,9 +47,6 @@ export function ConfirmarSalida({
         aria-labelledby={idDelTitulo}
         aria-describedby={idDelTexto}
         className="confirmar-salida__caja"
-        onClick={(evento) => {
-          evento.stopPropagation();
-        }}
       >
         <h2 id={idDelTitulo} className="confirmar-salida__titulo">
           ¿Salir ahora?

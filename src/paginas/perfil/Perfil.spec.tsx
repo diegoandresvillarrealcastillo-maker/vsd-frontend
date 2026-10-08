@@ -15,6 +15,7 @@ import {
 } from '../../sincronizacion/ciclo.ts';
 import { CLAVE_DEL_PANEL, guardarElPanel } from '../../sincronizacion/panelLocal.ts';
 import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
+import { cuantosH1, fallosDeAccesibilidad } from '../../pruebas/axe.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { Perfil } from './Perfil.tsx';
@@ -154,6 +155,24 @@ afterEach(() => {
   olvidarLaMascotaPropia();
   vi.restoreAllMocks();
   vi.clearAllMocks();
+});
+
+describe('Perfil, accesibilidad (C-03)', () => {
+  it('no tiene fallos de accesibilidad y tiene un solo h1', async () => {
+    pintar();
+    await screen.findByRole('region', { name: 'Cómo te llamamos' });
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+    expect(cuantosH1()).toBe(1);
+  });
+
+  it('tampoco con el cambio de contrasena abierto', async () => {
+    pintar();
+    await usuario.click(await screen.findByRole('button', { name: 'Enviarme un código' }));
+    await screen.findByLabelText('Código del correo');
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+  });
 });
 
 describe('Perfil', () => {

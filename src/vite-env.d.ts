@@ -27,6 +27,12 @@ interface ImportMetaEnv {
 
   /** `si` para ofrecer entrar con Google. Cualquier otro valor lo oculta. */
   readonly VITE_PROVEEDOR_GOOGLE?: string;
+
+  /**
+   * La clave **del sitio** de Cloudflare Turnstile (SCRUM-165). Publica por
+   * diseno. Sin ella no hay CAPTCHA. La clave secreta no va aqui nunca.
+   */
+  readonly VITE_TURNSTILE_SITE_KEY?: string;
 }
 
 interface ImportMeta {
