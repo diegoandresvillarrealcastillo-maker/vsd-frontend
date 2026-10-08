@@ -1,4 +1,5 @@
 import type { LineaDeAtencion } from '../infraestructura/api/resultados.ts';
+import { esAnotacionCopiada } from './anotaciones.ts';
 import type { EstadoDeOperacion, ErrorDeOperacion, Operacion, TipoDeOperacion } from './cola.ts';
 import type { MotivoDeSincronizacion, ReciboDeEnvio, ResultadoDeSincronizacion } from './motor.ts';
 
@@ -330,6 +331,12 @@ export interface Aviso {
   readonly lineasDeAtencion: readonly LineaDeAtencion[];
   /** La orientacion de los resultados que se enviaron despues de esperar en este equipo. */
   readonly orientaciones: readonly OrientacionDelAviso[];
+  /**
+   * Cuantas correcciones del diario no se pudieron aplicar y se guardaron como una copia
+   * (ADR 0009). Se avisa siempre, hayan esperado o no: es lo unico del diario que la
+   * persona no espera encontrar.
+   */
+  readonly copias: number;
 }
 
 export interface EntradaDelAviso {
@@ -409,6 +416,17 @@ function acompanamientoDe(recibos: readonly ReciboDeEnvio[]): {
   return { sugiere, lineas: [...lineas.values()] };
 }
 
+/** Cuantas de las correcciones enviadas se guardaron aparte como una copia. */
+function copiasDe(recibos: readonly ReciboDeEnvio[]): number {
+  return recibos.filter(({ recibo }) => esAnotacionCopiada(recibo)).length;
+}
+
+function fraseDeLasCopias(copias: number): string {
+  return copias === 1
+    ? 'Una corrección de tu diario no se pudo aplicar a la anotación original, así que se guardó como una copia. No se perdió nada.'
+    : `${String(copias)} correcciones de tu diario no se pudieron aplicar a las anotaciones originales, así que se guardaron como copias. No se perdió nada.`;
+}
+
 /**
  * El aviso de que se perdio la conexion. Tranquiliza: lo que se haga no se pierde.
  */
@@ -423,6 +441,7 @@ export function avisoDeSinConexion(): Aviso {
     sugiereAcompanamiento: false,
     lineasDeAtencion: [],
     orientaciones: [],
+    copias: 0,
   };
 }
 
@@ -454,6 +473,7 @@ export function construirAviso(entrada: EntradaDelAviso): Aviso | null {
     sugiereAcompanamiento: false,
     lineasDeAtencion: [] as readonly LineaDeAtencion[],
     orientaciones: [] as readonly OrientacionDelAviso[],
+    copias: 0,
   };
 
   if (resultado.estado === 'sesion_vencida') {
@@ -503,10 +523,12 @@ export function construirAviso(entrada: EntradaDelAviso): Aviso | null {
   // El acompanamiento y la orientacion son de lo que espero: lo que salio de inmediato lo
   // ensena la pantalla de quien lo hizo.
   const acompanamiento = acompanamientoDe(esperaron);
+  const copias = copiasDe(resumen.recibos);
   const extra = {
     sugiereAcompanamiento: acompanamiento.sugiere,
     lineasDeAtencion: acompanamiento.lineas,
     orientaciones: orientacionesDe(esperaron),
+    copias,
   };
 
   if (enviadas === 0 && problemas === 0 && pendientes === 0) {
@@ -521,23 +543,27 @@ export function construirAviso(entrada: EntradaDelAviso): Aviso | null {
 
   // Todo salio bien.
   if (problemas === 0 && pendientes === 0) {
-    // Si todo salio de inmediato y nadie lo pidio, la pantalla ya lo dijo.
+    // Si todo salio de inmediato y nadie lo pidio, la pantalla ya lo dijo. Salvo una copia:
+    // eso la persona no lo espera, y puede haber salido de la pantalla que lo habria dicho.
     if (esperaron.length === 0 && motivo !== 'manual' && !volvioLaConexion) {
-      return null;
+      return copias === 0
+        ? null
+        : { ...base, ...extra, tono: 'info', texto: fraseDeLasCopias(copias) };
     }
 
     const cuantos = esperaron.length > 0 ? esperaron.length : enviadas;
     const guardados = `${cambios(cuantos)} que ${cuantos === 1 ? 'estaba guardado' : 'estaban guardados'} en este equipo`;
+    const principal = volvioLaConexion
+      ? `Volviste a tener conexión. Enviamos ${guardados}.`
+      : motivo === 'manual'
+        ? `Listo. Enviamos ${guardados}.`
+        : `Enviamos ${guardados}.`;
 
     return {
       ...base,
       ...extra,
       tono: 'exito',
-      texto: volvioLaConexion
-        ? `Volviste a tener conexión. Enviamos ${guardados}.`
-        : motivo === 'manual'
-          ? `Listo. Enviamos ${guardados}.`
-          : `Enviamos ${guardados}.`,
+      texto: copias === 0 ? principal : `${principal} ${fraseDeLasCopias(copias)}`,
     };
   }
 
@@ -566,6 +592,10 @@ export function construirAviso(entrada: EntradaDelAviso): Aviso | null {
         ? '1 cambio sigue guardado en este equipo y se volverá a intentar.'
         : `${String(pendientes)} cambios siguen guardados en este equipo y se volverán a intentar.`,
     );
+  }
+
+  if (copias > 0) {
+    partes.push(fraseDeLasCopias(copias));
   }
 
   // Una tanda que solo encontro al servidor sin responder, ya avisada o no pedida,

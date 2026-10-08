@@ -65,7 +65,8 @@ function Orientacion({ orientacion }: { orientacion: OrientacionDelAviso }) {
  * ## Que dice
  *
  * Uno por tanda, nunca uno por cambio. Si algo no salio, lo dice y lleva a la
- * lista. Si la sesion vencio, lleva a entrar. Y si lo enviado sugiere acompanamiento
+ * lista. Si la sesion vencio, lleva a entrar. Si una correccion del diario se guardo como
+ * una copia (ADR 0009), lo dice y lleva al diario. Y si lo enviado sugiere acompanamiento
  * —un resultado hecho sin conexion, por ejemplo— ofrece las lineas de atencion.
  *
  * No hay animaciones: con movimiento reducido o sin el, se ve igual.
@@ -129,6 +130,15 @@ export function AvisoDeSincronizacion() {
                 onClick={descartarElAviso}
               >
                 Entrar
+              </Link>
+            )}
+            {aviso.copias > 0 && (
+              <Link
+                className="aviso-sincronizacion__boton aviso-sincronizacion__boton--principal"
+                to={RUTAS.DIARIO}
+                onClick={descartarElAviso}
+              >
+                Ver mi diario
               </Link>
             )}
             {aviso.verLista && (

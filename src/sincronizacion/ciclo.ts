@@ -8,7 +8,12 @@ import {
   type AlmacenLocal,
 } from './almacenLocal.ts';
 import { crearLlaveroEnIndexedDB, type Llavero } from './llavero.ts';
-import { nuevaOperacion, type DatosDeOperacionNueva, type Operacion } from './cola.ts';
+import {
+  nuevaOperacion,
+  ultimaPendienteDe,
+  type DatosDeOperacionNueva,
+  type Operacion,
+} from './cola.ts';
 import { crearMotor, type MotorDeSincronizacion } from './motor.ts';
 
 /**
@@ -195,6 +200,12 @@ export class SinAlmacenAbierto extends Error {
  * queda guardada **antes** de volver, y el aviso de que la cola cambio (que es lo
  * que dispara el envio) va despues: nada se envia sin estar guardado.
  *
+ * **El orden sobre una misma cosa se encadena solo** (SCRUM-139): si ya hay algo sin
+ * terminar sobre la misma `entidad`, la nueva depende de la ultima. Escribir una
+ * anotacion y corregirla sin conexion son dos operaciones que salen en ese orden, y la
+ * correccion usa lo que respondio la creacion. Quien quiera otra cosa pasa `dependeDe`
+ * (incluso `null`, para no depender de nada).
+ *
  * @throws {SinAlmacenAbierto} Si no hay sesion.
  */
 export async function encolar(datos: DatosDeOperacionNueva): Promise<Operacion> {
@@ -204,7 +215,13 @@ export async function encolar(datos: DatosDeOperacionNueva): Promise<Operacion> 
     throw new SinAlmacenAbierto();
   }
 
-  const guardada = await abierto.almacen.agregarOperacion(nuevaOperacion(datos, new Date()));
+  const dependeDe =
+    datos.dependeDe === undefined
+      ? (ultimaPendienteDe(await abierto.almacen.operaciones(), datos.entidad)?.operationId ?? null)
+      : datos.dependeDe;
+  const guardada = await abierto.almacen.agregarOperacion(
+    nuevaOperacion({ ...datos, dependeDe }, new Date()),
+  );
 
   avisarQueLaColaCambio();
 

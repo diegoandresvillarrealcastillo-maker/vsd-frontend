@@ -41,6 +41,7 @@ function aviso(cambios: Partial<AvisoVisible> = {}): AvisoVisible {
     sugiereAcompanamiento: false,
     lineasDeAtencion: [],
     orientaciones: [],
+    copias: 0,
     ...cambios,
   };
 }
@@ -141,6 +142,24 @@ describe('AvisoDeSincronizacion: lo que se puede hacer', () => {
 
     expect(screen.queryByRole('button', { name: 'Ver la lista' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Entrar' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Ver mi diario' })).toBeNull();
+  });
+
+  it('si una correccion del diario se guardo como copia, lleva al diario y el aviso se quita', async () => {
+    mundo.aviso = aviso({
+      copias: 1,
+      tono: 'info',
+      texto: 'Una corrección de tu diario no se pudo aplicar a la anotación original.',
+    });
+    pintar();
+
+    const enlace = screen.getByRole('link', { name: 'Ver mi diario' });
+
+    expect(enlace).toHaveAttribute('href', '/diario');
+
+    await userEvent.setup().click(enlace);
+
+    expect(descartarElAviso).toHaveBeenCalledTimes(1);
   });
 
   it('si algo no salio, "Ver la lista" abre la lista y quita el aviso', async () => {

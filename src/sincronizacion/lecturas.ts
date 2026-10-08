@@ -9,11 +9,12 @@ import { conLimite } from './tiempo.ts';
  *
  * ## Que se guarda, y que no
  *
- * **Solo lo que es igual para todos**: el catalogo de actividades, por ejemplo. Lo de
- * una persona —su diario, sus resultados— se lee con `no-store` a proposito, y su
- * copia es otro tema (SCRUM-139 y 140), con sus propias reglas.
+ * **Lo que es igual para todos**: el catalogo de actividades, por ejemplo. Lo de una
+ * persona se lee con `no-store` a proposito, y su copia lleva sus propias reglas: la del
+ * diario (SCRUM-139) esta en `diarioLocal.ts`, que ademas la mantiene al dia con lo que
+ * la persona escribe sin conexion; la de los pendientes llegara con SCRUM-140.
  *
- * Aun asi, la copia vive en el almacen **de la persona** y cifrada, como todo lo
+ * En los dos casos la copia vive en el almacen **de la persona** y cifrada, como todo lo
  * demas: se borra al cerrar sesion, y nada queda en claro en un equipo compartido.
  *
  * ## Como se lee
@@ -88,6 +89,25 @@ async function guardarLaCopia<T>(clave: string, copia: Copia<T>): Promise<void> 
     await cicloActual()?.almacen.guardarLectura(clave, copia, new Date());
   } catch {
     // Sin espacio, o el almacen se cerro. La lectura ya se hizo: no se pierde por esto.
+  }
+}
+
+/**
+ * Cambia lo guardado de `clave` sin preguntar a la API: recibe lo que hay (o `null`) y
+ * devuelve lo nuevo, o `null` para no tocar nada. Sirve para copias que no vienen enteras
+ * de la API sino que se arman de a poco con lo que se va sabiendo (SCRUM-139).
+ *
+ * Nunca falla: sin espacio, o con el almacen cerrado, simplemente no se guarda.
+ */
+export async function modificarLaCopia<T>(
+  clave: string,
+  cambiar: (actual: T | null) => T | null,
+): Promise<void> {
+  const guardada = await leerLaCopia<T>(clave);
+  const nueva = cambiar(guardada?.copia.valor ?? null);
+
+  if (nueva !== null) {
+    await guardarLaCopia(clave, { valor: nueva, etag: guardada?.copia.etag ?? null });
   }
 }
 

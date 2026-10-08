@@ -288,9 +288,10 @@ se enteran.
   (`If-None-Match`; un `304` no baja nada), y si no hay red o el servidor no responde se
   usa la copia guardada. Si ya hay copia y la API tarda mas de **2,5 s**, se usa la
   copia sin hacer esperar y la lectura sigue sola para renovarla. Una copia **no tapa**
-  una respuesta del servidor («no existe», «no tienes permiso»). Solo se copia lo que es
-  igual para todos: lo de una persona es otro tema (SCRUM-139 y 140). Al abrirse el
-  almacen, y al volver la red, se precarga el catalogo (`precarga.ts`).
+  una respuesta del servidor («no existe», «no tienes permiso»). Lo de una persona lleva
+  su propia regla: el diario esta mas abajo (SCRUM-139) y los pendientes llegan con
+  SCRUM-140. Al abrirse el almacen, y al volver la red, se precarga el catalogo y el
+  diario (`precarga.ts`).
 - **Terminar una actividad sin red.** El resultado entra a la cola
   (`resultado.registrar`) con un `operationId` estable, y la pantalla lo sigue
   (`seguimiento.ts`) hasta **5 s**: si la API lo acepta, se ve la orientacion de
@@ -301,6 +302,49 @@ se enteran.
   su nivel. Lo que salio de inmediato no genera aviso.
 - **La hora es la del dispositivo** (`completedAt`): lo hecho sin red cuenta en el dia en
   que se hizo, no en el que llego.
+
+### El diario sin conexion (SCRUM-139)
+
+El diario es lo mas delicado que guarda la aplicacion: **nada de lo escrito queda solo en
+la pantalla**. Todo entra a la cola de este equipo (durable y cifrada) antes de decir
+nada, y de ahi sale con un identificador estable, asi que reintentar no duplica.
+
+- **Escribir.** La anotacion entra a la cola (`diario.escribir`) y aparece **al instante**
+  en el historial, con «Guardada en este equipo · se enviara cuando haya conexion» si no
+  hay red. Lleva la hora del dispositivo (`escritaEn`): lo escrito sin red muestra la hora
+  en que se escribio y no la de cuando llega (ADR 0020). Si ni siquiera se puede guardar en
+  el equipo (no hay sesion, no hay espacio), lo dice y **deja lo escrito en el lienzo**.
+  Cerrar el navegador y volver a abrirlo no pierde nada: la anotacion sigue ahi y llega
+  una sola vez.
+- **Leer.** Los ultimos 30 dias tienen copia local cifrada (`diarioLocal.ts`), como las
+  demas lecturas (`lecturas.ts`), y se precargan al entrar. Sin conexion se ve esa copia y
+  la pantalla lo dice («Estas viendo lo que tenias guardado en este equipo»); en cuanto
+  vuelve la red se pone al dia sola. La copia se mantiene al dia con lo que el servidor
+  acepto despues de leer (`conciliarElDiario`), para que una anotacion recien enviada no
+  desaparezca sin conexion. Mas atras de 30 dias solo hay servidor.
+- **Corregir.** Entra a la cola (`diario.editar`) con la `version` que el dispositivo
+  tenia y la hora de la correccion (`editadaEn`: el plazo de una hora se mide contra ella,
+  no contra cuando llega). Una anotacion escrita sin conexion se puede corregir sin
+  conexion: `encolar()` encadena por si solo lo que es de la misma cosa, y la correccion
+  usa lo que respondio la creacion. Los diagramas viajan en la cola igual que el texto.
+- **Nunca se sobrescribe (ADR 0009).** Si al enviar la correccion el servidor dice que
+  otro dispositivo cambio la anotacion (`VERSION_DESACTUALIZADA`) o que ya paso su hora
+  (`EDICION_FUERA_DE_PLAZO`), lo escrito en este equipo se guarda como una **anotacion nueva
+  del mismo dia, marcada como copia** (`corregirUnaAnotacion` en `ejecutores.ts`). La
+  pantalla muestra «Copia» y de donde viene («...la anotacion de las 8:14 p. m. se habia
+  cambiado desde otro dispositivo y no quisimos pisarla»), lo avisa, y vuelve a leer para
+  ensenar las dos como estan. Si la hora ya paso al guardar, se hace de una vez.
+- **La respuesta perdida no hace una copia.** Si la correccion si se aplico y se perdio la
+  respuesta, el reintento choca consigo mismo; antes de hacer una copia se mira si el
+  servidor ya tiene exactamente lo que se queria escribir, y entonces no hay nada que
+  hacer.
+- **La marca de copia es de este equipo.** La API no tiene como marcar una copia, asi que
+  el dispositivo recuerda cuales son y de cual vienen (cifrado, en su almacen); en otro
+  dispositivo se ve como una anotacion mas. Se guarda al enviarse, no solo al abrir el
+  diario (`estado.ts`), porque lo enviado se conserva siete dias en la cola.
+- **El aviso de sincronizacion** tambien lo dice cuando una correccion se guardo como copia,
+  **haya esperado o no**: es lo unico del diario que la persona no espera encontrar. Lleva
+  al diario.
 
 ---
 
