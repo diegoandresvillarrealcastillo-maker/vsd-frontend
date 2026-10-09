@@ -21,11 +21,13 @@ export type NombreDeIcono =
   | 'heart'
   | 'home'
   | 'leaf'
+  | 'lock'
   | 'moon'
   | 'play'
   | 'plus'
   | 'refresh'
   | 'sparkles'
+  | 'star'
   | 'user';
 
 const TRAZOS: Record<NombreDeIcono, ReactNode> = {
@@ -81,6 +83,13 @@ const TRAZOS: Record<NombreDeIcono, ReactNode> = {
       <path d="M4 21c2-6 6-10 12-13" />
     </>
   ),
+  // Los dos siguientes son de la ruta del dia (SCRUM-170). Mismo trazo y grosor.
+  lock: (
+    <>
+      <rect x="5" y="11" width="14" height="10" rx="2.5" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </>
+  ),
   moon: <path d="M20.5 15.5A9 9 0 0 1 8.5 3.5a9 9 0 1 0 12 12Z" />,
   play: <path d="m9 7 9 5-9 5Z" />,
   // No esta en el diseño: hace falta para "Añadir módulo". Mismo trazo y
@@ -93,6 +102,7 @@ const TRAZOS: Record<NombreDeIcono, ReactNode> = {
       <path d="m19 14 .7 2.3L22 17l-2.3.7L19 20l-.7-2.3L16 17l2.3-.7ZM5 13l.8 2.2L8 16l-2.2.8L5 19l-.8-2.2L2 16l2.2-.8Z" />
     </>
   ),
+  star: <path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z" />,
   user: (
     <>
       <circle cx="12" cy="8" r="4" />

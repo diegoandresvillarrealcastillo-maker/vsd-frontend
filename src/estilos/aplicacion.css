@@ -29,6 +29,8 @@
   --app-cognicion-acento: #bbc6f1;
   --app-emociones: #44312d;
   --app-emociones-acento: #eeb9a7;
+  /* El icono que va sobre un acento lleno (la ruta del dia, SCRUM-170). */
+  --app-sobre-acento: #14201a;
   --app-avatar: #493b2e;
   --app-avatar-tinta: #e7c9a5;
   --app-descanso: #2c493a;
@@ -80,6 +82,7 @@
   --app-cognicion-acento: #4054a0;
   --app-emociones: #f6e4dd;
   --app-emociones-acento: #a04633;
+  --app-sobre-acento: #ffffff;
   --app-avatar: #efe2d1;
   --app-avatar-tinta: #6e5132;
   --app-descanso: #dceadf;
@@ -567,31 +570,16 @@
   font-size: 0.75rem;
 }
 
-/* ---------- Plan diario y recomendado ---------- */
+/* ---------- Ruta del dia y recomendado (SCRUM-170) ---------- */
 
-.app__plan-y-recomendado {
+.app__ruta-y-recomendado {
   display: grid;
   gap: 1.25rem;
   margin-top: 2.5rem;
 }
 
-.app__plan {
+.app__ruta-y-recomendado > .ruta {
   min-width: 0;
-  padding: 1.25rem;
-  border-radius: 28px;
-}
-
-.app__plan-cabecera {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
-}
-
-.app__plan .app__antetitulo {
-  margin-bottom: 0;
-  letter-spacing: 0.14em;
 }
 
 .app__contador {
@@ -604,6 +592,7 @@
   font-weight: 700;
 }
 
+/* Las filas de actividad las usa la hoja de lo de hoy del sendero. */
 .app__actividades {
   display: grid;
   gap: 0.5rem;
@@ -2112,10 +2101,6 @@
     font-size: 3rem;
   }
 
-  .app__plan {
-    padding: 1.75rem;
-  }
-
   .sendero__etapa {
     padding: 1.75rem;
   }
@@ -2183,8 +2168,15 @@
     font-size: 58px;
   }
 
-  .app__plan-y-recomendado {
+  .app__ruta-y-recomendado {
     grid-template-columns: 1fr 340px;
+    align-items: start;
+  }
+
+  /* La invitacion acompana a la ruta mientras se baja por ella. */
+  .app__ruta-y-recomendado > .app__recomendado {
+    position: sticky;
+    top: 6rem;
   }
 }
 
