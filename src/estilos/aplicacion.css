@@ -387,6 +387,17 @@
   transition: width 0.3s;
 }
 
+/* Al volver de hacer algo, la barra arranca desde lo que habia y se llena (SCRUM-170). */
+.app__barra-llenandose {
+  animation: app-barra-llena 0.9s ease-out 0.25s backwards;
+}
+
+@keyframes app-barra-llena {
+  from {
+    width: var(--desde, 0%);
+  }
+}
+
 .app__nota {
   margin-top: 0.75rem;
   color: var(--app-tenue);
@@ -567,31 +578,16 @@
   font-size: 0.75rem;
 }
 
-/* ---------- Plan diario y recomendado ---------- */
+/* ---------- Ruta del dia y recomendado (SCRUM-170) ---------- */
 
-.app__plan-y-recomendado {
+.app__ruta-y-recomendado {
   display: grid;
   gap: 1.25rem;
   margin-top: 2.5rem;
 }
 
-.app__plan {
+.app__ruta-y-recomendado > .ruta {
   min-width: 0;
-  padding: 1.25rem;
-  border-radius: 28px;
-}
-
-.app__plan-cabecera {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
-}
-
-.app__plan .app__antetitulo {
-  margin-bottom: 0;
-  letter-spacing: 0.14em;
 }
 
 .app__contador {
@@ -604,6 +600,7 @@
   font-weight: 700;
 }
 
+/* Las filas de actividad las usa la hoja de lo de hoy del sendero. */
 .app__actividades {
   display: grid;
   gap: 0.5rem;
@@ -2112,10 +2109,6 @@
     font-size: 3rem;
   }
 
-  .app__plan {
-    padding: 1.75rem;
-  }
-
   .sendero__etapa {
     padding: 1.75rem;
   }
@@ -2183,8 +2176,15 @@
     font-size: 58px;
   }
 
-  .app__plan-y-recomendado {
+  .app__ruta-y-recomendado {
     grid-template-columns: 1fr 340px;
+    align-items: start;
+  }
+
+  /* La invitacion acompana a la ruta mientras se baja por ella. */
+  .app__ruta-y-recomendado > .app__recomendado {
+    position: sticky;
+    top: 6rem;
   }
 }
 

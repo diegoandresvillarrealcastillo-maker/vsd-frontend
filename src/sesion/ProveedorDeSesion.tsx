@@ -11,6 +11,7 @@ import {
 import { supabase } from '../infraestructura/supabase/cliente.ts';
 import { reiniciarLasFrases } from '../mascota/bancoDeFrases.ts';
 import { dejarDeAvisarAEsteNavegador } from '../notificaciones/navegador.ts';
+import { olvidarLoVisto } from '../paginas/panel/ruta/useAvanceCelebrable.ts';
 import { RUTAS } from '../rutas/rutas.ts';
 import { alCambiarLaSesion, olvidarLosDatosDeLaSesionActual } from '../sincronizacion/ciclo.ts';
 import { olvidarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
@@ -263,6 +264,7 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
         if (actual === null) {
           olvidarLosArchivosDeLaPersona();
           reiniciarLasFrases();
+          olvidarLoVisto();
         }
 
         setSesion(actual);
@@ -507,6 +509,7 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     olvidarLaZonaDeLaCuenta();
     olvidarLosArchivosDeLaPersona();
     reiniciarLasFrases();
+    olvidarLoVisto();
     setSesion(null);
   }, []);
 
