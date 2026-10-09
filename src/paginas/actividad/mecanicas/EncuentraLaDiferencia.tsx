@@ -45,8 +45,8 @@ type Fase =
 
 const VEREDICTOS: Readonly<Record<Motivo, string>> = {
   acierto: '¡Encontrada!',
-  fallo: 'Esa no era. Te marcamos la que cambió.',
-  tiempo: 'Se acabó el tiempo. Te marcamos la que cambió.',
+  fallo: '¡Casi! Esa no era, pero te marcamos la que cambió.',
+  tiempo: 'Se acabó el tiempo, sin problema. Te marcamos la que cambió.',
 };
 
 function nombreDe(simbolo: number | undefined): string {
@@ -251,7 +251,13 @@ export function EncuentraLaDiferencia({ alTerminar, enviando }: PropsDeMecanica)
         </div>
       </div>
 
-      <p className="juego__veredicto" role="status">
+      <p
+        className="juego__veredicto"
+        data-resultado={
+          fase.tipo === 'revisada' ? (fase.motivo === 'acierto' ? 'acierto' : 'casi') : undefined
+        }
+        role="status"
+      >
         {fase.tipo === 'revisada' ? VEREDICTOS[fase.motivo] : ''}
       </p>
 

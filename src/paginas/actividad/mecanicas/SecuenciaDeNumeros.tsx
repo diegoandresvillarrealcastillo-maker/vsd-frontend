@@ -185,8 +185,14 @@ export function SecuenciaDeNumeros({ alTerminar, enviando }: PropsDeMecanica) {
 
       {fase.tipo === 'revisada' && (
         <div className="juego__revision">
-          <p className="juego__veredicto" role="status">
-            {fase.acerto ? '¡Bien! Era esa.' : `Era ${separada(fase.secuencia)}.`}
+          <p
+            className="juego__veredicto"
+            data-resultado={fase.acerto ? 'acierto' : 'casi'}
+            role="status"
+          >
+            {fase.acerto
+              ? '¡Bien! Era esa.'
+              : `¡Casi! Era ${separada(fase.secuencia)}. Probemos otra, sin prisa.`}
           </p>
           <button
             ref={siguiente}

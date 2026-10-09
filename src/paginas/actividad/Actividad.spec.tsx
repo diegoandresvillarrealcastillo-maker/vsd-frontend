@@ -806,3 +806,42 @@ describe('Actividad, las lineas de atencion (SCRUM-94)', () => {
     expect(screen.queryByText(/Línea/)).not.toBeInTheDocument();
   });
 });
+
+describe('Actividad: el logro al terminar (SCRUM-170)', () => {
+  it('con un resultado favorable celebra, con confeti', async () => {
+    registrarResultado.mockResolvedValue({
+      id: 'res-2',
+      activityId: SUENO,
+      nivelOrientativo: 'favorable',
+      sugiereAcompanamiento: false,
+      metadata: {},
+      completedAt: '2026-09-30T11:00:00.000Z',
+    });
+
+    const { container } = pintar(SUENO);
+    await terminarLaActividad();
+    await screen.findByRole('heading', { name: 'Listo' });
+
+    expect(screen.getByText('¡Lo hiciste!')).toBeInTheDocument();
+    expect(container.querySelector('.confeti')).not.toBeNull();
+  });
+
+  it('si el resultado pide acompanar, la insignia sale serena y sin confeti', async () => {
+    registrarResultado.mockResolvedValue({
+      id: 'res-3',
+      activityId: SUENO,
+      nivelOrientativo: 'requiere_atencion',
+      sugiereAcompanamiento: true,
+      metadata: {},
+      completedAt: '2026-09-30T11:00:00.000Z',
+    });
+
+    const { container } = pintar(SUENO);
+    await terminarLaActividad();
+    await screen.findByRole('heading', { name: 'Listo' });
+
+    expect(screen.getByText('Gracias por tomarte este momento.')).toBeInTheDocument();
+    expect(screen.queryByText('¡Lo hiciste!')).not.toBeInTheDocument();
+    expect(container.querySelector('.confeti')).toBeNull();
+  });
+});
