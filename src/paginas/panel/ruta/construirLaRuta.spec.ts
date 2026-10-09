@@ -19,7 +19,15 @@ describe('construirLaRuta', () => {
   it('sin actividades hoy no hay tramos ni plan completo', () => {
     const ruta = construirLaRuta([modulo('bienestar', [])]);
 
-    expect(ruta).toEqual({ tramos: [], hechas: 0, total: 0, planCompleto: false });
+    expect(ruta).toEqual({
+      tramos: [],
+      nodos: [],
+      siguiente: undefined,
+      idsHechos: [],
+      hechas: 0,
+      total: 0,
+      planCompleto: false,
+    });
   });
 
   it('la primera sin hacer es la siguiente, y las demas quedan pendientes', () => {
@@ -72,6 +80,20 @@ describe('construirLaRuta', () => {
     expect(ruta.tramos.flatMap((tramo) => tramo.nodos).some((n) => n.estado === 'siguiente')).toBe(
       false,
     );
+  });
+
+  it('cada nodo sabe su lugar en todo el camino, a traves de los modulos', () => {
+    const ruta = construirLaRuta([
+      modulo('cognicion', [
+        { id: 'a', hecha: true },
+        { id: 'b', hecha: false },
+      ]),
+      modulo('bienestar', [{ id: 'c', hecha: false }]),
+    ]);
+
+    expect(ruta.nodos.map((nodo) => nodo.indice)).toEqual([0, 1, 2]);
+    expect(ruta.siguiente?.actividad.id).toBe('b');
+    expect(ruta.idsHechos).toEqual(['a']);
   });
 
   it('cada actividad conserva su modulo', () => {

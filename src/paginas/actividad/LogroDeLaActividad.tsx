@@ -26,9 +26,7 @@ export function LogroDeLaActividad({ celebrar }: { celebrar: boolean }) {
         aria-hidden="true"
         initial={sinMovimiento ? false : { scale: 0.4, rotate: -14 }}
         animate={{ scale: 1, rotate: 0 }}
-        transition={
-          sinMovimiento ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 15 }
-        }
+        transition={{ type: 'spring', stiffness: 260, damping: 15 }}
       >
         <svg width="44" height="44" viewBox="0 0 24 24" fill="none">
           <motion.path
@@ -39,9 +37,7 @@ export function LogroDeLaActividad({ celebrar }: { celebrar: boolean }) {
             strokeLinejoin="round"
             initial={sinMovimiento ? false : { pathLength: 0 }}
             animate={{ pathLength: 1 }}
-            transition={
-              sinMovimiento ? { duration: 0 } : { delay: 0.25, duration: 0.5, ease: 'easeOut' }
-            }
+            transition={{ delay: 0.25, duration: 0.5, ease: 'easeOut' }}
           />
         </svg>
         {celebrar && <Confeti />}

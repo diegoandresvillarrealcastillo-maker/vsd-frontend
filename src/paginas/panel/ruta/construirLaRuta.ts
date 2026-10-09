@@ -17,6 +17,8 @@ export interface NodoDeLaRuta {
   readonly actividad: ActividadDeHoy;
   readonly modulo: Modulo;
   readonly estado: EstadoDelNodo;
+  /** Su lugar en todo el camino, contando desde 0 a traves de los modulos. */
+  readonly indice: number;
 }
 
 /** Las actividades de hoy de un modulo, que en el camino forman un tramo con su titulo. */
@@ -27,6 +29,10 @@ export interface TramoDeLaRuta {
 
 export interface RutaDelDia {
   readonly tramos: readonly TramoDeLaRuta[];
+  /** Todos los nodos, en orden: lo que recorren el panel y la tarjeta de "Recomendado". */
+  readonly nodos: readonly NodoDeLaRuta[];
+  readonly siguiente: NodoDeLaRuta | undefined;
+  readonly idsHechos: readonly string[];
   readonly hechas: number;
   readonly total: number;
   readonly planCompleto: boolean;
@@ -38,22 +44,34 @@ export function construirLaRuta(progreso: readonly ProgresoDelModulo[]): RutaDel
     .flatMap((uno) => uno.hoy)
     .find((actividad) => !actividad.hecha);
 
+  let indice = 0;
   const tramos = conActividades.map((uno) => ({
     progreso: uno,
-    nodos: uno.hoy.map((actividad): NodoDeLaRuta => ({
-      actividad,
-      modulo: uno.modulo,
-      estado: actividad.hecha ? 'hecha' : actividad === primeraSinHacer ? 'siguiente' : 'pendiente',
-    })),
+    nodos: uno.hoy.map((actividad): NodoDeLaRuta => {
+      const estado: EstadoDelNodo = actividad.hecha
+        ? 'hecha'
+        : actividad === primeraSinHacer
+          ? 'siguiente'
+          : 'pendiente';
+
+      return { actividad, modulo: uno.modulo, estado, indice: indice++ };
+    }),
   }));
 
-  const total = tramos.reduce((suma, tramo) => suma + tramo.nodos.length, 0);
-  const hechas = tramos.reduce(
-    (suma, tramo) => suma + tramo.nodos.filter((nodo) => nodo.estado === 'hecha').length,
-    0,
-  );
+  const nodos = tramos.flatMap((tramo) => tramo.nodos);
+  const idsHechos = nodos
+    .filter((nodo) => nodo.estado === 'hecha')
+    .map((nodo) => nodo.actividad.id);
 
-  return { tramos, hechas, total, planCompleto: total > 0 && hechas === total };
+  return {
+    tramos,
+    nodos,
+    siguiente: nodos.find((nodo) => nodo.estado === 'siguiente'),
+    idsHechos,
+    hechas: idsHechos.length,
+    total: nodos.length,
+    planCompleto: nodos.length > 0 && idsHechos.length === nodos.length,
+  };
 }
 
 /** Cuanto se corre cada punto hacia un lado, para que el camino serpentee. */

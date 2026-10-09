@@ -83,7 +83,7 @@ const TRAZOS: Record<NombreDeIcono, ReactNode> = {
       <path d="M4 21c2-6 6-10 12-13" />
     </>
   ),
-  // Los dos siguientes son de la ruta del dia (SCRUM-170). Mismo trazo y grosor.
+  // `lock` y `star` son de la ruta del dia (SCRUM-170). Mismo trazo y grosor.
   lock: (
     <>
       <rect x="5" y="11" width="14" height="10" rx="2.5" />

@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 
 import { ExigeConexion } from '../../componentes/ExigeConexion.tsx';
@@ -16,6 +16,7 @@ import { Celebracion } from './Celebracion.tsx';
 import { BarraSuperior, NavegacionInferior } from './Estructura.tsx';
 import { Icono } from './Icono.tsx';
 import { MODULOS, ORDEN } from './modulos.ts';
+import { porcentaje } from './porcentaje.ts';
 import { DatosDeHace } from '../../conexion/DatosDeHace.tsx';
 import { AvanceDeHoy } from './ruta/AvanceDeHoy.tsx';
 import { construirLaRuta } from './ruta/construirLaRuta.ts';
@@ -49,10 +50,6 @@ function hoyEnCastellano(): string {
   }).format(new Date());
 
   return texto.charAt(0).toUpperCase() + texto.slice(1);
-}
-
-function porcentaje(parte: number, total: number): number {
-  return total === 0 ? 0 : Math.round((parte / total) * 100);
 }
 
 export function Panel() {
@@ -152,17 +149,8 @@ function Dashboard({
   }
 
   const porModulo = new Map(progreso.map((uno) => [uno.modulo, uno]));
-  const ruta = construirLaRuta(progreso);
-  const deHoy = ruta.tramos.flatMap((tramo) =>
-    tramo.nodos.map((nodo) => ({ modulo: nodo.modulo, actividad: nodo.actividad })),
-  );
-  const siguiente = ruta.tramos
-    .flatMap((tramo) => tramo.nodos)
-    .find((nodo) => nodo.estado === 'siguiente');
-  const planCompleto = ruta.planCompleto;
-  const { nuevas } = useAvanceCelebrable(
-    deHoy.filter(({ actividad }) => actividad.hecha).map(({ actividad }) => actividad.id),
-  );
+  const ruta = useMemo(() => construirLaRuta(progreso), [progreso]);
+  const { nuevas } = useAvanceCelebrable(ruta.idsHechos);
 
   return (
     <>
@@ -181,7 +169,7 @@ function Dashboard({
 
       <section id="progreso" className="app__seccion app__ruta-y-recomendado">
         <RutaDelDia ruta={ruta} nuevas={nuevas} />
-        <Recomendado siguiente={siguiente} hayPlan={deHoy.length > 0} />
+        <Recomendado siguiente={ruta.siguiente} hayPlan={ruta.total > 0} />
       </section>
 
       <section id="programas" className="app__seccion" aria-labelledby="titulo-modulos">
@@ -215,7 +203,10 @@ function Dashboard({
         />
       )}
 
-      <MascotaFlotante mascota={cuenta.mascota} celebrar={planCompleto || celebracion !== null} />
+      <MascotaFlotante
+        mascota={cuenta.mascota}
+        celebrar={ruta.planCompleto || celebracion !== null}
+      />
       <Semaforo />
     </>
   );

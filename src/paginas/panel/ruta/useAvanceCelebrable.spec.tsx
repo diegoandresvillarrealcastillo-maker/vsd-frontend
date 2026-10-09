@@ -46,6 +46,15 @@ describe('useAvanceCelebrable', () => {
     expect([...result.current.nuevas]).toEqual(['b']);
   });
 
+  it('lo que otra persona hizo antes no se celebra: al cerrar sesion se olvida lo visto', () => {
+    renderHook(() => useAvanceCelebrable(['a'])).unmount();
+    olvidarLoVisto();
+
+    const otra = renderHook(() => useAvanceCelebrable(['a', 'b']));
+
+    expect(otra.result.current.nuevas.size).toBe(0);
+  });
+
   it('lo nuevo se acumula mientras el panel sigue abierto', () => {
     const { result, rerender } = renderHook(({ ids }) => useAvanceCelebrable(ids), {
       initialProps: { ids: [] as string[] },

@@ -29,8 +29,6 @@
   --app-cognicion-acento: #bbc6f1;
   --app-emociones: #44312d;
   --app-emociones-acento: #eeb9a7;
-  /* El icono que va sobre un acento lleno (la ruta del dia, SCRUM-170). */
-  --app-sobre-acento: #14201a;
   --app-avatar: #493b2e;
   --app-avatar-tinta: #e7c9a5;
   --app-descanso: #2c493a;
@@ -82,7 +80,6 @@
   --app-cognicion-acento: #4054a0;
   --app-emociones: #f6e4dd;
   --app-emociones-acento: #a04633;
-  --app-sobre-acento: #ffffff;
   --app-avatar: #efe2d1;
   --app-avatar-tinta: #6e5132;
   --app-descanso: #dceadf;
@@ -388,6 +385,17 @@
   border-radius: 9999px;
   background: var(--app-primario);
   transition: width 0.3s;
+}
+
+/* Al volver de hacer algo, la barra arranca desde lo que habia y se llena (SCRUM-170). */
+.app__barra-llenandose {
+  animation: app-barra-llena 0.9s ease-out 0.25s backwards;
+}
+
+@keyframes app-barra-llena {
+  from {
+    width: var(--desde, 0%);
+  }
 }
 
 .app__nota {

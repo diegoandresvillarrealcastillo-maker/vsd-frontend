@@ -1,9 +1,10 @@
-import { useState, type CSSProperties } from 'react';
+import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 
 import { Confeti } from '../../../componentes/Confeti.tsx';
 import '../../../estilos/ruta.css';
 import { rutaDeActividad } from '../../../rutas/rutas.ts';
+import { nombreDeEtapa } from '../../sendero/etapas.ts';
 import { Icono } from '../Icono.tsx';
 import { MODULOS } from '../modulos.ts';
 import {
@@ -13,9 +14,13 @@ import {
   type TramoDeLaRuta,
 } from './construirLaRuta.ts';
 
-/** Alto de cada fila del camino. Tiene que coincidir con `--ruta-fila` de la hoja de estilos. */
+/**
+ * La geometria del camino. Vive aqui porque el hilo entre dos puntos es un SVG que necesita
+ * los numeros; la hoja de estilos los recibe como variables en la propia seccion y no tiene
+ * copia que mantener a mano.
+ */
 const ALTO_DE_FILA = 150;
-/** A que altura de la fila queda el centro del punto. Igual que `--ruta-centro`. */
+/** A que altura de la fila queda el centro del punto. */
 const CENTRO_DEL_PUNTO = 56;
 
 /**
@@ -41,14 +46,17 @@ export function RutaDelDia({
   /** Los ids de las actividades que se acaban de hacer, para celebrarlas. */
   nuevas: ReadonlySet<string>;
 }) {
-  const [confetiPuesto, setConfetiPuesto] = useState(true);
-  const celebraLaMeta = ruta.planCompleto && nuevas.size > 0 && confetiPuesto;
-  const inicios = ruta.tramos.map((_, posicion) =>
-    ruta.tramos.slice(0, posicion).reduce((suma, tramo) => suma + tramo.nodos.length, 0),
-  );
-
   return (
-    <section className="app__caja ruta" aria-labelledby="titulo-ruta">
+    <section
+      className="app__caja ruta"
+      aria-labelledby="titulo-ruta"
+      style={
+        {
+          '--ruta-fila': `${String(ALTO_DE_FILA)}px`,
+          '--ruta-centro': `${String(CENTRO_DEL_PUNTO)}px`,
+        } as CSSProperties
+      }
+    >
       <div className="ruta__cabecera">
         <div>
           <p className="app__antetitulo">Para hoy</p>
@@ -70,20 +78,15 @@ export function RutaDelDia({
         </p>
       ) : (
         <div className="ruta__camino">
-          {ruta.tramos.map((tramo, posicion) => (
-            <Tramo
-              key={tramo.progreso.modulo}
-              tramo={tramo}
-              inicio={inicios[posicion] ?? 0}
-              nuevas={nuevas}
-            />
+          {ruta.tramos.map((tramo) => (
+            <Tramo key={tramo.progreso.modulo} tramo={tramo} nuevas={nuevas} />
           ))}
 
           <Meta
             lograda={ruta.planCompleto}
             fila={ruta.total}
-            celebrando={celebraLaMeta}
-            alTerminarElConfeti={() => setConfetiPuesto(false)}
+            // El confeti sale cuando el plan se completa ahora, no al abrir uno ya completo.
+            celebrando={ruta.planCompleto && nuevas.size > 0}
           />
         </div>
       )}
@@ -91,15 +94,7 @@ export function RutaDelDia({
   );
 }
 
-function Tramo({
-  tramo,
-  inicio,
-  nuevas,
-}: {
-  tramo: TramoDeLaRuta;
-  inicio: number;
-  nuevas: ReadonlySet<string>;
-}) {
+function Tramo({ tramo, nuevas }: { tramo: TramoDeLaRuta; nuevas: ReadonlySet<string> }) {
   const datos = MODULOS[tramo.progreso.modulo];
   const { etapa } = tramo.progreso;
 
@@ -115,28 +110,27 @@ function Tramo({
         <div className="ruta__unidad-texto">
           <h3 className="ruta__unidad-titulo">{datos.titulo}</h3>
           <p className="ruta__unidad-etapa">
-            {etapa.esTemporada ? 'Temporada' : 'Etapa'} {etapa.numero} · {etapa.sesionesHechas} de{' '}
-            {etapa.sesionesDeLaEtapa} sesiones
+            {nombreDeEtapa(etapa)} · {etapa.sesionesHechas} de {etapa.sesionesDeLaEtapa} sesiones
           </p>
         </div>
       </div>
 
       <ol className="ruta__nodos" aria-label={`Actividades de hoy en ${datos.titulo}`}>
-        {tramo.nodos.map((nodo, indice) => {
-          const siguiente = tramo.nodos[indice + 1];
-          const x = desplazamientoDelNodo(inicio + indice);
+        {tramo.nodos.map((nodo, posicion) => {
+          const siguiente = tramo.nodos[posicion + 1];
+          const x = desplazamientoDelNodo(nodo.indice);
 
           return (
             <li
               key={nodo.actividad.id}
               className="ruta__fila"
               data-lado={x > 0 ? 'derecha' : 'izquierda'}
-              style={{ '--x': `${x}px`, '--i': inicio + indice } as CSSProperties}
+              style={{ '--x': `${String(x)}px`, '--i': nodo.indice } as CSSProperties}
             >
               {siguiente !== undefined && (
                 <Hilo
                   desde={x}
-                  hasta={desplazamientoDelNodo(inicio + indice + 1)}
+                  hasta={desplazamientoDelNodo(siguiente.indice)}
                   hecho={nodo.estado === 'hecha' && siguiente.estado === 'hecha'}
                 />
               )}
@@ -159,23 +153,23 @@ function Hilo({ desde, hasta, hecho }: { desde: number; hasta: number; hecho: bo
       className={`ruta__hilo${hecho ? ' ruta__hilo--hecho' : ''}`}
       width="1"
       height={ALTO_DE_FILA}
-      viewBox={`0 0 1 ${ALTO_DE_FILA}`}
+      viewBox={`0 0 1 ${String(ALTO_DE_FILA)}`}
       aria-hidden="true"
       focusable="false"
-      style={{ top: CENTRO_DEL_PUNTO }}
     >
       <path
-        d={`M${desde} 0C${desde} ${medio} ${hasta} ${medio} ${hasta} ${ALTO_DE_FILA}`}
+        d={`M${String(desde)} 0C${String(desde)} ${String(medio)} ${String(hasta)} ${String(medio)} ${String(hasta)} ${String(ALTO_DE_FILA)}`}
         fill="none"
       />
     </svg>
   );
 }
 
+const ICONO_DEL_ESTADO = { hecha: 'check', siguiente: 'play' } as const;
+
 function Nodo({ nodo, nueva }: { nodo: NodoDeLaRuta; nueva: boolean }) {
   const { actividad, estado } = nodo;
-  const datos = MODULOS[nodo.modulo];
-  const icono = estado === 'hecha' ? 'check' : estado === 'siguiente' ? 'play' : datos.icono;
+  const icono = estado === 'pendiente' ? MODULOS[nodo.modulo].icono : ICONO_DEL_ESTADO[estado];
   const clase = `ruta__nodo ruta__nodo--${estado}${nueva ? ' ruta__nodo--recien' : ''}`;
 
   return (
@@ -219,19 +213,19 @@ function Meta({
   lograda,
   fila,
   celebrando,
-  alTerminarElConfeti,
 }: {
   lograda: boolean;
   fila: number;
   celebrando: boolean;
-  alTerminarElConfeti: () => void;
 }) {
   return (
     <div className="ruta__tramo ruta__tramo--meta">
       <ol className="ruta__nodos" aria-label="Meta del día">
         <li
-          className="ruta__fila ruta__fila--meta"
-          style={{ '--x': `${desplazamientoDelNodo(fila)}px`, '--i': fila } as CSSProperties}
+          className="ruta__fila"
+          style={
+            { '--x': `${String(desplazamientoDelNodo(fila))}px`, '--i': fila } as CSSProperties
+          }
         >
           <span className="ruta__nodo-envoltura">
             <span className="ruta__punto">
@@ -239,13 +233,13 @@ function Meta({
                 className={`ruta__nodo ruta__nodo--meta${lograda ? ' ruta__nodo--lograda' : ''}`}
               >
                 <Icono nombre={lograda ? 'star' : 'lock'} tamano={32} />
-                {celebrando && <Confeti alTerminar={alTerminarElConfeti} />}
+                {celebrando && <Confeti />}
               </span>
             </span>
 
             <span className="ruta__etiqueta">
               <span className="ruta__nombre">{lograda ? '¡Lo lograste hoy!' : 'Meta de hoy'}</span>
-              <span className="ruta__sello ruta__sello--meta">
+              <span className="ruta__sello">
                 {lograda ? 'Descansar también es cuidarte' : 'Se abre al terminar tu ruta'}
               </span>
             </span>

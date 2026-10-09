@@ -198,9 +198,6 @@
 
 /* ---------- Al terminar ---------- */
 
-/* El nivel se ve, pero sin gritar. Un resultado sobre el propio
-   bienestar no necesita un cartel de colores: acompana, no
-   califica. De ahi que solo cambie el borde lateral. */
 /* ---------- El logro al terminar (SCRUM-170) ---------- */
 
 .actividad__logro {
@@ -239,6 +236,9 @@
   font-weight: 700;
 }
 
+/* El nivel se ve, pero sin gritar. Un resultado sobre el propio
+   bienestar no necesita un cartel de colores: acompana, no
+   califica. De ahi que solo cambie el borde lateral. */
 .actividad__nivel {
   margin: 0 0 20px;
   padding: 14px 16px;
@@ -513,12 +513,6 @@
   from {
     opacity: 0;
     transform: translateY(8px) scale(0.96);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .juego__veredicto[data-resultado] {
-    animation: none;
   }
 }
 
