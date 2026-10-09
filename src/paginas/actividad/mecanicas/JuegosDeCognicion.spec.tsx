@@ -271,7 +271,7 @@ describe('Secuencia de números', () => {
       const secuencia = await jugarRonda(() => '9');
 
       expect(secuencia).toHaveLength(3);
-      expect(await screen.findByText(/^Era /)).toBeInTheDocument();
+      expect(await screen.findByText(/^¡Casi! Era /)).toBeInTheDocument();
       await usuario.click(
         screen.getByRole('button', { name: ronda < 12 ? 'Siguiente ronda' : 'Terminar' }),
       );

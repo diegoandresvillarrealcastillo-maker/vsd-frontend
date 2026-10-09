@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 
 import { ExigeConexion } from '../../componentes/ExigeConexion.tsx';
@@ -16,7 +16,12 @@ import { Celebracion } from './Celebracion.tsx';
 import { BarraSuperior, NavegacionInferior } from './Estructura.tsx';
 import { Icono } from './Icono.tsx';
 import { MODULOS, ORDEN } from './modulos.ts';
+import { porcentaje } from './porcentaje.ts';
 import { DatosDeHace } from '../../conexion/DatosDeHace.tsx';
+import { AvanceDeHoy } from './ruta/AvanceDeHoy.tsx';
+import { construirLaRuta } from './ruta/construirLaRuta.ts';
+import { RutaDelDia } from './ruta/RutaDelDia.tsx';
+import { useAvanceCelebrable } from './ruta/useAvanceCelebrable.ts';
 import { useDatosDelPanel } from './useDatosDelPanel.ts';
 
 /**
@@ -45,10 +50,6 @@ function hoyEnCastellano(): string {
   }).format(new Date());
 
   return texto.charAt(0).toUpperCase() + texto.slice(1);
-}
-
-function porcentaje(parte: number, total: number): number {
-  return total === 0 ? 0 : Math.round((parte / total) * 100);
 }
 
 export function Panel() {
@@ -148,12 +149,8 @@ function Dashboard({
   }
 
   const porModulo = new Map(progreso.map((uno) => [uno.modulo, uno]));
-  const deHoy = progreso.flatMap((uno) =>
-    uno.hoy.map((actividad) => ({ modulo: uno.modulo, actividad })),
-  );
-  const hechas = deHoy.filter(({ actividad }) => actividad.hecha).length;
-  const siguiente = deHoy.find(({ actividad }) => !actividad.hecha);
-  const planCompleto = deHoy.length > 0 && hechas === deHoy.length;
+  const ruta = useMemo(() => construirLaRuta(progreso), [progreso]);
+  const { nuevas } = useAvanceCelebrable(ruta.idsHechos);
 
   return (
     <>
@@ -167,31 +164,12 @@ function Dashboard({
           </h1>
         </div>
 
-        <div className="app__caja app__avance">
-          <div className="app__avance-cabecera">
-            <span>Tu actividad de hoy</span>
-            {deHoy.length > 0 && (
-              <span className="app__avance-cifra">{porcentaje(hechas, deHoy.length)}%</span>
-            )}
-          </div>
+        <AvanceDeHoy hechas={ruta.hechas} total={ruta.total} recienHechas={nuevas.size} />
+      </section>
 
-          <div
-            className="app__barra-progreso"
-            role="progressbar"
-            aria-label="Actividades de hoy hechas"
-            aria-valuemin={0}
-            aria-valuemax={deHoy.length}
-            aria-valuenow={hechas}
-          >
-            <div style={{ width: `${porcentaje(hechas, deHoy.length)}%` }} />
-          </div>
-
-          <p className="app__nota">
-            {deHoy.length === 0
-              ? 'Elige un módulo para empezar tu plan de hoy.'
-              : `${hechas} de ${deHoy.length} actividades de hoy. Refleja actividades, no una valoración de tu salud.`}
-          </p>
-        </div>
+      <section id="progreso" className="app__seccion app__ruta-y-recomendado">
+        <RutaDelDia ruta={ruta} nuevas={nuevas} />
+        <Recomendado siguiente={ruta.siguiente} hayPlan={ruta.total > 0} />
       </section>
 
       <section id="programas" className="app__seccion" aria-labelledby="titulo-modulos">
@@ -217,11 +195,6 @@ function Dashboard({
         </div>
       </section>
 
-      <section id="progreso" className="app__seccion app__plan-y-recomendado">
-        <PlanDiario plan={deHoy} />
-        <Recomendado siguiente={siguiente} hayPlan={deHoy.length > 0} />
-      </section>
-
       {celebracion !== null && (
         <Celebracion
           modulo={celebracion.modulo}
@@ -230,7 +203,10 @@ function Dashboard({
         />
       )}
 
-      <MascotaFlotante mascota={cuenta.mascota} celebrar={planCompleto || celebracion !== null} />
+      <MascotaFlotante
+        mascota={cuenta.mascota}
+        celebrar={ruta.planCompleto || celebracion !== null}
+      />
       <Semaforo />
     </>
   );
@@ -339,69 +315,6 @@ function ModuloPorActivar({
           )}
         </ExigeConexion>
       </span>
-    </div>
-  );
-}
-
-function PlanDiario({ plan }: { plan: readonly { modulo: Modulo; actividad: ActividadDeHoy }[] }) {
-  const hechas = plan.filter(({ actividad }) => actividad.hecha).length;
-
-  return (
-    <div className="app__caja app__plan">
-      <div className="app__plan-cabecera">
-        <div>
-          <p className="app__antetitulo">Para hoy</p>
-          <h2 className="app__titulo app__titulo--mediano">Tu plan diario</h2>
-        </div>
-
-        {plan.length > 0 && (
-          <span className="app__contador">
-            {hechas} de {plan.length}
-          </span>
-        )}
-      </div>
-
-      {plan.length === 0 ? (
-        <p className="app__nota">
-          Cuando elijas un módulo, aquí aparecerá lo que te toca cada día.
-        </p>
-      ) : (
-        <ul className="app__actividades">
-          {plan.map(({ modulo, actividad }) => (
-            <li
-              key={actividad.id}
-              className={`fila-actividad${actividad.hecha ? ' fila-actividad--hecha' : ''}`}
-            >
-              <span className="fila-actividad__icono" style={{ background: MODULOS[modulo].fondo }}>
-                <Icono nombre={MODULOS[modulo].icono} />
-              </span>
-
-              <span className="fila-actividad__texto">
-                <span className="fila-actividad__nombre">{actividad.nombre}</span>
-                <span className="fila-actividad__meta">
-                  {actividad.tipo === undefined ? '' : `${actividad.tipo} · `}
-                  {MODULOS[modulo].titulo}
-                </span>
-              </span>
-
-              {actividad.hecha ? (
-                <span className="fila-actividad__estado fila-actividad__estado--hecha">
-                  <Icono nombre="check" tamano={16} />
-                  <span className="solo-lectores">Hecha hoy</span>
-                </span>
-              ) : (
-                <Link
-                  className="fila-actividad__estado"
-                  to={rutaDeActividad(actividad.id)}
-                  aria-label={`Empezar ${actividad.nombre}`}
-                >
-                  <Icono nombre="play" tamano={16} />
-                </Link>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }

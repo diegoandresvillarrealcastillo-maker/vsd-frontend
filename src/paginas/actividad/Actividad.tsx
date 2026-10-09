@@ -9,6 +9,7 @@ import type { ResultadoRegistrado } from '../../infraestructura/api/resultados.t
 import { RUTAS } from '../../rutas/rutas.ts';
 import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
 import { LineasDeAtencion } from './LineasDeAtencion.tsx';
+import { LogroDeLaActividad } from './LogroDeLaActividad.tsx';
 import { mecanicaDe } from './mecanicas/registro.tsx';
 import { textoDelNivel } from './textoDelNivel.ts';
 import { useCompletarActividad, type LoQueProduceLaActividad } from './useCompletarActividad.ts';
@@ -156,6 +157,7 @@ function GuardadaEnEsteEquipo({
 }) {
   return (
     <>
+      <LogroDeLaActividad celebrar={false} />
       <h1>Listo</h1>
 
       <p className="actividad__texto" role="status">
@@ -197,8 +199,13 @@ function Terminada({
   resultado: ResultadoRegistrado;
   alRepetir: () => void;
 }) {
+  // Se celebra con confeti solo si el resultado no pide acompanar: ver LogroDeLaActividad.
+  const celebrar =
+    !resultado.sugiereAcompanamiento && resultado.nivelOrientativo !== 'requiere_atencion';
+
   return (
     <>
+      <LogroDeLaActividad celebrar={celebrar} />
       <h1>Listo</h1>
 
       {resultado.nivelOrientativo === undefined ? (

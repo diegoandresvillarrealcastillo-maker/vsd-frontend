@@ -43,10 +43,16 @@ type Fase =
       readonly motivo: Motivo;
     };
 
-const VEREDICTOS: Readonly<Record<Motivo, string>> = {
-  acierto: '¡Encontrada!',
-  fallo: 'Esa no era. Te marcamos la que cambió.',
-  tiempo: 'Se acabó el tiempo. Te marcamos la que cambió.',
+/** Lo que se dice tras cada ronda. El «casi» acompana: no senala el fallo. */
+const VEREDICTOS: Readonly<
+  Record<Motivo, { readonly texto: string; readonly resultado: 'acierto' | 'casi' }>
+> = {
+  acierto: { texto: '¡Encontrada!', resultado: 'acierto' },
+  fallo: { texto: '¡Casi! Esa no era, pero te marcamos la que cambió.', resultado: 'casi' },
+  tiempo: {
+    texto: 'Se acabó el tiempo, sin problema. Te marcamos la que cambió.',
+    resultado: 'casi',
+  },
 };
 
 function nombreDe(simbolo: number | undefined): string {
@@ -177,6 +183,8 @@ export function EncuentraLaDiferencia({ alTerminar, enviando }: PropsDeMecanica)
   const aciertos = resultados.filter((motivo) => motivo === 'acierto').length;
   const estiloDelTablero = { '--lado': tablero.lado } as CSSProperties;
 
+  const veredicto = fase.tipo === 'revisada' ? VEREDICTOS[fase.motivo] : undefined;
+
   return (
     <div className="juego">
       <p className="juego__marcador">
@@ -251,8 +259,12 @@ export function EncuentraLaDiferencia({ alTerminar, enviando }: PropsDeMecanica)
         </div>
       </div>
 
-      <p className="juego__veredicto" role="status">
-        {fase.tipo === 'revisada' ? VEREDICTOS[fase.motivo] : ''}
+      <p
+        className="juego__veredicto"
+        data-resultado={veredicto === undefined ? undefined : veredicto.resultado}
+        role="status"
+      >
+        {veredicto === undefined ? '' : veredicto.texto}
       </p>
 
       {enviando && (

@@ -340,10 +340,10 @@ describe('Dashboard', () => {
       expect(await screen.findByRole('button', { name: /Añadir Emociones/ })).toBeInTheDocument();
     });
 
-    it('el plan diario lista lo que toca hoy, con lo hecho marcado', async () => {
+    it('la ruta del día lista lo que toca hoy, con lo hecho marcado', async () => {
       pintar();
 
-      await screen.findByRole('heading', { name: 'Tu plan diario' });
+      await screen.findByRole('heading', { name: 'Tu ruta de hoy' });
 
       expect(screen.getByText('Hecha hoy')).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Empezar Cómo dormiste anoche' })).toHaveAttribute(
@@ -420,7 +420,7 @@ describe('Dashboard', () => {
       expect(
         await screen.findByRole('heading', { name: /Te damos la bienvenida/ }),
       ).toBeInTheDocument();
-      expect(screen.queryByRole('heading', { name: 'Tu plan diario' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Tu ruta de hoy' })).not.toBeInTheDocument();
       expect(screen.getAllByRole('checkbox')).toHaveLength(3);
       // Las secciones son del dashboard: aqui no llevarian a ningun sitio.
       expect(screen.queryByRole('navigation', { name: 'Secciones' })).not.toBeInTheDocument();
@@ -529,11 +529,11 @@ describe('Dashboard', () => {
     it('cada modulo activo lleva a su sendero (SCRUM-92)', async () => {
       pintar();
 
-      await screen.findByRole('heading', { name: 'Tu plan diario' });
+      await screen.findByRole('heading', { name: 'Tu ruta de hoy' });
 
       expect(tarjeta(/Cognición/)).toHaveAttribute('href', '/modulo/cognicion');
       expect(tarjeta(/Bienestar/)).toHaveAttribute('href', '/modulo/bienestar');
-      // El plan diario sigue mostrando lo de todos los modulos.
+      // La ruta del día sigue mostrando lo de todos los modulos.
       // Hay mas de una lista en la pantalla (el pie lleva la de los documentos
       // legales), asi que se mira que cada actividad este dentro de alguna.
       const listas = screen.getAllByRole('list');
@@ -547,7 +547,7 @@ describe('Dashboard', () => {
     it('lleva el pie con lo que no es y para quien es, y el camino a los documentos (L-03)', async () => {
       pintar();
 
-      await screen.findByRole('heading', { name: 'Tu plan diario' });
+      await screen.findByRole('heading', { name: 'Tu ruta de hoy' });
 
       const pie = screen.getByRole('contentinfo');
 

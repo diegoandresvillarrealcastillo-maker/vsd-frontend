@@ -198,6 +198,44 @@
 
 /* ---------- Al terminar ---------- */
 
+/* ---------- El logro al terminar (SCRUM-170) ---------- */
+
+.actividad__logro {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  margin: 0 0 20px;
+  text-align: center;
+}
+
+.actividad__insignia {
+  position: relative;
+  display: grid;
+  width: 88px;
+  height: 88px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--acento);
+  color: var(--acento-contraste);
+  box-shadow:
+    0 6px 0 color-mix(in srgb, var(--acento) 58%, #000),
+    0 0 0 10px var(--acento-suave);
+}
+
+/* Sin confeti ni brillo: acompana, no festeja. */
+.actividad__insignia--serena {
+  box-shadow:
+    0 4px 0 color-mix(in srgb, var(--acento) 58%, #000),
+    0 0 0 6px var(--acento-suave);
+}
+
+.actividad__logro-texto {
+  margin: 0;
+  color: var(--texto);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
 /* El nivel se ve, pero sin gritar. Un resultado sobre el propio
    bienestar no necesita un cartel de colores: acompana, no
    califica. De ahi que solo cambie el borde lateral. */
@@ -450,6 +488,32 @@
   margin: 0;
   min-height: 1.5em;
   color: var(--texto);
+}
+
+/* Entra con un pequeno rebote, y el «casi» con otro tono: abraza, no senala. Los dos
+   usan los colores del tema; ninguno es un rojo de error. */
+.juego__veredicto[data-resultado] {
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-weight: 600;
+  animation: veredicto-entra 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.juego__veredicto[data-resultado='acierto'] {
+  background: var(--acento-suave);
+  color: var(--exito);
+}
+
+.juego__veredicto[data-resultado='casi'] {
+  background: var(--fondo-sutil);
+  color: var(--texto);
+}
+
+@keyframes veredicto-entra {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
 }
 
 /* ---------- Encuentra la diferencia ---------- */

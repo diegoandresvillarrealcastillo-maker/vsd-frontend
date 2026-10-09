@@ -1,0 +1,49 @@
+/*
+ * El confeti (SCRUM-170). Lo dibuja `componentes/Confeti.tsx`, que pone en cada pieza los
+ * numeros de su vuelo en variables: hasta donde va de lado (`--dx`), cuanto sube
+ * (`--alto`), donde acaba (`--fin`), cuanto gira (`--giro`), lo que dura y cuando sale.
+ *
+ * Solo anima `transform` y `opacity`: va por la tarjeta grafica y no pide trabajo a
+ * JavaScript. El padre tiene que ser `position: relative`; el chorro sale de su centro.
+ */
+
+.confeti {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  width: 0;
+  height: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.confeti__pieza {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 2px;
+  animation: confeti-vuela var(--dur, 2s) ease-out var(--retraso, 0s) both;
+}
+
+.confeti__pieza--redonda {
+  border-radius: 50%;
+}
+
+@keyframes confeti-vuela {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg) scale(0.6);
+  }
+
+  45% {
+    opacity: 1;
+    transform: translate(calc(var(--dx) * 0.7), var(--alto)) rotate(calc(var(--giro) * 0.45))
+      scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--fin)) rotate(var(--giro)) scale(0.9);
+  }
+}
