@@ -132,6 +132,7 @@ function Tramo({ tramo, nuevas }: { tramo: TramoDeLaRuta; nuevas: ReadonlySet<st
                   desde={x}
                   hasta={desplazamientoDelNodo(siguiente.indice)}
                   hecho={nodo.estado === 'hecha' && siguiente.estado === 'hecha'}
+                  hacia={siguiente.estado === 'siguiente'}
                 />
               )}
 
@@ -144,13 +145,27 @@ function Tramo({ tramo, nuevas }: { tramo: TramoDeLaRuta; nuevas: ReadonlySet<st
   );
 }
 
-/** El trazo entre dos puntos: lleno entre dos hechos, de puntitos en lo que falta. */
-function Hilo({ desde, hasta, hecho }: { desde: number; hasta: number; hecho: boolean }) {
+/**
+ * El trazo entre dos puntos: lleno entre dos hechos, de puntitos en lo que falta. El que lleva
+ * a la actividad que toca ahora (`hacia`) tiene los puntitos en marcha, como una senal de por
+ * donde seguir.
+ */
+function Hilo({
+  desde,
+  hasta,
+  hecho,
+  hacia,
+}: {
+  desde: number;
+  hasta: number;
+  hecho: boolean;
+  hacia: boolean;
+}) {
   const medio = ALTO_DE_FILA / 2;
 
   return (
     <svg
-      className={`ruta__hilo${hecho ? ' ruta__hilo--hecho' : ''}`}
+      className={`ruta__hilo${hecho ? ' ruta__hilo--hecho' : ''}${hacia ? ' ruta__hilo--hacia' : ''}`}
       width="1"
       height={ALTO_DE_FILA}
       viewBox={`0 0 1 ${String(ALTO_DE_FILA)}`}
