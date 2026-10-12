@@ -150,6 +150,26 @@ describe('La pantalla de una actividad', () => {
     expect(container.querySelector('.viva-fondo')).toHaveAttribute('aria-hidden', 'true');
   });
 
+  it('empieza por arriba aunque se llegue desde una pantalla desplazada', async () => {
+    const fijarElDesplazamiento = vi.fn();
+
+    Object.defineProperty(document.documentElement, 'scrollTop', {
+      configurable: true,
+      get: () => 300,
+      set: fijarElDesplazamiento,
+    });
+
+    try {
+      pintar();
+
+      await screen.findByRole('heading', { level: 1, name: 'Cómo dormiste anoche' });
+
+      expect(fijarElDesplazamiento).toHaveBeenCalledWith(0);
+    } finally {
+      Reflect.deleteProperty(document.documentElement, 'scrollTop');
+    }
+  });
+
   it('tiene un solo encabezado de primer nivel y ningun fallo de accesibilidad', async () => {
     const { container } = pintar();
 

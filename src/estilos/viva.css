@@ -15,17 +15,24 @@
    verde. Asi una actividad se ve del mismo mundo que el arbol, en
    los dos temas.
 
-   Lo que cada modulo aporta lo cambia `data-modulo` en `.actividad`:
+   ## El verde de VSD manda; cada modulo pone su nota
 
-   - `--viva-1`      el acento del modulo (`--app-<modulo>-acento`),
-                     el color pleno de botones y de lo elegido.
-   - `--viva-suave`  el fondo del modulo (`--app-<modulo>`): el
-                     mismo que tienen sus tarjetas en el panel.
-   - `--viva-sobre`  el color del texto SOBRE el acento. Es el
+   Lo que se toca y lo que avanza (botones, barra, lo elegido) es
+   siempre el verde de la aplicacion, como en el panel, sea cual
+   sea el modulo. El color del modulo (`data-modulo` en
+   `.actividad`) es solo una nota que lo distingue:
+
+   - `--viva-1`      el verde de la aplicacion (`--app-primario`).
+   - `--viva-modulo` el acento del modulo (`--app-<modulo>-acento`):
+                     la insignia de la cabecera y las formas que
+                     suben por el fondo.
+   - `--viva-suave`  el fondo del modulo (`--app-<modulo>`), que solo
+                     tine un poco el lienzo (`--viva-aire`).
+   - `--viva-sobre`  el color del texto SOBRE el verde. Es el
                      `--app-sobre-primario`: blanco en claro y verde
-                     muy oscuro en oscuro, porque ahi el acento es
+                     muy oscuro en oscuro, porque ahi el verde es
                      claro. Cada par llega a 4,5:1 como minimo.
-   - `--viva-texto`  el acento usado COMO TEXTO sobre el lienzo.
+   - `--viva-texto`  el verde usado COMO TEXTO sobre el lienzo.
 
    El movimiento lo apaga la regla global de `prefers-reduced-motion`
    (que deja las animaciones en su ultimo cuadro), y lo que anima
@@ -50,11 +57,14 @@
   --acento-contraste: var(--app-sobre-primario);
   --exito: var(--app-salvia);
 
-  /* Lo vivo: sin modulo conocido, el verde de la aplicacion. */
+  /* Lo vivo: el verde de la aplicacion, con o sin modulo. */
   --viva-1: var(--app-primario);
-  --viva-suave: var(--app-superficie-alta);
   --viva-texto: var(--app-salvia);
   --viva-sobre: var(--app-sobre-primario);
+
+  /* La nota del modulo; sin modulo conocido, tambien el verde. */
+  --viva-modulo: var(--app-primario);
+  --viva-suave: var(--app-superficie-alta);
 
   --viva-sol: #ffc83d;
   --viva-curva-rebote: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -65,36 +75,38 @@
 }
 
 .actividad[data-modulo='bienestar'] {
-  --viva-1: var(--app-bienestar-acento);
+  --viva-modulo: var(--app-bienestar-acento);
   --viva-suave: var(--app-bienestar);
-  --viva-texto: var(--app-bienestar-acento);
 }
 
 .actividad[data-modulo='cognicion'] {
-  --viva-1: var(--app-cognicion-acento);
+  --viva-modulo: var(--app-cognicion-acento);
   --viva-suave: var(--app-cognicion);
-  --viva-texto: var(--app-cognicion-acento);
 }
 
 .actividad[data-modulo='emociones'] {
-  --viva-1: var(--app-emociones-acento);
+  --viva-modulo: var(--app-emociones-acento);
   --viva-suave: var(--app-emociones);
-  --viva-texto: var(--app-emociones-acento);
 }
 
 /* Lo que se deriva del acento. Va aparte de los bloques de arriba porque se calcula en el mismo
    elemento, con el acento que le toco. */
 .actividad {
   --viva-2: color-mix(in srgb, var(--viva-1) 62%, #fff);
-  --viva-oscuro: color-mix(in srgb, var(--viva-1) 78%, #000);
+  /* En oscuro el texto sobre el verde es oscuro: el final del degradado casi no se oscurece, para
+     que el texto siga leyendose. */
+  --viva-oscuro: color-mix(in srgb, var(--viva-1) 93%, #000);
   --viva-fuerte: color-mix(in srgb, var(--viva-1) 50%, #000);
   --viva-capa: color-mix(in srgb, var(--viva-sobre) 18%, transparent);
+  /* El tinte del modulo sobre el lienzo, a medias: se nota, pero no manda. */
+  --viva-aire: color-mix(in srgb, var(--viva-suave) 50%, var(--app-lienzo));
 }
 
 /* En claro el texto es blanco, y una capa blanca encima le quitaria contraste: ahi la capa oscurece
-   un poco el acento, y el blanco se lee mejor. En oscuro la capa ya es del color del texto, que
-   es oscuro, y oscurece sola. */
+   un poco el acento, y el blanco se lee mejor, y el degradado baja mas hacia el final. En oscuro
+   la capa ya es del color del texto, que es oscuro, y oscurece sola. */
 :root[data-tema='claro'] .actividad {
+  --viva-oscuro: color-mix(in srgb, var(--viva-1) 78%, #000);
   --viva-capa: rgb(0 0 0 / 16%);
 }
 
@@ -108,10 +120,10 @@
   z-index: 0;
   overflow: hidden;
   background:
-    radial-gradient(120% 60% at 50% -10%, var(--viva-suave), transparent 70%),
+    radial-gradient(120% 60% at 50% -10%, var(--viva-aire), transparent 70%),
     radial-gradient(
       100% 45% at 50% 112%,
-      color-mix(in srgb, var(--viva-suave) 70%, transparent),
+      color-mix(in srgb, var(--viva-aire) 70%, transparent),
       transparent 70%
     ),
     var(--fondo);
@@ -125,7 +137,7 @@
   border-radius: 50%;
   background: radial-gradient(
     circle at 50% 50%,
-    color-mix(in srgb, var(--viva-suave) 90%, transparent),
+    color-mix(in srgb, var(--viva-aire) 90%, transparent),
     transparent 68%
   );
   opacity: 0.7;
@@ -176,7 +188,7 @@
   left: var(--x);
   width: var(--tam);
   height: var(--tam);
-  color: var(--viva-1);
+  color: var(--viva-modulo);
   opacity: 0;
   animation: viva-sube var(--dur) linear var(--ret) infinite;
 }
@@ -306,8 +318,10 @@
   height: 54px;
   place-items: center;
   border-radius: 18px;
-  background: var(--viva-capa);
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--viva-sobre) 32%, transparent);
+  background: var(--viva-modulo);
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--viva-sobre) 32%, transparent),
+    0 3px 0 rgb(0 0 0 / 22%);
   animation: viva-flota 3.4s ease-in-out infinite;
 }
 
@@ -603,7 +617,7 @@
    un «casi» se queda tranquilo. Ninguno es un rojo de error. */
 .viva-voz__globo[data-resultado='acierto'] {
   border-color: var(--viva-1);
-  background: var(--viva-suave);
+  background: color-mix(in srgb, var(--viva-1) 14%, var(--fondo-elevado));
   box-shadow: 0 4px 0 var(--viva-1);
 }
 

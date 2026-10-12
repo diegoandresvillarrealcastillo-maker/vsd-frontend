@@ -43,18 +43,32 @@ describe('La paleta de las actividades', () => {
     ['bienestar', '--app-bienestar-acento', '--app-bienestar'],
     ['cognicion', '--app-cognicion-acento', '--app-cognicion'],
     ['emociones', '--app-emociones-acento', '--app-emociones'],
-  ])('%s toma su acento y su fondo del panel', (modulo, acento, fondo) => {
+  ])('%s pone su nota con el acento y el fondo del panel', (modulo, acento, fondo) => {
     const bloque = new RegExp(
       String.raw`\.actividad\[data-modulo='${modulo}'\]\s*\{([^}]*)\}`,
       'm',
     ).exec(VIVA)?.[1];
 
     expect(bloque).toBeDefined();
-    expect(bloque).toContain(`--viva-1: var(${acento})`);
+    expect(bloque).toContain(`--viva-modulo: var(${acento})`);
     expect(bloque).toContain(`--viva-suave: var(${fondo})`);
   });
 
-  it('el texto sobre el acento es el del panel: blanco en claro y oscuro en oscuro', () => {
+  it('el verde de la aplicacion manda en todos los modulos: ninguno lo cambia', () => {
+    // Lo que se toca y lo que avanza es verde, como en el panel; el modulo solo pone su nota.
+    expect(VIVA).toMatch(/\.actividad\s*\{[^}]*--viva-1:\s*var\(--app-primario\)/);
+
+    for (const modulo of ['bienestar', 'cognicion', 'emociones']) {
+      const bloque = new RegExp(
+        String.raw`\.actividad\[data-modulo='${modulo}'\]\s*\{([^}]*)\}`,
+        'm',
+      ).exec(VIVA)?.[1];
+
+      expect(bloque).not.toMatch(/--viva-1:|--viva-texto:|--viva-sobre:/);
+    }
+  });
+
+  it('el texto sobre el verde es el del panel: blanco en claro y oscuro en oscuro', () => {
     expect(VIVA).toMatch(/--viva-sobre:\s*var\(--app-sobre-primario\)/);
   });
 

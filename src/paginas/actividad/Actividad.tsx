@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { AvisoOrientativo } from '../../componentes/AvisoOrientativo.tsx';
@@ -31,6 +32,12 @@ import { ProveedorDeLaMascota } from './viva/ProveedorDeLaMascota.tsx';
 export function Actividad() {
   const { id } = useParams<{ id: string }>();
   const { estado, completar, reintentar, empezarDeNuevo } = useCompletarActividad(id);
+
+  // Se llega desde el panel, que casi siempre esta desplazado hacia abajo: la actividad empieza
+  // por su cabecera y no a media pantalla.
+  useEffect(() => {
+    document.documentElement.scrollTop = 0;
+  }, [id]);
 
   // El color de la pantalla lo da el modulo de la actividad. Mientras no se sabe cual es, o si
   // la categoria no es de ningun modulo, se ve con el color neutro de la aplicacion.
