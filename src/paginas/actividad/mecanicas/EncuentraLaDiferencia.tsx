@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 
+import '../../../estilos/juegos.css';
 import { Icono } from '../../panel/Icono.tsx';
+import { BarraDeAccion, BotonPrincipal } from '../viva/BarraDeAccion.tsx';
+import { BarraDeProgreso } from '../viva/BarraDeProgreso.tsx';
+import { Chispas } from '../viva/Chispas.tsx';
+import { ACIERTO, ANIMO_TRAS_CASI, EN_EL_JUEGO, elegir } from '../viva/mensajes.ts';
+import { PasosDeInicio } from '../viva/PasosDeInicio.tsx';
+import { useMascotaDeLaPersona } from '../viva/mascotaDeLaPersona.ts';
+import { VozDeLaMascota } from '../viva/VozDeLaMascota.tsx';
+import { estiloDelSimbolo } from './coloresDeSimbolos.ts';
 import {
   generarTablero,
   ladoDeLaRonda,
@@ -25,6 +34,14 @@ import type { PropsDeMecanica } from './registro.tsx';
  * Las casillas del segundo tablero son botones, asi que se juega con teclado,
  * y cada una dice que simbolo tiene: un lector de pantalla puede comparar los
  * dos tableros casilla a casilla.
+ *
+ * ## Como se ve (SCRUM-173)
+ *
+ * Cada simbolo tiene su color, una barra se vacia con el tiempo de la ronda y la mascota
+ * acompana: dice que hacer, celebra el acierto y, ante un «casi», anima sin senalar. La que
+ * cambio se ilumina con el color del modulo; la tocada por error se rodea de ambar, no de rojo.
+ * El texto de cada veredicto es el de siempre y vive en el globo de la mascota, que es la zona
+ * que anuncian los lectores de pantalla.
  */
 
 /** Cuanto se ve la solucion antes de pasar a la siguiente ronda. */
@@ -60,6 +77,7 @@ function nombreDe(simbolo: number | undefined): string {
 }
 
 export function EncuentraLaDiferencia({ alTerminar, enviando }: PropsDeMecanica) {
+  const mascota = useMascotaDeLaPersona();
   const [fase, setFase] = useState<Fase>({ tipo: 'inicio' });
   const [resultados, setResultados] = useState<readonly Motivo[]>([]);
   const [restantes, setRestantes] = useState(SEGUNDOS_POR_RONDA);
@@ -160,21 +178,32 @@ export function EncuentraLaDiferencia({ alTerminar, enviando }: PropsDeMecanica)
   if (fase.tipo === 'inicio') {
     return (
       <div className="juego">
+        <VozDeLaMascota mascota={mascota} mensaje={elegir(EN_EL_JUEGO, 0)} expresion="feliz" />
+
+        <PasosDeInicio
+          pasos={[
+            'Mira el tablero «Antes».',
+            'En «Ahora» cambió una casilla.',
+            'Tócala antes de que se acabe el tiempo.',
+          ]}
+        />
+
         <p className="actividad__texto">
           Verás dos tableros casi iguales. En el segundo cambió una casilla: tócala antes de que se
           acabe el tiempo. Son {RONDAS} rondas de {SEGUNDOS_POR_RONDA} segundos, y el tablero crece
           cada cinco.
         </p>
-        <button
-          type="button"
-          className="pildora"
-          onClick={() => {
-            inicio.current = marcaDeTiempo();
-            empezarRonda(1);
-          }}
-        >
-          Empezar
-        </button>
+
+        <BarraDeAccion>
+          <BotonPrincipal
+            alPulsar={() => {
+              inicio.current = marcaDeTiempo();
+              empezarRonda(1);
+            }}
+          >
+            Empezar
+          </BotonPrincipal>
+        </BarraDeAccion>
       </div>
     );
   }
@@ -187,13 +216,43 @@ export function EncuentraLaDiferencia({ alTerminar, enviando }: PropsDeMecanica)
 
   return (
     <div className="juego">
-      <p className="juego__marcador">
-        <span>
-          Ronda {ronda} de {RONDAS}
-        </span>
-        <span>Aciertos: {aciertos}</span>
-        <span>Quedan {fase.tipo === 'jugando' ? restantes : 0} s</span>
+      <BarraDeProgreso
+        paso={ronda}
+        total={RONDAS}
+        hechos={resultados.length}
+        estrellas={aciertos}
+        etiqueta="Ronda"
+      />
+
+      <p className="solo-lectores">
+        Ronda {ronda} de {RONDAS}. Aciertos: {aciertos}.
       </p>
+
+      <VozDeLaMascota
+        mascota={mascota}
+        mensaje={veredicto === undefined ? 'Busca la casilla que cambió.' : veredicto.texto}
+        {...(veredicto === undefined
+          ? {}
+          : {
+              ademas:
+                veredicto.resultado === 'acierto'
+                  ? elegir(ACIERTO, resultados.length)
+                  : elegir(ANIMO_TRAS_CASI, resultados.length),
+              resultado: veredicto.resultado,
+            })}
+        expresion={veredicto?.resultado === 'acierto' ? 'celebrando' : 'normal'}
+        latido={veredicto === undefined ? 0 : resultados.length}
+      />
+
+      <div className="juego__reloj">
+        <p className="juego__marcador">Quedan {fase.tipo === 'jugando' ? restantes : 0} s</p>
+
+        {fase.tipo === 'jugando' && (
+          <div className="juego__tiempo" aria-hidden="true">
+            <span key={ronda} style={{ animationDuration: `${String(SEGUNDOS_POR_RONDA)}s` }} />
+          </div>
+        )}
+      </div>
 
       <p className="juego__indicacion">Toca en «Ahora» la casilla que cambió.</p>
 
@@ -208,20 +267,25 @@ export function EncuentraLaDiferencia({ alTerminar, enviando }: PropsDeMecanica)
             role="list"
             aria-labelledby="tablero-antes"
           >
-            {tablero.antes.map((simbolo, indice) => (
-              <span
-                key={indice}
-                role="listitem"
-                className="juego__casilla"
-                aria-label={`Casilla ${indice + 1}: ${nombreDe(simbolo)}`}
-              >
-                <Icono nombre={SIMBOLOS[simbolo]?.icono ?? 'leaf'} tamano={22} />
-              </span>
-            ))}
+            {tablero.antes.map((simbolo, indice) => {
+              const icono = SIMBOLOS[simbolo]?.icono ?? 'leaf';
+
+              return (
+                <span
+                  key={indice}
+                  role="listitem"
+                  className="juego__casilla juego__simbolo"
+                  style={estiloDelSimbolo(icono)}
+                  aria-label={`Casilla ${indice + 1}: ${nombreDe(simbolo)}`}
+                >
+                  <Icono nombre={icono} tamano={22} />
+                </span>
+              );
+            })}
           </div>
         </div>
 
-        <div className="juego__tablero-caja">
+        <div className="juego__tablero-caja juego__tablero-caja--ahora">
           <p className="juego__tablero-titulo" id="tablero-ahora">
             Ahora
           </p>
@@ -233,9 +297,11 @@ export function EncuentraLaDiferencia({ alTerminar, enviando }: PropsDeMecanica)
             aria-labelledby="tablero-ahora"
           >
             {tablero.ahora.map((simbolo, indice) => {
+              const icono = SIMBOLOS[simbolo]?.icono ?? 'leaf';
+              const esElCambio = fase.tipo === 'revisada' && indice === tablero.cambio;
               const marcada =
                 fase.tipo === 'revisada'
-                  ? indice === tablero.cambio
+                  ? esElCambio
                     ? ' juego__casilla--cambio'
                     : indice === fase.elegida
                       ? ' juego__casilla--equivocada'
@@ -246,26 +312,20 @@ export function EncuentraLaDiferencia({ alTerminar, enviando }: PropsDeMecanica)
                 <button
                   key={indice}
                   type="button"
-                  className={`juego__casilla juego__casilla--boton${marcada}`}
+                  className={`juego__casilla juego__casilla--boton juego__simbolo${marcada}`}
+                  style={estiloDelSimbolo(icono)}
                   aria-label={`Casilla ${indice + 1}: ${nombreDe(simbolo)}`}
                   disabled={fase.tipo !== 'jugando'}
                   onClick={() => cerrarRonda(indice)}
                 >
-                  <Icono nombre={SIMBOLOS[simbolo]?.icono ?? 'leaf'} tamano={22} />
+                  <Icono nombre={icono} tamano={22} />
+                  {esElCambio && <Chispas alcance={0.6} />}
                 </button>
               );
             })}
           </div>
         </div>
       </div>
-
-      <p
-        className="juego__veredicto"
-        data-resultado={veredicto === undefined ? undefined : veredicto.resultado}
-        role="status"
-      >
-        {veredicto === undefined ? '' : veredicto.texto}
-      </p>
 
       {enviando && (
         <p className="actividad__cargando" role="status">
