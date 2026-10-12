@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 
 import '../../../estilos/viva.css';
 import { vibrar } from './haptico.ts';
@@ -29,6 +29,8 @@ export function Contador({
   unidad?: string;
 }) {
   const id = useId();
+  // Sube con cada toque a un boton; el numero se vuelve a montar y da su saltito.
+  const [pulso, setPulso] = useState(0);
 
   function mover(delta: number) {
     const siguiente = Math.round((valor + delta) * 100) / 100;
@@ -38,6 +40,7 @@ export function Contador({
     }
 
     vibrar(8);
+    setPulso((antes) => antes + 1);
     alCambiar(siguiente);
   }
 
@@ -58,7 +61,11 @@ export function Contador({
           <span aria-hidden="true">−</span>
         </button>
 
-        <div className="viva-contador__valor">
+        <div
+          key={pulso}
+          className="viva-contador__valor"
+          {...(pulso > 0 ? { 'data-pulso': '' } : {})}
+        >
           <input
             id={id}
             className="viva-contador__campo"

@@ -25,6 +25,7 @@ export function HeroeDeLaActividad({
 }) {
   return (
     <section className="viva-heroe">
+      <span className="viva-heroe__brillo" aria-hidden="true" />
       <span className="viva-heroe__insignia" aria-hidden="true">
         <Icono nombre={modulo === undefined ? 'sparkles' : MODULOS[modulo].icono} tamano={34} />
       </span>

@@ -1,4 +1,5 @@
 import { motion, useReducedMotion } from 'framer-motion';
+import type { CSSProperties } from 'react';
 
 import { Confeti } from '../../componentes/Confeti.tsx';
 import { Icono } from '../panel/Icono.tsx';
@@ -6,6 +7,17 @@ import { useImagenDeLaMascota } from './viva/useImagenDeLaMascota.ts';
 import { useMascotaDeLaPersona } from './viva/mascotaDeLaPersona.ts';
 
 import '../../estilos/viva.css';
+
+/** De donde suben las estrellitas de la tarjeta, y a que ritmo. Una tabla fija, no azar. */
+const ESTRELLAS = [
+  { x: '8%', tam: 14, dur: 3.4, ret: 0.4 },
+  { x: '22%', tam: 10, dur: 4.2, ret: 1.6 },
+  { x: '36%', tam: 16, dur: 3.8, ret: 0.9 },
+  { x: '52%', tam: 11, dur: 4.6, ret: 2.2 },
+  { x: '66%', tam: 15, dur: 3.6, ret: 0.2 },
+  { x: '80%', tam: 12, dur: 4.0, ret: 1.2 },
+  { x: '92%', tam: 10, dur: 4.4, ret: 2.6 },
+] as const;
 
 /**
  * El gesto de logro al terminar una actividad (SCRUM-170, rehecho en SCRUM-173): una tarjeta
@@ -38,6 +50,23 @@ export function LogroDeLaActividad({
   return (
     <section className={`viva-logro${celebrar ? '' : ' viva-logro--serena'}`}>
       <span className="viva-logro__rayos" aria-hidden="true" />
+
+      {celebrar &&
+        ESTRELLAS.map(({ x, tam, dur, ret }) => (
+          <span
+            key={x}
+            className="viva-logro__estrella"
+            aria-hidden="true"
+            style={
+              {
+                '--x': x,
+                '--tam': `${String(tam)}px`,
+                '--dur': `${String(dur)}s`,
+                '--ret': `${String(ret)}s`,
+              } as CSSProperties
+            }
+          />
+        ))}
 
       <div className="viva-logro__escena">
         <motion.span

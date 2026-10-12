@@ -196,6 +196,7 @@ export function EncuentraLaDiferencia({ alTerminar, enviando }: PropsDeMecanica)
 
         <BarraDeAccion>
           <BotonPrincipal
+            conFlecha
             alPulsar={() => {
               inicio.current = marcaDeTiempo();
               empezarRonda(1);
@@ -249,7 +250,10 @@ export function EncuentraLaDiferencia({ alTerminar, enviando }: PropsDeMecanica)
 
         {fase.tipo === 'jugando' && (
           <div className="juego__tiempo" aria-hidden="true">
-            <span key={ronda} style={{ animationDuration: `${String(SEGUNDOS_POR_RONDA)}s` }} />
+            <span
+              key={ronda}
+              style={{ '--duracion': `${String(SEGUNDOS_POR_RONDA)}s` } as CSSProperties}
+            />
           </div>
         )}
       </div>

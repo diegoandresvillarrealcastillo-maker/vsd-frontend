@@ -85,6 +85,7 @@ export function MovimientoDelDia({ alTerminar, enviando }: PropsDeMecanica) {
   }
 
   function volver() {
+    setLatido((antes) => antes + 1);
     setDireccion(-1);
     setPaso((antes) => Math.max(0, antes - 1));
   }
@@ -97,6 +98,7 @@ export function MovimientoDelDia({ alTerminar, enviando }: PropsDeMecanica) {
     }
 
     if (!esElUltimo) {
+      setLatido((antes) => antes + 1);
       setDireccion(1);
       setPaso((antes) => antes + 1);
       return;
@@ -217,7 +219,11 @@ export function MovimientoDelDia({ alTerminar, enviando }: PropsDeMecanica) {
       <BarraDeAccion>
         {paso > 0 && <BotonSecundario alPulsar={volver}>Atrás</BotonSecundario>}
 
-        <BotonPrincipal tipo="submit" deshabilitado={!puedeSeguir || enviando}>
+        <BotonPrincipal
+          tipo="submit"
+          conFlecha={!esElUltimo}
+          deshabilitado={!puedeSeguir || enviando}
+        >
           {enviando ? 'Guardando…' : esElUltimo ? 'Terminar' : 'Continuar'}
         </BotonPrincipal>
       </BarraDeAccion>

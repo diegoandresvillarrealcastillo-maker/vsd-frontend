@@ -108,6 +108,7 @@ export function Cuestionario({
   }
 
   function volver() {
+    setLatido((antes) => antes + 1);
     setDireccion(-1);
     setPaso((antes) => Math.max(0, antes - 1));
   }
@@ -120,6 +121,7 @@ export function Cuestionario({
     }
 
     if (!esLaUltima) {
+      setLatido((antes) => antes + 1);
       setDireccion(1);
       setPaso((antes) => antes + 1);
       return;
@@ -189,6 +191,7 @@ export function Cuestionario({
 
         <BotonPrincipal
           tipo="submit"
+          conFlecha={!esLaUltima}
           deshabilitado={elegida === undefined || enviando}
           {...(elegida === undefined ? { descritoPor: 'viva-pista' } : {})}
         >

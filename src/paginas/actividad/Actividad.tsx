@@ -45,7 +45,7 @@ export function Actividad() {
         className="actividad actividad--viva"
         {...(modulo === undefined ? {} : { 'data-modulo': modulo })}
       >
-        <FondoVivo />
+        <FondoVivo modulo={modulo} />
 
         <header className="actividad__barra">
           <div className="actividad__marca">

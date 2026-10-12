@@ -21,6 +21,7 @@ export function BotonPrincipal({
   deshabilitado = false,
   descritoPor,
   referencia,
+  conFlecha = false,
 }: {
   children: ReactNode;
   tipo?: 'button' | 'submit';
@@ -30,6 +31,8 @@ export function BotonPrincipal({
   descritoPor?: string;
   /** Para llevarle el foco cuando el paso lo pide. */
   referencia?: Ref<HTMLButtonElement>;
+  /** Una flecha que empuja hacia la derecha: invita a seguir. Es adorno. */
+  conFlecha?: boolean;
 }) {
   return (
     <button
@@ -41,6 +44,25 @@ export function BotonPrincipal({
       {...(alPulsar === undefined ? {} : { onClick: alPulsar })}
     >
       {children}
+      {conFlecha && (
+        <svg
+          className="viva-boton__flecha"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path
+            d="M5 12h14m-6-6 6 6-6 6"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      )}
     </button>
   );
 }

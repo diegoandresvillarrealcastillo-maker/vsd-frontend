@@ -200,7 +200,9 @@ export function SecuenciaDeNumeros({ alTerminar, enviando }: PropsDeMecanica) {
         </p>
 
         <BarraDeAccion>
-          <BotonPrincipal alPulsar={empezar}>Empezar</BotonPrincipal>
+          <BotonPrincipal alPulsar={empezar} conFlecha>
+            Empezar
+          </BotonPrincipal>
         </BarraDeAccion>
       </div>
     );
@@ -256,7 +258,11 @@ export function SecuenciaDeNumeros({ alTerminar, enviando }: PropsDeMecanica) {
           <Fichas digitos={fase.secuencia} />
           <div className="juego__tiempo" aria-hidden="true">
             <span
-              style={{ animationDuration: `${String(tiempoAlaVista(fase.secuencia.length))}ms` }}
+              style={
+                {
+                  '--duracion': `${String(tiempoAlaVista(fase.secuencia.length))}ms`,
+                } as CSSProperties
+              }
             />
           </div>
         </div>
@@ -283,19 +289,26 @@ export function SecuenciaDeNumeros({ alTerminar, enviando }: PropsDeMecanica) {
           </div>
 
           <BarraDeAccion>
-            <BotonPrincipal tipo="submit">Comprobar</BotonPrincipal>
+            <BotonPrincipal tipo="submit" conFlecha>
+              Comprobar
+            </BotonPrincipal>
           </BarraDeAccion>
         </form>
       )}
 
       {fase.tipo === 'revisada' && (
         <>
-          <div className="juego__pizarra">
+          <div className={`juego__pizarra juego__pizarra--${fase.acerto ? 'acierto' : 'casi'}`}>
             <Fichas digitos={fase.secuencia} />
           </div>
 
           <BarraDeAccion>
-            <BotonPrincipal referencia={siguiente} alPulsar={seguir} deshabilitado={enviando}>
+            <BotonPrincipal
+              referencia={siguiente}
+              alPulsar={seguir}
+              deshabilitado={enviando}
+              conFlecha={rondas.length < RONDAS}
+            >
               {rondas.length < RONDAS ? 'Siguiente ronda' : enviando ? 'Guardando…' : 'Terminar'}
             </BotonPrincipal>
           </BarraDeAccion>

@@ -198,6 +198,7 @@ export function ParejasDeCartas({ alTerminar, enviando }: PropsDeMecanica) {
               </span>
 
               {encontrada && <Chispas alcance={0.8} />}
+              {encontrada && <span className="juego__mas" aria-hidden="true" />}
             </button>
           );
         })}
