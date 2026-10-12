@@ -4,13 +4,13 @@
    Cartas que se voltean en 3D, digitos que aparecen uno a uno,
    tableros de colores y una barra de tiempo que se va vaciando.
    Usan el mismo kit que el resto de las actividades (`viva.css`):
-   la paleta del modulo, la mascota, la barra de avance y el boton
-   de abajo.
+   la paleta de la aplicacion, la mascota, la barra de avance y el
+   boton de abajo.
 
-   Cada simbolo trae su color en `--simbolo`. De noche se aclara el
-   trazo y se oscurece el fondo de la casilla, para que se lean
-   igual. Ninguno de los colores es un rojo de error: un «casi» no
-   se pinta como un fallo.
+   Cada simbolo trae su color en `--simbolo`, y ese color sale de
+   la paleta de la aplicacion (ver `coloresDeSimbolos.ts`): cambia
+   solo entre el tema claro y el oscuro. Ninguno es un rojo de
+   error: un «casi» no se pinta como un fallo.
    ============================================================ */
 
 .juego {
@@ -24,7 +24,7 @@
   color: var(--texto-tenue);
   font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight: 600;
   text-align: center;
 }
 
@@ -32,13 +32,8 @@
 .juego__simbolo {
   --tono: var(--simbolo, var(--viva-1));
 
-  background: color-mix(in srgb, var(--tono) 13%, #fff);
+  background: color-mix(in srgb, var(--tono) 14%, var(--fondo-elevado));
   color: var(--tono);
-}
-
-:root[data-tema='oscuro'] .juego__simbolo {
-  background: color-mix(in srgb, var(--tono) 26%, var(--fondo-elevado));
-  color: color-mix(in srgb, var(--tono) 42%, #fff);
 }
 
 /* ---------- Parejas de cartas ---------- */
@@ -100,20 +95,30 @@
   backface-visibility: hidden;
 }
 
-/* Boca abajo: el color pleno del modulo, con puntitos de luz. */
+/* Boca abajo: el color del modulo, con puntitos de luz y un reflejo que recorre la mesa, de carta
+   en carta. */
 .juego__carta-cara--atras {
+  overflow: hidden;
   background:
-    radial-gradient(circle at 20% 18%, rgb(255 255 255 / 28%) 0 3px, transparent 4px),
-    radial-gradient(circle at 78% 72%, rgb(255 255 255 / 22%) 0 4px, transparent 5px),
-    radial-gradient(circle at 70% 24%, rgb(255 255 255 / 18%) 0 2px, transparent 3px),
-    linear-gradient(160deg, var(--viva-1), var(--viva-fuerte));
-  box-shadow: 0 5px 0 color-mix(in srgb, var(--viva-fuerte) 80%, #000);
-  color: rgb(255 255 255 / 80%);
+    radial-gradient(circle at 20% 18%, rgb(255 255 255 / 26%) 0 3px, transparent 4px),
+    radial-gradient(circle at 78% 72%, rgb(255 255 255 / 20%) 0 4px, transparent 5px),
+    radial-gradient(circle at 70% 24%, rgb(255 255 255 / 16%) 0 2px, transparent 3px),
+    linear-gradient(160deg, var(--viva-1), var(--viva-oscuro));
+  box-shadow: 0 5px 0 var(--viva-fuerte);
+  color: var(--viva-sobre);
+}
+
+.juego__carta-cara--atras::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 38%, rgb(255 255 255 / 34%) 50%, transparent 62%);
+  content: '';
+  animation: viva-brillo 6s ease-in-out calc(var(--i, 0) * 160ms) infinite;
 }
 
 /* Boca arriba: el simbolo, en grande y con su color. */
 .juego__carta-cara--frente {
-  border: 2px solid color-mix(in srgb, var(--tono) 40%, #fff);
+  border: 2px solid color-mix(in srgb, var(--tono) 45%, var(--fondo-elevado));
   box-shadow: 0 5px 0 color-mix(in srgb, var(--tono) 35%, var(--borde));
   transform: rotateY(180deg);
 }
@@ -162,13 +167,46 @@
   place-items: center;
   border-radius: 50%;
   background: var(--tono);
-  color: #fff;
   box-shadow: 0 2px 0 rgb(0 0 0 / 20%);
+  color: var(--fondo-elevado);
 }
 
-:root[data-tema='oscuro'] .juego__carta-ok {
-  background: color-mix(in srgb, var(--tono) 45%, #fff);
-  color: #10221e;
+/* Un «+1» que sube desde la pareja y se desvanece, como en un juego. */
+.juego__mas {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 2;
+  padding: 2px 9px;
+  border-radius: var(--radio-pildora);
+  background: var(--viva-sol);
+  color: #3b2a00;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  opacity: 0;
+  animation: juego-mas 1.1s ease-out 0.25s forwards;
+  pointer-events: none;
+}
+
+.juego__mas::before {
+  content: '+1 ★';
+}
+
+@keyframes juego-mas {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.6);
+  }
+
+  25% {
+    opacity: 1;
+    transform: translate(-50%, -8px) scale(1.1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -46px) scale(1);
+  }
 }
 
 /* ---------- Secuencia de numeros ---------- */
@@ -188,7 +226,7 @@
   margin: 0;
   color: var(--viva-texto);
   font-size: 0.8125rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -200,21 +238,34 @@
   justify-content: center;
 }
 
-/* Cada digito es una ficha que aparece con su retraso: se leen en orden, uno a uno. */
+/* Cada digito es una ficha que aparece con su retraso: se leen en orden, uno a uno. Mientras se
+   memoriza, flotan un poco, cada una a su ritmo. */
 .juego__digito {
   display: grid;
   width: 52px;
   height: 66px;
   place-items: center;
   border-radius: 16px;
-  background: linear-gradient(160deg, var(--viva-1), var(--viva-fuerte));
-  box-shadow: 0 5px 0 color-mix(in srgb, var(--viva-fuerte) 80%, #000);
-  color: #fff;
+  background: linear-gradient(160deg, var(--viva-1), var(--viva-oscuro));
+  box-shadow: 0 5px 0 var(--viva-fuerte);
+  color: var(--viva-sobre);
   font-size: 2.125rem;
   font-variant-numeric: tabular-nums;
-  font-weight: 800;
-  animation: viva-reparte 0.45s var(--viva-curva-rebote) both;
-  animation-delay: calc(var(--i, 0) * 110ms);
+  font-weight: 700;
+  animation:
+    viva-reparte 0.45s var(--viva-curva-rebote) calc(var(--i, 0) * 110ms) both,
+    juego-bamboleo 2.6s ease-in-out calc(var(--i, 0) * 110ms + 0.7s) infinite;
+}
+
+@keyframes juego-bamboleo {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-5px) rotate(2deg);
+  }
 }
 
 /* El numero se dibuja desde `data-d` y no como texto: asi la ficha es puro adorno y el unico texto
@@ -237,22 +288,72 @@
   animation: viva-pop 0.3s var(--viva-curva-rebote);
 }
 
-/* La barra de tiempo que se vacia: la secuencia se va a ocultar, y se ve cuando. */
+/* Tras la ronda las fichas reaccionan: si se acerto, una ola de saltitos; si no, un balanceo suave,
+   sin sacudidas ni rojo. */
+.juego__pizarra--acierto .juego__digito {
+  animation: juego-ola 0.7s var(--viva-curva-rebote) calc(var(--i, 0) * 80ms) both;
+}
+
+.juego__pizarra--casi .juego__digito {
+  animation: juego-balanceo 1s ease-in-out calc(var(--i, 0) * 60ms) both;
+}
+
+@keyframes juego-ola {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+
+  40% {
+    transform: translateY(-16px) scale(1.12) rotate(-4deg);
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes juego-balanceo {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  30% {
+    transform: rotate(-5deg);
+  }
+
+  70% {
+    transform: rotate(5deg);
+  }
+}
+
+/* La barra de tiempo que se vacia: la secuencia se va a ocultar, y se ve cuando. En el ultimo
+   tramo se tine de ambar, sin rojo, para avisar sin asustar. */
 .juego__tiempo {
   width: 100%;
   height: 10px;
   overflow: hidden;
   border-radius: var(--radio-pildora);
-  background: color-mix(in srgb, var(--viva-1) 14%, var(--fondo-sutil));
+  background: color-mix(in srgb, var(--viva-1) 16%, var(--fondo-sutil));
 }
 
 .juego__tiempo > span {
+  position: relative;
   display: block;
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--viva-2), var(--viva-1));
-  animation: juego-tiempo linear forwards;
+  animation: juego-tiempo var(--duracion, 15s) linear forwards;
   transform-origin: left center;
+}
+
+.juego__tiempo > span::after {
+  position: absolute;
+  inset: 0;
+  background: var(--viva-sol);
+  content: '';
+  opacity: 0;
+  animation: juego-ambar var(--duracion, 15s) linear forwards;
 }
 
 @keyframes juego-tiempo {
@@ -265,10 +366,22 @@
   }
 }
 
+@keyframes juego-ambar {
+  0%,
+  70% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
 /* Sin movimiento la barra no se vacia (si no, aparecería vacia de entrada): queda llena y
    el contador de segundos dice lo que queda. */
 @media (prefers-reduced-motion: reduce) {
-  .juego__tiempo > span {
+  .juego__tiempo > span,
+  .juego__tiempo > span::after {
     animation: none;
   }
 }
@@ -284,13 +397,14 @@
   font: inherit;
   font-size: 1.75rem;
   font-variant-numeric: tabular-nums;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.3em;
   text-align: center;
 }
 
 .juego__entrada:focus-visible {
   border-color: var(--viva-1);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--viva-1) 22%, transparent);
   outline: 3px solid var(--viva-texto);
   outline-offset: 2px;
 }
@@ -313,7 +427,7 @@
   margin: 0;
   color: var(--texto);
   font-size: 0.9375rem;
-  font-weight: 600;
+  font-weight: 500;
   text-align: center;
 }
 
@@ -323,18 +437,20 @@
   border-radius: 22px;
   background: var(--fondo-elevado);
   box-shadow: 0 5px 0 var(--borde);
+  animation: viva-reparte 0.5s var(--viva-curva-rebote) both;
 }
 
 .juego__tablero-caja--ahora {
-  border-color: var(--viva-2);
+  border-color: var(--viva-1);
   box-shadow: 0 5px 0 color-mix(in srgb, var(--viva-1) 45%, var(--borde));
+  animation-delay: 90ms;
 }
 
 .juego__tablero-titulo {
   margin: 0 0 8px;
   color: var(--viva-texto);
   font-size: 0.75rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-align: center;
   text-transform: uppercase;
@@ -373,7 +489,7 @@
 
 @media (hover: hover) {
   .juego__casilla--boton:hover:not(:disabled) {
-    box-shadow: 0 0 0 2px var(--viva-2);
+    box-shadow: 0 0 0 2px var(--viva-1);
     transform: scale(1.08);
   }
 }
@@ -391,13 +507,24 @@
   outline-offset: 2px;
 }
 
-/* La que cambio: se ilumina con el color del modulo. */
+/* La que cambio: se ilumina con el color del modulo y suelta dos aros. */
 .juego__casilla--cambio {
   z-index: 1;
   box-shadow:
     0 0 0 3px var(--viva-1),
-    0 0 16px var(--viva-2);
+    0 0 16px var(--viva-1);
   animation: viva-pop 0.55s var(--viva-curva-rebote);
+}
+
+.juego__casilla--cambio::after {
+  position: absolute;
+  inset: -3px;
+  border: 3px solid var(--viva-1);
+  border-radius: 12px;
+  content: '';
+  opacity: 0;
+  animation: viva-onda 0.9s ease-out 0.15s 2 backwards;
+  pointer-events: none;
 }
 
 /* La que se toco sin ser: un aro ambar y un temblor corto. Ni rojo ni cruz: es un «casi». */

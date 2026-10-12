@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { AvisoOrientativo } from '../../componentes/AvisoOrientativo.tsx';
 import { MarcaDeLaApp } from '../../componentes/MarcaDeLaApp.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
+import '../../estilos/aplicacion.css';
 import '../../estilos/actividad.css';
 import '../../estilos/viva.css';
 import type { ActividadConSuCategoria } from '../../infraestructura/api/catalogo.ts';
