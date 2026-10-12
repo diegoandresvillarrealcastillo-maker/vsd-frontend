@@ -1,0 +1,1837 @@
+/* ============================================================
+   Actividades vivas (SCRUM-173)
+   ============================================================
+   Lo que comparten las actividades para que sean faciles y
+   agradables de hacer: una pregunta a la vez, opciones grandes
+   para el pulgar, un boton que siempre esta en el mismo sitio,
+   una barra que dice cuanto falta, una mascota que acompana y
+   movimiento por todas partes.
+
+   ## La paleta es la de la aplicacion
+
+   Nada de aqui inventa colores. Los tokens `--app-*` del panel
+   (aplicacion.css) llegan tambien a `.actividad`, y cambian solos
+   entre el tema oscuro del diseno de Figma y el claro, crema y
+   verde. Asi una actividad se ve del mismo mundo que el arbol, en
+   los dos temas.
+
+   ## El verde de VSD manda; cada modulo pone su nota
+
+   Lo que se toca y lo que avanza (botones, barra, lo elegido) es
+   siempre el verde de la aplicacion, como en el panel, sea cual
+   sea el modulo. El color del modulo (`data-modulo` en
+   `.actividad`) es solo una nota que lo distingue:
+
+   - `--viva-1`      el verde de la aplicacion (`--app-primario`).
+   - `--viva-modulo` el acento del modulo (`--app-<modulo>-acento`):
+                     la insignia de la cabecera y las formas que
+                     suben por el fondo.
+   - `--viva-suave`  el fondo del modulo (`--app-<modulo>`), que solo
+                     tine un poco el lienzo (`--viva-aire`).
+   - `--viva-sobre`  el color del texto SOBRE el verde. Es el
+                     `--app-sobre-primario`: blanco en claro y verde
+                     muy oscuro en oscuro, porque ahi el verde es
+                     claro. Cada par llega a 4,5:1 como minimo.
+   - `--viva-texto`  el verde usado COMO TEXTO sobre el lienzo.
+
+   El movimiento lo apaga la regla global de `prefers-reduced-motion`
+   (que deja las animaciones en su ultimo cuadro), y lo que anima
+   Framer Motion lo apagan sus propios componentes.
+   ============================================================ */
+
+.actividad {
+  /* Los colores de siempre, con la paleta de la aplicacion. Reasignarlos aqui, y no uno por
+     uno, hace que todo lo que se pinte dentro de la actividad (el aviso orientativo, las lineas
+     de atencion, los botones) se vea igual de los dos temas sin tocarlo. */
+  --fondo: var(--app-lienzo);
+  --fondo-elevado: var(--app-superficie);
+  --fondo-sutil: var(--app-superficie-alta);
+  --texto: var(--app-tinta);
+  --texto-tenue: var(--app-tenue);
+  --texto-apagado: var(--app-tenue);
+  --borde: var(--app-borde);
+  --borde-fuerte: color-mix(in srgb, var(--app-tenue) 55%, var(--app-borde));
+  --acento: var(--app-primario);
+  --acento-claro: color-mix(in srgb, var(--app-primario) 80%, #fff);
+  --acento-suave: color-mix(in srgb, var(--app-primario) 16%, var(--app-superficie));
+  --acento-contraste: var(--app-sobre-primario);
+  --exito: var(--app-salvia);
+
+  /* Lo vivo: el verde de la aplicacion, con o sin modulo. */
+  --viva-1: var(--app-primario);
+  --viva-texto: var(--app-salvia);
+  --viva-sobre: var(--app-sobre-primario);
+
+  /* La nota del modulo; sin modulo conocido, tambien el verde. */
+  --viva-modulo: var(--app-primario);
+  --viva-suave: var(--app-superficie-alta);
+
+  --viva-sol: #ffc83d;
+  --viva-curva-rebote: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  color: var(--app-tinta);
+  font-family: var(--app-fuente);
+  font-synthesis: none;
+}
+
+.actividad[data-modulo='bienestar'] {
+  --viva-modulo: var(--app-bienestar-acento);
+  --viva-suave: var(--app-bienestar);
+}
+
+.actividad[data-modulo='cognicion'] {
+  --viva-modulo: var(--app-cognicion-acento);
+  --viva-suave: var(--app-cognicion);
+}
+
+.actividad[data-modulo='emociones'] {
+  --viva-modulo: var(--app-emociones-acento);
+  --viva-suave: var(--app-emociones);
+}
+
+/* Lo que se deriva del acento. Va aparte de los bloques de arriba porque se calcula en el mismo
+   elemento, con el acento que le toco. */
+.actividad {
+  --viva-2: color-mix(in srgb, var(--viva-1) 62%, #fff);
+  /* En oscuro el texto sobre el verde es oscuro: el final del degradado casi no se oscurece, para
+     que el texto siga leyendose. */
+  --viva-oscuro: color-mix(in srgb, var(--viva-1) 93%, #000);
+  --viva-fuerte: color-mix(in srgb, var(--viva-1) 50%, #000);
+  --viva-capa: color-mix(in srgb, var(--viva-sobre) 18%, transparent);
+  /* El tinte del modulo sobre el lienzo, a medias: se nota, pero no manda. */
+  --viva-aire: color-mix(in srgb, var(--viva-suave) 50%, var(--app-lienzo));
+}
+
+/* En claro el texto es blanco, y una capa blanca encima le quitaria contraste: ahi la capa oscurece
+   un poco el acento, y el blanco se lee mejor, y el degradado baja mas hacia el final. En oscuro
+   la capa ya es del color del texto, que es oscuro, y oscurece sola. */
+:root[data-tema='claro'] .actividad {
+  --viva-oscuro: color-mix(in srgb, var(--viva-1) 78%, #000);
+  --viva-capa: rgb(0 0 0 / 16%);
+}
+
+/* ---------- El fondo con vida ---------- */
+
+/* El tinte del modulo arriba y abajo, manchas de luz que se desplazan despacio y unas formas
+   que suben flotando. Es solo adorno: no recibe toques ni lo lee un lector de pantalla. */
+.viva-fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 60% at 50% -10%, var(--viva-aire), transparent 70%),
+    radial-gradient(
+      100% 45% at 50% 112%,
+      color-mix(in srgb, var(--viva-aire) 70%, transparent),
+      transparent 70%
+    ),
+    var(--fondo);
+  pointer-events: none;
+}
+
+.viva-fondo__mancha {
+  position: absolute;
+  width: 62vmax;
+  height: 62vmax;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 50%,
+    color-mix(in srgb, var(--viva-aire) 90%, transparent),
+    transparent 68%
+  );
+  opacity: 0.7;
+  animation: viva-deriva 22s ease-in-out infinite alternate;
+}
+
+.viva-fondo__mancha:nth-child(1) {
+  top: -26vmax;
+  left: -22vmax;
+}
+
+.viva-fondo__mancha:nth-child(2) {
+  right: -30vmax;
+  bottom: -18vmax;
+  background: radial-gradient(
+    circle at 50% 50%,
+    color-mix(in srgb, var(--viva-sol) 16%, transparent),
+    transparent 68%
+  );
+  animation-duration: 28s;
+  animation-delay: -9s;
+}
+
+.viva-fondo__mancha:nth-child(3) {
+  top: 38%;
+  left: 52%;
+  width: 34vmax;
+  height: 34vmax;
+  animation-duration: 18s;
+  animation-delay: -4s;
+}
+
+@keyframes viva-deriva {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  to {
+    transform: translate3d(8vmax, 5vmax, 0) scale(1.14);
+  }
+}
+
+/* Las formas del modulo (hojas, destellos, corazones) que suben despacio, cada una a lo suyo.
+   Quedan muy suaves: dan vida sin competir con lo que se lee. */
+.viva-fondo__flota {
+  position: absolute;
+  bottom: -60px;
+  left: var(--x);
+  width: var(--tam);
+  height: var(--tam);
+  color: var(--viva-modulo);
+  opacity: 0;
+  animation: viva-sube var(--dur) linear var(--ret) infinite;
+}
+
+.viva-fondo__flota svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes viva-sube {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+
+  12% {
+    opacity: 0.2;
+  }
+
+  50% {
+    transform: translate3d(22px, -55vh, 0) rotate(18deg);
+  }
+
+  88% {
+    opacity: 0.16;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(-14px, -112vh, 0) rotate(-14deg);
+  }
+}
+
+/* Lo que va encima del fondo. */
+.actividad__barra,
+.actividad__contenido {
+  position: relative;
+  z-index: 1;
+}
+
+.actividad--viva {
+  /* `clip` y no `hidden`: no crea un contenedor de scroll, y la franja de abajo sigue
+     quedando pegada a la pantalla. Lo que se sale (chispas, aros) no estira la pagina. */
+  overflow-x: clip;
+  background: transparent;
+}
+
+/* Mas compacto que el resto de la aplicacion: en un telefono tienen que caber el titulo, la
+   pregunta, las opciones y el boton sin bajar. */
+.actividad--viva .actividad__barra {
+  min-height: 56px;
+  padding-block: 8px;
+}
+
+.actividad--viva .actividad__contenido {
+  align-items: start;
+  padding: 12px 16px 24px;
+}
+
+/* ---------- La cabecera de la actividad ---------- */
+
+.viva-heroe {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 16px;
+  padding: 14px 18px;
+  overflow: hidden;
+  border-radius: 24px;
+  background: linear-gradient(135deg, var(--viva-1) 0%, var(--viva-oscuro) 100%);
+  box-shadow:
+    0 6px 0 var(--viva-fuerte),
+    0 18px 32px -14px color-mix(in srgb, var(--viva-1) 60%, transparent);
+  color: var(--viva-sobre);
+  animation: viva-heroe-entra 0.6s var(--viva-curva-rebote) both;
+}
+
+/* Dos circulos de luz, para que no sea un bloque plano. Lo mas claro queda lejos del texto. */
+.viva-heroe::before,
+.viva-heroe::after {
+  position: absolute;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--viva-sobre) 10%, transparent);
+  content: '';
+  pointer-events: none;
+}
+
+.viva-heroe::before {
+  top: -46px;
+  right: -30px;
+  width: 150px;
+  height: 150px;
+  animation: viva-deriva 9s ease-in-out infinite alternate;
+}
+
+.viva-heroe::after {
+  right: 60px;
+  bottom: -52px;
+  width: 96px;
+  height: 96px;
+  animation: viva-deriva 12s ease-in-out infinite alternate-reverse;
+}
+
+/* Un reflejo que la cruza cada pocos segundos. */
+.viva-heroe__brillo {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 38%, rgb(255 255 255 / 30%) 50%, transparent 62%);
+  animation: viva-brillo 6.5s ease-in-out 1.2s infinite;
+  pointer-events: none;
+}
+
+@keyframes viva-heroe-entra {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.96);
+  }
+}
+
+.viva-heroe__insignia {
+  position: relative;
+  display: grid;
+  flex: none;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border-radius: 18px;
+  background: var(--viva-modulo);
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--viva-sobre) 32%, transparent),
+    0 3px 0 rgb(0 0 0 / 22%);
+  animation: viva-flota 3.4s ease-in-out infinite;
+}
+
+.viva-heroe__insignia svg {
+  width: 30px;
+  height: 30px;
+}
+
+@keyframes viva-flota {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+
+  50% {
+    transform: translateY(-5px) rotate(3deg);
+  }
+}
+
+.viva-heroe__texto {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.viva-heroe__categoria {
+  margin: 0 0 2px;
+  color: var(--viva-sobre);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Los titulos van en la tipografia de los titulos de la aplicacion, como en el panel. */
+.viva-heroe__titulo {
+  margin: 0;
+  color: var(--viva-sobre);
+  font-family: var(--app-fuente-titulos);
+  font-size: clamp(1.375rem, 5.4vw, 1.875rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.viva-heroe__descripcion {
+  margin: 4px 0 0;
+  color: var(--viva-sobre);
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+.viva {
+  display: grid;
+  gap: 14px;
+}
+
+/* ---------- La barra de avance ---------- */
+
+.viva-progreso {
+  display: grid;
+  gap: 8px;
+}
+
+.viva-progreso__pista {
+  position: relative;
+  height: 20px;
+  border-radius: var(--radio-pildora);
+  background: color-mix(in srgb, var(--viva-1) 16%, var(--fondo-sutil));
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / 14%);
+}
+
+.viva-progreso__relleno {
+  position: absolute;
+  inset: 0 auto 0 0;
+  min-width: 20px;
+  overflow: hidden;
+  border-radius: var(--radio-pildora);
+  background: linear-gradient(90deg, var(--viva-2), var(--viva-1));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--viva-1) 60%, transparent);
+}
+
+/* El brillo de arriba, como en las barras de los juegos. */
+.viva-progreso__relleno::after {
+  position: absolute;
+  top: 4px;
+  right: 10px;
+  left: 10px;
+  height: 5px;
+  border-radius: var(--radio-pildora);
+  background: rgb(255 255 255 / 45%);
+  content: '';
+}
+
+/* Un destello que cruza la barra cada vez que se llena un poco mas. */
+.viva-progreso__destello {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 75%) 50%, transparent 70%);
+  animation: viva-destello 0.9s ease-out both;
+}
+
+@keyframes viva-destello {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.viva-progreso__corte {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--fondo-elevado) 75%, transparent);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 6%);
+}
+
+.viva-progreso__pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.viva-progreso__texto {
+  margin: 0;
+  color: var(--texto-tenue);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Las estrellas ganadas: una por cada paso hecho. Sube con un rebote cada vez. */
+.viva-progreso__estrellas {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px 3px 8px;
+  border-radius: var(--radio-pildora);
+  background: color-mix(in srgb, var(--viva-sol) 26%, var(--fondo-elevado));
+  color: var(--texto);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.viva-progreso__cuenta::before {
+  content: attr(data-n);
+}
+
+.viva-progreso__estrellas svg {
+  color: color-mix(in srgb, var(--viva-sol) 55%, #000);
+  fill: var(--viva-sol);
+}
+
+.viva-progreso__estrellas[data-sube] {
+  animation: viva-rebote 0.55s var(--viva-curva-rebote);
+}
+
+.viva-progreso__estrellas[data-sube] svg {
+  animation: viva-gira-estrella 0.7s ease-out;
+}
+
+@keyframes viva-gira-estrella {
+  from {
+    transform: rotate(-180deg) scale(0.4);
+  }
+}
+
+@keyframes viva-rebote {
+  0% {
+    transform: scale(1);
+  }
+
+  40% {
+    transform: scale(1.35) rotate(-4deg);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ---------- La mascota y su globo ---------- */
+
+.viva-voz {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.viva-voz__mascota {
+  position: relative;
+  display: grid;
+  flex: none;
+  justify-items: center;
+  width: 80px;
+  animation: viva-mascota-entra 0.8s var(--viva-curva-rebote) 0.15s both;
+}
+
+/* Entra desde un lado dando un saltito, como quien llega a saludar. */
+@keyframes viva-mascota-entra {
+  from {
+    opacity: 0;
+    transform: translateX(-34px) rotate(-10deg) scale(0.6);
+  }
+}
+
+.viva-voz__cara {
+  display: block;
+  width: 80px;
+  height: 80px;
+  animation: viva-respira 3.4s ease-in-out infinite;
+  transform-origin: 50% 100%;
+}
+
+.viva-voz__cara img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 6px 8px rgb(0 0 0 / 18%));
+  image-rendering: pixelated;
+  object-fit: contain;
+}
+
+/* La sombra en el suelo, que se achica cuando la mascota salta. */
+.viva-voz__sombra {
+  width: 56px;
+  height: 9px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 16%);
+  animation: viva-sombra 3.4s ease-in-out infinite;
+}
+
+@keyframes viva-respira {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+
+  50% {
+    transform: scale(1.03, 0.97);
+  }
+}
+
+@keyframes viva-sombra {
+  0%,
+  100% {
+    transform: scaleX(1);
+  }
+
+  50% {
+    transform: scaleX(1.06);
+  }
+}
+
+.viva-voz__globo {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border: 2px solid color-mix(in srgb, var(--viva-1) 45%, var(--borde));
+  border-radius: 20px 20px 20px 6px;
+  background: var(--fondo-elevado);
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--viva-1) 30%, var(--borde));
+  color: var(--texto);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.viva-voz__globo p {
+  margin: 0;
+}
+
+.viva-voz__extra {
+  margin-top: 2px;
+  color: var(--texto-tenue);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* El globo del juego cambia de color con lo que paso: un acierto se tine del color del modulo y
+   un «casi» se queda tranquilo. Ninguno es un rojo de error. */
+.viva-voz__globo[data-resultado='acierto'] {
+  border-color: var(--viva-1);
+  background: color-mix(in srgb, var(--viva-1) 14%, var(--fondo-elevado));
+  box-shadow: 0 4px 0 var(--viva-1);
+}
+
+/* La colita del globo, hacia la cara. */
+.viva-voz__globo::before {
+  position: absolute;
+  bottom: 10px;
+  left: -9px;
+  width: 14px;
+  height: 14px;
+  border-bottom: 2px solid color-mix(in srgb, var(--viva-1) 45%, var(--borde));
+  border-left: 2px solid color-mix(in srgb, var(--viva-1) 45%, var(--borde));
+  background: inherit;
+  content: '';
+  transform: rotate(45deg);
+}
+
+.viva-voz__globo[data-resultado='acierto']::before {
+  border-color: var(--viva-1);
+}
+
+/* ---------- Un paso ---------- */
+
+.viva-paso {
+  display: grid;
+  gap: 16px;
+}
+
+.viva-paso__titulo {
+  margin: 0;
+  color: var(--texto);
+  font-family: var(--app-fuente-titulos);
+  font-size: clamp(1.5rem, 5.4vw, 1.875rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.viva-paso__titulo:focus {
+  outline: none;
+}
+
+.viva-paso__ayuda {
+  margin: -8px 0 0;
+  color: var(--texto-tenue);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+/* ---------- Las opciones grandes ---------- */
+
+.viva-opciones {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* Entran una tras otra, de abajo hacia arriba, como cartas que se reparten. */
+.viva-opciones > * {
+  animation: viva-reparte 0.5s var(--viva-curva-rebote) both;
+}
+
+.viva-opciones > :nth-child(2) {
+  animation-delay: 60ms;
+}
+
+.viva-opciones > :nth-child(3) {
+  animation-delay: 120ms;
+}
+
+.viva-opciones > :nth-child(4) {
+  animation-delay: 180ms;
+}
+
+.viva-opciones > :nth-child(5) {
+  animation-delay: 240ms;
+}
+
+.viva-opciones > :nth-child(n + 6) {
+  animation-delay: 300ms;
+}
+
+@keyframes viva-reparte {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.94);
+  }
+}
+
+@media (min-width: 520px) {
+  .viva-opciones--en-dos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.viva-opcion {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 64px;
+  padding: 10px 16px;
+  border: 2px solid var(--borde);
+  border-radius: 20px;
+  background: var(--fondo-elevado);
+  box-shadow: 0 5px 0 var(--borde);
+  color: var(--texto);
+  cursor: pointer;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 140ms ease,
+    border-color var(--rapido) var(--curva),
+    background var(--rapido) var(--curva),
+    box-shadow var(--rapido) var(--curva),
+    color var(--rapido) var(--curva);
+}
+
+@media (hover: hover) {
+  .viva-opcion:hover {
+    border-color: var(--viva-1);
+    box-shadow: 0 5px 0 color-mix(in srgb, var(--viva-1) 55%, var(--borde));
+    transform: translateY(-2px);
+  }
+
+  .viva-opcion:hover .viva-opcion__adorno {
+    transform: rotate(-8deg) scale(1.08);
+  }
+}
+
+.viva-opcion:active {
+  box-shadow: 0 1px 0 var(--borde);
+  transform: translateY(4px);
+}
+
+/* El radio o la casilla de verdad: invisible pero alcanzable con teclado y lector. */
+.viva-opcion__entrada {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.viva-opcion:has(.viva-opcion__entrada:focus-visible) {
+  outline: 3px solid var(--viva-texto);
+  outline-offset: 3px;
+}
+
+.viva-opcion__adorno {
+  display: grid;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--viva-1) 16%, var(--fondo-elevado));
+  color: var(--viva-texto);
+  font-size: 1.625rem;
+  transition:
+    transform 260ms var(--viva-curva-rebote),
+    background var(--rapido) var(--curva);
+}
+
+.viva-opcion__texto {
+  flex: 1;
+  min-width: 0;
+}
+
+.viva-opcion__marca {
+  position: relative;
+  display: grid;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 2px solid var(--borde-fuerte);
+  border-radius: 50%;
+  color: transparent;
+  transition:
+    background var(--rapido) var(--curva),
+    border-color var(--rapido) var(--curva),
+    color var(--rapido) var(--curva),
+    transform 260ms var(--viva-curva-rebote);
+}
+
+/* La marca de elegida se dibuja: el trazo corre de un extremo al otro. */
+.viva-opcion__marca path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+}
+
+/* Una casilla (varias a la vez) es cuadrada; un radio (una sola) es redondo. */
+.viva-opcion:has(input[type='checkbox']) .viva-opcion__marca {
+  border-radius: 10px;
+}
+
+/* Lo elegido se pinta pleno: es imposible no ver que opcion quedo marcada. */
+.viva-opcion--marcada {
+  border-color: var(--viva-fuerte);
+  background: linear-gradient(135deg, var(--viva-1), var(--viva-oscuro));
+  box-shadow: 0 5px 0 var(--viva-fuerte);
+  color: var(--viva-sobre);
+}
+
+.viva-opcion--marcada,
+.viva-opcion--marcada:hover {
+  animation: viva-pop 0.45s var(--viva-curva-rebote);
+}
+
+@keyframes viva-pop {
+  0% {
+    transform: scale(0.96);
+  }
+
+  45% {
+    transform: scale(1.035);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+.viva-opcion--marcada .viva-opcion__adorno {
+  background: var(--viva-capa);
+  color: var(--viva-sobre);
+  transform: scale(1.1) rotate(-6deg);
+  animation: viva-mueve 0.6s var(--viva-curva-rebote);
+}
+
+@keyframes viva-mueve {
+  0% {
+    transform: scale(0.8) rotate(-24deg);
+  }
+
+  60% {
+    transform: scale(1.22) rotate(8deg);
+  }
+
+  100% {
+    transform: scale(1.1) rotate(-6deg);
+  }
+}
+
+.viva-opcion--marcada .viva-opcion__marca {
+  border-color: var(--viva-sobre);
+  background: var(--viva-sobre);
+  color: var(--viva-1);
+  transform: scale(1.12);
+}
+
+.viva-opcion--marcada .viva-opcion__marca path {
+  animation: viva-trazo 0.35s ease-out 0.1s forwards;
+}
+
+@keyframes viva-trazo {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.viva-opcion--deshabilitada {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Dos aros que se abren desde la opcion elegida, uno tras otro. */
+.viva-opcion__onda {
+  position: absolute;
+  inset: -2px;
+  border: 3px solid var(--viva-1);
+  border-radius: 22px;
+  opacity: 0;
+  animation: viva-onda 0.7s ease-out backwards;
+  pointer-events: none;
+}
+
+.viva-opcion__onda::after {
+  position: absolute;
+  inset: -3px;
+  border: 2px solid var(--viva-2);
+  border-radius: 24px;
+  content: '';
+  opacity: 0;
+  animation: viva-onda 0.8s ease-out 0.12s backwards;
+}
+
+@keyframes viva-onda {
+  from {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(1.12, 1.35);
+  }
+}
+
+/* ---------- Chispas ---------- */
+
+/* Una docena de puntos que salen disparados desde el centro y se desvanecen. Cada uno lleva su
+   direccion en `--dx` y `--dy`; el color se escoge por posicion. Es un adorno de un solo uso:
+   al terminar vuelve al centro, ya invisible (`backwards` y no `both`: si se quedara en su
+   ultimo cuadro, seguiria ocupando sitio fuera de la pantalla y estiraria la pagina). */
+.viva-chispas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.viva-chispas > i {
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--viva-sol);
+  opacity: 0;
+  animation: viva-chispa 0.75s cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+}
+
+.viva-chispas > i:nth-child(3n + 1) {
+  background: var(--viva-2);
+}
+
+.viva-chispas > i:nth-child(3n + 2) {
+  width: 7px;
+  height: 7px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 8%);
+}
+
+.viva-chispas > i:nth-child(4n) {
+  border-radius: 2px;
+  transform: rotate(45deg);
+}
+
+@keyframes viva-chispa {
+  from {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.4);
+  }
+
+  70% {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(1.1) rotate(var(--giro, 120deg));
+  }
+}
+
+/* ---------- La franja de abajo ---------- */
+
+.viva-accion {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-inline: -16px;
+  padding: 24px 16px calc(14px + env(safe-area-inset-bottom));
+}
+
+/* Un velo que difumina lo que pasa por debajo, para que el boton se lea siempre sin tapar el
+   color del fondo con una franja lisa. */
+.viva-accion::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--fondo) 86%, transparent) 45%
+  );
+  backdrop-filter: blur(8px);
+  content: '';
+  mask-image: linear-gradient(to bottom, transparent, #000 45%);
+  pointer-events: none;
+}
+
+.viva-boton {
+  position: relative;
+  display: inline-flex;
+  flex: 1 1 160px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 60px;
+  padding: 14px 24px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 20px;
+  background: linear-gradient(180deg, var(--viva-1), var(--viva-oscuro));
+  box-shadow: 0 6px 0 var(--viva-fuerte);
+  color: var(--viva-sobre);
+  cursor: pointer;
+  font: inherit;
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    opacity var(--rapido) var(--curva);
+}
+
+/* Cuando el boton se habilita, da un saltito («ya puedes seguir») y un aro de luz le late de vez
+   en cuando. */
+.viva-boton:not(:disabled) {
+  animation:
+    viva-listo 0.6s var(--viva-curva-rebote),
+    viva-latido 2.8s ease-out 1.4s infinite;
+}
+
+/* Y un brillo lo cruza cada pocos segundos, para que el ojo vaya hacia el. */
+.viva-boton:not(:disabled)::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 38%) 50%, transparent 65%);
+  content: '';
+  animation: viva-brillo 3.8s ease-in-out 1s infinite;
+  pointer-events: none;
+}
+
+@keyframes viva-listo {
+  0% {
+    transform: scale(0.96);
+  }
+
+  45% {
+    transform: scale(1.04);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes viva-latido {
+  0% {
+    box-shadow:
+      0 6px 0 var(--viva-fuerte),
+      0 0 0 0 color-mix(in srgb, var(--viva-1) 45%, transparent);
+  }
+
+  70%,
+  100% {
+    box-shadow:
+      0 6px 0 var(--viva-fuerte),
+      0 0 0 14px transparent;
+  }
+}
+
+@keyframes viva-brillo {
+  0%,
+  55% {
+    transform: translateX(-120%);
+  }
+
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+/* La flecha que invita a seguir, empujando hacia la derecha. */
+.viva-boton__flecha {
+  flex: none;
+  animation: viva-flecha 1.3s ease-in-out infinite;
+}
+
+@keyframes viva-flecha {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  50% {
+    transform: translateX(5px);
+  }
+}
+
+.viva-boton:disabled .viva-boton__flecha {
+  animation: none;
+  opacity: 0.5;
+}
+
+.viva-boton:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.viva-boton:active:not(:disabled) {
+  box-shadow: 0 1px 0 var(--viva-fuerte);
+  transform: translateY(5px);
+}
+
+.viva-boton:focus-visible {
+  outline: 3px solid var(--viva-texto);
+  outline-offset: 3px;
+}
+
+.viva-boton:disabled {
+  background: var(--fondo-sutil);
+  box-shadow: 0 6px 0 var(--borde);
+  color: var(--texto-apagado);
+  cursor: not-allowed;
+}
+
+.viva-boton--secundario {
+  flex: 0 0 auto;
+  background: var(--fondo-elevado);
+  box-shadow: 0 6px 0 var(--borde);
+  color: var(--viva-texto);
+}
+
+.viva-boton--secundario:not(:disabled) {
+  animation: none;
+}
+
+.viva-boton--secundario:not(:disabled)::after {
+  content: none;
+}
+
+.viva-boton--secundario:active:not(:disabled) {
+  box-shadow: 0 1px 0 var(--borde);
+}
+
+/* La salida amable, en el flujo de la pagina y a todo el ancho. */
+.viva-salida {
+  display: flex;
+}
+
+.viva-salida .viva-boton {
+  flex: 1;
+  min-height: 52px;
+  font-size: 1rem;
+}
+
+/* ---------- Un aviso suave de lo que falta ---------- */
+
+.viva-falta {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--viva-sol) 20%, var(--fondo-elevado));
+  color: var(--texto);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  animation: viva-reparte 0.45s var(--viva-curva-rebote) both;
+}
+
+/* ---------- Una tarjeta con una pregunta y su control ---------- */
+
+.viva-tarjeta {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 2px solid var(--borde);
+  border-radius: 24px;
+  background: var(--fondo-elevado);
+  box-shadow: 0 5px 0 var(--borde);
+  animation: viva-reparte 0.55s var(--viva-curva-rebote) both;
+}
+
+/* Las tarjetas de una misma pantalla se reparten una tras otra. */
+.viva-tarjeta:nth-of-type(2) {
+  animation-delay: 90ms;
+}
+
+.viva-tarjeta:nth-of-type(3) {
+  animation-delay: 180ms;
+}
+
+.viva-tarjeta:nth-of-type(4) {
+  animation-delay: 270ms;
+}
+
+.viva-tarjeta__titulo {
+  margin: 0;
+  color: var(--texto);
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.viva-tarjeta__ayuda {
+  margin: -6px 0 0;
+  color: var(--texto-tenue);
+  font-size: 0.875rem;
+}
+
+/* ---------- Un numero con mas y menos ---------- */
+
+.viva-contador {
+  display: grid;
+  gap: 12px;
+}
+
+.viva-contador__etiqueta {
+  color: var(--texto);
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.viva-contador__controles {
+  display: grid;
+  grid-template-columns: 60px 1fr 60px;
+  align-items: center;
+  gap: 12px;
+}
+
+.viva-contador__boton {
+  display: grid;
+  width: 60px;
+  height: 60px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--viva-1);
+  box-shadow: 0 5px 0 var(--viva-fuerte);
+  color: var(--viva-sobre);
+  cursor: pointer;
+  font: inherit;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.viva-contador__boton:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.viva-contador__boton:active:not(:disabled) {
+  box-shadow: 0 1px 0 var(--viva-fuerte);
+  transform: translateY(4px) scale(0.96);
+}
+
+.viva-contador__boton:focus-visible {
+  outline: 3px solid var(--viva-texto);
+  outline-offset: 3px;
+}
+
+.viva-contador__boton:disabled {
+  background: var(--fondo-sutil);
+  box-shadow: 0 5px 0 var(--borde);
+  color: var(--texto-apagado);
+  cursor: not-allowed;
+}
+
+.viva-contador__valor {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* El numero da un saltito cada vez que lo mueven los botones. */
+.viva-contador__valor[data-pulso] {
+  animation: viva-numero 0.4s var(--viva-curva-rebote);
+}
+
+@keyframes viva-numero {
+  0% {
+    opacity: 0.4;
+    transform: translateY(10px) scale(0.85);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.viva-contador__campo {
+  width: 3.2ch;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--viva-texto);
+  font: inherit;
+  font-size: 2.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: center;
+  appearance: textfield;
+}
+
+.viva-contador__campo::-webkit-inner-spin-button,
+.viva-contador__campo::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+.viva-contador__campo:focus-visible {
+  border-radius: 10px;
+  outline: 3px solid var(--viva-texto);
+}
+
+.viva-contador__unidad {
+  color: var(--texto-tenue);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* ---------- La hora y los atajos ---------- */
+
+.viva-hora {
+  width: 100%;
+  min-height: 60px;
+  padding: 10px 16px;
+  border: 2px solid var(--borde-fuerte);
+  border-radius: 18px;
+  background: var(--fondo);
+  color: var(--viva-texto);
+  font: inherit;
+  font-size: 1.625rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.viva-hora:focus-visible {
+  border-color: var(--viva-1);
+  outline: 3px solid var(--viva-texto);
+  outline-offset: 2px;
+}
+
+.viva-atajos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.viva-atajo {
+  min-height: 46px;
+  padding: 8px 18px;
+  border: 2px solid var(--borde);
+  border-radius: var(--radio-pildora);
+  background: var(--fondo-elevado);
+  box-shadow: 0 4px 0 var(--borde);
+  color: var(--texto);
+  cursor: pointer;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    background var(--rapido) var(--curva),
+    border-color var(--rapido) var(--curva);
+}
+
+.viva-atajo:hover {
+  border-color: var(--viva-1);
+  transform: translateY(-1px);
+}
+
+.viva-atajo:active {
+  box-shadow: 0 1px 0 var(--borde);
+  transform: translateY(3px);
+}
+
+.viva-atajo:focus-visible {
+  outline: 3px solid var(--viva-texto);
+  outline-offset: 2px;
+}
+
+.viva-atajo[aria-pressed='true'] {
+  border-color: var(--viva-fuerte);
+  background: var(--viva-1);
+  box-shadow: 0 4px 0 var(--viva-fuerte);
+  color: var(--viva-sobre);
+  animation: viva-pop 0.4s var(--viva-curva-rebote);
+}
+
+/* Las ideas para empezar entran como un abanico, una tras otra. */
+.viva-atajos > .viva-atajo {
+  animation: viva-reparte 0.45s var(--viva-curva-rebote) both;
+}
+
+.viva-atajos > .viva-atajo:nth-child(2) {
+  animation-delay: 70ms;
+}
+
+.viva-atajos > .viva-atajo:nth-child(3) {
+  animation-delay: 140ms;
+}
+
+.viva-atajos > .viva-atajo:nth-child(4) {
+  animation-delay: 210ms;
+}
+
+.viva-atajos > .viva-atajo:nth-child(n + 5) {
+  animation-delay: 280ms;
+}
+
+/* ---------- Texto libre ---------- */
+
+.viva-texto {
+  width: 100%;
+  min-height: 150px;
+  padding: 16px;
+  border: 2px solid var(--borde-fuerte);
+  border-radius: 20px;
+  background: var(--fondo-elevado);
+  color: var(--texto);
+  font: inherit;
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  resize: vertical;
+  transition:
+    border-color var(--rapido) var(--curva),
+    box-shadow var(--medio) var(--curva);
+}
+
+/* Al escribir, el campo se ilumina con el color del modulo. */
+.viva-texto:focus-visible {
+  border-color: var(--viva-1);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--viva-1) 22%, transparent);
+  outline: 3px solid var(--viva-texto);
+  outline-offset: 2px;
+}
+
+.viva-texto__cuenta {
+  margin: -8px 0 0;
+  color: var(--texto-tenue);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* La leyenda de un grupo de casillas, con el mismo aspecto que el titulo de un paso. */
+.viva-leyenda {
+  grid-column: 1 / -1;
+  padding: 0;
+  margin-bottom: 4px;
+}
+
+/* ---------- Los pasos antes de empezar un juego ---------- */
+
+.viva-pasos {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.viva-pasos__paso {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 2px solid var(--borde);
+  border-radius: 18px;
+  background: var(--fondo-elevado);
+  box-shadow: 0 4px 0 var(--borde);
+  color: var(--texto);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+  animation: viva-reparte 0.5s var(--viva-curva-rebote) both;
+}
+
+.viva-pasos__paso:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.viva-pasos__paso:nth-child(3) {
+  animation-delay: 240ms;
+}
+
+.viva-pasos__numero {
+  display: grid;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--viva-1);
+  box-shadow: 0 3px 0 var(--viva-fuerte);
+  color: var(--viva-sobre);
+  font-weight: 700;
+  animation: viva-late 2.6s ease-in-out infinite;
+}
+
+.viva-pasos__paso:nth-child(2) .viva-pasos__numero {
+  animation-delay: 0.3s;
+}
+
+.viva-pasos__paso:nth-child(3) .viva-pasos__numero {
+  animation-delay: 0.6s;
+}
+
+@keyframes viva-late {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+/* ---------- El logro al terminar ---------- */
+
+.viva-logro {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  margin: 0 0 16px;
+  padding: 26px 20px 22px;
+  border-radius: 28px;
+  background: linear-gradient(160deg, var(--viva-1), var(--viva-oscuro));
+  box-shadow: 0 7px 0 var(--viva-fuerte);
+  color: var(--viva-sobre);
+  text-align: center;
+  animation: viva-heroe-entra 0.6s var(--viva-curva-rebote) both;
+}
+
+/* Los rayos viven en su propia capa recortada, para que el confeti pueda salirse de la
+   tarjeta y los rayos no. */
+.viva-logro__rayos {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* Rayos que giran muy despacio detras de la insignia. */
+.viva-logro__rayos::before {
+  position: absolute;
+  top: -30%;
+  left: 50%;
+  width: 150%;
+  aspect-ratio: 1;
+  background: repeating-conic-gradient(
+    from 0deg,
+    color-mix(in srgb, var(--viva-sobre) 11%, transparent) 0deg 10deg,
+    transparent 10deg 30deg
+  );
+  content: '';
+  mask-image: radial-gradient(circle, #000 20%, transparent 62%);
+  transform: translateX(-50%);
+  animation: viva-gira 40s linear infinite;
+}
+
+@keyframes viva-gira {
+  to {
+    transform: translateX(-50%) rotate(360deg);
+  }
+}
+
+.viva-logro--serena .viva-logro__rayos::before {
+  animation: none;
+  opacity: 0.5;
+}
+
+/* Estrellitas que suben dentro de la tarjeta, como burbujas de fiesta. */
+.viva-logro__estrella {
+  position: absolute;
+  bottom: -14px;
+  left: var(--x);
+  width: var(--tam);
+  height: var(--tam);
+  background: var(--viva-sol);
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  opacity: 0;
+  animation: viva-estrella var(--dur) ease-out var(--ret) infinite;
+  pointer-events: none;
+}
+
+@keyframes viva-estrella {
+  0% {
+    opacity: 0;
+    transform: translateY(0) rotate(0deg) scale(0.5);
+  }
+
+  15% {
+    opacity: 0.95;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-260px) rotate(200deg) scale(1);
+  }
+}
+
+/* El h1 de la pantalla: una etiqueta pequena sobre el mensaje grande. */
+.viva-logro__titulo {
+  position: relative;
+  margin: 0;
+  padding: 4px 14px;
+  border-radius: var(--radio-pildora);
+  background: var(--viva-capa);
+  color: var(--viva-sobre);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.viva-logro__escena {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+}
+
+.viva-logro__insignia {
+  position: relative;
+  display: grid;
+  width: 92px;
+  height: 92px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--viva-sobre);
+  box-shadow:
+    0 6px 0 rgb(0 0 0 / 22%),
+    0 0 0 8px color-mix(in srgb, var(--viva-sobre) 28%, transparent);
+  color: var(--viva-1);
+}
+
+/* Aros que se abren y se van, como una campana de logro. */
+.viva-logro__aro {
+  position: absolute;
+  inset: 0;
+  border: 3px solid color-mix(in srgb, var(--viva-sobre) 80%, transparent);
+  border-radius: 50%;
+  animation: viva-aro 2.4s ease-out infinite;
+  pointer-events: none;
+}
+
+.viva-logro__aro:nth-child(2) {
+  animation-delay: 0.8s;
+}
+
+.viva-logro__aro:nth-child(3) {
+  animation-delay: 1.6s;
+}
+
+.viva-logro--serena .viva-logro__aro {
+  animation: none;
+  opacity: 0;
+}
+
+@keyframes viva-aro {
+  from {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(2.1);
+  }
+}
+
+.viva-logro__mascota {
+  position: relative;
+  display: block;
+  width: 96px;
+  height: 96px;
+  animation: viva-baila 1.6s ease-in-out infinite;
+  transform-origin: 50% 100%;
+}
+
+.viva-logro--serena .viva-logro__mascota {
+  animation: viva-respira 3.4s ease-in-out infinite;
+}
+
+.viva-logro__mascota img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 6px 8px rgb(0 0 0 / 25%));
+  image-rendering: pixelated;
+  object-fit: contain;
+}
+
+@keyframes viva-baila {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-4deg);
+  }
+
+  25% {
+    transform: translateY(-14px) rotate(3deg);
+  }
+
+  50% {
+    transform: translateY(0) rotate(4deg);
+  }
+
+  75% {
+    transform: translateY(-9px) rotate(-3deg);
+  }
+}
+
+.viva-logro__texto {
+  position: relative;
+  margin: 0;
+  color: var(--viva-sobre);
+  font-family: var(--app-fuente-titulos);
+  font-size: clamp(1.75rem, 7vw, 2.25rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  animation: viva-reparte 0.6s var(--viva-curva-rebote) 0.3s both;
+}
+
+.viva-logro__ayuda {
+  position: relative;
+  margin: -6px 0 0;
+  color: var(--viva-sobre);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+/* Las medallas de lo que se llevo: una por cosa. Entran una tras otra. */
+.viva-logro__premios {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.viva-logro__premio {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radio-pildora);
+  background: var(--viva-capa);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--viva-sobre) 30%, transparent);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  animation: viva-reparte 0.5s var(--viva-curva-rebote) both;
+}
+
+.viva-logro__premio:nth-child(1) {
+  animation-delay: 0.5s;
+}
+
+.viva-logro__premio:nth-child(2) {
+  animation-delay: 0.7s;
+}
+
+.viva-logro__premio:nth-child(3) {
+  animation-delay: 0.9s;
+}
+
+.viva-logro__premio svg {
+  color: var(--viva-sol);
+  fill: var(--viva-sol);
+  animation: viva-late 2.4s ease-in-out 1.2s infinite;
+}
+
+/* En oscuro el acento es claro, y un amarillo encima se pierde: la estrella toma el color del
+   texto. */
+:root[data-tema='oscuro'] .viva-logro__premio svg {
+  color: var(--viva-sobre);
+  fill: var(--viva-sobre);
+}
+
+:root[data-tema='oscuro'] .viva-logro__estrella {
+  background: var(--viva-sobre);
+}
+
+/* ---------- Pantallas pequenas ---------- */
+
+@media (max-width: 380px) {
+  .viva-heroe {
+    padding: 14px 16px;
+  }
+
+  .viva-heroe__insignia {
+    width: 52px;
+    height: 52px;
+  }
+
+  .viva-voz__mascota,
+  .viva-voz__cara {
+    width: 68px;
+  }
+
+  .viva-voz__cara {
+    height: 68px;
+  }
+}

@@ -1,5 +1,10 @@
 import { useState, type FormEvent } from 'react';
 
+import { BarraDeAccion, BotonPrincipal } from '../viva/BarraDeAccion.tsx';
+import { ACOMPANAN, elegir } from '../viva/mensajes.ts';
+import { OpcionGrande } from '../viva/OpcionGrande.tsx';
+import { useMascotaDeLaPersona } from '../viva/mascotaDeLaPersona.ts';
+import { VozDeLaMascota } from '../viva/VozDeLaMascota.tsx';
 import type { PropsDeMecanica } from './registro.tsx';
 
 /**
@@ -51,10 +56,29 @@ const COSAS = [
 
 type Cosa = (typeof COSAS)[number]['clave'];
 
+/** Un dibujo para cada cosa, solo para reconocerla de un vistazo. No dice nada de la persona. */
+const ADORNOS: Readonly<Record<Cosa, string>> = {
+  estudios: '📚',
+  trabajo: '💼',
+  dinero: '💰',
+  familia: '🏠',
+  relaciones: '💞',
+  salud: '🩺',
+  descanso: '🌙',
+  futuro: '🧭',
+  soledad: '🫂',
+  algoQuePaso: '💭',
+  otra: '✨',
+};
+
 export function QueTeEstaPesando({ alTerminar, enviando }: PropsDeMecanica) {
+  const mascota = useMascotaDeLaPersona();
   const [marcadas, setMarcadas] = useState<readonly Cosa[]>([]);
+  // Sube con cada toque: hace saltar a la mascota.
+  const [latido, setLatido] = useState(0);
 
   function alternar(cosa: Cosa) {
+    setLatido((antes) => antes + 1);
     setMarcadas((antes) =>
       antes.includes(cosa) ? antes.filter((una) => una !== cosa) : [...antes, cosa],
     );
@@ -73,39 +97,51 @@ export function QueTeEstaPesando({ alTerminar, enviando }: PropsDeMecanica) {
     });
   }
 
-  return (
-    <form className="actividad__formulario" onSubmit={enviar} noValidate>
-      <fieldset className="actividad__pregunta">
-        <legend>¿Qué te está costando estos días?</legend>
+  // Ni «que poco» ni «cuanto»: no se opina sobre cuantas cosas se marcan.
+  const mensaje =
+    marcadas.length === 0
+      ? 'Marca lo que quieras. También está bien no marcar nada.'
+      : elegir(ACOMPANAN, marcadas.length);
 
-        <div className="actividad__opciones">
-          {COSAS.map(({ clave, texto }) => (
-            <label
-              key={clave}
-              className={`actividad__opcion${marcadas.includes(clave) ? ' actividad__opcion--elegida' : ''}`}
-            >
-              <input
-                type="checkbox"
-                name="marcadas"
-                value={clave}
-                checked={marcadas.includes(clave)}
-                onChange={() => alternar(clave)}
-              />
-              {texto}
-            </label>
-          ))}
-        </div>
+  return (
+    <form className="viva" onSubmit={enviar} noValidate>
+      {/* Sonrie al recibir a la persona y despues se queda serena: una cara contenta junto a lo
+          que alguien dice que le pesa no le queda bien. */}
+      <VozDeLaMascota
+        mascota={mascota}
+        mensaje={mensaje}
+        expresion={marcadas.length === 0 ? 'feliz' : 'normal'}
+        latido={latido}
+      />
+
+      <fieldset className="viva-opciones viva-opciones--en-dos">
+        <legend className="viva-paso__titulo viva-leyenda">
+          ¿Qué te está costando estos días?
+        </legend>
+
+        {COSAS.map(({ clave, texto }) => (
+          <OpcionGrande
+            key={clave}
+            tipo="checkbox"
+            nombre="marcadas"
+            valor={clave}
+            marcada={marcadas.includes(clave)}
+            alCambiar={() => alternar(clave)}
+            texto={texto}
+            adorno={ADORNOS[clave]}
+          />
+        ))}
       </fieldset>
 
       {marcadas.length === 0 && (
-        <p className="actividad__texto actividad__indicacion">
-          Si ahora mismo no hay nada, puedes terminar sin marcar.
-        </p>
+        <p className="viva-falta">Si ahora mismo no hay nada, puedes terminar sin marcar.</p>
       )}
 
-      <button type="submit" className="pildora" disabled={enviando}>
-        {enviando ? 'Guardando…' : 'Terminar'}
-      </button>
+      <BarraDeAccion>
+        <BotonPrincipal tipo="submit" deshabilitado={enviando}>
+          {enviando ? 'Guardando…' : 'Terminar'}
+        </BotonPrincipal>
+      </BarraDeAccion>
     </form>
   );
 }

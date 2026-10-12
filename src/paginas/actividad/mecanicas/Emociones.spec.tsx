@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TEXTO_DEL_AVISO_ORIENTATIVO } from '../../../componentes/AvisoOrientativo.tsx';
+import { contestarYSeguir, responderTodo } from '../../../pruebas/pasos.ts';
 import { rutaDeActividad, RUTAS } from '../../../rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../../sesion/SesionContexto.ts';
 import { cicloActual } from '../../../sincronizacion/ciclo.ts';
@@ -18,6 +19,10 @@ import {
  * Las tres actividades de Emociones (SCRUM-94), dentro del motor de verdad y
  * con la API simulada.
  */
+// Recorrer un cuestionario entero son cinco pasos, cada uno con su animacion de salida y de
+// entrada. Con todo el conjunto corriendo a la vez el limite de cinco segundos se quedaba corto.
+vi.setConfig({ testTimeout: 20_000 });
+
 const { buscarActividad, registrarResultado, hayConexionConLaApi } = vi.hoisted(() => ({
   buscarActividad: vi.fn(),
   registrarResultado: vi.fn(),
@@ -98,17 +103,6 @@ function responderDelServidor(activityId: string, extra: Record<string, unknown>
   });
 }
 
-/** Las preguntas del formulario, sin contar el selector de tema de la barra. */
-async function preguntas(): Promise<HTMLElement[]> {
-  const formulario = (await screen.findByRole('button', { name: 'Terminar' })).closest('form');
-
-  if (formulario === null) {
-    throw new Error('La actividad no tiene formulario');
-  }
-
-  return within(formulario).getAllByRole('group');
-}
-
 beforeEach(() => {
   buscarActividad.mockImplementation((id: string) => {
     const nombres: Record<string, [string, boolean]> = {
@@ -134,25 +128,23 @@ afterEach(() => {
 });
 
 describe('Cómo te sientes hoy', () => {
-  async function responderTodo(opcion: string) {
-    for (const pregunta of await preguntas()) {
-      await usuario.click(within(pregunta).getByRole('radio', { name: opcion }));
-    }
-  }
-
   it('son cinco preguntas de tres opciones: Nada, Algo, Mucho', async () => {
     pintar(SIENTES);
 
-    const grupos = await preguntas();
+    expect(await screen.findByRole('progressbar')).toHaveAttribute('aria-valuemax', '5');
 
-    expect(grupos).toHaveLength(5);
+    for (let n = 1; n <= 5; n += 1) {
+      const grupo = await screen.findByRole('radiogroup');
 
-    for (const pregunta of grupos) {
       expect(
-        within(pregunta)
+        within(grupo)
           .getAllByRole('radio')
           .map((radio) => radio.closest('label')?.textContent),
       ).toEqual(['Nada', 'Algo', 'Mucho']);
+
+      if (n < 5) {
+        await contestarYSeguir(usuario, 'Algo', 'Continuar');
+      }
     }
   });
 
@@ -160,8 +152,7 @@ describe('Cómo te sientes hoy', () => {
     responderDelServidor(SIENTES, { nivelOrientativo: 'requiere_atencion' });
 
     pintar(SIENTES);
-    await responderTodo('Mucho');
-    await terminar();
+    await responderTodo(usuario, 'Mucho', 5);
 
     await waitFor(() => expect(registrarResultado).toHaveBeenCalledTimes(1));
 
@@ -178,28 +169,34 @@ describe('Cómo te sientes hoy', () => {
     responderDelServidor(SIENTES, { nivelOrientativo: 'favorable' });
 
     pintar(SIENTES);
-    await responderTodo('Nada');
-    await terminar();
+    await responderTodo(usuario, 'Nada', 5);
 
     await waitFor(() => expect(registrarResultado).toHaveBeenCalledTimes(1));
 
     expect(enviado().score).toBe(0);
   });
 
-  it('si falta una pregunta lo dice y no envia nada', async () => {
+  it('si falta contestar el boton espera, lo dice y no envia nada', async () => {
     pintar(SIENTES);
 
-    const [primera] = await preguntas();
+    const boton = await screen.findByRole('button', { name: 'Continuar' });
 
-    if (primera === undefined) {
-      throw new Error('Sin preguntas');
-    }
-
-    await usuario.click(within(primera).getByRole('radio', { name: 'Algo' }));
-    await terminar();
-
-    expect(screen.getByRole('alert')).toHaveTextContent('Te faltan 4 preguntas por responder.');
+    expect(boton).toBeDisabled();
+    expect(screen.getByText('Elige una opción para continuar.')).toBeInTheDocument();
     expect(registrarResultado).not.toHaveBeenCalled();
+  });
+
+  it('la mascota no sonrie tras contestar: solo agradece', async () => {
+    pintar(SIENTES);
+
+    const cara = () => document.querySelector('.viva-voz__cara img')?.getAttribute('src');
+    const alBienvenida = cara();
+
+    await usuario.click(await screen.findByRole('radio', { name: 'Mucho' }));
+
+    // Despues de decir que costo arrancar el dia, la cara es la serena, no la contenta.
+    expect(cara()).not.toBe(alBienvenida);
+    expect(screen.queryByText(/muy bien|genial|qué bien/i)).not.toBeInTheDocument();
   });
 });
 
@@ -385,7 +382,7 @@ describe('Emociones, lo que se lee en pantalla', () => {
     ['Un momento bueno del día', MOMENTO],
   ])('%s no nombra ninguna condicion', async (_nombre, id) => {
     pintar(id);
-    await screen.findByRole('button', { name: 'Terminar' });
+    await screen.findByRole('button', { name: /^(Continuar|Terminar)$/ });
 
     expect(document.body.textContent).not.toMatch(CLINICO);
   });

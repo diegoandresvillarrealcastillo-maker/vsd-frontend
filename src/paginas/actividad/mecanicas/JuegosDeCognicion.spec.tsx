@@ -21,6 +21,11 @@ import { repartir, tiempoAlaVista } from './cognicion.ts';
  * prueba sabe donde esta cada pareja, que digitos salen y que casilla cambia,
  * y puede jugar partidas perfectas y malas a proposito.
  */
+// Cada partida entera pinta decenas de veces una pantalla con barra, mascota y fichas animadas.
+// Sola tarda dos o tres segundos, y con todo el conjunto corriendo a la vez el limite de cinco se
+// quedaba corto: es lo que cuesta jugar doce rondas, no un fallo.
+vi.setConfig({ testTimeout: 20_000 });
+
 const { buscarActividad, registrarResultado, hayConexionConLaApi } = vi.hoisted(() => ({
   buscarActividad: vi.fn(),
   registrarResultado: vi.fn(),
@@ -373,5 +378,213 @@ describe('Encuentra la diferencia', () => {
     adelantar(60_000);
 
     expect(registrarResultado).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Lo nuevo de SCRUM-173: los juegos con barra de avance, mascota que acompana y fichas de
+ * colores. Se prueba lo que le promete a quien juega, no como esta pintado.
+ */
+describe('Parejas de cartas, lo que se ve', () => {
+  beforeEach(() => {
+    buscarActividad.mockResolvedValue(ficha(PAREJAS, 'Parejas de cartas'));
+  });
+
+  async function cartas(): Promise<HTMLElement[]> {
+    return within(await screen.findByRole('group', { name: 'Cartas' })).getAllByRole('button');
+  }
+
+  const globo = () => document.querySelector('.viva-voz__globo');
+
+  it('empieza diciendo que hacer, con la barra en cero de seis', async () => {
+    pintar(PAREJAS);
+
+    expect(await screen.findByText('Toca una carta para empezar. Sin prisa.')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '6');
+    expect(screen.getByText('Parejas 0 de 6')).toBeInTheDocument();
+  });
+
+  it('con una carta a la vista dice que busque su pareja', async () => {
+    pintar(PAREJAS);
+
+    await usuario.click((await cartas())[0]!);
+
+    expect(screen.getByText('Ahora busca su pareja.')).toBeInTheDocument();
+  });
+
+  it('un fallo se acompana con un «casi» y nunca se pinta de error', async () => {
+    pintar(PAREJAS);
+
+    const todas = await cartas();
+    const reparto = repartir();
+    const distinta = reparto.findIndex((carta) => carta.simbolo !== reparto[0]?.simbolo);
+
+    await usuario.click(todas[0]!);
+    await usuario.click(todas[distinta]!);
+
+    expect(globo()).toHaveAttribute('data-resultado', 'casi');
+    expect(globo()?.textContent).not.toMatch(/mal|error|fallaste|equivoc/i);
+  });
+
+  it('una pareja se celebra, sube la barra y queda marcada', async () => {
+    pintar(PAREJAS);
+
+    const todas = await cartas();
+    const reparto = repartir();
+    const gemela = reparto.findIndex(
+      (carta, indice) => indice > 0 && carta.simbolo === reparto[0]?.simbolo,
+    );
+
+    await usuario.click(todas[0]!);
+    await usuario.click(todas[gemela]!);
+
+    expect(globo()).toHaveAttribute('data-resultado', 'acierto');
+    expect(screen.getByText(/^Pareja de /)).toBeInTheDocument();
+    expect(screen.getByText('Parejas 1 de 6')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1');
+    expect((await cartas())[0]).toHaveAccessibleName(/pareja encontrada/);
+  });
+
+  it('lo que dice la mascota no se anuncia: ya llega por el aviso de los lectores', async () => {
+    pintar(PAREJAS);
+    await cartas();
+
+    expect(globo()).not.toHaveAttribute('aria-live');
+    expect(document.querySelector('.solo-lectores[aria-live="polite"]')).not.toBeNull();
+  });
+
+  it('las caras de las cartas son adorno: cada boton dice su estado con su nombre', async () => {
+    pintar(PAREJAS);
+
+    const todas = await cartas();
+
+    expect(todas).toHaveLength(12);
+    expect(todas[0]).toHaveAccessibleName('Carta 1, boca abajo');
+    expect(document.querySelector('.juego__carta-giro')).toHaveAttribute('aria-hidden', 'true');
+  });
+});
+
+describe('Secuencia de números, lo que se ve', () => {
+  beforeEach(() => {
+    buscarActividad.mockResolvedValue(ficha(SECUENCIA, 'Secuencia de números'));
+  });
+
+  it('antes de empezar explica en tres pasos y el boton es el de siempre', async () => {
+    pintar(SECUENCIA);
+
+    expect(await screen.findByText('Mira los números.')).toBeInTheDocument();
+    expect(screen.getByText('Se ocultan en unos segundos.')).toBeInTheDocument();
+    expect(screen.getByText('Escríbelos en orden.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Empezar' })).toBeInTheDocument();
+  });
+
+  it('al jugar, la barra lleva las rondas y las fichas son adorno con el texto aparte', async () => {
+    pintar(SECUENCIA);
+
+    await usuario.click(await screen.findByRole('button', { name: 'Empezar' }));
+
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '12');
+    expect(screen.getByText('Ronda 1 de 12')).toBeInTheDocument();
+    expect(screen.getByText('Memoriza con calma.')).toBeInTheDocument();
+
+    // Las fichas son adorno; lo que leen los lectores es el texto de la secuencia.
+    const fichas = document.querySelector('.juego__digitos');
+
+    expect(fichas).toHaveAttribute('aria-hidden', 'true');
+    expect(fichas?.querySelectorAll('.juego__digito')).toHaveLength(3);
+    expect(await screen.findByText(/^\d( \d)*$/)).toHaveClass('solo-lectores');
+  });
+
+  it('al escribir, los huecos se van llenando', async () => {
+    pintar(SECUENCIA);
+
+    await usuario.click(await screen.findByRole('button', { name: 'Empezar' }));
+
+    const secuencia = (await screen.findByText(/^\d( \d)*$/)).textContent ?? '';
+
+    adelantar(tiempoAlaVista(secuencia.replace(/ /g, '').length));
+
+    const campo = await screen.findByLabelText('Escribe la secuencia');
+
+    expect(document.querySelectorAll('.juego__digito--hueco')).toHaveLength(3);
+
+    await usuario.type(campo, '12');
+
+    expect(document.querySelectorAll('.juego__digito--lleno')).toHaveLength(2);
+    expect(document.querySelectorAll('.juego__digito--hueco')).toHaveLength(1);
+  });
+
+  it('tras la ronda, la mascota dice lo suyo en el globo, que es la zona que se anuncia', async () => {
+    pintar(SECUENCIA);
+
+    await usuario.click(await screen.findByRole('button', { name: 'Empezar' }));
+
+    const secuencia = (await screen.findByText(/^\d( \d)*$/)).textContent?.replace(/ /g, '') ?? '';
+
+    adelantar(tiempoAlaVista(secuencia.length));
+    await usuario.type(await screen.findByLabelText('Escribe la secuencia'), `${secuencia}{Enter}`);
+
+    const globo = document.querySelector('.viva-voz__globo');
+
+    expect(await screen.findByText('¡Bien! Era esa.')).toBeInTheDocument();
+    expect(globo).toHaveAttribute('aria-live', 'polite');
+    expect(globo).toHaveAttribute('data-resultado', 'acierto');
+    expect(screen.getByText('Ronda 1 de 12')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1');
+  });
+});
+
+describe('Encuentra la diferencia, lo que se ve', () => {
+  beforeEach(() => {
+    buscarActividad.mockResolvedValue(ficha(DIFERENCIA, 'Encuentra la diferencia'));
+  });
+
+  async function empezar() {
+    pintar(DIFERENCIA);
+
+    await usuario.click(await screen.findByRole('button', { name: 'Empezar' }));
+  }
+
+  it('antes de empezar explica en tres pasos', async () => {
+    pintar(DIFERENCIA);
+
+    expect(await screen.findByText('Mira el tablero «Antes».')).toBeInTheDocument();
+    expect(screen.getByText('En «Ahora» cambió una casilla.')).toBeInTheDocument();
+    expect(screen.getByText('Tócala antes de que se acabe el tiempo.')).toBeInTheDocument();
+  });
+
+  it('muestra las rondas, el tiempo que queda y una barra que se vacia', async () => {
+    await empezar();
+
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '15');
+    expect(screen.getByText('Ronda 1 de 15')).toBeInTheDocument();
+    expect(screen.getByText('Quedan 15 s')).toBeInTheDocument();
+    expect(document.querySelector('.juego__tiempo')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByText('Busca la casilla que cambió.')).toBeInTheDocument();
+  });
+
+  it('cada simbolo tiene su color, y el tablero dice su nombre casilla a casilla', async () => {
+    await empezar();
+
+    const casilla = within(screen.getByRole('group', { name: 'Ahora' })).getAllByRole('button')[0];
+
+    expect(casilla).toHaveAccessibleName(/^Casilla 1: /);
+    expect(casilla?.getAttribute('style')).toMatch(/--simbolo/);
+  });
+
+  it('el «casi» marca la tocada en ambar, no en rojo, y muestra la que cambio', async () => {
+    await empezar();
+
+    const botones = within(screen.getByRole('group', { name: 'Ahora' })).getAllByRole('button');
+
+    // Con el azar fijo, la que cambio es la primera.
+    await usuario.click(botones[1]!);
+
+    const globo = document.querySelector('.viva-voz__globo');
+
+    expect(screen.getByText(/Esa no era/)).toBeInTheDocument();
+    expect(globo).toHaveAttribute('data-resultado', 'casi');
+    expect(document.querySelector('.juego__casilla--cambio')).not.toBeNull();
+    expect(document.querySelector('.juego__casilla--equivocada')).not.toBeNull();
   });
 });

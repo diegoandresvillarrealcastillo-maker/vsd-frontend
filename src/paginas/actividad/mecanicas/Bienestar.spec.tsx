@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { contestarYSeguir, esperarAOtroPaso, responderTodo } from '../../../pruebas/pasos.ts';
 import { rutaDeActividad, RUTAS } from '../../../rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../../sesion/SesionContexto.ts';
 import { Actividad } from '../Actividad.tsx';
@@ -16,6 +17,10 @@ import {
  * Las dos actividades de Bienestar que llegan con SCRUM-93, dentro del motor
  * de verdad y con la API simulada.
  */
+// Recorrer un cuestionario entero son cinco pasos, cada uno con su animacion de salida y de
+// entrada. Con todo el conjunto corriendo a la vez el limite de cinco segundos se quedaba corto.
+vi.setConfig({ testTimeout: 20_000 });
+
 const { buscarActividad, registrarResultado, hayConexionConLaApi } = vi.hoisted(() => ({
   buscarActividad: vi.fn(),
   registrarResultado: vi.fn(),
@@ -82,18 +87,8 @@ function terminar() {
   return usuario.click(screen.getByRole('button', { name: 'Terminar' }));
 }
 
-/**
- * Las preguntas del formulario de la actividad. Se buscan dentro del
- * formulario: el selector de tema de la barra tambien es un grupo.
- */
-async function preguntas(): Promise<HTMLElement[]> {
-  const formulario = (await screen.findByRole('button', { name: 'Terminar' })).closest('form');
-
-  if (formulario === null) {
-    throw new Error('La actividad no tiene formulario');
-  }
-
-  return within(formulario).getAllByRole('group');
+function seguir() {
+  return usuario.click(screen.getByRole('button', { name: 'Continuar' }));
 }
 
 beforeEach(async () => {
@@ -111,24 +106,25 @@ describe('La carga de tu semana', () => {
     buscarActividad.mockResolvedValue(ficha(CARGA, 'La carga de tu semana', true));
   });
 
-  /** Responde las cinco preguntas con la misma opcion. */
-  async function responderTodo(opcion: string) {
-    const grupos = await preguntas();
-
-    for (const pregunta of grupos) {
-      await usuario.click(within(pregunta).getByRole('radio', { name: opcion }));
-    }
-  }
-
-  it('son cinco preguntas, cada una de Nada a Mucho', async () => {
+  it('son cinco preguntas, de una en una, cada una de Nada a Mucho', async () => {
     pintar(CARGA);
 
-    const grupos = await preguntas();
+    expect(await screen.findByRole('progressbar')).toHaveAttribute('aria-valuemax', '5');
+    expect(screen.getByText('Pregunta 1 de 5')).toBeInTheDocument();
 
-    expect(grupos).toHaveLength(5);
+    // Cada paso muestra una sola pregunta, con sus cinco opciones.
+    for (let n = 1; n <= 5; n += 1) {
+      const grupo = await screen.findByRole('radiogroup');
 
-    for (const pregunta of grupos) {
-      expect(within(pregunta).getAllByRole('radio')).toHaveLength(5);
+      expect(
+        within(grupo)
+          .getAllByRole('radio')
+          .map((radio) => radio.closest('label')?.textContent),
+      ).toEqual(['Nada', 'Poco', 'Algo', 'Bastante', 'Mucho']);
+
+      if (n < 5) {
+        await contestarYSeguir(usuario, 'Algo', 'Continuar');
+      }
     }
   });
 
@@ -145,8 +141,7 @@ describe('La carga de tu semana', () => {
     });
 
     pintar(CARGA);
-    await responderTodo('Mucho');
-    await terminar();
+    await responderTodo(usuario, 'Mucho', 5);
 
     await waitFor(() => expect(registrarResultado).toHaveBeenCalledTimes(1));
 
@@ -172,42 +167,59 @@ describe('La carga de tu semana', () => {
     });
 
     pintar(CARGA);
-    await responderTodo('Nada');
-    await terminar();
+    await responderTodo(usuario, 'Nada', 5);
 
     await waitFor(() => expect(enviado()).toMatchObject({ score: 0 }));
   });
 
-  it('sin responder todo no envia, dice cuantas faltan y lleva a la primera', async () => {
+  it('no avanza sin contestar: el boton espera y un texto dice por que', async () => {
     pintar(CARGA);
 
-    const [primera, segunda] = await preguntas();
+    const boton = await screen.findByRole('button', { name: 'Continuar' });
 
-    if (primera === undefined || segunda === undefined) {
-      throw new Error('Faltan las preguntas');
-    }
+    expect(boton).toBeDisabled();
+    expect(boton).toHaveAccessibleDescription('Elige una opción para continuar.');
 
-    await usuario.click(within(primera).getByRole('radio', { name: 'Algo' }));
-    await terminar();
+    await usuario.click(screen.getByRole('radio', { name: 'Algo' }));
 
+    // Elegir no avanza solo: la persona decide cuando seguir.
+    expect(screen.getByText('Pregunta 1 de 5')).toBeInTheDocument();
+    expect(boton).toBeEnabled();
     expect(registrarResultado).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert')).toHaveTextContent('Te faltan 4 preguntas');
-    expect(within(segunda).getByRole('radio', { name: 'Nada' })).toHaveFocus();
+  });
+
+  it('se puede volver atras y la respuesta sigue ahi', async () => {
+    pintar(CARGA);
+
+    await contestarYSeguir(usuario, 'Bastante', 'Continuar');
+    expect(screen.getByText('Pregunta 2 de 5')).toBeInTheDocument();
+
+    const antes = screen.getByRole('radiogroup').getAttribute('aria-labelledby');
+
+    await usuario.click(screen.getByRole('button', { name: 'Atrás' }));
+    await esperarAOtroPaso(antes);
+
+    expect(screen.getByText('Pregunta 1 de 5')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Bastante' })).toBeChecked();
+  });
+
+  it('la mascota agradece sin valorar lo contestado: dice lo mismo con cualquier opcion', async () => {
+    pintar(CARGA);
+    await usuario.click(await screen.findByRole('radio', { name: 'Mucho' }));
+    const conMucho = screen.getByText(/Anotado|Gracias|Lo tengo|Perfecto|Listo/).textContent;
+
+    await usuario.click(screen.getByRole('radio', { name: 'Nada' }));
+
+    expect(screen.getByText(/Anotado|Gracias|Lo tengo|Perfecto|Listo/).textContent).toBe(conMucho);
   });
 
   it('se responde con teclado', async () => {
     pintar(CARGA);
 
-    const [primera] = await preguntas();
-
-    if (primera === undefined) {
-      throw new Error('Faltan las preguntas');
-    }
-
-    within(primera).getByRole('radio', { name: 'Nada' }).focus();
+    (await screen.findByRole('radio', { name: 'Nada' })).focus();
     await usuario.keyboard(' ');
 
-    expect(within(primera).getByRole('radio', { name: 'Nada' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Nada' })).toBeChecked();
   });
 });
 
@@ -227,10 +239,14 @@ describe('Movimiento del día', () => {
     pintar(MOVIMIENTO);
 
     await usuario.click(await screen.findByRole('radio', { name: 'Sí' }));
+    await seguir();
+
     // Se marcan en desorden: la metadata los guarda en el orden de la lista.
-    await usuario.click(screen.getByRole('checkbox', { name: 'Baile' }));
+    await usuario.click(await screen.findByRole('checkbox', { name: 'Baile' }));
     await usuario.click(screen.getByRole('checkbox', { name: 'Caminar' }));
-    await usuario.click(screen.getByRole('radio', { name: 'De 15 a 30 minutos' }));
+    await seguir();
+
+    await usuario.click(await screen.findByRole('radio', { name: 'De 15 a 30 minutos' }));
     await terminar();
 
     await waitFor(() => expect(registrarResultado).toHaveBeenCalledTimes(1));
@@ -252,6 +268,8 @@ describe('Movimiento del día', () => {
 
     expect(screen.getByText(/También cuenta/)).toBeInTheDocument();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    // Es una actividad de un solo paso: no hay nada mas que preguntar.
+    expect(screen.getByText('Paso 1 de 1')).toBeInTheDocument();
 
     await terminar();
 
@@ -262,20 +280,24 @@ describe('Movimiento del día', () => {
   it('pide lo que falta antes de enviar', async () => {
     pintar(MOVIMIENTO);
 
+    // En cada paso el boton espera, y un texto dice que falta.
     await screen.findByRole('radio', { name: 'Sí' });
-    await terminar();
-
-    expect(screen.getByRole('alert')).toHaveTextContent('Cuéntanos si te moviste hoy');
+    expect(screen.getByRole('button', { name: 'Continuar' })).toBeDisabled();
+    expect(screen.getByText('Cuéntanos si te moviste hoy.')).toBeInTheDocument();
 
     await usuario.click(screen.getByRole('radio', { name: 'Sí' }));
-    await terminar();
+    await seguir();
 
-    expect(screen.getByRole('alert')).toHaveTextContent('al menos un tipo');
+    await screen.findByRole('checkbox', { name: 'Caminar' });
+    expect(screen.getByRole('button', { name: 'Continuar' })).toBeDisabled();
+    expect(screen.getByText(/al menos un tipo/)).toBeInTheDocument();
 
     await usuario.click(screen.getByRole('checkbox', { name: 'Caminar' }));
-    await terminar();
+    await seguir();
 
-    expect(screen.getByRole('alert')).toHaveTextContent('cuánto tiempo');
+    await screen.findByRole('radio', { name: 'De 15 a 30 minutos' });
+    expect(screen.getByRole('button', { name: 'Terminar' })).toBeDisabled();
+    expect(screen.getByText(/cuánto tiempo/)).toBeInTheDocument();
     expect(registrarResultado).not.toHaveBeenCalled();
   });
 
@@ -283,7 +305,8 @@ describe('Movimiento del día', () => {
     pintar(MOVIMIENTO);
 
     await usuario.click(await screen.findByRole('radio', { name: 'Sí' }));
-    screen.getByRole('checkbox', { name: 'Estiramientos o yoga' }).focus();
+    await seguir();
+    (await screen.findByRole('checkbox', { name: 'Estiramientos o yoga' })).focus();
     await usuario.keyboard(' ');
 
     expect(screen.getByRole('checkbox', { name: 'Estiramientos o yoga' })).toBeChecked();

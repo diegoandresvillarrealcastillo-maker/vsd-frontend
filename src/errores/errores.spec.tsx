@@ -330,29 +330,35 @@ describe('dentro de la aplicacion', () => {
     salir: vi.fn(),
   };
 
-  it('un error en una ruta muestra la pantalla de error, y navegar a otra la quita', async () => {
-    const { App } = await import('../App.tsx');
+  // Importar `App` trae todas las pantallas por primera vez, y eso solo ya tarda unos tres
+  // segundos y medio; con toda la bateria corriendo a la vez el limite de cinco no alcanzaba.
+  it(
+    'un error en una ruta muestra la pantalla de error, y navegar a otra la quita',
+    { timeout: 20_000 },
+    async () => {
+      const { App } = await import('../App.tsx');
 
-    render(
-      <SesionContexto.Provider value={sesion}>
-        <MemoryRouter initialEntries={[RUTAS.INICIO]}>
-          <IrAlAcceso />
-          <App />
-        </MemoryRouter>
-      </SesionContexto.Provider>,
-    );
+      render(
+        <SesionContexto.Provider value={sesion}>
+          <MemoryRouter initialEntries={[RUTAS.INICIO]}>
+            <IrAlAcceso />
+            <App />
+          </MemoryRouter>
+        </SesionContexto.Provider>,
+      );
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      'Algo no salió como esperábamos',
-    );
-    expect(informes[0]).toMatchObject({ origen: 'ruta', nombre: 'Error' });
-    expect(JSON.stringify(informes[0])).not.toContain(SECRETO);
-    // La navegacion sigue viva: el limite de la ruta no se llevo el resto.
-    expect(screen.getByRole('button', { name: 'Ir al acceso' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+        'Algo no salió como esperábamos',
+      );
+      expect(informes[0]).toMatchObject({ origen: 'ruta', nombre: 'Error' });
+      expect(JSON.stringify(informes[0])).not.toContain(SECRETO);
+      // La navegacion sigue viva: el limite de la ruta no se llevo el resto.
+      expect(screen.getByRole('button', { name: 'Ir al acceso' })).toBeInTheDocument();
 
-    await usuario.click(screen.getByRole('button', { name: 'Ir al acceso' }));
+      await usuario.click(screen.getByRole('button', { name: 'Ir al acceso' }));
 
-    expect(await screen.findByLabelText('Correo')).toBeInTheDocument();
-    expect(screen.queryByText('Algo no salió como esperábamos')).not.toBeInTheDocument();
-  });
+      expect(await screen.findByLabelText('Correo')).toBeInTheDocument();
+      expect(screen.queryByText('Algo no salió como esperábamos')).not.toBeInTheDocument();
+    },
+  );
 });

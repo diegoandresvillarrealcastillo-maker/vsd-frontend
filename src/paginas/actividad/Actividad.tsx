@@ -1,9 +1,12 @@
+import { useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { AvisoOrientativo } from '../../componentes/AvisoOrientativo.tsx';
 import { MarcaDeLaApp } from '../../componentes/MarcaDeLaApp.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
+import '../../estilos/aplicacion.css';
 import '../../estilos/actividad.css';
+import '../../estilos/viva.css';
 import type { ActividadConSuCategoria } from '../../infraestructura/api/catalogo.ts';
 import type { ResultadoRegistrado } from '../../infraestructura/api/resultados.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
@@ -13,6 +16,10 @@ import { LogroDeLaActividad } from './LogroDeLaActividad.tsx';
 import { mecanicaDe } from './mecanicas/registro.tsx';
 import { textoDelNivel } from './textoDelNivel.ts';
 import { useCompletarActividad, type LoQueProduceLaActividad } from './useCompletarActividad.ts';
+import { FondoVivo } from './viva/FondoVivo.tsx';
+import { HeroeDeLaActividad } from './viva/HeroeDeLaActividad.tsx';
+import { moduloDeLaCategoria } from './viva/moduloDeLaCategoria.ts';
+import { ProveedorDeLaMascota } from './viva/ProveedorDeLaMascota.tsx';
 
 /**
  * Hacer una actividad, de principio a fin.
@@ -26,85 +33,107 @@ export function Actividad() {
   const { id } = useParams<{ id: string }>();
   const { estado, completar, reintentar, empezarDeNuevo } = useCompletarActividad(id);
 
+  // Se llega desde el panel, que casi siempre esta desplazado hacia abajo: la actividad empieza
+  // por su cabecera y no a media pantalla.
+  useEffect(() => {
+    document.documentElement.scrollTop = 0;
+  }, [id]);
+
+  // El color de la pantalla lo da el modulo de la actividad. Mientras no se sabe cual es, o si
+  // la categoria no es de ningun modulo, se ve con el color neutro de la aplicacion.
+  const modulo =
+    'ficha' in estado && estado.ficha !== undefined
+      ? moduloDeLaCategoria(estado.ficha.categoria.nombre)
+      : undefined;
+
   return (
-    <div className="actividad">
-      <header className="actividad__barra">
-        <div className="actividad__marca">
-          <MarcaDeLaApp />
-        </div>
+    <ProveedorDeLaMascota>
+      <div
+        className="actividad actividad--viva"
+        {...(modulo === undefined ? {} : { 'data-modulo': modulo })}
+      >
+        <FondoVivo modulo={modulo} />
 
-        <Link className="actividad__volver" to={RUTAS.PANEL}>
-          Volver al panel
-        </Link>
+        <header className="actividad__barra">
+          <div className="actividad__marca">
+            <MarcaDeLaApp />
+          </div>
 
-        <SelectorDeTema variante="incrustado" />
-      </header>
+          <Link className="actividad__volver" to={RUTAS.PANEL}>
+            Volver al panel
+          </Link>
 
-      <main id={ID_DEL_CONTENIDO} tabIndex={-1} className="actividad__contenido">
-        <div className="actividad__caja">
-          {estado.fase === 'cargando' && (
-            <p className="actividad__cargando" role="status">
-              Cargando la actividad…
-            </p>
-          )}
+          <SelectorDeTema variante="incrustado" />
+        </header>
 
-          {estado.fase === 'no-existe' && (
-            <>
-              <h1>Esta actividad no existe</h1>
-              <p className="actividad__texto">
-                Puede que el enlace esté mal escrito, o que la actividad ya no esté disponible.
+        <main id={ID_DEL_CONTENIDO} tabIndex={-1} className="actividad__contenido">
+          <div className="actividad__caja">
+            {estado.fase === 'cargando' && (
+              <p className="actividad__cargando" role="status">
+                Cargando la actividad…
               </p>
-              <Link className="pildora" to={RUTAS.PANEL}>
-                Volver al panel
-              </Link>
-            </>
-          )}
+            )}
 
-          {(estado.fase === 'lista' || estado.fase === 'enviando') && (
-            <>
-              <p className="actividad__categoria">{estado.ficha.categoria.nombre}</p>
-              <h1>{estado.ficha.actividad.nombre}</h1>
-
-              {estado.ficha.actividad.descripcion !== undefined && (
-                <p className="actividad__texto">{estado.ficha.actividad.descripcion}</p>
-              )}
-
-              <Mecanica
-                idDeLaActividad={estado.ficha.actividad.id}
-                alTerminar={completar}
-                enviando={estado.fase === 'enviando'}
-              />
-            </>
-          )}
-
-          {estado.fase === 'guardada' && (
-            <GuardadaEnEsteEquipo ficha={estado.ficha} alRepetir={empezarDeNuevo} />
-          )}
-
-          {estado.fase === 'hecha' && (
-            <Terminada resultado={estado.resultado} alRepetir={empezarDeNuevo} />
-          )}
-
-          {/* `role="alert"` interrumpe, y aqui corresponde: si algo fallo al
-              guardar, la persona tiene que enterarse antes de irse. */}
-          {estado.fase === 'error' && (
-            <div className="actividad__fallo" role="alert">
-              <p className="actividad__texto">{estado.mensaje}</p>
-
-              <div className="actividad__acciones">
-                <button type="button" className="pildora" onClick={reintentar}>
-                  Reintentar
-                </button>
-
-                <Link className="pildora pildora--fantasma" to={RUTAS.PANEL}>
+            {estado.fase === 'no-existe' && (
+              <>
+                <h1>Esta actividad no existe</h1>
+                <p className="actividad__texto">
+                  Puede que el enlace esté mal escrito, o que la actividad ya no esté disponible.
+                </p>
+                <Link className="pildora" to={RUTAS.PANEL}>
                   Volver al panel
                 </Link>
+              </>
+            )}
+
+            {(estado.fase === 'lista' || estado.fase === 'enviando') && (
+              <>
+                <HeroeDeLaActividad
+                  modulo={modulo}
+                  categoria={estado.ficha.categoria.nombre}
+                  nombre={estado.ficha.actividad.nombre}
+                  {...(estado.ficha.actividad.descripcion === undefined
+                    ? {}
+                    : { descripcion: estado.ficha.actividad.descripcion })}
+                />
+
+                <Mecanica
+                  idDeLaActividad={estado.ficha.actividad.id}
+                  alTerminar={completar}
+                  enviando={estado.fase === 'enviando'}
+                />
+              </>
+            )}
+
+            {estado.fase === 'guardada' && (
+              <GuardadaEnEsteEquipo ficha={estado.ficha} alRepetir={empezarDeNuevo} />
+            )}
+
+            {estado.fase === 'hecha' && (
+              <Terminada resultado={estado.resultado} alRepetir={empezarDeNuevo} />
+            )}
+
+            {/* `role="alert"` interrumpe, y aqui corresponde: si algo fallo al
+              guardar, la persona tiene que enterarse antes de irse. */}
+            {estado.fase === 'error' && (
+              <div className="actividad__fallo" role="alert">
+                <p className="actividad__texto">{estado.mensaje}</p>
+
+                <div className="actividad__acciones">
+                  <button type="button" className="pildora" onClick={reintentar}>
+                    Reintentar
+                  </button>
+
+                  <Link className="pildora pildora--fantasma" to={RUTAS.PANEL}>
+                    Volver al panel
+                  </Link>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      </main>
-    </div>
+            )}
+          </div>
+        </main>
+      </div>
+    </ProveedorDeLaMascota>
   );
 }
 
@@ -158,7 +187,6 @@ function GuardadaEnEsteEquipo({
   return (
     <>
       <LogroDeLaActividad celebrar={false} />
-      <h1>Listo</h1>
 
       <p className="actividad__texto" role="status">
         Guardado en este equipo.{' '}
@@ -206,7 +234,6 @@ function Terminada({
   return (
     <>
       <LogroDeLaActividad celebrar={celebrar} />
-      <h1>Listo</h1>
 
       {resultado.nivelOrientativo === undefined ? (
         <p className="actividad__texto">
