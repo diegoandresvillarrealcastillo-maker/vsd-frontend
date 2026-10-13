@@ -214,6 +214,89 @@ describe('Mi diario, accesibilidad (C-03)', () => {
   });
 });
 
+describe('Mi diario, la navegacion (SCRUM-182)', () => {
+  it('lleva el dock del movil, con «Mi diario» como la pagina actual', async () => {
+    pintar();
+    await within(historial()).findByRole('heading', { name: 'Hoy' });
+
+    const dock = screen.getByRole('navigation', { name: 'Secciones' });
+
+    expect(within(dock).getByRole('link', { name: 'Mi diario' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
+  it('desde el dock se vuelve al inicio y al progreso del panel', async () => {
+    pintar();
+    await within(historial()).findByRole('heading', { name: 'Hoy' });
+
+    const dock = screen.getByRole('navigation', { name: 'Secciones' });
+
+    expect(within(dock).getByRole('link', { name: 'Inicio' })).toHaveAttribute(
+      'href',
+      '/panel#inicio',
+    );
+    expect(within(dock).getByRole('link', { name: 'Progreso' })).toHaveAttribute(
+      'href',
+      '/panel#progreso',
+    );
+  });
+
+  it('la barra de arriba no repite «Mi diario»', async () => {
+    pintar();
+    await within(historial()).findByRole('heading', { name: 'Hoy' });
+
+    const dock = screen.getByRole('navigation', { name: 'Secciones' });
+    const enlaces = screen
+      .getAllByRole('link', { name: 'Mi diario' })
+      // El del menu de la cuenta solo existe con el menu abierto; aqui esta cerrado.
+      .filter((enlace) => !dock.contains(enlace));
+
+    expect(enlaces).toEqual([]);
+  });
+});
+
+describe('Mi diario, cargas y vacios (SCRUM-180)', () => {
+  it('mientras carga muestra el esqueleto del historial y lo dice', async () => {
+    api.consultarElDiario.mockReturnValue(
+      new Promise(function sinResolver() {
+        // A proposito: la peticion se queda en el aire.
+      }),
+    );
+
+    pintar();
+
+    const estado = (await screen.findByText('Cargando tu diario…')).closest('[role="status"]');
+
+    expect(estado).toHaveAttribute('aria-busy', 'true');
+    expect(estado?.querySelectorAll('.esqueleto').length).toBeGreaterThan(0);
+  });
+
+  it('sin anotaciones invita a escribir, sin reclamar nada', async () => {
+    api.consultarElDiario.mockResolvedValue([]);
+
+    pintar();
+
+    const vacio = await within(historial()).findByText('Todavía no hay nada en tu diario');
+
+    expect(vacio.closest('.estado-vacio')).not.toBeNull();
+    expect(
+      within(historial()).getByText('Lo que escribas arriba aparece aquí.'),
+    ).toBeInTheDocument();
+    expect(within(historial()).queryByRole('alert')).toBeNull();
+  });
+
+  it('con anotaciones no muestra ni el esqueleto ni el vacio', async () => {
+    pintar();
+
+    await within(historial()).findByRole('heading', { name: 'Hoy' });
+
+    expect(historial().querySelector('.estado-vacio')).toBeNull();
+    expect(historial().querySelector('.esqueleto')).toBeNull();
+  });
+});
+
 describe('Mi diario, el historial', () => {
   it('agrupa por dia, con la hora de cada anotacion', async () => {
     pintar();
