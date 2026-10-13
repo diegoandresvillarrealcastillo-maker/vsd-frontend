@@ -11,6 +11,11 @@ import { abrirUnAlmacenDePrueba, cerrarElAlmacenDePrueba } from '../../pruebas/a
 import { cuantosH1, fallosDeAccesibilidad } from '../../pruebas/axe.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { encolar } from '../../sincronizacion/ciclo.ts';
+import {
+  marcarElTutorialComoVisto,
+  tutorialVisto,
+  volverAVerElTutorial,
+} from '../../tutorial/memoriaDelTutorial.ts';
 import { Panel } from './Panel.tsx';
 
 /**
@@ -110,6 +115,9 @@ function tarjeta(nombre: RegExp) {
 }
 
 beforeEach(() => {
+  // El tutorial de Fungito (SCRUM-187) abre un dialogo modal la primera vez: aqui ya se vio, y
+  // lo que se prueba de el tiene su propio bloque.
+  marcarElTutorialComoVisto(CUENTA.id);
   consultarLaVersionDelAviso.mockResolvedValue('version-de-la-api');
   darDeAltaLaCuenta.mockResolvedValue(CUENTA);
   consultarElProgreso.mockResolvedValue(PROGRESO);
@@ -293,6 +301,47 @@ describe('Dashboard', () => {
 
       fireEvent.focus(within(dock()).getByRole('link', { name: 'Progreso' }));
       expect(dock()).not.toHaveClass('app__nav-inferior--oculto');
+    });
+  });
+
+  describe('el tutorial de Fungito (SCRUM-187)', () => {
+    it('la primera vez que se ve el panel, Fungito se presenta', async () => {
+      volverAVerElTutorial(CUENTA.id);
+
+      pintar();
+
+      const dialogo = await screen.findByRole('dialog', { name: /Soy Fungito/ });
+
+      expect(dialogo).toBeInTheDocument();
+    });
+
+    it('omitirlo lo deja visto: no vuelve a abrirse al volver al panel', async () => {
+      volverAVerElTutorial(CUENTA.id);
+
+      const primera = pintar();
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Omitir' }));
+
+      expect(tutorialVisto(CUENTA.id)).toBe(true);
+
+      primera.unmount();
+
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      expect(screen.queryByRole('dialog', { name: /Soy Fungito/ })).toBeNull();
+    });
+
+    it('no se abre en la bienvenida, antes de elegir modulos', async () => {
+      volverAVerElTutorial(CUENTA.id);
+      darDeAltaLaCuenta.mockResolvedValue({ ...CUENTA, modulosActivos: [] });
+
+      pintar();
+
+      await screen.findByRole('heading', { name: /Bienvenid/i });
+
+      expect(screen.queryByRole('dialog', { name: /Soy Fungito/ })).toBeNull();
     });
   });
 

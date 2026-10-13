@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { EstadoDeCarga } from '../../componentes/EstadoDeCarga.tsx';
 import { ExigeConexion } from '../../componentes/ExigeConexion.tsx';
 import { PieDeLaApp } from '../../componentes/PieDeLaApp.tsx';
+import { TutorialDeFungito } from '../../tutorial/TutorialDeFungito.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/aplicacion.css';
 import type { Cuenta, Modulo } from '../../infraestructura/api/cuenta.ts';
@@ -166,6 +167,9 @@ function Dashboard({
 
   return (
     <>
+      {/* La primera vez que se ve el panel, Fungito se presenta (SCRUM-187). */}
+      <TutorialDeFungito cuenta={cuenta.id} />
+
       <section id="inicio" className="app__portada" aria-labelledby="saludo">
         <div>
           <p className="app__fecha">{hoyEnCastellano()}</p>

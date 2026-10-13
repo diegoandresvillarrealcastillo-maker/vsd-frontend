@@ -31,6 +31,7 @@ import {
 } from '../../mascota/personajes.ts';
 import { sprite } from '../../mascota/sprites.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
+import { volverAVerElTutorial } from '../../tutorial/memoriaDelTutorial.ts';
 import { Semaforo } from '../../semaforo/Semaforo.tsx';
 import { mensajeSiNoCumple } from '../../sesion/reglaDeContrasena.ts';
 import { olvidarLosDatosDeLaSesionActual } from '../../sincronizacion/ciclo.ts';
@@ -123,6 +124,7 @@ export function Perfil() {
             <TusAvisos />
             <Correo correo={estado.cuenta.correo} />
             <Contrasena correo={estado.cuenta.correo} />
+            <TutorialDeNuevo cuenta={estado.cuenta.id} />
             <TusDatos />
             <BorrarCuenta />
             <MascotaFlotante mascota={estado.cuenta.mascota} />
@@ -133,6 +135,33 @@ export function Perfil() {
         <PieDeLaApp />
       </main>
     </div>
+  );
+}
+
+/**
+ * Repetir el tutorial de bienvenida (SCRUM-187). Es una marca de este equipo: no necesita
+ * conexion, y al pulsarlo el panel se abre con Fungito otra vez.
+ */
+function TutorialDeNuevo({ cuenta }: { cuenta: string }) {
+  const navegar = useNavigate();
+
+  return (
+    <Apartado
+      titulo="Tutorial de bienvenida"
+      ayuda="Fungito te cuenta de nuevo cómo funciona todo, paso a paso."
+      exigeConexion={false}
+    >
+      <button
+        type="button"
+        className="app__boton perfil__accion"
+        onClick={() => {
+          volverAVerElTutorial(cuenta);
+          void navegar(RUTAS.PANEL);
+        }}
+      >
+        Ver el tutorial otra vez
+      </button>
+    </Apartado>
   );
 }
 
