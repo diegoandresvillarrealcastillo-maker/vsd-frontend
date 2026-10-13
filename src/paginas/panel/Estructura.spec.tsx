@@ -19,6 +19,23 @@ const { foto } = vi.hoisted(() => ({ foto: { url: null as string | null } }));
 
 vi.mock('../../foto/fotoDePerfil.ts', () => ({ useFotoDePerfil: () => foto.url }));
 
+// La llama de la racha (SCRUM-186) pide la racha desde la barra: aqui solo importa donde va.
+const { consultarLaRacha } = vi.hoisted(() => ({ consultarLaRacha: vi.fn() }));
+
+vi.mock('../../infraestructura/api/racha.ts', () => ({ consultarLaRacha }));
+
+beforeEach(() => {
+  consultarLaRacha.mockResolvedValue({
+    dias: 5,
+    nivel: 0,
+    hechoHoy: true,
+    enDescanso: false,
+    congelamientosUsados: 0,
+    congelamientosPorMes: 3,
+    diasCubiertos: [],
+  });
+});
+
 const salir = vi.fn().mockResolvedValue(undefined);
 
 function sesion(): EstadoDeSesion {
@@ -328,5 +345,41 @@ describe('la navegacion despues de entrar (SCRUM-182)', () => {
           .filter((enlace) => enlace.getAttribute('aria-current') === 'location'),
       ).toEqual([]);
     });
+  });
+});
+
+describe('la llama de la racha en la barra (SCRUM-186)', () => {
+  function pintarConCuenta() {
+    const valor = { ...sesion(), sesion: { user: { id: 'cuenta-1', email: 'ana@ejemplo.test' } } };
+
+    render(
+      <SesionContexto.Provider value={valor as unknown as EstadoDeSesion}>
+        <MemoryRouter>
+          <BarraSuperior conSecciones={false} />
+        </MemoryRouter>
+      </SesionContexto.Provider>,
+    );
+  }
+
+  it('va a la izquierda del indicador de conexion', async () => {
+    pintarConCuenta();
+
+    const llama = await screen.findByRole('button', { name: /Tu racha: 5 días/ });
+    const conexion = document.querySelector('.conexion');
+
+    expect(conexion).not.toBeNull();
+    // `conexion` viene despues de la llama en el documento: esta a su derecha.
+    expect(
+      llama.compareDocumentPosition(conexion!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('va antes que el selector de tema y que la cuenta', async () => {
+    pintarConCuenta();
+
+    const llama = await screen.findByRole('button', { name: /Tu racha/ });
+    const cuenta = screen.getByRole('button', { name: 'Abrir el menú de tu cuenta' });
+
+    expect(llama.compareDocumentPosition(cuenta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

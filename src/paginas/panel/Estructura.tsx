@@ -6,6 +6,7 @@ import { ConfirmarSalida } from '../../componentes/ConfirmarSalida.tsx';
 import { MarcaDeLaApp } from '../../componentes/MarcaDeLaApp.tsx';
 import { IndicadorDeConexion } from '../../conexion/IndicadorDeConexion.tsx';
 import { useFotoDePerfil } from '../../foto/fotoDePerfil.ts';
+import { LlamaDeLaBarra } from '../../racha/LlamaDeRacha.tsx';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { sincronizarAhora } from '../../sincronizacion/estado.ts';
@@ -65,6 +66,8 @@ export function BarraSuperior({ conSecciones }: { conSecciones: boolean }) {
         )}
 
         <div className="app__acciones">
+          {/* La llama de la racha (SCRUM-186), a la izquierda del indicador de conexion. */}
+          <LlamaDeLaBarra />
           {/* Si hay conexion y cuanto sigue guardado en este equipo (SCRUM-137). */}
           <IndicadorDeConexion />
           {/* Volvio con el modo claro (SCRUM-112). */}

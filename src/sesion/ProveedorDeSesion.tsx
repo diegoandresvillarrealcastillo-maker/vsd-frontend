@@ -2,6 +2,7 @@ import { isAuthRetryableFetchError, type AuthError, type Session } from '@supaba
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { olvidarLosArchivosDeLaPersona } from '../foto/archivosDeLaPersona.ts';
+import { olvidarLaRacha } from '../racha/memoriaDeLaRacha.ts';
 import {
   esSoloDeEstaPestana,
   leerLaSesionGuardada,
@@ -263,6 +264,7 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
         // termina sin pasar por ahi: caduca, se revoca, o se cierra en otra pestana.
         if (actual === null) {
           olvidarLosArchivosDeLaPersona();
+          olvidarLaRacha();
           reiniciarLasFrases();
           olvidarLoVisto();
         }
@@ -508,6 +510,7 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     // el historial de lo que su mascota le dijo (SCRUM-142).
     olvidarLaZonaDeLaCuenta();
     olvidarLosArchivosDeLaPersona();
+    olvidarLaRacha();
     reiniciarLasFrases();
     olvidarLoVisto();
     setSesion(null);
