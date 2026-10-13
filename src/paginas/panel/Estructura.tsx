@@ -21,9 +21,16 @@ import { Icono, type NombreDeIcono } from './Icono.tsx';
  * perfil (SCRUM-101), y tienen que verse como una sola aplicacion.
  */
 
+/**
+ * Las secciones del dashboard a las que lleva la navegacion.
+ *
+ * «Explorar» ya no esta (SCRUM-182): era un enlace a `#programas`, y esa seccion
+ * **sigue en el panel** porque tiene las tarjetas de los modulos, que son la
+ * entrada a cada sendero. Lo que se quito es el enlace, no el contenido; a las
+ * tarjetas se llega bajando, y el boton «Ver los modulos» sigue apuntando a ellas.
+ */
 const SECCIONES: readonly { href: string; texto: string; icono: NombreDeIcono }[] = [
   { href: '#inicio', texto: 'Inicio', icono: 'home' },
-  { href: '#programas', texto: 'Explorar', icono: 'book' },
   { href: '#progreso', texto: 'Progreso', icono: 'activity' },
 ];
 
@@ -49,10 +56,8 @@ export function BarraSuperior({ conSecciones }: { conSecciones: boolean }) {
                 {seccion.texto}
               </a>
             ))}
-            <Link className="app__enlace" to={RUTAS.DIARIO}>
-              <Icono nombre="calendar" tamano={18} />
-              Mi diario
-            </Link>
+            {/* «Mi diario» ya no va aqui (SCRUM-182): se llega desde el menu de la
+                cuenta y, en el movil, desde el dock. */}
           </nav>
         ) : (
           // Mantiene la marca a la izquierda y la cuenta a la derecha.
@@ -298,8 +303,8 @@ function useSeccionALaVista(ids: readonly string[]): [string, (id: string) => vo
 const IDS_DE_SECCIONES = SECCIONES.map((seccion) => seccion.href.slice(1));
 
 /**
- * El dock flotante del movil (SCRUM-114). Solo tiene sentido en el
- * dashboard.
+ * El dock flotante del movil (SCRUM-114). Vive en el dashboard y, desde SCRUM-182,
+ * tambien dentro de Mi diario.
  *
  * - Una pildora compacta y centrada, despegada del borde y de la zona segura
  *   del iPhone, de vidrio como lo demas que flota (SCRUM-113).
@@ -307,11 +312,24 @@ const IDS_DE_SECCIONES = SECCIONES.map((seccion) => seccion.href.slice(1));
  *   otra.
  * - Al bajar se aparta, y vuelve al subir, al detenerse o si recibe el foco.
  * - Con `prefers-reduced-motion`, sin deslizamientos.
+ *
+ * **En el dashboard** las secciones son anclas de la misma pagina y se marca la que
+ * cruza el centro. **Dentro del Diario** no hay secciones que mirar: «Mi diario» es
+ * la pagina actual, y Inicio y Progreso son enlaces al panel con su ancla (el panel
+ * baja solo a ella al llegar).
  */
-export function NavegacionInferior() {
+export function NavegacionInferior({ enDiario = false }: { enDiario?: boolean }) {
   const [activa, setActiva] = useSeccionALaVista(IDS_DE_SECCIONES);
   const [oculto, setOculto] = useOcultarAlBajar();
   const sinMovimiento = useReducedMotion() ?? false;
+
+  const pastilla = (
+    <motion.span
+      className="app__nav-inferior-pastilla"
+      layoutId="pastilla-del-dock"
+      transition={sinMovimiento ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 34 }}
+    />
+  );
 
   return (
     <nav
@@ -322,6 +340,29 @@ export function NavegacionInferior() {
     >
       {SECCIONES.map((seccion) => {
         const id = seccion.href.slice(1);
+        const contenido = (
+          <>
+            <span className="app__nav-inferior-icono">
+              <Icono nombre={seccion.icono} tamano={19} />
+            </span>
+            <span className="app__nav-inferior-texto">{seccion.texto}</span>
+          </>
+        );
+
+        if (enDiario) {
+          // Otra pagina: un enlace del enrutador, no un ancla, y ninguna seccion
+          // esta «a la vista».
+          return (
+            <Link
+              key={seccion.href}
+              className="app__nav-inferior-enlace"
+              to={{ pathname: RUTAS.PANEL, hash: seccion.href }}
+            >
+              {contenido}
+            </Link>
+          );
+        }
+
         const esLaActiva = id === activa;
 
         return (
@@ -332,23 +373,17 @@ export function NavegacionInferior() {
             aria-current={esLaActiva ? 'location' : undefined}
             onClick={() => setActiva(id)}
           >
-            {esLaActiva && (
-              <motion.span
-                className="app__nav-inferior-pastilla"
-                layoutId="pastilla-del-dock"
-                transition={
-                  sinMovimiento ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 34 }
-                }
-              />
-            )}
-            <span className="app__nav-inferior-icono">
-              <Icono nombre={seccion.icono} tamano={19} />
-            </span>
-            <span className="app__nav-inferior-texto">{seccion.texto}</span>
+            {esLaActiva && pastilla}
+            {contenido}
           </a>
         );
       })}
-      <Link className="app__nav-inferior-enlace" to={RUTAS.DIARIO}>
+      <Link
+        className={`app__nav-inferior-enlace${enDiario ? ' app__nav-inferior-enlace--activo' : ''}`}
+        to={RUTAS.DIARIO}
+        aria-current={enDiario ? 'page' : undefined}
+      >
+        {enDiario && pastilla}
         <span className="app__nav-inferior-icono">
           <Icono nombre="calendar" tamano={19} />
         </span>

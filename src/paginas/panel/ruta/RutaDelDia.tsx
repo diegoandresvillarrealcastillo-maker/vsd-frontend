@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 
 import { Confeti } from '../../../componentes/Confeti.tsx';
+import { EstadoVacio } from '../../../componentes/EstadoVacio.tsx';
 import '../../../estilos/ruta.css';
 import { rutaDeActividad } from '../../../rutas/rutas.ts';
 import { nombreDeEtapa } from '../../sendero/etapas.ts';
@@ -73,9 +74,11 @@ export function RutaDelDia({
       </div>
 
       {ruta.total === 0 ? (
-        <p className="app__nota">
-          Cuando elijas un módulo, aquí aparecerá lo que te toca cada día.
-        </p>
+        <EstadoVacio
+          titulo="Todavía no hay nada para hoy"
+          texto="Cuando elijas un módulo, aquí aparecerá lo que te toca cada día."
+          icono={<Icono nombre="activity" tamano={22} />}
+        />
       ) : (
         <div className="ruta__camino">
           {ruta.tramos.map((tramo) => (

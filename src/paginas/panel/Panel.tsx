@@ -1,6 +1,7 @@
-import { useMemo, useState, type CSSProperties } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 
+import { EstadoDeCarga } from '../../componentes/EstadoDeCarga.tsx';
 import { ExigeConexion } from '../../componentes/ExigeConexion.tsx';
 import { PieDeLaApp } from '../../componentes/PieDeLaApp.tsx';
 import { TutorialDeFungito } from '../../tutorial/TutorialDeFungito.tsx';
@@ -69,7 +70,7 @@ export function VistaDelPanel({
   activarModulo,
   completarBienvenida,
 }: ReturnType<typeof useDatosDelPanel>) {
-  // Las secciones (Inicio, Explorar, Progreso) solo existen en el dashboard.
+  // Las secciones (Inicio, Progreso) solo existen en el dashboard.
   // En la bienvenida, en la carga o en un error, sus enlaces no llevarian a
   // ningun sitio.
   const enDashboard = estado.fase === 'listo' && estado.cuenta.modulosActivos.length > 0;
@@ -80,10 +81,9 @@ export function VistaDelPanel({
 
       <main id={ID_DEL_CONTENIDO} tabIndex={-1} className="app__contenido">
         {estado.fase === 'cargando' && (
-          // `role="status"` lo anuncia un lector de pantalla sin interrumpir.
-          <p className="app__aviso" role="status">
-            Cargando tu espacio…
-          </p>
+          // Esqueleto y `role="status"`: se ve que algo viene y un lector de pantalla
+          // lo anuncia sin interrumpir (SCRUM-180).
+          <EstadoDeCarga mensaje="Cargando tu espacio…" />
         )}
 
         {estado.fase === 'error' && (
@@ -152,6 +152,18 @@ function Dashboard({
   const porModulo = new Map(progreso.map((uno) => [uno.modulo, uno]));
   const ruta = useMemo(() => construirLaRuta(progreso), [progreso]);
   const { nuevas } = useAvanceCelebrable(ruta.idsHechos);
+
+  // Llegar desde otra pagina con un ancla (el dock de Mi diario, SCRUM-182): el
+  // contenido se pinta despues de la carga, cuando el navegador ya no busca el
+  // ancla por su cuenta. El tablero solo existe con la cuenta cargada, asi que a
+  // estas alturas la seccion ya esta en el documento.
+  const { hash } = useLocation();
+
+  useEffect(() => {
+    if (hash !== '') {
+      document.getElementById(hash.slice(1))?.scrollIntoView();
+    }
+  }, [hash]);
 
   return (
     <>
