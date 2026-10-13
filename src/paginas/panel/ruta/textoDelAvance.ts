@@ -13,7 +13,7 @@ export function textoDelAvance(hechas: number, total: number): string {
   }
 
   if (hechas === 0) {
-    return `${String(total)} actividades te esperan hoy. Empieza por la que más te llame, sin prisa.`;
+    return `${String(total)} actividades te esperan hoy, sin prisa.`;
   }
 
   return `¡Buen ritmo! ${String(hechas)} de ${String(total)} actividades de hoy.`;

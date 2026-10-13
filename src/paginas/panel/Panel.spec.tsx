@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { olvidarElDatoGuardado } from '../../datosCuriosos/memoriaDelDia.ts';
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
 import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
 import type { ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
@@ -36,6 +37,11 @@ vi.mock('../../infraestructura/api/pendientes.ts', () => ({
 vi.mock('../../infraestructura/api/aviso.ts', () => ({ consultarLaVersionDelAviso }));
 vi.mock('../../infraestructura/api/cuenta.ts', () => ({ darDeAltaLaCuenta, cambiarPreferencias }));
 vi.mock('../../infraestructura/api/progreso.ts', () => ({ consultarElProgreso }));
+
+// El dato curioso del dia (SCRUM-185) lo pide el mini-panel del dashboard.
+const { consultarElDatoDeHoy } = vi.hoisted(() => ({ consultarElDatoDeHoy: vi.fn() }));
+
+vi.mock('../../infraestructura/api/datosCuriosos.ts', () => ({ consultarElDatoDeHoy }));
 
 const CUENTA: Cuenta = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -110,6 +116,14 @@ function tarjeta(nombre: RegExp) {
 }
 
 beforeEach(() => {
+  consultarElDatoDeHoy.mockResolvedValue({
+    dia: '2026-10-13',
+    dato: {
+      id: 'd0000000-0000-4000-8000-000000000001',
+      texto: 'Los pulpos tienen tres corazones.',
+      tema: 'animales',
+    },
+  });
   consultarLaVersionDelAviso.mockResolvedValue('version-de-la-api');
   darDeAltaLaCuenta.mockResolvedValue(CUENTA);
   consultarElProgreso.mockResolvedValue(PROGRESO);
@@ -288,6 +302,34 @@ describe('Dashboard', () => {
 
       fireEvent.focus(within(dock()).getByRole('link', { name: 'Explorar' }));
       expect(dock()).not.toHaveClass('app__nav-inferior--oculto');
+    });
+  });
+
+  describe('el dato curioso (SCRUM-185)', () => {
+    const CON_CUENTA = { sesion: { user: { id: CUENTA.id, email: CUENTA.correo } } as Session };
+
+    it('aparece bajo la tarjeta de avance, con el dato de hoy', async () => {
+      pintar(CON_CUENTA);
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      const dato = await screen.findByRole('region', { name: 'Dato curioso del día' });
+
+      expect(within(dato).getByText('Los pulpos tienen tres corazones.')).toBeInTheDocument();
+      // Y la invitacion vieja ya no esta.
+      expect(screen.queryByText(/Empieza por la que más te llame/)).toBeNull();
+    });
+
+    it('si el servidor no responde y no hay nada guardado, el panel sigue igual y sin un hueco', async () => {
+      // Lo que dejo la prueba anterior en este equipo: aqui se parte de cero.
+      olvidarElDatoGuardado();
+      consultarElDatoDeHoy.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      pintar(CON_CUENTA);
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      expect(screen.queryByRole('region', { name: 'Dato curioso del día' })).toBeNull();
     });
   });
 

@@ -2,6 +2,7 @@ import { useMemo, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 
 import { ExigeConexion } from '../../componentes/ExigeConexion.tsx';
+import { DatoCuriosoDelDia } from '../../datosCuriosos/DatoCuriosoDelDia.tsx';
 import { PieDeLaApp } from '../../componentes/PieDeLaApp.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/aplicacion.css';
@@ -164,7 +165,10 @@ function Dashboard({
           </h1>
         </div>
 
-        <AvanceDeHoy hechas={ruta.hechas} total={ruta.total} recienHechas={nuevas.size} />
+        <div className="app__avance-y-dato">
+          <AvanceDeHoy hechas={ruta.hechas} total={ruta.total} recienHechas={nuevas.size} />
+          <DatoCuriosoDelDia />
+        </div>
       </section>
 
       <section id="progreso" className="app__seccion app__ruta-y-recomendado">
