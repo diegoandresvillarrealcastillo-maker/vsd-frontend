@@ -14,6 +14,10 @@ describe('textoDelAvance', () => {
     expect(texto).toContain('sin prisa');
   });
 
+  it('ya no manda a elegir por donde empezar: de eso se ocupa el dato curioso (SCRUM-185)', () => {
+    expect(textoDelAvance(0, 4)).not.toMatch(/empieza por la que/i);
+  });
+
   it('a medias celebra lo hecho', () => {
     expect(textoDelAvance(2, 4)).toBe('¡Buen ritmo! 2 de 4 actividades de hoy.');
   });

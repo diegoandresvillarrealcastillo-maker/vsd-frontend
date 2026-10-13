@@ -1,7 +1,9 @@
 import { isAuthRetryableFetchError, type AuthError, type Session } from '@supabase/supabase-js';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import { olvidarElDatoGuardado } from '../datosCuriosos/memoriaDelDia.ts';
 import { olvidarLosArchivosDeLaPersona } from '../foto/archivosDeLaPersona.ts';
+import { olvidarLaRacha } from '../racha/memoriaDeLaRacha.ts';
 import {
   esSoloDeEstaPestana,
   leerLaSesionGuardada,
@@ -263,6 +265,8 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
         // termina sin pasar por ahi: caduca, se revoca, o se cierra en otra pestana.
         if (actual === null) {
           olvidarLosArchivosDeLaPersona();
+          olvidarElDatoGuardado();
+          olvidarLaRacha();
           reiniciarLasFrases();
           olvidarLoVisto();
         }
@@ -508,6 +512,8 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     // el historial de lo que su mascota le dijo (SCRUM-142).
     olvidarLaZonaDeLaCuenta();
     olvidarLosArchivosDeLaPersona();
+    olvidarElDatoGuardado();
+    olvidarLaRacha();
     reiniciarLasFrases();
     olvidarLoVisto();
     setSesion(null);

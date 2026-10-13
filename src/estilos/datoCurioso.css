@@ -1,0 +1,61 @@
+/* ============================================================
+   El dato curioso del dia (SCRUM-185)
+
+   Un mini-panel bajo la tarjeta de avance. Usa los tokens `--app-*`:
+   se ve bien en claro y en oscuro sin tocar nada. Es una invitacion,
+   no un deber: sin boton, sin contador, sin nada que se pueda perder.
+   ============================================================ */
+
+.dato-curioso {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--app-borde);
+  border-left: 4px solid var(--app-primario);
+  border-radius: 1rem;
+  background: var(--app-superficie);
+  animation: dato-curioso-entrar 0.3s ease-out;
+}
+
+.dato-curioso__ceja {
+  margin: 0;
+  color: var(--app-tenue);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dato-curioso__texto {
+  margin: 0;
+  color: var(--app-tinta);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+@keyframes dato-curioso-entrar {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* La tarjeta de avance y el dato, en la misma columna. */
+.app__avance-y-dato {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dato-curioso {
+    animation: none;
+  }
+}

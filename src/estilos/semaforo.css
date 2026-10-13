@@ -18,6 +18,11 @@
   --semaforo-aplazable: #7fc3b1;
   --semaforo-aplazable-suave: #1f3b35;
   --semaforo-caja: #0e1013;
+  /* La pareja de cada luz (SCRUM-183): el extremo del degradado que le da volumen, sin un
+     color nuevo. En oscuro es la misma luz, mas clara. */
+  --semaforo-urgente-luz: #f4b3a7;
+  --semaforo-prioridad-luz: #efc983;
+  --semaforo-aplazable-luz: #a9dccd;
 }
 
 /* El tema claro (SCRUM-112), con la variante clara de la misma propuesta. */
@@ -29,6 +34,10 @@
   --semaforo-aplazable: #3d7a6b;
   --semaforo-aplazable-suave: #d8e8e3;
   --semaforo-caja: #2a2f36;
+  /* En claro la pareja es la luz, mas viva, para que el degradado vaya de la luz a su sombra. */
+  --semaforo-urgente-luz: #d97a68;
+  --semaforo-prioridad-luz: #c4912f;
+  --semaforo-aplazable-luz: #5fa090;
 }
 
 /* ---------- El dibujo ---------- */
@@ -43,22 +52,34 @@
   stroke-width: 1;
 }
 
+/* Las luces encendidas brillan con una sombra de su propio color: se ven "prendidas" sin
+   cambiar de color ni parpadear. Una luz apagada no brilla. */
+.semaforo-luz {
+  transition:
+    fill 0.2s,
+    filter 0.2s;
+}
+
 .semaforo-luz--urgente {
   fill: var(--semaforo-urgente);
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--semaforo-urgente) 65%, transparent));
 }
 
 .semaforo-luz--prioridad {
   fill: var(--semaforo-prioridad);
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--semaforo-prioridad) 65%, transparent));
 }
 
 .semaforo-luz--aplazable {
   fill: var(--semaforo-aplazable);
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--semaforo-aplazable) 65%, transparent));
 }
 
 .semaforo-luz--apagada {
   fill: var(--app-borde);
 }
 
+/* El punto de cada nivel: una esfera suave, con un aro tenue de su color. */
 .semaforo-punto {
   display: inline-block;
   flex: none;
@@ -68,15 +89,30 @@
 }
 
 .semaforo-punto--urgente {
-  background: var(--semaforo-urgente);
+  background: radial-gradient(
+    circle at 35% 30%,
+    var(--semaforo-urgente-luz),
+    var(--semaforo-urgente) 72%
+  );
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--semaforo-urgente) 20%, transparent);
 }
 
 .semaforo-punto--prioridad {
-  background: var(--semaforo-prioridad);
+  background: radial-gradient(
+    circle at 35% 30%,
+    var(--semaforo-prioridad-luz),
+    var(--semaforo-prioridad) 72%
+  );
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--semaforo-prioridad) 20%, transparent);
 }
 
 .semaforo-punto--aplazable {
-  background: var(--semaforo-aplazable);
+  background: radial-gradient(
+    circle at 35% 30%,
+    var(--semaforo-aplazable-luz),
+    var(--semaforo-aplazable) 72%
+  );
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--semaforo-aplazable) 20%, transparent);
 }
 
 /* ---------- El boton flotante ----------
@@ -94,17 +130,34 @@
   place-items: center;
   border: 1px solid var(--app-borde);
   border-radius: 20px;
+  /* El fondo y la sombra los pone el vidrio (`.app .semaforo__boton`, SCRUM-113), igual que
+     el dock y el menu: es el mismo lenguaje. Aqui solo se suma el movimiento. */
   background: var(--app-superficie-alta);
   box-shadow: 0 12px 24px -8px rgb(0 0 0 / 0.5);
   cursor: pointer;
   transition:
     opacity 0.2s,
     transform 0.2s,
+    box-shadow 0.2s,
     visibility 0.2s;
 }
 
 .semaforo__boton:hover {
   transform: translateY(-2px);
+}
+
+/* Al pulsar se hunde un poco: responde antes de que se abra la ventana. */
+.semaforo__boton:active {
+  transform: scale(0.96);
+}
+
+/* Con urgentes, un halo quieto del color de «urgente» alrededor del vidrio: avisa sin
+   agitarse. Lleva `.app` para ganarle al vidrio, y conserva su brillo y su sombra. */
+.app .semaforo__boton:has(.semaforo__cuenta) {
+  box-shadow:
+    var(--vidrio-brillo),
+    0 0 0 4px color-mix(in srgb, var(--semaforo-urgente) 18%, transparent),
+    var(--vidrio-sombra);
 }
 
 .semaforo__boton:focus-visible {
@@ -122,7 +175,8 @@
   padding: 0 6px;
   place-items: center;
   border-radius: 9999px;
-  background: var(--semaforo-urgente);
+  background: linear-gradient(160deg, var(--semaforo-urgente-luz), var(--semaforo-urgente) 70%);
+  box-shadow: 0 2px 6px -1px color-mix(in srgb, var(--semaforo-urgente) 55%, transparent);
   color: var(--app-lienzo);
   font-size: 0.75rem;
   font-weight: 800;
@@ -180,6 +234,22 @@
   box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.4);
   /* Sube poco: con mas, al aparecer pasaria por encima del boton. */
   animation: semaforo-aparecer 0.26s ease-out;
+}
+
+/* Un lavado leve del color del nivel desde la esquina: se reconoce de un vistazo, sin gritar.
+   Va en un `::before` y no en el fondo: el fondo lo pone el vidrio y gana en la cascada. */
+.semaforo__recordatorio::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--semaforo-nivel, var(--app-borde)) 13%, transparent),
+    transparent 60%
+  );
+  content: '';
+  pointer-events: none;
 }
 
 @keyframes semaforo-aparecer {
@@ -246,10 +316,19 @@
   font-size: 0.8125rem;
   font-weight: 700;
   cursor: pointer;
+  transition:
+    background 0.18s,
+    transform 0.12s,
+    box-shadow 0.18s;
 }
 
 .semaforo__accion:hover:not(:disabled) {
   background: var(--app-superficie-alta);
+}
+
+/* Al pulsar se hunde un poco: el boton "responde" antes de que llegue el resultado. */
+.semaforo__accion:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 .semaforo__accion:disabled {
@@ -259,7 +338,12 @@
 
 .semaforo__accion--principal {
   border-color: var(--app-primario);
-  background: var(--app-primario);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--app-primario) 86%, white),
+    var(--app-primario)
+  );
+  box-shadow: 0 6px 14px -8px color-mix(in srgb, var(--app-primario) 80%, transparent);
   color: var(--app-sobre-primario);
 }
 
@@ -331,6 +415,9 @@
 }
 
 .semaforo-ventana {
+  position: relative;
+  /* Contexto propio: el lavado de abajo (`::before`) queda detras del contenido. */
+  isolation: isolate;
   display: grid;
   max-height: 88dvh;
   align-content: start;
@@ -344,6 +431,23 @@
   background: var(--app-lienzo);
   color: var(--app-tinta);
   animation: semaforo-subir 0.26s ease-out;
+}
+
+/* Un lavado verde muy suave arriba, donde esta el titulo: la ventana se siente de la
+   aplicacion y no una caja gris. En un `::before` porque el fondo lo pone el vidrio. */
+.semaforo-ventana::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 auto;
+  height: 9rem;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--app-primario) 10%, transparent),
+    transparent
+  );
+  content: '';
+  pointer-events: none;
 }
 
 .semaforo-ventana__asa {
@@ -438,25 +542,50 @@
 }
 
 .semaforo-tarea {
+  --semaforo-nivel: var(--app-borde);
+
   display: grid;
   gap: 0.5rem;
   padding: 0.75rem;
   border: 1px solid var(--app-borde);
   border-left-width: 4px;
   border-radius: 14px;
-  background: var(--app-superficie);
+  /* El color del nivel entra como un lavado leve desde el borde (nunca mas de un 15 %): el
+     nivel se lee de un vistazo, y el texto sigue sobre un fondo casi liso. */
+  background: linear-gradient(
+    105deg,
+    color-mix(in srgb, var(--semaforo-nivel) 11%, var(--app-superficie)),
+    var(--app-superficie) 62%
+  );
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
   scroll-margin: 1rem;
+  transition:
+    transform 0.18s,
+    box-shadow 0.18s;
+}
+
+/* Al pasar el raton o al entrar con el teclado se levanta un poco. */
+.semaforo-tarea:hover,
+.semaforo-tarea:focus-within {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px -12px rgb(0 0 0 / 0.5);
 }
 
 .semaforo-tarea--urgente {
+  --semaforo-nivel: var(--semaforo-urgente);
+
   border-left-color: var(--semaforo-urgente);
 }
 
 .semaforo-tarea--prioridad {
+  --semaforo-nivel: var(--semaforo-prioridad);
+
   border-left-color: var(--semaforo-prioridad);
 }
 
 .semaforo-tarea--aplazable {
+  --semaforo-nivel: var(--semaforo-aplazable);
+
   border-left-color: var(--semaforo-aplazable);
 }
 
@@ -695,8 +824,32 @@
   cursor: pointer;
 }
 
+.semaforo-nuevo__nivel {
+  transition:
+    background 0.18s,
+    border-color 0.18s,
+    box-shadow 0.18s;
+}
+
 .semaforo-nuevo__nivel--elegido {
   border-color: var(--app-tinta);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-tinta) 10%, transparent);
+}
+
+/* El elegido toma el tono de su nivel. El borde y el aro siguen marcandolo: nunca solo color. */
+.semaforo-nuevo__nivel--elegido:has(.semaforo-punto--urgente) {
+  border-color: var(--semaforo-urgente);
+  background: color-mix(in srgb, var(--semaforo-urgente) 12%, var(--app-lienzo));
+}
+
+.semaforo-nuevo__nivel--elegido:has(.semaforo-punto--prioridad) {
+  border-color: var(--semaforo-prioridad);
+  background: color-mix(in srgb, var(--semaforo-prioridad) 12%, var(--app-lienzo));
+}
+
+.semaforo-nuevo__nivel--elegido:has(.semaforo-punto--aplazable) {
+  border-color: var(--semaforo-aplazable);
+  background: color-mix(in srgb, var(--semaforo-aplazable) 12%, var(--app-lienzo));
 }
 
 .semaforo-nuevo__nivel:has(input:focus-visible) {
@@ -799,8 +952,21 @@
   .semaforo__boton,
   .semaforo__recordatorio,
   .semaforo-ventana,
-  .semaforo-induccion {
+  .semaforo-induccion,
+  .semaforo-tarea,
+  .semaforo__accion,
+  .semaforo-nuevo__nivel,
+  .semaforo-luz {
     animation: none;
     transition: none;
+  }
+
+  /* Sin movimiento tampoco hay desplazamiento al pasar el raton o al pulsar. */
+  .semaforo__boton:hover,
+  .semaforo__boton:active,
+  .semaforo-tarea:hover,
+  .semaforo-tarea:focus-within,
+  .semaforo__accion:active:not(:disabled) {
+    transform: none;
   }
 }

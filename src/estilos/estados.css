@@ -1,0 +1,125 @@
+/* ============================================================
+   Cargas y vacios (SCRUM-180)
+
+   Esqueleto, estado de carga y estado vacio. Usan los tokens
+   `--app-*`: se ven bien en claro y en oscuro sin tocar nada.
+   ============================================================ */
+
+/* ---------- El esqueleto ---------- */
+
+.esqueleto {
+  display: block;
+  border-radius: 0.5rem;
+  /* La base es `--app-superficie-alta`: sobre la tarjeta se ve en claro y en oscuro. El brillo
+     se mezcla hacia la tinta, que oscurece en claro y aclara en oscuro: el mismo barrido sirve
+     en los dos temas sin un color por tema. */
+  background: linear-gradient(
+    90deg,
+    var(--app-superficie-alta) 0%,
+    color-mix(in srgb, var(--app-superficie-alta) 78%, var(--app-tinta)) 50%,
+    var(--app-superficie-alta) 100%
+  );
+  background-size: 200% 100%;
+  animation: esqueleto-brillo 1.6s ease-in-out infinite;
+}
+
+.esqueleto--linea {
+  width: 100%;
+  height: 0.875rem;
+}
+
+.esqueleto--bloque {
+  width: 100%;
+  height: 6rem;
+  border-radius: 1rem;
+}
+
+.esqueleto--circulo {
+  flex: none;
+  width: 2.5rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+@keyframes esqueleto-brillo {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -100% 0;
+  }
+}
+
+/* Con movimiento reducido el esqueleto queda como una forma quieta. La regla global acorta
+   las animaciones a 0,01 ms, pero aqui se apaga de verdad: un brillo "casi" quieto parpadea. */
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto {
+    background: var(--app-superficie-alta);
+    animation: none;
+  }
+}
+
+/* ---------- El estado de carga ---------- */
+
+.estado-de-carga {
+  display: grid;
+  gap: 1rem;
+  max-width: 48rem;
+}
+
+.estado-de-carga__marcas {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.estado-de-carga__tarjeta {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 1.5rem;
+  background: var(--app-superficie);
+}
+
+.estado-de-carga__texto {
+  margin: 0;
+  color: var(--app-tenue);
+  font-size: 0.875rem;
+}
+
+/* ---------- El estado vacio ---------- */
+
+.estado-vacio {
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+  max-width: 36rem;
+  padding: 1.25rem;
+  border: 1px dashed var(--app-borde);
+  border-radius: 1.5rem;
+  background: var(--app-superficie);
+}
+
+.estado-vacio__icono {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--app-superficie-alta);
+  color: var(--app-tenue);
+}
+
+.estado-vacio__titulo {
+  margin: 0;
+  color: var(--app-tinta);
+  font-weight: 600;
+}
+
+.estado-vacio__texto {
+  margin: 0;
+  color: var(--app-tenue);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}

@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,7 +9,7 @@ import { cicloActual, encolar } from '../../sincronizacion/ciclo.ts';
 import type { EstadoDeOperacion } from '../../sincronizacion/cola.ts';
 
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
-import { BarraSuperior } from './Estructura.tsx';
+import { BarraSuperior, NavegacionInferior } from './Estructura.tsx';
 
 /**
  * El boton redondo de la cuenta, en la barra de arriba de toda la aplicacion.
@@ -18,6 +18,23 @@ import { BarraSuperior } from './Estructura.tsx';
 const { foto } = vi.hoisted(() => ({ foto: { url: null as string | null } }));
 
 vi.mock('../../foto/fotoDePerfil.ts', () => ({ useFotoDePerfil: () => foto.url }));
+
+// La llama de la racha (SCRUM-186) pide la racha desde la barra: aqui solo importa donde va.
+const { consultarLaRacha } = vi.hoisted(() => ({ consultarLaRacha: vi.fn() }));
+
+vi.mock('../../infraestructura/api/racha.ts', () => ({ consultarLaRacha }));
+
+beforeEach(() => {
+  consultarLaRacha.mockResolvedValue({
+    dias: 5,
+    nivel: 0,
+    hechoHoy: true,
+    enDescanso: false,
+    congelamientosUsados: 0,
+    congelamientosPorMes: 3,
+    diasCubiertos: [],
+  });
+});
 
 const salir = vi.fn().mockResolvedValue(undefined);
 
@@ -243,5 +260,126 @@ describe('cerrar sesion con cambios sin enviar (SCRUM-142)', () => {
     await waitFor(() => {
       expect(salir).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe('la navegacion despues de entrar (SCRUM-182)', () => {
+  function nombresDe(navegacion: HTMLElement): (string | undefined)[] {
+    return within(navegacion)
+      .getAllByRole('link')
+      .map((enlace) => enlace.textContent?.trim());
+  }
+
+  describe('la barra de arriba', () => {
+    function pintarLaBarra() {
+      render(
+        <SesionContexto.Provider value={sesion()}>
+          <MemoryRouter>
+            <BarraSuperior conSecciones />
+          </MemoryRouter>
+        </SesionContexto.Provider>,
+      );
+
+      return screen.getByRole('navigation', { name: 'Secciones' });
+    }
+
+    it('lleva Inicio y Progreso, sin «Mi diario» ni «Explorar»', () => {
+      expect(nombresDe(pintarLaBarra())).toEqual(['Inicio', 'Progreso']);
+    });
+
+    it('«Mi diario» sigue a un toque, en el menu de la cuenta', async () => {
+      pintarLaBarra();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Abrir el menú de tu cuenta' }));
+
+      expect(screen.getByRole('link', { name: 'Mi diario' })).toHaveAttribute('href', '/diario');
+    });
+  });
+
+  describe('el dock del movil', () => {
+    function pintarElDock(enDiario?: boolean) {
+      render(
+        <MemoryRouter>
+          {enDiario === undefined ? (
+            <NavegacionInferior />
+          ) : (
+            <NavegacionInferior enDiario={enDiario} />
+          )}
+        </MemoryRouter>,
+      );
+
+      return screen.getByRole('navigation', { name: 'Secciones' });
+    }
+
+    it('lleva Inicio, Progreso y Mi diario, sin «Explorar»', () => {
+      expect(nombresDe(pintarElDock())).toEqual(['Inicio', 'Progreso', 'Mi diario']);
+    });
+
+    it('en el panel, «Mi diario» no esta marcado como la pagina actual', () => {
+      const dock = pintarElDock();
+
+      expect(within(dock).getByRole('link', { name: 'Mi diario' })).not.toHaveAttribute(
+        'aria-current',
+      );
+    });
+
+    it('dentro del Diario marca «Mi diario» y lleva al panel por las otras dos', () => {
+      const dock = pintarElDock(true);
+
+      expect(within(dock).getByRole('link', { name: 'Mi diario' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      );
+      expect(within(dock).getByRole('link', { name: 'Inicio' })).toHaveAttribute(
+        'href',
+        '/panel#inicio',
+      );
+      expect(within(dock).getByRole('link', { name: 'Progreso' })).toHaveAttribute(
+        'href',
+        '/panel#progreso',
+      );
+      // Ninguna seccion del panel esta «a la vista» desde otra pagina.
+      expect(
+        within(dock)
+          .getAllByRole('link')
+          .filter((enlace) => enlace.getAttribute('aria-current') === 'location'),
+      ).toEqual([]);
+    });
+  });
+});
+
+describe('la llama de la racha en la barra (SCRUM-186)', () => {
+  function pintarConCuenta() {
+    const valor = { ...sesion(), sesion: { user: { id: 'cuenta-1', email: 'ana@ejemplo.test' } } };
+
+    render(
+      <SesionContexto.Provider value={valor as unknown as EstadoDeSesion}>
+        <MemoryRouter>
+          <BarraSuperior conSecciones={false} />
+        </MemoryRouter>
+      </SesionContexto.Provider>,
+    );
+  }
+
+  it('va a la izquierda del indicador de conexion', async () => {
+    pintarConCuenta();
+
+    const llama = await screen.findByRole('button', { name: /Tu racha: 5 días/ });
+    const conexion = document.querySelector('.conexion');
+
+    expect(conexion).not.toBeNull();
+    // `conexion` viene despues de la llama en el documento: esta a su derecha.
+    expect(
+      llama.compareDocumentPosition(conexion!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('va antes que el selector de tema y que la cuenta', async () => {
+    pintarConCuenta();
+
+    const llama = await screen.findByRole('button', { name: /Tu racha/ });
+    const cuenta = screen.getByRole('button', { name: 'Abrir el menú de tu cuenta' });
+
+    expect(llama.compareDocumentPosition(cuenta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
