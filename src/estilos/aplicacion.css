@@ -880,6 +880,43 @@
   opacity: 0.7;
 }
 
+/* El campo de contrasena con su ojo (SCRUM-181). Todo va acotado a `.bienvenida__caja`
+   porque `.ojo` tambien existe en `autenticacion.css`, con otros tokens, y esa hoja
+   solo se carga en las pantallas de acceso: aqui el ojo tiene que verse igual
+   llegando desde cualquier sitio. */
+.bienvenida__caja {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.bienvenida__entrada--conOjo {
+  width: 100%;
+  min-width: 0;
+  padding-right: 3rem;
+}
+
+.bienvenida__caja .ojo {
+  position: absolute;
+  right: 0.375rem;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  color: var(--app-tenue);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.bienvenida__caja .ojo:hover:not(:disabled) {
+  color: var(--app-primario);
+  background: var(--app-hundido);
+}
+
 .bienvenida__modulos {
   display: grid;
   gap: 0.75rem;

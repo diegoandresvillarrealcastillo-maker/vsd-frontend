@@ -517,6 +517,68 @@ describe('Perfil', () => {
       expect(valor.cambiarContrasenaConCodigo).toHaveBeenCalled();
       expect(screen.getByRole('alert')).toHaveTextContent('no es válido');
     });
+
+    describe('el ojo que muestra lo escrito (SCRUM-181)', () => {
+      async function abrirElFormulario() {
+        const valor = pintar();
+
+        await usuario.click(await screen.findByRole('button', { name: 'Enviarme un código' }));
+
+        return valor;
+      }
+
+      it('empieza oculta y cada campo tiene su propio ojo', async () => {
+        await abrirElFormulario();
+
+        const nueva = screen.getByLabelText('Contraseña nueva');
+        const repetida = screen.getByLabelText('Repite la contraseña nueva');
+
+        expect(nueva).toHaveAttribute('type', 'password');
+        expect(repetida).toHaveAttribute('type', 'password');
+        expect(screen.getByRole('button', { name: 'Mostrar la contraseña nueva' })).toHaveAttribute(
+          'aria-pressed',
+          'false',
+        );
+        expect(
+          screen.getByRole('button', { name: 'Mostrar la contraseña repetida' }),
+        ).toHaveAttribute('aria-pressed', 'false');
+      });
+
+      it('al pulsarlo muestra lo escrito, sin perderlo, y al volver a pulsarlo lo oculta', async () => {
+        await abrirElFormulario();
+
+        const nueva = screen.getByLabelText('Contraseña nueva');
+        const repetida = screen.getByLabelText('Repite la contraseña nueva');
+
+        await usuario.type(nueva, 'UnaClave#Nueva9');
+        await usuario.click(screen.getByRole('button', { name: 'Mostrar la contraseña nueva' }));
+
+        expect(nueva).toHaveAttribute('type', 'text');
+        expect(nueva).toHaveValue('UnaClave#Nueva9');
+        // El otro campo no se entera: cada uno guarda su propio estado.
+        expect(repetida).toHaveAttribute('type', 'password');
+
+        const ojo = screen.getByRole('button', { name: 'Ocultar la contraseña nueva' });
+
+        expect(ojo).toHaveAttribute('aria-pressed', 'true');
+
+        await usuario.click(ojo);
+
+        expect(nueva).toHaveAttribute('type', 'password');
+        expect(nueva).toHaveValue('UnaClave#Nueva9');
+      });
+
+      it('pulsarlo no envia el formulario', async () => {
+        const valor = await abrirElFormulario();
+
+        await usuario.type(screen.getByLabelText('Código del correo'), '123456');
+        await usuario.type(screen.getByLabelText('Contraseña nueva'), 'UnaClave#Nueva9');
+        await usuario.type(screen.getByLabelText('Repite la contraseña nueva'), 'UnaClave#Nueva9');
+        await usuario.click(screen.getByRole('button', { name: 'Mostrar la contraseña nueva' }));
+
+        expect(valor.cambiarContrasenaConCodigo).not.toHaveBeenCalled();
+      });
+    });
   });
 
   it('descarga los datos propios como archivo', async () => {
