@@ -1,0 +1,269 @@
+/* ============================================================
+   La llama de la racha (SCRUM-186)
+
+   Cuatro niveles (7 dias, 1 mes, 3 meses y 1 ano) mas el ascua, y un
+   estado de descanso. Va dentro de `.app`: usa los tokens `--app-*` y los
+   `--llama-*` de aqui, en claro y en oscuro.
+
+   «Nada castiga»: no hay rojo ni parpadeo de alarma. La llama es calida,
+   se mueve despacio y, en descanso, es solo un contorno quieto.
+   ============================================================ */
+
+.app {
+  --llama-base: #e07a3f;
+  --llama-punta: #f6c35d;
+  --llama-corazon: #fff0c2;
+  --llama-brillo: rgb(240 168 64 / 0.55);
+  --llama-oro-base: #d9a21f;
+  --llama-oro-punta: #fbe48a;
+}
+
+:root[data-tema='claro'] .app {
+  --llama-base: #d2602a;
+  --llama-punta: #eba33a;
+  --llama-corazon: #ffe6a8;
+  --llama-brillo: rgb(210 96 42 / 0.4);
+  --llama-oro-base: #b8860b;
+  --llama-oro-punta: #f0c24a;
+}
+
+/* ---------- El boton ---------- */
+
+.llama {
+  position: relative;
+}
+
+.llama__boton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 2.5rem;
+  min-width: 2.5rem;
+  justify-content: center;
+  padding: 0 0.625rem 0 0.5rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 9999px;
+  background: var(--app-superficie);
+  color: var(--app-tinta);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 0.15s,
+    border-color 0.15s;
+}
+
+.llama__boton:hover {
+  border-color: var(--llama-base);
+  transform: translateY(-1px);
+}
+
+.llama__boton:active {
+  transform: scale(0.96);
+}
+
+.llama__boton:focus-visible {
+  outline: 2px solid var(--app-primario);
+  outline-offset: 2px;
+}
+
+.llama__dias {
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- El dibujo ---------- */
+
+.llama__dibujo {
+  flex: none;
+  overflow: visible;
+  transform-origin: 50% 90%;
+  animation: llama-parpadeo 2.8s ease-in-out infinite;
+}
+
+.llama__corazon {
+  fill: var(--llama-corazon);
+  opacity: 0.9;
+}
+
+.llama__chispa {
+  fill: var(--llama-punta);
+  animation: llama-chispa 3.2s ease-in-out infinite;
+}
+
+.llama__chispa--b {
+  animation-delay: 1.4s;
+}
+
+.llama__estrella {
+  fill: var(--llama-oro-punta);
+}
+
+/* El parpadeo es apenas un cambio de tamano: una llama que respira, no que se agita. */
+@keyframes llama-parpadeo {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.05, 1.07);
+  }
+}
+
+@keyframes llama-chispa {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+
+  50% {
+    opacity: 0.9;
+    transform: translateY(-3px);
+  }
+}
+
+/* ---------- Los niveles ---------- */
+
+/* El ascua: menos de 7 dias. Mas pequena y apagada de color, sin brillo. */
+.llama--nivel-0 {
+  --llama-base: color-mix(in srgb, var(--llama-base) 45%, var(--app-tenue));
+  --llama-punta: color-mix(in srgb, var(--llama-punta) 50%, var(--app-tenue));
+}
+
+.llama--nivel-0 .llama__dibujo {
+  transform: scale(0.88);
+}
+
+.llama--nivel-2 .llama__dibujo {
+  filter: drop-shadow(0 0 3px var(--llama-brillo));
+}
+
+.llama--nivel-3 .llama__dibujo {
+  filter: drop-shadow(0 0 5px var(--llama-brillo));
+}
+
+/* El nivel de un ano es dorado. */
+.llama--nivel-4 {
+  --llama-base: var(--llama-oro-base);
+  --llama-punta: var(--llama-oro-punta);
+}
+
+.llama--nivel-4 .llama__dibujo {
+  filter: drop-shadow(0 0 6px var(--llama-brillo));
+}
+
+/* La llama descansa: solo el contorno, quieto. Es un estado, no una falta. */
+.llama--descanso .llama__dibujo {
+  animation: none;
+  transform: scale(0.92);
+}
+
+.llama--descanso .llama__cuerpo {
+  stroke: var(--app-tenue);
+  stroke-width: 1.3;
+  stroke-linejoin: round;
+}
+
+/* ---------- El panel ---------- */
+
+.llama__panel {
+  position: fixed;
+  z-index: 45;
+  top: calc(76px + 0.5rem + env(safe-area-inset-top, 0px));
+  right: max(1rem, env(safe-area-inset-right, 0px));
+  display: grid;
+  gap: 0.5rem;
+  width: min(20rem, calc(100vw - 2rem));
+  padding: 1rem;
+  border: 1px solid var(--vidrio-borde, var(--app-borde));
+  border-radius: 1.25rem;
+  background: var(--vidrio-fondo-denso, var(--app-superficie));
+  -webkit-backdrop-filter: var(--vidrio-filtro, none);
+  backdrop-filter: var(--vidrio-filtro, none);
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.25);
+  color: var(--app-tinta);
+}
+
+.llama__titulo {
+  margin: 0;
+  font-weight: 800;
+}
+
+.llama__texto {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+.llama__texto--tenue {
+  color: var(--app-tenue);
+  font-size: 0.875rem;
+}
+
+/* ---------- Cuando la barra no alcanza ----------
+   La barra de arriba ya llevaba la marca, la conexion, el selector de tema y la cuenta. La
+   llama suma 63 px y, medido con el selector de tema en su sitio, desbordaba la barra: 3 px a
+   375, 18 a 360, 58 a 320 y 98 a 280. Se cede lo que menos informa, de menos a mas:
+
+   1. Hasta 384 px: menos aire entre las acciones.
+   2. Hasta 360 px: el nombre «VSD-H» se queda solo para el lector de pantalla (el enlace ya
+      lleva `aria-label="VSD-H, inicio"`); el isotipo sigue a la vista.
+   3. Hasta 288 px (un plegable cerrado): la llama pierde el numero, que sigue en su nombre
+      accesible y en el panel, y la barra aprieta sus margenes.
+
+   Lleva `.app` para ganar en especificidad sin depender del orden de las hojas. */
+
+@media (max-width: 24rem) {
+  .app .app__acciones {
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 22.5rem) {
+  .app .marca__texto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
+}
+
+@media (max-width: 18rem) {
+  .app .llama__dias {
+    display: none;
+  }
+
+  .app .llama__boton {
+    padding: 0;
+  }
+
+  .app .app__barra-interior {
+    padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+  }
+}
+
+/* ---------- Con movimiento reducido, la llama queda quieta ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .llama__dibujo,
+  .llama__chispa,
+  .llama__boton {
+    animation: none;
+    transition: none;
+  }
+
+  .llama__boton:hover,
+  .llama__boton:active {
+    transform: none;
+  }
+
+  .llama__chispa {
+    opacity: 0.8;
+  }
+}
