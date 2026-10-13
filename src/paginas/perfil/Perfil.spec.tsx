@@ -17,6 +17,7 @@ import { CLAVE_DEL_PANEL, guardarElPanel } from '../../sincronizacion/panelLocal
 import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
 import { cuantosH1, fallosDeAccesibilidad } from '../../pruebas/axe.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
+import { marcarElTutorialComoVisto, tutorialVisto } from '../../tutorial/memoriaDelTutorial.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { Perfil } from './Perfil.tsx';
 
@@ -1167,7 +1168,13 @@ describe('sin conexion (SCRUM-142)', () => {
     for (const seccion of screen.getAllByRole('region')) {
       const titulo = within(seccion).getByRole('heading', { level: 2 }).textContent ?? '';
 
-      if (titulo === 'Tu correo' || /Semáforo|VSD/.test(titulo)) {
+      // El correo solo se muestra, y el tutorial es una marca de este equipo (SCRUM-187): ninguno
+      // de los dos necesita al servidor.
+      if (
+        titulo === 'Tu correo' ||
+        titulo === 'Tutorial de bienvenida' ||
+        /Semáforo|VSD/.test(titulo)
+      ) {
         continue;
       }
 
@@ -1177,6 +1184,23 @@ describe('sin conexion (SCRUM-142)', () => {
         expect(control, `${titulo}: ${control.outerHTML.slice(0, 60)}`).toBeDisabled();
       }
     }
+  });
+
+  it('el tutorial de bienvenida se puede repetir sin conexion: es una marca de este equipo (SCRUM-187)', async () => {
+    marcarElTutorialComoVisto(CUENTA.id);
+    sinConexion();
+    pintar();
+    await screen.findByRole('heading', { name: 'Tu perfil' });
+
+    const tutorial = apartado('Tutorial de bienvenida');
+    const boton = within(tutorial).getByRole('button', { name: 'Ver el tutorial otra vez' });
+
+    expect(boton).toBeEnabled();
+    expect(within(tutorial).queryByText(NECESITAS)).not.toBeInTheDocument();
+
+    await usuario.click(boton);
+
+    expect(tutorialVisto(CUENTA.id)).toBe(false);
   });
 
   it('el correo solo se muestra: no se bloquea ni dice que necesita conexion', async () => {
