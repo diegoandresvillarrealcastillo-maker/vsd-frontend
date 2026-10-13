@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 
 import { EstadoDeCarga } from '../../componentes/EstadoDeCarga.tsx';
 import { ExigeConexion } from '../../componentes/ExigeConexion.tsx';
+import { DatoCuriosoDelDia } from '../../datosCuriosos/DatoCuriosoDelDia.tsx';
 import { PieDeLaApp } from '../../componentes/PieDeLaApp.tsx';
 import { PermisoDeAvisos } from '../../notificaciones/PermisoDeAvisos.tsx';
 import { tutorialVisto } from '../../tutorial/memoriaDelTutorial.ts';
@@ -187,7 +188,10 @@ function Dashboard({
           </h1>
         </div>
 
-        <AvanceDeHoy hechas={ruta.hechas} total={ruta.total} recienHechas={nuevas.size} />
+        <div className="app__avance-y-dato">
+          <AvanceDeHoy hechas={ruta.hechas} total={ruta.total} recienHechas={nuevas.size} />
+          <DatoCuriosoDelDia />
+        </div>
       </section>
 
       <section id="progreso" className="app__seccion app__ruta-y-recomendado">
