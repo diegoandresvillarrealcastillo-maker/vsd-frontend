@@ -149,10 +149,17 @@ describe('PermisoDeAvisos', () => {
       preparar();
 
       render(<PermisoDeAvisos cuenta={CUENTA} />);
-      await screen.findByRole('dialog');
+
+      // El dialogo escucha Escape y recibe el foco en el mismo efecto: con el foco dentro ya escucha.
+      // Con la maquina cargada, el dialogo puede estar en pantalla un instante antes.
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Activar avisos' })).toHaveFocus();
+      });
       await usuario.keyboard('{Escape}');
 
-      expect(screen.queryByRole('dialog')).toBeNull();
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).toBeNull();
+      });
       expect(avisosYaPreguntados(CUENTA)).toBe(true);
     });
 
