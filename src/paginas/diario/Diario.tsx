@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { EstadoDeCarga } from '../../componentes/EstadoDeCarga.tsx';
+import { EstadoVacio } from '../../componentes/EstadoVacio.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/actividad.css';
 import '../../estilos/aplicacion.css';
@@ -226,7 +228,9 @@ export function Diario() {
             </p>
           )}
 
-          {diario.fase.fase === 'cargando' && <p role="status">Cargando tu diario…</p>}
+          {diario.fase.fase === 'cargando' && (
+            <EstadoDeCarga mensaje="Cargando tu diario…" tarjetas={2} />
+          )}
 
           {diario.fase.fase === 'error' && (
             <div role="alert">
@@ -238,9 +242,11 @@ export function Diario() {
           )}
 
           {diario.fase.fase === 'listo' && dias.length === 0 && (
-            <p className="diario__vacio">
-              Todavía no hay nada en tu diario. Lo que escribas arriba aparece aquí.
-            </p>
+            <EstadoVacio
+              titulo="Todavía no hay nada en tu diario"
+              texto="Lo que escribas arriba aparece aquí."
+              icono={<Icono nombre="calendar" tamano={22} />}
+            />
           )}
 
           {dias.map(({ dia, anotaciones }) => (

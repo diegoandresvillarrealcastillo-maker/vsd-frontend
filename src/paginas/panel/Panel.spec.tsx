@@ -10,7 +10,13 @@ import type { ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { abrirUnAlmacenDePrueba, cerrarElAlmacenDePrueba } from '../../pruebas/almacenDePrueba.ts';
 import { cuantosH1, fallosDeAccesibilidad } from '../../pruebas/axe.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
+import { olvidarQueYaSePregunto } from '../../notificaciones/memoriaDelPermiso.ts';
 import { encolar } from '../../sincronizacion/ciclo.ts';
+import {
+  marcarElTutorialComoVisto,
+  tutorialVisto,
+  volverAVerElTutorial,
+} from '../../tutorial/memoriaDelTutorial.ts';
 import { Panel } from './Panel.tsx';
 
 /**
@@ -36,6 +42,24 @@ vi.mock('../../infraestructura/api/pendientes.ts', () => ({
 vi.mock('../../infraestructura/api/aviso.ts', () => ({ consultarLaVersionDelAviso }));
 vi.mock('../../infraestructura/api/cuenta.ts', () => ({ darDeAltaLaCuenta, cambiarPreferencias }));
 vi.mock('../../infraestructura/api/progreso.ts', () => ({ consultarElProgreso }));
+
+// La oferta de avisos (SCRUM-188) mira el navegador y al servidor: aqui se simulan los dos. Por
+// defecto el navegador no recibe avisos, que es lo que pasa en jsdom.
+const { capacidadDelNavegador, permisoDeAvisos, consultarLasNotificaciones } = vi.hoisted(() => ({
+  capacidadDelNavegador: vi.fn(),
+  permisoDeAvisos: vi.fn(),
+  consultarLasNotificaciones: vi.fn(),
+}));
+
+vi.mock('../../notificaciones/navegador.ts', async (importar) => ({
+  ...(await importar<typeof import('../../notificaciones/navegador.ts')>()),
+  capacidadDelNavegador,
+  permisoDeAvisos,
+}));
+vi.mock('../../infraestructura/api/notificaciones.ts', () => ({
+  consultarLasNotificaciones,
+  suscribirEsteNavegador: vi.fn(),
+}));
 
 const CUENTA: Cuenta = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -110,6 +134,13 @@ function tarjeta(nombre: RegExp) {
 }
 
 beforeEach(() => {
+  // El tutorial de Fungito (SCRUM-187) abre un dialogo modal la primera vez: aqui ya se vio, y
+  // lo que se prueba de el tiene su propio bloque.
+  marcarElTutorialComoVisto(CUENTA.id);
+  olvidarQueYaSePregunto(CUENTA.id);
+  capacidadDelNavegador.mockReturnValue('sin-soporte');
+  permisoDeAvisos.mockReturnValue('default');
+  consultarLasNotificaciones.mockResolvedValue({ disponible: true, clavePublica: 'clave' });
   consultarLaVersionDelAviso.mockResolvedValue('version-de-la-api');
   darDeAltaLaCuenta.mockResolvedValue(CUENTA);
   consultarElProgreso.mockResolvedValue(PROGRESO);
@@ -153,7 +184,12 @@ describe('Dashboard', () => {
 
       pintar();
 
-      expect(screen.getByRole('status')).toHaveTextContent(/Cargando tu espacio/);
+      const estado = screen.getByRole('status');
+
+      expect(estado).toHaveTextContent(/Cargando tu espacio/);
+      // Con esqueleto (SCRUM-180): la pantalla no queda en blanco ni salta al llegar los datos.
+      expect(estado).toHaveAttribute('aria-busy', 'true');
+      expect(estado.querySelectorAll('.esqueleto').length).toBeGreaterThan(0);
     });
 
     it('si no se puede conectar, lo explica y deja reintentar', async () => {
@@ -288,6 +324,72 @@ describe('Dashboard', () => {
 
       fireEvent.focus(within(dock()).getByRole('link', { name: 'Progreso' }));
       expect(dock()).not.toHaveClass('app__nav-inferior--oculto');
+    });
+  });
+
+  describe('el tutorial de Fungito (SCRUM-187)', () => {
+    it('la primera vez que se ve el panel, Fungito se presenta', async () => {
+      volverAVerElTutorial(CUENTA.id);
+
+      pintar();
+
+      const dialogo = await screen.findByRole('dialog', { name: /Soy Fungito/ });
+
+      expect(dialogo).toBeInTheDocument();
+    });
+
+    it('omitirlo lo deja visto: no vuelve a abrirse al volver al panel', async () => {
+      volverAVerElTutorial(CUENTA.id);
+
+      const primera = pintar();
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Omitir' }));
+
+      expect(tutorialVisto(CUENTA.id)).toBe(true);
+
+      primera.unmount();
+
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      expect(screen.queryByRole('dialog', { name: /Soy Fungito/ })).toBeNull();
+    });
+
+    it('los avisos se ofrecen despues del tutorial, nunca a la vez (SCRUM-188)', async () => {
+      capacidadDelNavegador.mockReturnValue('lista');
+      volverAVerElTutorial(CUENTA.id);
+
+      pintar();
+
+      await screen.findByRole('dialog', { name: /Soy Fungito/ });
+
+      // Mientras Fungito habla, la oferta de avisos espera.
+      expect(screen.queryByRole('dialog', { name: /te avisemos/i })).toBeNull();
+      expect(consultarLasNotificaciones).not.toHaveBeenCalled();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Omitir' }));
+
+      expect(await screen.findByRole('dialog', { name: /te avisemos/i })).toBeInTheDocument();
+    });
+
+    it('si el tutorial ya se vio, los avisos se ofrecen de una vez', async () => {
+      capacidadDelNavegador.mockReturnValue('lista');
+
+      pintar();
+
+      expect(await screen.findByRole('dialog', { name: /te avisemos/i })).toBeInTheDocument();
+    });
+
+    it('no se abre en la bienvenida, antes de elegir modulos', async () => {
+      volverAVerElTutorial(CUENTA.id);
+      darDeAltaLaCuenta.mockResolvedValue({ ...CUENTA, modulosActivos: [] });
+
+      pintar();
+
+      await screen.findByRole('heading', { name: /Bienvenid/i });
+
+      expect(screen.queryByRole('dialog', { name: /Soy Fungito/ })).toBeNull();
     });
   });
 

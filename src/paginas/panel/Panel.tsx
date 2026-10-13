@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
+import { EstadoDeCarga } from '../../componentes/EstadoDeCarga.tsx';
 import { ExigeConexion } from '../../componentes/ExigeConexion.tsx';
 import { PieDeLaApp } from '../../componentes/PieDeLaApp.tsx';
+import { PermisoDeAvisos } from '../../notificaciones/PermisoDeAvisos.tsx';
+import { tutorialVisto } from '../../tutorial/memoriaDelTutorial.ts';
+import { TutorialDeFungito } from '../../tutorial/TutorialDeFungito.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/aplicacion.css';
 import type { Cuenta, Modulo } from '../../infraestructura/api/cuenta.ts';
@@ -79,10 +83,9 @@ export function VistaDelPanel({
 
       <main id={ID_DEL_CONTENIDO} tabIndex={-1} className="app__contenido">
         {estado.fase === 'cargando' && (
-          // `role="status"` lo anuncia un lector de pantalla sin interrumpir.
-          <p className="app__aviso" role="status">
-            Cargando tu espacio…
-          </p>
+          // Esqueleto y `role="status"`: se ve que algo viene y un lector de pantalla
+          // lo anuncia sin interrumpir (SCRUM-180).
+          <EstadoDeCarga mensaje="Cargando tu espacio…" />
         )}
 
         {estado.fase === 'error' && (
@@ -148,6 +151,9 @@ function Dashboard({
     setCelebracion({ modulo, total: cuenta.modulosActivos.length + 1 });
   }
 
+  // Si el tutorial ya se vio, la oferta de avisos no tiene nada que esperar.
+  const [tutorialTerminado, setTutorialTerminado] = useState(() => tutorialVisto(cuenta.id));
+
   const porModulo = new Map(progreso.map((uno) => [uno.modulo, uno]));
   const ruta = useMemo(() => construirLaRuta(progreso), [progreso]);
   const { nuevas } = useAvanceCelebrable(ruta.idsHechos);
@@ -166,6 +172,11 @@ function Dashboard({
 
   return (
     <>
+      {/* La primera vez que se ve el panel, Fungito se presenta (SCRUM-187) y, cuando termina,
+          se ofrecen los avisos (SCRUM-188): una ventana despues de la otra, nunca las dos. */}
+      <TutorialDeFungito cuenta={cuenta.id} alCerrar={() => setTutorialTerminado(true)} />
+      {tutorialTerminado && <PermisoDeAvisos key={cuenta.id} cuenta={cuenta.id} />}
+
       <section id="inicio" className="app__portada" aria-labelledby="saludo">
         <div>
           <p className="app__fecha">{hoyEnCastellano()}</p>

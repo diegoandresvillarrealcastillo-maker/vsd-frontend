@@ -17,6 +17,7 @@ import { CLAVE_DEL_PANEL, guardarElPanel } from '../../sincronizacion/panelLocal
 import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
 import { cuantosH1, fallosDeAccesibilidad } from '../../pruebas/axe.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
+import { marcarElTutorialComoVisto, tutorialVisto } from '../../tutorial/memoriaDelTutorial.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { Perfil } from './Perfil.tsx';
 
@@ -155,6 +156,24 @@ afterEach(() => {
   olvidarLaMascotaPropia();
   vi.restoreAllMocks();
   vi.clearAllMocks();
+});
+
+describe('Perfil, la carga (SCRUM-180)', () => {
+  it('mientras llega la cuenta muestra el esqueleto y lo dice', async () => {
+    darDeAltaLaCuenta.mockReturnValue(
+      new Promise(function sinResolver() {
+        // A proposito: la peticion se queda en el aire.
+      }),
+    );
+
+    pintar();
+
+    const estado = await screen.findByText('Cargando tu perfil…');
+    const zona = estado.closest('[role="status"]');
+
+    expect(zona).toHaveAttribute('aria-busy', 'true');
+    expect(zona?.querySelectorAll('.esqueleto').length).toBeGreaterThan(0);
+  });
 });
 
 describe('Perfil, accesibilidad (C-03)', () => {
@@ -516,6 +535,68 @@ describe('Perfil', () => {
 
       expect(valor.cambiarContrasenaConCodigo).toHaveBeenCalled();
       expect(screen.getByRole('alert')).toHaveTextContent('no es válido');
+    });
+
+    describe('el ojo que muestra lo escrito (SCRUM-181)', () => {
+      async function abrirElFormulario() {
+        const valor = pintar();
+
+        await usuario.click(await screen.findByRole('button', { name: 'Enviarme un código' }));
+
+        return valor;
+      }
+
+      it('empieza oculta y cada campo tiene su propio ojo', async () => {
+        await abrirElFormulario();
+
+        const nueva = screen.getByLabelText('Contraseña nueva');
+        const repetida = screen.getByLabelText('Repite la contraseña nueva');
+
+        expect(nueva).toHaveAttribute('type', 'password');
+        expect(repetida).toHaveAttribute('type', 'password');
+        expect(screen.getByRole('button', { name: 'Mostrar la contraseña nueva' })).toHaveAttribute(
+          'aria-pressed',
+          'false',
+        );
+        expect(
+          screen.getByRole('button', { name: 'Mostrar la contraseña repetida' }),
+        ).toHaveAttribute('aria-pressed', 'false');
+      });
+
+      it('al pulsarlo muestra lo escrito, sin perderlo, y al volver a pulsarlo lo oculta', async () => {
+        await abrirElFormulario();
+
+        const nueva = screen.getByLabelText('Contraseña nueva');
+        const repetida = screen.getByLabelText('Repite la contraseña nueva');
+
+        await usuario.type(nueva, 'UnaClave#Nueva9');
+        await usuario.click(screen.getByRole('button', { name: 'Mostrar la contraseña nueva' }));
+
+        expect(nueva).toHaveAttribute('type', 'text');
+        expect(nueva).toHaveValue('UnaClave#Nueva9');
+        // El otro campo no se entera: cada uno guarda su propio estado.
+        expect(repetida).toHaveAttribute('type', 'password');
+
+        const ojo = screen.getByRole('button', { name: 'Ocultar la contraseña nueva' });
+
+        expect(ojo).toHaveAttribute('aria-pressed', 'true');
+
+        await usuario.click(ojo);
+
+        expect(nueva).toHaveAttribute('type', 'password');
+        expect(nueva).toHaveValue('UnaClave#Nueva9');
+      });
+
+      it('pulsarlo no envia el formulario', async () => {
+        const valor = await abrirElFormulario();
+
+        await usuario.type(screen.getByLabelText('Código del correo'), '123456');
+        await usuario.type(screen.getByLabelText('Contraseña nueva'), 'UnaClave#Nueva9');
+        await usuario.type(screen.getByLabelText('Repite la contraseña nueva'), 'UnaClave#Nueva9');
+        await usuario.click(screen.getByRole('button', { name: 'Mostrar la contraseña nueva' }));
+
+        expect(valor.cambiarContrasenaConCodigo).not.toHaveBeenCalled();
+      });
     });
   });
 
@@ -1167,7 +1248,13 @@ describe('sin conexion (SCRUM-142)', () => {
     for (const seccion of screen.getAllByRole('region')) {
       const titulo = within(seccion).getByRole('heading', { level: 2 }).textContent ?? '';
 
-      if (titulo === 'Tu correo' || /Semáforo|VSD/.test(titulo)) {
+      // El correo solo se muestra, y el tutorial es una marca de este equipo (SCRUM-187): ninguno
+      // de los dos necesita al servidor.
+      if (
+        titulo === 'Tu correo' ||
+        titulo === 'Tutorial de bienvenida' ||
+        /Semáforo|VSD/.test(titulo)
+      ) {
         continue;
       }
 
@@ -1177,6 +1264,23 @@ describe('sin conexion (SCRUM-142)', () => {
         expect(control, `${titulo}: ${control.outerHTML.slice(0, 60)}`).toBeDisabled();
       }
     }
+  });
+
+  it('el tutorial de bienvenida se puede repetir sin conexion: es una marca de este equipo (SCRUM-187)', async () => {
+    marcarElTutorialComoVisto(CUENTA.id);
+    sinConexion();
+    pintar();
+    await screen.findByRole('heading', { name: 'Tu perfil' });
+
+    const tutorial = apartado('Tutorial de bienvenida');
+    const boton = within(tutorial).getByRole('button', { name: 'Ver el tutorial otra vez' });
+
+    expect(boton).toBeEnabled();
+    expect(within(tutorial).queryByText(NECESITAS)).not.toBeInTheDocument();
+
+    await usuario.click(boton);
+
+    expect(tutorialVisto(CUENTA.id)).toBe(false);
   });
 
   it('el correo solo se muestra: no se bloquea ni dice que necesita conexion', async () => {
