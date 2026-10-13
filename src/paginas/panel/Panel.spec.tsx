@@ -95,10 +95,10 @@ function estado(parcial: Partial<EstadoDeSesion>): EstadoDeSesion {
   };
 }
 
-function pintar(sesion: Partial<EstadoDeSesion> = {}) {
+function pintar(sesion: Partial<EstadoDeSesion> = {}, ruta = '/') {
   return render(
     <SesionContexto.Provider value={estado(sesion)}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[ruta]}>
         <Panel />
       </MemoryRouter>
     </SesionContexto.Provider>,
@@ -291,8 +291,69 @@ describe('Dashboard', () => {
       desplazarA(400);
       expect(dock()).toHaveClass('app__nav-inferior--oculto');
 
-      fireEvent.focus(within(dock()).getByRole('link', { name: 'Explorar' }));
+      fireEvent.focus(within(dock()).getByRole('link', { name: 'Progreso' }));
       expect(dock()).not.toHaveClass('app__nav-inferior--oculto');
+    });
+  });
+
+  describe('la navegacion sin «Explorar» (SCRUM-182)', () => {
+    it('las tarjetas de los modulos siguen en el panel: sin ellas no hay como entrar a un sendero', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      const modulos = document.getElementById('programas');
+
+      expect(modulos).not.toBeNull();
+      expect(
+        within(modulos!).getByRole('heading', { name: 'Elige dónde enfocarte' }),
+      ).toBeInTheDocument();
+      // Ya no hay un enlace en la barra ni en el dock que lleve a ellas por nombre. Por el DOM:
+      // la barra de arriba queda en `display: none` en jsdom y no cuenta para los roles.
+      const textos = [...document.querySelectorAll('a')].map((enlace) => enlace.textContent.trim());
+
+      expect(textos).not.toContain('Explorar');
+    });
+
+    it('la barra de arriba lleva solo Inicio y Progreso', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      const barra = document.querySelector<HTMLElement>('.app__nav');
+
+      expect(barra).not.toBeNull();
+      // Por el DOM y no por rol: en jsdom la barra queda en `display: none` (no evalua las
+      // media queries de escritorio) y las consultas por rol la dan por inaccesible.
+      const textos = [...barra!.querySelectorAll('a')].map((enlace) => enlace.textContent.trim());
+
+      expect(textos).toEqual(['Inicio', 'Progreso']);
+    });
+
+    it('al llegar con #progreso desde otra pagina, baja a esa seccion', async () => {
+      const desplazar = vi.spyOn(Element.prototype, 'scrollIntoView');
+
+      pintar({}, '/panel#progreso');
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      await waitFor(() => {
+        expect(desplazar.mock.contexts.some((el) => (el as Element).id === 'progreso')).toBe(true);
+      });
+
+      desplazar.mockRestore();
+    });
+
+    it('sin ancla no se desplaza a ninguna seccion', async () => {
+      const desplazar = vi.spyOn(Element.prototype, 'scrollIntoView');
+
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      expect(desplazar.mock.contexts.some((el) => (el as Element).id === 'progreso')).toBe(false);
+
+      desplazar.mockRestore();
     });
   });
 

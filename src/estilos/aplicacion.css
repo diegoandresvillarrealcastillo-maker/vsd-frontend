@@ -306,6 +306,14 @@
   outline: none;
 }
 
+/* Las secciones del panel son destino de anclas: Inicio y Progreso desde la barra, el dock
+   y Mi diario (SCRUM-182), y los modulos desde «Ver los modulos». La barra de arriba es
+   pegajosa y mide 76 px; sin este margen el titulo quedaba debajo de ella. */
+.app__portada,
+.app__seccion {
+  scroll-margin-top: 5.5rem;
+}
+
 .app__aviso {
   display: grid;
   gap: 1rem;
