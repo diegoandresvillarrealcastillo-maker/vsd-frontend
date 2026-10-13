@@ -64,9 +64,13 @@
 
 .legal__principal {
   flex: 1;
+  /* Un correo o un enlace largo (sin espacios) se parte donde haga falta y no ensancha la
+     pagina: a 320 px, /privacidad y /terminos se desplazaban de lado. */
+  min-width: 0;
   width: min(100% - 32px, 760px);
   margin-inline: auto;
   padding-block: 24px 64px;
+  overflow-wrap: anywhere;
 }
 
 /* Un ancho de linea de unos 70 caracteres: mas largo cansa al leer. */
