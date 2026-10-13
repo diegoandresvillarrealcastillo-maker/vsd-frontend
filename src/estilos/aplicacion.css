@@ -212,22 +212,32 @@
 
 .app__avatar {
   display: grid;
+  flex: none;
   place-items: center;
   width: 2.5rem;
   height: 2.5rem;
+  /* Un `button` trae relleno propio (1px 6px): sin quitarlo, la foto al 100% quedaba en un
+     rectangulo de 28 x 38 dentro del circulo, con el fondo asomando a los lados. */
+  padding: 0;
   border: 0;
-  border-radius: 9999px;
+  border-radius: 50%;
   background: var(--app-avatar);
   color: var(--app-avatar-tinta);
   cursor: pointer;
+  /* Cuadrado pase lo que pase: en una fila apretada no se encoge a lo ancho y deja de ser circulo. */
+  aspect-ratio: 1;
   /* La foto, si la hay, se recorta al circulo. */
   overflow: hidden;
+  /* Safari de iOS a veces ignora el recorte redondeado de un hijo con capa propia. */
+  isolation: isolate;
 }
 
 .app__avatar-foto {
   display: block;
   width: 100%;
   height: 100%;
+  /* El recorte tambien en la imagen, para que no dependa solo del `overflow` del boton. */
+  border-radius: 50%;
   object-fit: cover;
 }
 
@@ -503,6 +513,7 @@
 
 .tarjeta-modulo__icono {
   display: grid;
+  flex: none;
   place-items: center;
   width: 3rem;
   height: 3rem;
@@ -1007,6 +1018,10 @@
 
 .perfil__apartado {
   display: grid;
+  /* Una sola columna que se encoge. Con la pista `auto` por defecto, la columna crecia hasta lo
+     que mide lo mas ancho de adentro (una palabra larga, un boton) y empujaba la pagina hacia la
+     derecha en pantallas de 320 px. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.75rem;
   padding: 1.25rem;
   border-radius: 24px;
@@ -1042,16 +1057,19 @@
   place-items: center;
   width: 6rem;
   height: 6rem;
+  aspect-ratio: 1;
   overflow: hidden;
-  border-radius: 9999px;
+  border-radius: 50%;
   background: var(--app-avatar);
   color: var(--app-avatar-tinta);
+  isolation: isolate;
 }
 
 .perfil__foto-imagen {
   display: block;
   width: 100%;
   height: 100%;
+  border-radius: 50%;
   object-fit: cover;
 }
 
@@ -1219,11 +1237,18 @@
 
 .perfil__modulo-nombre {
   flex: 1;
+  /* Puede ser mas angosto que su palabra mas larga («Recomendaciones»); si no cabe, se corta con
+     guion y, en ultimo caso, donde haga falta. */
+  min-width: 0;
+  overflow-wrap: anywhere;
+  hyphens: auto;
   font-weight: 600;
 }
 
 .perfil__interruptor {
   position: relative;
+  /* Ni el interruptor ni el icono se aplastan: es el texto el que cede el lugar. */
+  flex: none;
   width: 2.5rem;
   height: 1.5rem;
   border-radius: 9999px;
@@ -1251,6 +1276,34 @@
 .perfil__tarjeta-de-aviso--activa .perfil__interruptor > span {
   background: var(--app-sobre-primario);
   transform: translateX(1rem);
+}
+
+/* Pantallas de 360 px o menos (iPhone SE de primera generacion, 320 px, y los Android chicos): se
+   le quita aire a lo que rodea el texto para que «Recomendaciones» entre entera en el interruptor
+   en lugar de partirse en cuatro lineas. */
+@media (max-width: 22.5rem) {
+  .perfil {
+    padding-inline: 0.875rem;
+  }
+
+  .perfil__apartado {
+    padding: 1rem;
+  }
+
+  .perfil__modulo {
+    gap: 0.625rem;
+    padding: 0.625rem;
+  }
+
+  .perfil__modulo .tarjeta-modulo__icono {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.875rem;
+  }
+
+  .perfil__modulo-nombre {
+    font-size: 0.9375rem;
+  }
 }
 
 .perfil__hora {
