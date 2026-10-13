@@ -20,7 +20,14 @@ import { PASOS_DEL_TUTORIAL } from './pasos.ts';
  * Fungito es decorativo (`alt=""`): lo que se lee es el paso. Su movimiento es una respiracion
  * suave que se apaga con `prefers-reduced-motion`.
  */
-export function TutorialDeFungito({ cuenta }: { cuenta: string }) {
+export function TutorialDeFungito({
+  cuenta,
+  alCerrar,
+}: {
+  cuenta: string;
+  /** Se llama al cerrarse, sea terminado u omitido: lo que va despues espera a esto. */
+  alCerrar?: () => void;
+}) {
   const [abierto, setAbierto] = useState(() => !tutorialVisto(cuenta));
   const [indice, setIndice] = useState(0);
   const sinMovimiento = useReducedMotion() ?? false;
@@ -31,6 +38,7 @@ export function TutorialDeFungito({ cuenta }: { cuenta: string }) {
   function cerrar() {
     marcarElTutorialComoVisto(cuenta);
     setAbierto(false);
+    alCerrar?.();
   }
 
   const caja = useDialogo<HTMLDivElement>(cerrar, principal);

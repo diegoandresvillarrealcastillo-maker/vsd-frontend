@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 
 import { ExigeConexion } from '../../componentes/ExigeConexion.tsx';
 import { PieDeLaApp } from '../../componentes/PieDeLaApp.tsx';
+import { PermisoDeAvisos } from '../../notificaciones/PermisoDeAvisos.tsx';
+import { tutorialVisto } from '../../tutorial/memoriaDelTutorial.ts';
 import { TutorialDeFungito } from '../../tutorial/TutorialDeFungito.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/aplicacion.css';
@@ -149,14 +151,19 @@ function Dashboard({
     setCelebracion({ modulo, total: cuenta.modulosActivos.length + 1 });
   }
 
+  // Si el tutorial ya se vio, la oferta de avisos no tiene nada que esperar.
+  const [tutorialTerminado, setTutorialTerminado] = useState(() => tutorialVisto(cuenta.id));
+
   const porModulo = new Map(progreso.map((uno) => [uno.modulo, uno]));
   const ruta = useMemo(() => construirLaRuta(progreso), [progreso]);
   const { nuevas } = useAvanceCelebrable(ruta.idsHechos);
 
   return (
     <>
-      {/* La primera vez que se ve el panel, Fungito se presenta (SCRUM-187). */}
-      <TutorialDeFungito cuenta={cuenta.id} />
+      {/* La primera vez que se ve el panel, Fungito se presenta (SCRUM-187) y, cuando termina,
+          se ofrecen los avisos (SCRUM-188): una ventana despues de la otra, nunca las dos. */}
+      <TutorialDeFungito cuenta={cuenta.id} alCerrar={() => setTutorialTerminado(true)} />
+      {tutorialTerminado && <PermisoDeAvisos key={cuenta.id} cuenta={cuenta.id} />}
 
       <section id="inicio" className="app__portada" aria-labelledby="saludo">
         <div>
