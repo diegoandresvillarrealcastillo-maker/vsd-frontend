@@ -1,5 +1,10 @@
-import { useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 
+import { BarraDeAccion, BotonPrincipal } from '../viva/BarraDeAccion.tsx';
+import { Contador } from '../viva/Contador.tsx';
+import { OpcionGrande } from '../viva/OpcionGrande.tsx';
+import { useMascotaDeLaPersona } from '../viva/mascotaDeLaPersona.ts';
+import { VozDeLaMascota } from '../viva/VozDeLaMascota.tsx';
 import type { LoQueProduceLaActividad } from '../useCompletarActividad.ts';
 
 /**
@@ -80,6 +85,19 @@ function puntuarComoAmaneciste(como: ComoAmaneciste): number {
   return como === 'normal' ? 2 : 0;
 }
 
+const COMO_AMANECISTE: readonly {
+  readonly valor: ComoAmaneciste;
+  readonly texto: string;
+  readonly adorno: string;
+}[] = [
+  { valor: 'descansado', texto: 'Descansado', adorno: '😊' },
+  { valor: 'normal', texto: 'Normal', adorno: '🙂' },
+  { valor: 'cansado', texto: 'Cansado', adorno: '😴' },
+];
+
+/** Horas de acostarse que se piden a diario, para no tener que escribirlas. */
+const ATAJOS_DE_HORA = ['21:00', '22:00', '23:00', '00:00', '01:00'] as const;
+
 export function ComoDormisteAnoche({
   alTerminar,
   enviando,
@@ -87,10 +105,12 @@ export function ComoDormisteAnoche({
   alTerminar: (produjo: LoQueProduceLaActividad) => void;
   enviando: boolean;
 }) {
+  const mascota = useMascotaDeLaPersona();
   const [horaDeAcostarse, setHoraDeAcostarse] = useState('23:00');
   const [horasDormidas, setHorasDormidas] = useState(7);
   const [despertares, setDespertares] = useState(0);
   const [comoAmaneciste, setComoAmaneciste] = useState<ComoAmaneciste>('normal');
+  const idDeLaHora = useId();
 
   function enviar(evento: FormEvent) {
     evento.preventDefault();
@@ -110,59 +130,86 @@ export function ComoDormisteAnoche({
     });
   }
 
+  // Dice lo que la persona anoto, sin opinar: ni «que bien» ni «que poco».
+  const mensaje = `Anotado: ${String(horasDormidas)} horas de sueño. Cambia lo que no sea así.`;
+
   return (
-    <form className="actividad__formulario" onSubmit={enviar}>
-      <p className="actividad__campo">
-        <label htmlFor="hora">¿A qué hora te acostaste?</label>
+    <form className="viva" onSubmit={enviar}>
+      <VozDeLaMascota mascota={mascota} mensaje={mensaje} />
+
+      <section className="viva-tarjeta">
+        <label className="viva-tarjeta__titulo" htmlFor={idDeLaHora}>
+          ¿A qué hora te acostaste?
+        </label>
         <input
-          id="hora"
+          id={idDeLaHora}
+          className="viva-hora"
           type="time"
           value={horaDeAcostarse}
           onChange={(evento) => setHoraDeAcostarse(evento.target.value)}
         />
-      </p>
+        <div className="viva-atajos">
+          {ATAJOS_DE_HORA.map((hora) => (
+            <button
+              key={hora}
+              type="button"
+              className="viva-atajo"
+              aria-pressed={horaDeAcostarse === hora}
+              onClick={() => setHoraDeAcostarse(hora)}
+            >
+              {hora}
+            </button>
+          ))}
+        </div>
+      </section>
 
-      <p className="actividad__campo">
-        <label htmlFor="horas">¿Cuántas horas dormiste?</label>
-        <input
-          id="horas"
-          type="number"
-          min={0}
-          max={24}
-          step={0.5}
-          value={horasDormidas}
-          onChange={(evento) => setHorasDormidas(Number(evento.target.value))}
+      <section className="viva-tarjeta">
+        <Contador
+          etiqueta="¿Cuántas horas dormiste?"
+          valor={horasDormidas}
+          alCambiar={setHorasDormidas}
+          minimo={0}
+          maximo={24}
+          paso={0.5}
+          unidad="h"
         />
-      </p>
+      </section>
 
-      <p className="actividad__campo">
-        <label htmlFor="despertares">¿Cuántas veces te despertaste?</label>
-        <input
-          id="despertares"
-          type="number"
-          min={0}
-          max={20}
-          value={despertares}
-          onChange={(evento) => setDespertares(Number(evento.target.value))}
+      <section className="viva-tarjeta">
+        <Contador
+          etiqueta="¿Cuántas veces te despertaste?"
+          valor={despertares}
+          alCambiar={setDespertares}
+          minimo={0}
+          maximo={20}
         />
-      </p>
+      </section>
 
-      <p className="actividad__campo">
-        <label htmlFor="amaneciste">¿Cómo amaneciste?</label>
-        <select
-          id="amaneciste"
-          value={comoAmaneciste}
-          onChange={(evento) => setComoAmaneciste(evento.target.value as ComoAmaneciste)}
-        >
-          <option value="descansado">Descansado</option>
-          <option value="normal">Normal</option>
-          <option value="cansado">Cansado</option>
-        </select>
-      </p>
+      <section className="viva-tarjeta">
+        <h2 className="viva-tarjeta__titulo" id="viva-amaneciste">
+          ¿Cómo amaneciste?
+        </h2>
+        <div className="viva-opciones" role="radiogroup" aria-labelledby="viva-amaneciste">
+          {COMO_AMANECISTE.map(({ valor, texto, adorno }) => (
+            <OpcionGrande
+              key={valor}
+              tipo="radio"
+              nombre="amaneciste"
+              valor={valor}
+              marcada={comoAmaneciste === valor}
+              alCambiar={() => setComoAmaneciste(valor)}
+              texto={texto}
+              adorno={adorno}
+            />
+          ))}
+        </div>
+      </section>
 
-      <button type="submit" className="pildora" disabled={enviando}>
-        {enviando ? 'Guardando…' : 'Terminar'}
-      </button>
+      <BarraDeAccion>
+        <BotonPrincipal tipo="submit" deshabilitado={enviando}>
+          {enviando ? 'Guardando…' : 'Terminar'}
+        </BotonPrincipal>
+      </BarraDeAccion>
     </form>
   );
 }

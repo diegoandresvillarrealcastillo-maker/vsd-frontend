@@ -151,6 +151,12 @@
   opacity: 0.4;
 }
 
+/* El hilo que lleva a lo que toca ahora: los puntitos avanzan hacia el, y se ve mas. */
+.ruta__hilo--hacia path {
+  opacity: 0.85;
+  animation: ruta-fluye 1.1s linear infinite;
+}
+
 /* ---------- Los puntos ---------- */
 
 .ruta__nodo {
@@ -223,6 +229,57 @@ a.ruta__nodo:active {
 
 .ruta__nodo--siguiente::after {
   animation-delay: 1.3s;
+}
+
+/* La que toca ahora flota despacio, y dos destellos titilan a su alrededor. */
+.ruta__punto:has(.ruta__nodo--siguiente) {
+  animation: ruta-flota 3.4s ease-in-out infinite;
+}
+
+.ruta__punto:has(.ruta__nodo--siguiente)::before,
+.ruta__punto:has(.ruta__nodo--siguiente)::after {
+  position: absolute;
+  z-index: 2;
+  width: 14px;
+  height: 14px;
+  background: #ffc83d;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  content: '';
+  opacity: 0;
+  animation: ruta-titila 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.ruta__punto:has(.ruta__nodo--siguiente)::before {
+  top: 2px;
+  left: 4px;
+}
+
+.ruta__punto:has(.ruta__nodo--siguiente)::after {
+  right: 2px;
+  bottom: 10px;
+  width: 10px;
+  height: 10px;
+  animation-delay: 1.2s;
+}
+
+/* Las hechas brillan: un reflejo las cruza cada pocos segundos. */
+.ruta__nodo--hecha {
+  overflow: hidden;
+}
+
+.ruta__nodo--hecha::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 38%,
+    rgb(255 255 255 / 0.45) 50%,
+    transparent 62%
+  );
+  content: '';
+  animation: ruta-brillo 5.5s ease-in-out infinite;
+  pointer-events: none;
 }
 
 /* La que se acaba de hacer: salta al llenarse y suelta una onda. */
@@ -328,6 +385,11 @@ a.ruta__nodo:active {
   color: var(--app-tenue);
 }
 
+.ruta__nodo--meta:not(.ruta__nodo--lograda) svg {
+  animation: ruta-candado 5s ease-in-out infinite;
+  transform-origin: 50% 20%;
+}
+
 .ruta__nodo--lograda {
   border: 0;
   background: var(--app-avatar);
@@ -369,6 +431,67 @@ a.ruta__nodo:active {
 
   50% {
     transform: translateX(4px);
+  }
+}
+
+@keyframes ruta-fluye {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+
+@keyframes ruta-flota {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes ruta-titila {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.4) rotate(0deg);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1) rotate(45deg);
+  }
+}
+
+@keyframes ruta-brillo {
+  0%,
+  60% {
+    transform: translateX(-130%);
+  }
+
+  100% {
+    transform: translateX(130%);
+  }
+}
+
+@keyframes ruta-candado {
+  0%,
+  86%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  90% {
+    transform: rotate(-9deg);
+  }
+
+  94% {
+    transform: rotate(8deg);
+  }
+
+  97% {
+    transform: rotate(-4deg);
   }
 }
 

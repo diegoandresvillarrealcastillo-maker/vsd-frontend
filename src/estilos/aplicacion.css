@@ -13,7 +13,11 @@
  * color, hay que tocarlo en los dos bloques.
  */
 
-.app {
+/* Los tokens tambien los lee la pantalla de una actividad (SCRUM-173), que no cuelga de `.app`
+   pero tiene que verse con la misma paleta, en claro y en oscuro. Solo los tokens: el aspecto de
+   pagina de abajo sigue siendo de `.app`. */
+.app,
+.actividad {
   --app-lienzo: #151c19;
   --app-superficie: #1d2722;
   --app-superficie-alta: #25322b;
@@ -51,7 +55,9 @@
 
   --app-fuente: 'DM Sans', sans-serif;
   --app-fuente-titulos: Newsreader, Georgia, serif;
+}
 
+.app {
   color-scheme: dark;
   min-height: 100vh;
   background: var(--app-lienzo);
@@ -64,7 +70,8 @@
    Crema y verde, como la portada. Cada texto cumple 4,5:1 sobre su fondo:
    la tinta y lo tenue sobre el lienzo y las superficies, el acento de cada
    modulo sobre su propio fondo, y el blanco sobre el primario. */
-:root[data-tema='claro'] .app {
+:root[data-tema='claro'] .app,
+:root[data-tema='claro'] .actividad {
   --app-lienzo: #f5f3ee;
   --app-superficie: #ffffff;
   --app-superficie-alta: #ebe7df;

@@ -1,5 +1,12 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 
+import '../../../estilos/juegos.css';
+import { BarraDeAccion, BotonPrincipal } from '../viva/BarraDeAccion.tsx';
+import { BarraDeProgreso } from '../viva/BarraDeProgreso.tsx';
+import { ACIERTO, ANIMO_TRAS_CASI, EN_EL_JUEGO, elegir } from '../viva/mensajes.ts';
+import { PasosDeInicio } from '../viva/PasosDeInicio.tsx';
+import { useMascotaDeLaPersona } from '../viva/mascotaDeLaPersona.ts';
+import { VozDeLaMascota } from '../viva/VozDeLaMascota.tsx';
 import {
   generarSecuencia,
   LARGO_INICIAL,
@@ -27,6 +34,14 @@ import type { PropsDeMecanica } from './registro.tsx';
  * Mientras la secuencia esta a la vista se anuncia tambien a los lectores de
  * pantalla, y la respuesta se escribe en un campo normal: se juega igual con
  * teclado.
+ *
+ * ## Como se ve (SCRUM-173)
+ *
+ * Cada digito es una ficha de color que aparece con su retraso, y una barra se vacia para
+ * mostrar cuanto falta para que se oculten. Al escribir, las fichas de abajo se van llenando.
+ * La mascota acompana en cada fase y, tras cada ronda, dice lo suyo: celebra el acierto o anima
+ * tras un «casi» sin senalarlo. Las fichas son adorno (`aria-hidden`, con el numero dibujado por
+ * CSS): lo que leen los lectores de pantalla es el texto de siempre.
  */
 
 interface Ronda {
@@ -45,7 +60,43 @@ function separada(secuencia: string): string {
   return secuencia.split('').join(' ');
 }
 
+/** Las fichas de una secuencia. Solo adorno: el texto lo lleva otro elemento. */
+function Fichas({ digitos }: { digitos: string }) {
+  return (
+    <div className="juego__digitos" aria-hidden="true">
+      {digitos.split('').map((digito, indice) => (
+        <span
+          key={indice}
+          className="juego__digito"
+          style={{ '--i': indice } as CSSProperties}
+          data-d={digito}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Un hueco por cada digito que falta escribir; se llena con cada digito tecleado. */
+function Huecos({ largo, escrito }: { largo: number; escrito: string }) {
+  return (
+    <div className="juego__digitos" aria-hidden="true">
+      {Array.from({ length: largo }, (_, indice) => {
+        const digito = escrito[indice];
+
+        return (
+          <span
+            key={indice}
+            className={`juego__digito ${digito === undefined ? 'juego__digito--hueco' : 'juego__digito--lleno'}`}
+            data-d={digito ?? ''}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 export function SecuenciaDeNumeros({ alTerminar, enviando }: PropsDeMecanica) {
+  const mascota = useMascotaDeLaPersona();
   const [fase, setFase] = useState<Fase>({ tipo: 'inicio' });
   const [rondas, setRondas] = useState<readonly Ronda[]>([]);
   const [respuesta, setRespuesta] = useState('');
@@ -137,73 +188,131 @@ export function SecuenciaDeNumeros({ alTerminar, enviando }: PropsDeMecanica) {
   if (fase.tipo === 'inicio') {
     return (
       <div className="juego">
+        <VozDeLaMascota mascota={mascota} mensaje={elegir(EN_EL_JUEGO, 0)} expresion="feliz" />
+
+        <PasosDeInicio
+          pasos={['Mira los números.', 'Se ocultan en unos segundos.', 'Escríbelos en orden.']}
+        />
+
         <p className="actividad__texto">
           Verás una secuencia de números durante unos segundos. Cuando se oculte, escríbela. Son{' '}
           {RONDAS} rondas: si aciertas, la siguiente tiene un número más; si no, uno menos.
         </p>
-        <button type="button" className="pildora" onClick={empezar}>
-          Empezar
-        </button>
+
+        <BarraDeAccion>
+          <BotonPrincipal alPulsar={empezar} conFlecha>
+            Empezar
+          </BotonPrincipal>
+        </BarraDeAccion>
       </div>
     );
   }
 
+  const veredicto =
+    fase.tipo === 'revisada'
+      ? fase.acerto
+        ? { mensaje: '¡Bien! Era esa.', ademas: elegir(ACIERTO, rondas.length) }
+        : {
+            mensaje: `¡Casi! Era ${separada(fase.secuencia)}. Probemos otra, sin prisa.`,
+            ademas: elegir(ANIMO_TRAS_CASI, rondas.length),
+          }
+      : undefined;
+
+  const quePasa =
+    veredicto ??
+    (fase.tipo === 'mirando'
+      ? { mensaje: 'Memoriza con calma.' }
+      : { mensaje: 'Ahora escríbelos en orden. Tú puedes.' });
+
   return (
     <div className="juego">
-      <p className="juego__marcador">
-        <span>
-          Ronda {numeroDeRonda} de {RONDAS}
-        </span>
-        <span>Aciertos: {aciertos}</span>
+      <BarraDeProgreso
+        paso={numeroDeRonda}
+        total={RONDAS}
+        hechos={rondas.length}
+        estrellas={aciertos}
+        etiqueta="Ronda"
+      />
+
+      <p className="solo-lectores">
+        Ronda {numeroDeRonda} de {RONDAS}. Aciertos: {aciertos}.
       </p>
+
+      <VozDeLaMascota
+        mascota={mascota}
+        mensaje={quePasa.mensaje}
+        {...('ademas' in quePasa ? { ademas: quePasa.ademas } : {})}
+        {...(fase.tipo === 'revisada' ? { resultado: fase.acerto ? 'acierto' : 'casi' } : {})}
+        expresion={fase.tipo === 'revisada' && fase.acerto ? 'celebrando' : 'normal'}
+        latido={fase.tipo === 'revisada' ? rondas.length : 0}
+      />
 
       {fase.tipo === 'mirando' && (
         <div className="juego__pizarra" aria-live="polite">
           <p className="solo-lectores">Memoriza esta secuencia:</p>
-          <p className="juego__secuencia">{separada(fase.secuencia)}</p>
+          <p className="solo-lectores">{separada(fase.secuencia)}</p>
+
+          <p className="juego__etiqueta" aria-hidden="true">
+            Memoriza
+          </p>
+          <Fichas digitos={fase.secuencia} />
+          <div className="juego__tiempo" aria-hidden="true">
+            <span
+              style={
+                {
+                  '--duracion': `${String(tiempoAlaVista(fase.secuencia.length))}ms`,
+                } as CSSProperties
+              }
+            />
+          </div>
         </div>
       )}
 
       {fase.tipo === 'respondiendo' && (
-        <form className="actividad__formulario juego__respuesta" onSubmit={comprobar}>
-          <p className="actividad__campo">
-            <label htmlFor="secuencia">Escribe la secuencia</label>
+        <form className="viva" onSubmit={comprobar}>
+          <div className="viva-tarjeta">
+            <label className="viva-tarjeta__titulo" htmlFor="secuencia">
+              Escribe la secuencia
+            </label>
+
             <input
               ref={campo}
               id="secuencia"
+              className="juego__entrada"
               inputMode="numeric"
               autoComplete="off"
               value={respuesta}
               onChange={(evento) => setRespuesta(evento.target.value)}
             />
-          </p>
-          <button type="submit" className="pildora">
-            Comprobar
-          </button>
+
+            <Huecos largo={fase.secuencia.length} escrito={respuesta.replace(/\D/g, '')} />
+          </div>
+
+          <BarraDeAccion>
+            <BotonPrincipal tipo="submit" conFlecha>
+              Comprobar
+            </BotonPrincipal>
+          </BarraDeAccion>
         </form>
       )}
 
       {fase.tipo === 'revisada' && (
-        <div className="juego__revision">
-          <p
-            className="juego__veredicto"
-            data-resultado={fase.acerto ? 'acierto' : 'casi'}
-            role="status"
-          >
-            {fase.acerto
-              ? '¡Bien! Era esa.'
-              : `¡Casi! Era ${separada(fase.secuencia)}. Probemos otra, sin prisa.`}
-          </p>
-          <button
-            ref={siguiente}
-            type="button"
-            className="pildora"
-            onClick={seguir}
-            disabled={enviando}
-          >
-            {rondas.length < RONDAS ? 'Siguiente ronda' : enviando ? 'Guardando…' : 'Terminar'}
-          </button>
-        </div>
+        <>
+          <div className={`juego__pizarra juego__pizarra--${fase.acerto ? 'acierto' : 'casi'}`}>
+            <Fichas digitos={fase.secuencia} />
+          </div>
+
+          <BarraDeAccion>
+            <BotonPrincipal
+              referencia={siguiente}
+              alPulsar={seguir}
+              deshabilitado={enviando}
+              conFlecha={rondas.length < RONDAS}
+            >
+              {rondas.length < RONDAS ? 'Siguiente ronda' : enviando ? 'Guardando…' : 'Terminar'}
+            </BotonPrincipal>
+          </BarraDeAccion>
+        </>
       )}
     </div>
   );
