@@ -2,6 +2,7 @@ import { useReducedMotion } from 'framer-motion';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
+import { EstadoDeCarga } from '../../componentes/EstadoDeCarga.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/aplicacion.css';
 import type { Modulo } from '../../infraestructura/api/cuenta.ts';
@@ -101,11 +102,7 @@ export function VistaDelSendero({
         </div>
       </div>
 
-      {estado.fase === 'cargando' && (
-        <p className="app__aviso" role="status">
-          Cargando tu sendero…
-        </p>
-      )}
+      {estado.fase === 'cargando' && <EstadoDeCarga mensaje="Cargando tu sendero…" />}
 
       {estado.fase === 'error' && (
         <div className="app__aviso app__aviso--fallo" role="alert">

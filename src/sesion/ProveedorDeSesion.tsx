@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 
 import { olvidarElDatoGuardado } from '../datosCuriosos/memoriaDelDia.ts';
 import { olvidarLosArchivosDeLaPersona } from '../foto/archivosDeLaPersona.ts';
+import { olvidarLaRacha } from '../racha/memoriaDeLaRacha.ts';
 import {
   esSoloDeEstaPestana,
   leerLaSesionGuardada,
@@ -265,6 +266,7 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
         if (actual === null) {
           olvidarLosArchivosDeLaPersona();
           olvidarElDatoGuardado();
+          olvidarLaRacha();
           reiniciarLasFrases();
           olvidarLoVisto();
         }
@@ -511,6 +513,7 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     olvidarLaZonaDeLaCuenta();
     olvidarLosArchivosDeLaPersona();
     olvidarElDatoGuardado();
+    olvidarLaRacha();
     reiniciarLasFrases();
     olvidarLoVisto();
     setSesion(null);
