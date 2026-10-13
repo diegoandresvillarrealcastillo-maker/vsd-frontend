@@ -46,7 +46,12 @@ describe('RutaDelDia', () => {
 
     expect(screen.getByRole('heading', { name: 'Tu ruta de hoy' })).toBeInTheDocument();
     expect(screen.getByText(/aquí aparecerá lo que te toca cada día/)).toBeInTheDocument();
+    // Es un estado vacio de verdad (SCRUM-180): invita, no interrumpe ni reclama.
+    expect(
+      screen.getByText('Todavía no hay nada para hoy').closest('.estado-vacio'),
+    ).not.toBeNull();
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('agrupa las actividades por modulo, con su etapa', () => {

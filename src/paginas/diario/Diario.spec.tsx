@@ -214,6 +214,46 @@ describe('Mi diario, accesibilidad (C-03)', () => {
   });
 });
 
+describe('Mi diario, cargas y vacios (SCRUM-180)', () => {
+  it('mientras carga muestra el esqueleto del historial y lo dice', async () => {
+    api.consultarElDiario.mockReturnValue(
+      new Promise(function sinResolver() {
+        // A proposito: la peticion se queda en el aire.
+      }),
+    );
+
+    pintar();
+
+    const estado = (await screen.findByText('Cargando tu diario…')).closest('[role="status"]');
+
+    expect(estado).toHaveAttribute('aria-busy', 'true');
+    expect(estado?.querySelectorAll('.esqueleto').length).toBeGreaterThan(0);
+  });
+
+  it('sin anotaciones invita a escribir, sin reclamar nada', async () => {
+    api.consultarElDiario.mockResolvedValue([]);
+
+    pintar();
+
+    const vacio = await within(historial()).findByText('Todavía no hay nada en tu diario');
+
+    expect(vacio.closest('.estado-vacio')).not.toBeNull();
+    expect(
+      within(historial()).getByText('Lo que escribas arriba aparece aquí.'),
+    ).toBeInTheDocument();
+    expect(within(historial()).queryByRole('alert')).toBeNull();
+  });
+
+  it('con anotaciones no muestra ni el esqueleto ni el vacio', async () => {
+    pintar();
+
+    await within(historial()).findByRole('heading', { name: 'Hoy' });
+
+    expect(historial().querySelector('.estado-vacio')).toBeNull();
+    expect(historial().querySelector('.esqueleto')).toBeNull();
+  });
+});
+
 describe('Mi diario, el historial', () => {
   it('agrupa por dia, con la hora de cada anotacion', async () => {
     pintar();

@@ -157,6 +157,24 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+describe('Perfil, la carga (SCRUM-180)', () => {
+  it('mientras llega la cuenta muestra el esqueleto y lo dice', async () => {
+    darDeAltaLaCuenta.mockReturnValue(
+      new Promise(function sinResolver() {
+        // A proposito: la peticion se queda en el aire.
+      }),
+    );
+
+    pintar();
+
+    const estado = await screen.findByText('Cargando tu perfil…');
+    const zona = estado.closest('[role="status"]');
+
+    expect(zona).toHaveAttribute('aria-busy', 'true');
+    expect(zona?.querySelectorAll('.esqueleto').length).toBeGreaterThan(0);
+  });
+});
+
 describe('Perfil, accesibilidad (C-03)', () => {
   it('no tiene fallos de accesibilidad y tiene un solo h1', async () => {
     pintar();

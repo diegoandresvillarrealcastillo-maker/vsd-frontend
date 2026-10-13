@@ -310,11 +310,6 @@
   color: var(--app-tinta);
 }
 
-.diario__vacio {
-  margin: 0;
-  color: var(--app-tenue);
-}
-
 .diario__dia {
   display: grid;
   gap: 0.75rem;

@@ -118,6 +118,24 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+describe('Sendero, la carga (SCRUM-180)', () => {
+  it('mientras llega el progreso muestra el esqueleto y lo dice', async () => {
+    consultarElProgreso.mockReturnValue(
+      new Promise(function sinResolver() {
+        // A proposito: la peticion se queda en el aire.
+      }),
+    );
+
+    pintar();
+
+    const estado = await screen.findByRole('status');
+
+    expect(estado).toHaveTextContent('Cargando tu sendero…');
+    expect(estado).toHaveAttribute('aria-busy', 'true');
+    expect(estado.querySelectorAll('.esqueleto').length).toBeGreaterThan(0);
+  });
+});
+
 describe('Sendero, accesibilidad (C-03)', () => {
   it('no tiene fallos de accesibilidad y tiene un solo h1', async () => {
     pintar();

@@ -1,6 +1,7 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 
+import { EstadoDeCarga } from '../../componentes/EstadoDeCarga.tsx';
 import { ExigeConexion } from '../../componentes/ExigeConexion.tsx';
 import { PieDeLaApp } from '../../componentes/PieDeLaApp.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
@@ -79,10 +80,9 @@ export function VistaDelPanel({
 
       <main id={ID_DEL_CONTENIDO} tabIndex={-1} className="app__contenido">
         {estado.fase === 'cargando' && (
-          // `role="status"` lo anuncia un lector de pantalla sin interrumpir.
-          <p className="app__aviso" role="status">
-            Cargando tu espacio…
-          </p>
+          // Esqueleto y `role="status"`: se ve que algo viene y un lector de pantalla
+          // lo anuncia sin interrumpir (SCRUM-180).
+          <EstadoDeCarga mensaje="Cargando tu espacio…" />
         )}
 
         {estado.fase === 'error' && (
