@@ -1,6 +1,7 @@
 import { useId, useState, type CSSProperties, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import { EstadoDeCarga } from '../../componentes/EstadoDeCarga.tsx';
 import { MedidorDeContrasena } from '../../componentes/MedidorDeContrasena.tsx';
 import { DatosDeHace } from '../../conexion/DatosDeHace.tsx';
 import { PieDeLaApp } from '../../componentes/PieDeLaApp.tsx';
@@ -39,6 +40,7 @@ import { BarraSuperior } from '../panel/Estructura.tsx';
 import { Icono } from '../panel/Icono.tsx';
 import { MODULOS, ORDEN } from '../panel/modulos.ts';
 import { armarLaExportacion } from './exportacion.ts';
+import { CampoDeContrasena } from './CampoDeContrasena.tsx';
 import { Apartado, MensajeDeAviso, SIN_CONEXION, type Aviso } from './piezas.tsx';
 import { TuFoto } from './TuFoto.tsx';
 import { TuMascotaPropia } from './TuMascotaPropia.tsx';
@@ -83,11 +85,7 @@ export function Perfil() {
           <h1 className="app__titulo perfil__titulo">Tu perfil</h1>
         </div>
 
-        {estado.fase === 'cargando' && (
-          <p className="app__aviso" role="status">
-            Cargando tu perfil…
-          </p>
-        )}
+        {estado.fase === 'cargando' && <EstadoDeCarga mensaje="Cargando tu perfil…" />}
 
         {estado.fase === 'error' && (
           <div className="app__aviso app__aviso--fallo" role="alert">
@@ -665,34 +663,23 @@ function Contrasena({ correo }: { correo: string }) {
               autoComplete="one-time-code"
             />
           </div>
-          <div className="bienvenida__campo">
-            <label htmlFor={idNueva} className="bienvenida__etiqueta">
-              Contraseña nueva
-            </label>
-            <input
-              id={idNueva}
-              type="password"
-              className="bienvenida__entrada"
-              value={nueva}
-              onChange={(evento) => setNueva(evento.target.value)}
-              autoComplete="new-password"
-              aria-describedby={idMedidor}
-            />
+          <CampoDeContrasena
+            id={idNueva}
+            etiqueta="Contraseña nueva"
+            objeto="la contraseña nueva"
+            valor={nueva}
+            alCambiar={setNueva}
+            descritoPor={idMedidor}
+          >
             <MedidorDeContrasena contrasena={nueva} id={idMedidor} />
-          </div>
-          <div className="bienvenida__campo">
-            <label htmlFor={idRepetida} className="bienvenida__etiqueta">
-              Repite la contraseña nueva
-            </label>
-            <input
-              id={idRepetida}
-              type="password"
-              className="bienvenida__entrada"
-              value={repetida}
-              onChange={(evento) => setRepetida(evento.target.value)}
-              autoComplete="new-password"
-            />
-          </div>
+          </CampoDeContrasena>
+          <CampoDeContrasena
+            id={idRepetida}
+            etiqueta="Repite la contraseña nueva"
+            objeto="la contraseña repetida"
+            valor={repetida}
+            alCambiar={setRepetida}
+          />
           <div className="perfil__fila">
             <button type="submit" className="app__boton" disabled={ocupado}>
               {ocupado ? 'Cambiando…' : 'Cambiar contraseña'}

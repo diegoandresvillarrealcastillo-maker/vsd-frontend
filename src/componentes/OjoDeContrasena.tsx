@@ -6,6 +6,11 @@ interface Props {
   visible: boolean;
   onClick: () => void;
   disabled?: boolean;
+  /**
+   * Que contrasena revela, para el nombre accesible. Con dos campos en la misma
+   * pantalla, "Mostrar la contrasena" dos veces no dice cual es cual.
+   */
+  objeto?: string;
 }
 
 /**
@@ -22,7 +27,7 @@ interface Props {
  * `type="button"` es obligatorio. Un boton sin tipo dentro de un formulario lo
  * envia, y aqui pulsarlo mandaria el registro a medio escribir.
  */
-export function OjoDeContrasena({ visible, onClick, disabled }: Props) {
+export function OjoDeContrasena({ visible, onClick, disabled, objeto = 'la contraseña' }: Props) {
   const sinMovimiento = useReducedMotion();
 
   return (
@@ -35,7 +40,7 @@ export function OjoDeContrasena({ visible, onClick, disabled }: Props) {
       // contrasena esta visible ahora mismo. Sin el, el boton se anuncia igual
       // en los dos estados.
       aria-pressed={visible}
-      aria-label={visible ? 'Ocultar la contraseña' : 'Mostrar la contraseña'}
+      aria-label={`${visible ? 'Ocultar' : 'Mostrar'} ${objeto}`}
       whileHover={sinMovimiento || disabled ? {} : { scale: 1.12 }}
       whileTap={sinMovimiento || disabled ? {} : { scale: 0.88 }}
       transition={INMEDIATO}

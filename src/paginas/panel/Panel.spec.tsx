@@ -153,7 +153,12 @@ describe('Dashboard', () => {
 
       pintar();
 
-      expect(screen.getByRole('status')).toHaveTextContent(/Cargando tu espacio/);
+      const estado = screen.getByRole('status');
+
+      expect(estado).toHaveTextContent(/Cargando tu espacio/);
+      // Con esqueleto (SCRUM-180): la pantalla no queda en blanco ni salta al llegar los datos.
+      expect(estado).toHaveAttribute('aria-busy', 'true');
+      expect(estado.querySelectorAll('.esqueleto').length).toBeGreaterThan(0);
     });
 
     it('si no se puede conectar, lo explica y deja reintentar', async () => {
