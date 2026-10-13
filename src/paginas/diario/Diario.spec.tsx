@@ -214,6 +214,49 @@ describe('Mi diario, accesibilidad (C-03)', () => {
   });
 });
 
+describe('Mi diario, la navegacion (SCRUM-182)', () => {
+  it('lleva el dock del movil, con «Mi diario» como la pagina actual', async () => {
+    pintar();
+    await within(historial()).findByRole('heading', { name: 'Hoy' });
+
+    const dock = screen.getByRole('navigation', { name: 'Secciones' });
+
+    expect(within(dock).getByRole('link', { name: 'Mi diario' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
+  it('desde el dock se vuelve al inicio y al progreso del panel', async () => {
+    pintar();
+    await within(historial()).findByRole('heading', { name: 'Hoy' });
+
+    const dock = screen.getByRole('navigation', { name: 'Secciones' });
+
+    expect(within(dock).getByRole('link', { name: 'Inicio' })).toHaveAttribute(
+      'href',
+      '/panel#inicio',
+    );
+    expect(within(dock).getByRole('link', { name: 'Progreso' })).toHaveAttribute(
+      'href',
+      '/panel#progreso',
+    );
+  });
+
+  it('la barra de arriba no repite «Mi diario»', async () => {
+    pintar();
+    await within(historial()).findByRole('heading', { name: 'Hoy' });
+
+    const dock = screen.getByRole('navigation', { name: 'Secciones' });
+    const enlaces = screen
+      .getAllByRole('link', { name: 'Mi diario' })
+      // El del menu de la cuenta solo existe con el menu abierto; aqui esta cerrado.
+      .filter((enlace) => !dock.contains(enlace));
+
+    expect(enlaces).toEqual([]);
+  });
+});
+
 describe('Mi diario, el historial', () => {
   it('agrupa por dia, con la hora de cada anotacion', async () => {
     pintar();

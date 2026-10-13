@@ -10,7 +10,7 @@ import { Semaforo } from '../../semaforo/Semaforo.tsx';
 import { AlmacenLleno } from '../../sincronizacion/almacenLocal.ts';
 import { SinAlmacenAbierto } from '../../sincronizacion/ciclo.ts';
 import { LineasDeAtencion } from '../actividad/LineasDeAtencion.tsx';
-import { BarraSuperior } from '../panel/Estructura.tsx';
+import { BarraSuperior, NavegacionInferior } from '../panel/Estructura.tsx';
 import { Icono } from '../panel/Icono.tsx';
 import { agruparPorDia, ahoraMismo, diaDe, horaDe, nombreDelDia } from './calendarioDelDiario.ts';
 import { DocumentoLeido } from './DocumentoLeido.tsx';
@@ -284,6 +284,10 @@ export function Diario() {
       </main>
 
       <Semaforo />
+
+      {/* El dock del movil tambien vive aqui (SCRUM-182): desde el diario se vuelve al
+          panel sin tener que subir a la barra de arriba. */}
+      <NavegacionInferior enDiario />
 
       {diagramaParaVer !== null && (
         <Suspense
