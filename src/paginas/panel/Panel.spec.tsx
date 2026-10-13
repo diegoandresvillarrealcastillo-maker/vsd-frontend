@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -222,6 +222,30 @@ describe('Dashboard', () => {
       fireEvent.scroll(window);
     }
 
+    /**
+     * Pinta el panel y espera a que el dock ya escuche el desplazamiento (SCRUM-174).
+     *
+     * El dock engancha esa escucha en un efecto, y el efecto puede correr despues de que el
+     * saludo ya este en pantalla: con la maquina cargada, bajar justo al ver el saludo se perdia
+     * en el vacio, y cuando el efecto corria tomaba la posicion ya bajada como punto de partida,
+     * asi que el dock no se escondia nunca. Por eso se baja y sube hasta que el dock responde, y
+     * se deja arriba y a la vista: cada prueba parte de un dock que ya escucha.
+     */
+    async function pintarConElDockAtento() {
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      await waitFor(() => {
+        desplazarA(0);
+        desplazarA(300);
+        expect(dock()).toHaveClass('app__nav-inferior--oculto');
+      });
+
+      desplazarA(0);
+      expect(dock()).not.toHaveClass('app__nav-inferior--oculto');
+    }
+
     // Cada prueba empieza arriba del todo.
     beforeEach(() => {
       Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 });
@@ -244,9 +268,7 @@ describe('Dashboard', () => {
     });
 
     it('se aparta al bajar y vuelve al subir', async () => {
-      pintar();
-
-      await screen.findByRole('heading', { name: /Hola, Marina/ });
+      await pintarConElDockAtento();
 
       desplazarA(300);
       expect(dock()).toHaveClass('app__nav-inferior--oculto');
@@ -256,9 +278,7 @@ describe('Dashboard', () => {
     });
 
     it('arriba del todo no se aparta, y vuelve si recibe el foco', async () => {
-      pintar();
-
-      await screen.findByRole('heading', { name: /Hola, Marina/ });
+      await pintarConElDockAtento();
 
       desplazarA(40);
       expect(dock()).not.toHaveClass('app__nav-inferior--oculto');
