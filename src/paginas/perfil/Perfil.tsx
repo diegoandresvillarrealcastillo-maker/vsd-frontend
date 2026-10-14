@@ -887,7 +887,7 @@ function BorrarCuenta() {
   return (
     <Apartado
       titulo="Borrar tu cuenta"
-      ayuda="Se borran tu cuenta, tus resultados, tu diario y tu acceso. No tiene vuelta atrás: si quieres conservar algo, descarga tus datos antes."
+      ayuda="Se borran tu cuenta, tus resultados, tu diario y tu acceso. Solo queda una constancia de lo que aceptaste y cuándo, sin tu nombre ni tu correo: la ley nos pide poder demostrarlo. No tiene vuelta atrás: si quieres conservar algo, descarga tus datos antes."
       peligro
     >
       <form className="perfil__formulario" onSubmit={(evento) => void borrar(evento)}>

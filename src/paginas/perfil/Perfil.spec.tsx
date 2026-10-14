@@ -919,6 +919,19 @@ describe('Perfil', () => {
   });
 
   describe('borrar la cuenta', () => {
+    it('dice la verdad de lo que queda: una constancia de lo aceptado, sin nombre ni correo (SCRUM-190)', async () => {
+      pintar();
+
+      const apartadoDeBorrar = await screen.findByRole('region', { name: 'Borrar tu cuenta' });
+      const texto = apartadoDeBorrar.textContent ?? '';
+
+      expect(texto).toMatch(/Se borran tu cuenta, tus resultados, tu diario y tu acceso/);
+      expect(texto).toMatch(/constancia de lo que aceptaste y cuándo/);
+      expect(texto).toMatch(/sin tu nombre ni tu correo/);
+      // Y sigue siendo honesto con que no hay vuelta atras.
+      expect(texto).toMatch(/No tiene vuelta atrás/);
+    });
+
     it('el boton no se habilita hasta escribir la frase exacta', async () => {
       pintar();
 
