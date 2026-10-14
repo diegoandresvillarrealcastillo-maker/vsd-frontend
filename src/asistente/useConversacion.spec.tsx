@@ -149,7 +149,9 @@ describe('useConversacion: sin conexion, con las reglas', () => {
     await escribir(sin, 'hola luma');
 
     expect(deAsistente(con.result.current.mensajes[1])?.respuesta.intencion).toBe('saludo');
-    expect(sin.result.current.mensajes[1]).toMatchObject({ de: 'fallo', motivo: 'exige-conexion' });
+    // Sin ese nombre, «luma» es una palabra que no se entiende: el catalogo (SCRUM-176), no un
+    // saludo. Antes decia que exigia conexion.
+    expect(deAsistente(sin.result.current.mensajes[1])?.respuesta.intencion).toBe('no_reconocida');
   });
 
   it('lo que exige conexion: un fallo con lo que se escribio, para poder reintentarlo', async () => {
@@ -227,6 +229,58 @@ describe('useConversacion: sin conexion y sin reglas', () => {
       de: 'fallo',
       motivo: 'sin-conexion',
     });
+  });
+});
+
+describe('useConversacion: lo que no se reconoce (SCRUM-176, SCRUM-193)', () => {
+  it('sin conexion, el dispositivo responde el catalogo, sin lineas y sin decir que exige conexion', async () => {
+    conLaRed(false);
+    const gancho = renderHook(() => useConversacion(REGLAS, 'Luma'));
+
+    await escribir(gancho, 'a que hora abre la biblioteca');
+
+    expect(deAsistente(gancho.result.current.mensajes[1])).toMatchObject({
+      sinConexion: true,
+      respuesta: {
+        intencion: 'no_reconocida',
+        recursos: [],
+        senalDeRiesgo: false,
+        incluyeLineasDeAtencion: false,
+        sugerencias: REGLAS.fallback?.sugerencias,
+      },
+    });
+  });
+
+  it('con conexion, las sugerencias que manda el servidor llegan tal cual', async () => {
+    conLaRed(true);
+    const delServidor: RespuestaDelAsistente = {
+      intencion: 'no_reconocida',
+      mensaje: 'No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones:',
+      recursos: [],
+      senalDeRiesgo: false,
+      incluyeLineasDeAtencion: false,
+      sugerencias: ['¿Dónde busco ayuda?'],
+    };
+
+    preguntarAlAsistente.mockResolvedValue(delServidor);
+    const gancho = renderHook(() => useConversacion(REGLAS, 'Luma'));
+
+    await escribir(gancho, 'a que hora abre la biblioteca');
+
+    expect(deAsistente(gancho.result.current.mensajes[1])?.respuesta).toEqual(delServidor);
+  });
+
+  it('un fallback no es un insulto: es una respuesta que no es ofensiva y reinicia la cuenta', async () => {
+    conLaRed(false);
+    const gancho = renderHook(() => useConversacion(REGLAS, 'Luma'));
+
+    await escribir(gancho, 'idiota');
+    await escribir(gancho, 'idiota');
+    await escribir(gancho, 'a que hora abre la biblioteca');
+    await escribir(gancho, 'idiota');
+
+    // El fallback es una respuesta que no es ofensiva: reinicia, y por eso no cierra a la tercera.
+    expect(gancho.result.current.cerrada).toBe(false);
   });
 });
 

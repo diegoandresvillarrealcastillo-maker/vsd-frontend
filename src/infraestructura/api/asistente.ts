@@ -23,6 +23,12 @@ export interface RespuestaDelAsistente {
   /** El texto tenia una expresion de riesgo. Entonces siempre trae lineas. */
   readonly senalDeRiesgo: boolean;
   readonly incluyeLineasDeAtencion: boolean;
+  /**
+   * Los temas que el asistente si atiende, como frases que se pueden tocar y enviar tal cual
+   * (SCRUM-176, SCRUM-193). Solo hay algo cuando no se reconocio lo que se escribio. Un servidor
+   * anterior no lo manda: es opcional.
+   */
+  readonly sugerencias?: readonly string[];
 }
 
 /** Lo mismo que admite el backend. */

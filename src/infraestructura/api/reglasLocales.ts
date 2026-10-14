@@ -62,6 +62,16 @@ export interface OfensivoLocal {
   readonly mensajeAlCerrar: string;
 }
 
+/**
+ * Lo que se responde cuando no se reconoce lo que se escribio (SCRUM-176, SCRUM-193): sin lineas
+ * de atencion y con el catalogo de temas que si se atienden. Aditivo.
+ */
+export interface FallbackLocal {
+  readonly mensaje: string;
+  /** Frases que la persona puede tocar y que se envian tal cual. */
+  readonly sugerencias: readonly string[];
+}
+
 export interface PaisConLineas {
   readonly zonas: readonly string[];
   readonly lineas: readonly LineaDeAtencion[];
@@ -83,6 +93,13 @@ export interface ReglasLocales {
   };
   /** El lenguaje ofensivo (SCRUM-192): va despues del riesgo y antes de la charla. */
   readonly ofensivo?: OfensivoLocal;
+  /**
+   * Las erratas frecuentes (SCRUM-193), ya normalizadas, hacia la palabra que se quiso escribir.
+   * Aditivo: un paquete anterior no la trae y no se corrige por la tabla.
+   */
+  readonly erratas?: Readonly<Record<string, string>>;
+  /** Lo que se responde cuando nada se reconoce (SCRUM-176). Aditivo. */
+  readonly fallback?: FallbackLocal;
   /** Lo demas que el servidor reconoce, en su orden. */
   readonly intenciones: readonly ReglaLocalDeIntencion[];
   /** Los paises con lineas verificadas, por su codigo de dos letras. */

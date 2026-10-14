@@ -108,11 +108,21 @@ export function Asistente({
     }
   }, [cerrada]);
 
+  // Cuando la conversacion se reabre, el campo vuelve a estar activo y recibe el foco. Es un
+  // efecto y no una espera: el campo solo se puede enfocar cuando ya no esta desactivado.
+  const estabaCerrada = useRef(false);
+
+  useEffect(() => {
+    if (estabaCerrada.current && !cerrada) {
+      campo.current?.focus();
+    }
+
+    estabaCerrada.current = cerrada;
+  }, [cerrada]);
+
   function abrirUnaNueva() {
     empezarDeNuevo();
     setTexto('');
-    // Cuando el campo vuelve a estar activo, el foco vuelve a el.
-    requestAnimationFrame(() => campo.current?.focus());
   }
 
   function mandar(pregunta: string) {
@@ -219,7 +229,9 @@ export function Asistente({
                       mensaje={mensaje}
                       reglas={reglas}
                       esperando={esperando}
+                      puedeElegir={!esperando && !cerrada}
                       alReintentar={(pregunta) => void enviar(pregunta, { reintento: true })}
+                      alElegir={mandar}
                     />
                   </li>
                 ))}
@@ -289,12 +301,16 @@ function ContenidoDelMensaje({
   mensaje,
   reglas,
   esperando,
+  puedeElegir,
   alReintentar,
+  alElegir,
 }: {
   mensaje: Mensaje;
   reglas: ReglasLocales | null;
   esperando: boolean;
+  puedeElegir: boolean;
   alReintentar: (pregunta: string) => void;
+  alElegir: (texto: string) => void;
 }) {
   switch (mensaje.de) {
     case 'persona':
@@ -305,7 +321,14 @@ function ContenidoDelMensaje({
         </p>
       );
     case 'asistente':
-      return <Respuesta respuesta={mensaje.respuesta} sinConexion={mensaje.sinConexion} />;
+      return (
+        <Respuesta
+          respuesta={mensaje.respuesta}
+          sinConexion={mensaje.sinConexion}
+          puedeElegir={puedeElegir}
+          alElegir={alElegir}
+        />
+      );
     case 'cierre':
       // Lo pone la ventana, no el servidor: la conversacion se cerro (SCRUM-192).
       return (
@@ -399,9 +422,13 @@ function RespaldoDelFallo({ reglas }: { reglas: ReglasLocales | null }) {
 function Respuesta({
   respuesta,
   sinConexion,
+  puedeElegir,
+  alElegir,
 }: {
   respuesta: RespuestaDelAsistente;
   sinConexion: boolean;
+  puedeElegir: boolean;
+  alElegir: (texto: string) => void;
 }) {
   const contactos = respuesta.recursos.filter((recurso) => recurso.tipo === 'contacto');
   const otros = respuesta.recursos.filter((recurso) => recurso.tipo !== 'contacto');
@@ -420,6 +447,28 @@ function Respuesta({
       )}
 
       {otros.length > 0 && <Recursos recursos={otros} />}
+
+      {/* Lo que no entendio (SCRUM-176, SCRUM-193): en lugar de un telefono que nadie pidio, lo que
+          si sabe responder. Cada opcion se envia como si la persona la hubiera escrito. */}
+      {respuesta.sugerencias !== undefined && respuesta.sugerencias.length > 0 && (
+        <ul
+          className="asistente__sugerencias asistente__sugerencias--respuesta"
+          aria-label="Temas con los que puedo ayudarte"
+        >
+          {respuesta.sugerencias.map((sugerencia) => (
+            <li key={sugerencia}>
+              <button
+                type="button"
+                className="asistente__sugerencia"
+                disabled={!puedeElegir}
+                onClick={() => alElegir(sugerencia)}
+              >
+                {sugerencia}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {/* Lo respondio este dispositivo con lo que tenia guardado: se dice, no se disfraza. */}
       {sinConexion && <p className="asistente__origen">Respondido sin conexión</p>}

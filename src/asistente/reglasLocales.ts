@@ -22,6 +22,12 @@ import type { LineaDeAtencion } from '../infraestructura/api/resultados.ts';
  * 2. **El lenguaje ofensivo** (SCRUM-192), despues del riesgo y nunca antes.
  * 3. **La charla**, solo si el mensaje **entero** es charla.
  * 4. **Lo demas que se reconoce**, la primera regla que coincide.
+ * 5. **El fallback** (SCRUM-176), si nada se reconoce: sin lineas de atencion.
+ *
+ * Antes de todo, las erratas se leen como se quisieron escribir (SCRUM-193): una tabla y la
+ * distancia de edicion de uno hacia una palabra que el asistente ya conoce, con las mismas
+ * condiciones que en el servidor (`LecturaDelTexto.ts` del backend). La tolerancia **solo suma**
+ * al riesgo, y el lenguaje ofensivo solo usa la tabla.
  *
  * Y lo que no se puede responder sin conexion **no se inventa**: `exige-conexion`.
  */
@@ -52,6 +58,117 @@ export function palabrasDe(texto: string): readonly string[] {
     .replace(/(\p{L})\1{2,}/gu, '$1')
     .split(/[^\p{L}\p{N}]+/u)
     .filter((palabra) => palabra !== '');
+}
+
+// ---------------------------------------------------------------------------
+// Erratas (SCRUM-193): el mismo algoritmo que el servidor
+// ---------------------------------------------------------------------------
+
+/**
+ * La distancia de Damerau-Levenshtein: cuantas inserciones, borrados, sustituciones o cambios
+ * de dos letras contiguas separan una palabra de otra.
+ */
+export function distanciaDeEdicion(a: string, b: string): number {
+  const tabla: number[][] = Array.from({ length: a.length + 1 }, (_fila, i) =>
+    Array.from({ length: b.length + 1 }, (_columna, j) => (i === 0 ? j : j === 0 ? i : 0)),
+  );
+
+  for (let i = 1; i <= a.length; i += 1) {
+    for (let j = 1; j <= b.length; j += 1) {
+      const costo = a[i - 1] === b[j - 1] ? 0 : 1;
+      let mejor = Math.min(
+        (tabla[i - 1]?.[j] ?? 0) + 1,
+        (tabla[i]?.[j - 1] ?? 0) + 1,
+        (tabla[i - 1]?.[j - 1] ?? 0) + costo,
+      );
+
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        mejor = Math.min(mejor, (tabla[i - 2]?.[j - 2] ?? 0) + 1);
+      }
+
+      tabla[i]![j] = mejor;
+    }
+  }
+
+  return tabla[a.length]?.[b.length] ?? 0;
+}
+
+/** Menos letras que esto y una palabra no se corrige por distancia. */
+const LARGO_MINIMO_PARA_CORREGIR = 5;
+
+/**
+ * Las palabras que el asistente conoce, sacadas de listas de patrones y frases. Las raices
+ * (`psicolog*`) quedan fuera: no son una palabra hacia la que se pueda corregir.
+ */
+function vocabularioDe(listas: readonly (readonly string[])[]): ReadonlySet<string> {
+  const vocabulario = new Set<string>();
+
+  for (const lista of listas) {
+    for (const patron of lista) {
+      for (const palabra of patron.split(' ')) {
+        if (palabra !== '' && !palabra.endsWith('*')) {
+          vocabulario.add(palabra);
+        }
+      }
+    }
+  }
+
+  return vocabulario;
+}
+
+/**
+ * La unica palabra del vocabulario a una letra de esta, o `undefined`. Con las mismas
+ * condiciones que el servidor: cinco letras o mas, la misma primera y ultima letra (lo que cambia
+ * al final suele ser de quien se habla: «aguanta» no es «aguanto») y **un solo** candidato.
+ */
+function candidataUnica(palabra: string, vocabulario: ReadonlySet<string>): string | undefined {
+  const primera = palabra.charAt(0);
+  const ultima = palabra.charAt(palabra.length - 1);
+  let encontrada: string | undefined;
+
+  for (const candidata of vocabulario) {
+    if (
+      candidata.length < LARGO_MINIMO_PARA_CORREGIR ||
+      Math.abs(candidata.length - palabra.length) > 1 ||
+      !candidata.startsWith(primera) ||
+      !candidata.endsWith(ultima) ||
+      distanciaDeEdicion(palabra, candidata) !== 1
+    ) {
+      continue;
+    }
+
+    if (encontrada !== undefined) {
+      return undefined;
+    }
+
+    encontrada = candidata;
+  }
+
+  return encontrada;
+}
+
+/**
+ * Lee las palabras como se quisieron escribir: primero la tabla; despues, si la palabra no esta en
+ * el vocabulario, la distancia de edicion. Sin vocabulario solo corrige por la tabla.
+ */
+function corregirPalabras(
+  palabras: readonly string[],
+  vocabulario: ReadonlySet<string>,
+  erratas: Readonly<Record<string, string>>,
+): readonly string[] {
+  return palabras.map((palabra) => {
+    const porTabla = Object.hasOwn(erratas, palabra) ? erratas[palabra] : undefined;
+
+    if (porTabla !== undefined) {
+      return porTabla;
+    }
+
+    if (vocabulario.has(palabra) || palabra.length < LARGO_MINIMO_PARA_CORREGIR) {
+      return palabra;
+    }
+
+    return candidataUnica(palabra, vocabulario) ?? palabra;
+  });
 }
 
 /**
@@ -174,6 +291,12 @@ export type ResultadoSinConexion =
   | { readonly tipo: 'charla'; readonly intencion: string; readonly mensaje: string }
   | { readonly tipo: 'ofensivo'; readonly intencion: string; readonly mensaje: string }
   | {
+      readonly tipo: 'fallback';
+      readonly intencion: string;
+      readonly mensaje: string;
+      readonly sugerencias: readonly string[];
+    }
+  | {
       readonly tipo: 'ayuda';
       readonly intencion: string;
       readonly mensaje: string;
@@ -194,8 +317,22 @@ export function responderSinConexion(
   consulta: ConsultaSinConexion,
 ): ResultadoSinConexion {
   const limpio = normalizar(consulta.texto);
+  const dichas = palabrasDe(consulta.texto);
+  const erratas = reglas.erratas ?? {};
 
-  if (reglas.riesgo.expresiones.some((expresion) => limpio.includes(expresion))) {
+  // El riesgo: tal cual, y despues con las erratas leidas como se quisieron escribir. La segunda
+  // busqueda solo suma (SCRUM-193), con el vocabulario del propio riesgo.
+  const corregidoDelRiesgo = corregirPalabras(
+    dichas,
+    vocabularioDe([reglas.riesgo.expresiones]),
+    erratas,
+  ).join(' ');
+
+  if (
+    reglas.riesgo.expresiones.some(
+      (expresion) => limpio.includes(expresion) || corregidoDelRiesgo.includes(expresion),
+    )
+  ) {
     return {
       tipo: 'riesgo',
       mensaje: reglas.riesgo.mensaje,
@@ -203,13 +340,29 @@ export function responderSinConexion(
     };
   }
 
-  const palabras = palabrasDe(consulta.texto);
-
   // Despues del riesgo y antes de la charla (SCRUM-192). Sin lineas y sin conexion: es una frase
-  // fija. Un paquete anterior a esto no trae la seccion y no cuenta nada como ofensivo.
-  if (reglas.ofensivo !== undefined && esLenguajeOfensivo(palabras, reglas.ofensivo)) {
+  // fija. Un paquete anterior a esto no trae la seccion y no cuenta nada como ofensivo. Solo con
+  // la tabla de erratas: una palabra nunca se acerca por distancia a un insulto.
+  if (
+    reglas.ofensivo !== undefined &&
+    esLenguajeOfensivo(corregirPalabras(dichas, new Set(), erratas), reglas.ofensivo)
+  ) {
     return { tipo: 'ofensivo', intencion: 'lenguaje_ofensivo', mensaje: reglas.ofensivo.mensaje };
   }
+
+  // Lo demas se lee con las erratas corregidas, con el vocabulario que traen las propias reglas.
+  const palabras = corregirPalabras(
+    dichas,
+    vocabularioDe([
+      ...reglas.charla.reglas.flatMap((regla) => [
+        regla.patrones,
+        ...regla.variantes.map((variante) => variante.patrones),
+      ]),
+      ...reglas.intenciones.map((regla) => regla.patrones),
+      reglas.charla.relleno,
+    ]),
+    erratas,
+  );
 
   const relleno = new Set([...reglas.charla.relleno, ...palabrasDe(consulta.mascota ?? '')]);
   const charla = reconocerCharla(palabras, reglas.charla.reglas, relleno);
@@ -229,6 +382,18 @@ export function responderSinConexion(
   }
 
   const regla = reglas.intenciones.find((una) => contieneAlguno(palabras, una.patrones));
+
+  // Nada se reconoce: el fallback (SCRUM-176, SCRUM-193), sin lineas de atencion y con el
+  // catalogo de temas. Es una frase fija y se responde igual sin conexion. Un paquete anterior no
+  // lo trae: ahi no se inventa nada.
+  if (regla === undefined && reglas.fallback !== undefined) {
+    return {
+      tipo: 'fallback',
+      intencion: 'no_reconocida',
+      mensaje: reglas.fallback.mensaje,
+      sugerencias: [...reglas.fallback.sugerencias],
+    };
+  }
 
   // Ni una regla que coincida, ni una que se pueda responder sin conexion: hace falta conexion.
   if (regla?.mensaje == null) {
@@ -315,6 +480,16 @@ function esPais(valor: unknown): boolean {
   return esObjeto(valor) && sonTextos(valor.zonas) && sonLineas(valor.lineas);
 }
 
+/** La tabla de erratas (SCRUM-193), si viene: un objeto de texto a texto. */
+function esTablaDeErratas(valor: unknown): boolean {
+  return esObjeto(valor) && Object.values(valor).every(esTexto);
+}
+
+/** El fallback (SCRUM-176), si viene: un mensaje y su catalogo de frases. */
+function esFallback(valor: unknown): boolean {
+  return esObjeto(valor) && esTexto(valor.mensaje) && sonTextos(valor.sugerencias);
+}
+
 /** La seccion ofensiva (SCRUM-192), si viene: completa y bien formada, o el paquete no se usa. */
 function esOfensivo(valor: unknown): boolean {
   return (
@@ -353,6 +528,8 @@ export function esReglasLocales(valor: unknown): valor is ReglasLocales {
     charla.reglas.every(esReglaDeCharla) &&
     sonTextos(charla.relleno) &&
     (valor.ofensivo === undefined || esOfensivo(valor.ofensivo)) &&
+    (valor.erratas === undefined || esTablaDeErratas(valor.erratas)) &&
+    (valor.fallback === undefined || esFallback(valor.fallback)) &&
     Array.isArray(valor.intenciones) &&
     valor.intenciones.every(esReglaDeIntencion) &&
     esObjeto(paises) &&
