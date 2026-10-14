@@ -124,6 +124,17 @@ function comoRespuesta(
         incluyeLineasDeAtencion: false,
       };
 
+    case 'fallback':
+      // Sin lineas: sin una senal de riesgo no hay crisis. Con el catalogo de lo que si se atiende.
+      return {
+        intencion: resultado.intencion,
+        mensaje: resultado.mensaje,
+        recursos: [],
+        senalDeRiesgo: false,
+        incluyeLineasDeAtencion: false,
+        sugerencias: resultado.sugerencias,
+      };
+
     case 'ayuda':
       return {
         intencion: resultado.intencion,

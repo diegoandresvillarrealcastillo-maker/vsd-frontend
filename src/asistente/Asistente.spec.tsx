@@ -97,6 +97,95 @@ afterEach(() => {
   fijarLaZonaDeLaCuenta('America/Bogota');
 });
 
+describe('VSD IA, lo que no entiende: un catalogo de temas, sin telefonos (SCRUM-176, SCRUM-193)', () => {
+  const NO_ENTIENDE: RespuestaDelAsistente = {
+    intencion: 'no_reconocida',
+    mensaje:
+      'No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:',
+    recursos: [],
+    senalDeRiesgo: false,
+    incluyeLineasDeAtencion: false,
+    sugerencias: [
+      '¿Cómo puedo dormir mejor?',
+      '¿Qué significa mi resultado?',
+      '¿Dónde busco ayuda?',
+    ],
+  };
+
+  beforeEach(() => {
+    preguntarAlAsistente.mockResolvedValue(NO_ENTIENDE);
+  });
+
+  async function preguntarCualquierCosa() {
+    await usuario.type(campo(), 'a que hora abre la biblioteca');
+    await usuario.click(screen.getByRole('button', { name: 'Enviar' }));
+    await screen.findByText(/No puedo ayudarte con ese tema/);
+  }
+
+  it('ensena las opciones como botones y ninguna linea de atencion', async () => {
+    pintar();
+
+    await preguntarCualquierCosa();
+
+    const opciones = screen.getByRole('list', { name: 'Temas con los que puedo ayudarte' });
+
+    expect(within(opciones).getAllByRole('button')).toHaveLength(3);
+    expect(
+      within(opciones).getByRole('button', { name: '¿Dónde busco ayuda?' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Línea \d/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ahora mismo y son gratuitas/)).not.toBeInTheDocument();
+  });
+
+  it('tocar una opcion la envia como si la persona la hubiera escrito', async () => {
+    pintar();
+
+    await preguntarCualquierCosa();
+    preguntarAlAsistente.mockResolvedValue(SOBRE_EL_SUENO);
+    await usuario.click(screen.getByRole('button', { name: '¿Cómo puedo dormir mejor?' }));
+
+    expect(preguntarAlAsistente).toHaveBeenLastCalledWith(
+      '¿Cómo puedo dormir mejor?',
+      expect.any(AbortSignal),
+    );
+    expect(await screen.findByText(/Descansar mejor casi siempre/)).toBeInTheDocument();
+  });
+
+  it('las opciones se leen como una lista, con teclado y sin atrapar el foco', async () => {
+    pintar();
+
+    await preguntarCualquierCosa();
+
+    const primera = screen.getByRole('button', { name: '¿Cómo puedo dormir mejor?' });
+
+    primera.focus();
+
+    expect(primera).toHaveFocus();
+    expect(primera).toBeEnabled();
+  });
+
+  it('una respuesta que ya entendio no trae el catalogo', async () => {
+    preguntarAlAsistente.mockResolvedValue(SOBRE_EL_SUENO);
+    pintar();
+
+    await usuario.type(campo(), 'no duermo bien');
+    await usuario.click(screen.getByRole('button', { name: 'Enviar' }));
+    await screen.findByText(/Descansar mejor casi siempre/);
+
+    expect(
+      screen.queryByRole('list', { name: 'Temas con los que puedo ayudarte' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('con el catalogo en pantalla, no tiene fallos de accesibilidad', async () => {
+    pintar();
+
+    await preguntarCualquierCosa();
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+  });
+});
+
 describe('VSD IA, el lenguaje ofensivo (SCRUM-192)', () => {
   const INSULTO: RespuestaDelAsistente = {
     intencion: 'lenguaje_ofensivo',
