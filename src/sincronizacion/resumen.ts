@@ -329,6 +329,11 @@ export interface Aviso {
    */
   readonly sugiereAcompanamiento: boolean;
   readonly lineasDeAtencion: readonly LineaDeAtencion[];
+  /**
+   * Si lo que salio del **diario** trae una senal de acompanamiento (SCRUM-194). El diario no
+   * manda lineas de atencion: se ofrece ayuda sin telefonos, y la persona decide si pregunta.
+   */
+  readonly ofreceAyuda: boolean;
   /** La orientacion de los resultados que se enviaron despues de esperar en este equipo. */
   readonly orientaciones: readonly OrientacionDelAviso[];
   /**
@@ -386,19 +391,33 @@ function orientacionesDe(recibos: readonly ReciboDeEnvio[]): readonly Orientacio
   return orientaciones;
 }
 
+/** Lo que sale del diario no manda lineas: ofrece ayuda aparte (SCRUM-194). */
+const TIPOS_DEL_DIARIO: ReadonlySet<string> = new Set(['diario.escribir', 'diario.editar']);
+
 /**
  * Lo que la API respondio a lo enviado que pide acompanar, con sus lineas. Se
  * quitan repetidas: dos resultados seguidos devuelven las mismas.
+ *
+ * **El diario es aparte** (SCRUM-194): una anotacion que pide acompanar no suma lineas, ni aunque
+ * un servidor anterior las mande. Solo hace que se ofrezca ayuda (`ofreceAyuda`), sin telefonos.
  */
 function acompanamientoDe(recibos: readonly ReciboDeEnvio[]): {
   readonly sugiere: boolean;
   readonly lineas: readonly LineaDeAtencion[];
+  readonly ofreceAyuda: boolean;
 } {
   const lineas = new Map<string, LineaDeAtencion>();
   let sugiere = false;
+  let ofreceAyuda = false;
 
-  for (const { recibo } of recibos) {
+  for (const { tipo, recibo } of recibos) {
     if (!esObjeto(recibo) || recibo.sugiereAcompanamiento !== true) {
+      continue;
+    }
+
+    if (TIPOS_DEL_DIARIO.has(tipo)) {
+      ofreceAyuda = true;
+
       continue;
     }
 
@@ -413,7 +432,7 @@ function acompanamientoDe(recibos: readonly ReciboDeEnvio[]): {
     }
   }
 
-  return { sugiere, lineas: [...lineas.values()] };
+  return { sugiere, lineas: [...lineas.values()], ofreceAyuda };
 }
 
 /** Cuantas de las correcciones enviadas se guardaron aparte como una copia. */
@@ -440,6 +459,7 @@ export function avisoDeSinConexion(): Aviso {
     pedirEntrar: false,
     sugiereAcompanamiento: false,
     lineasDeAtencion: [],
+    ofreceAyuda: false,
     orientaciones: [],
     copias: 0,
   };
@@ -472,6 +492,7 @@ export function construirAviso(entrada: EntradaDelAviso): Aviso | null {
     pedirEntrar: false,
     sugiereAcompanamiento: false,
     lineasDeAtencion: [] as readonly LineaDeAtencion[],
+    ofreceAyuda: false,
     orientaciones: [] as readonly OrientacionDelAviso[],
     copias: 0,
   };
@@ -527,6 +548,7 @@ export function construirAviso(entrada: EntradaDelAviso): Aviso | null {
   const extra = {
     sugiereAcompanamiento: acompanamiento.sugiere,
     lineasDeAtencion: acompanamiento.lineas,
+    ofreceAyuda: acompanamiento.ofreceAyuda,
     orientaciones: orientacionesDe(esperaron),
     copias,
   };

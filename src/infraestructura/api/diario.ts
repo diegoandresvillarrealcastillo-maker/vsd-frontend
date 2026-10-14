@@ -1,5 +1,4 @@
 import { llamarALaApi } from './clienteHttp.ts';
-import type { LineaDeAtencion } from './resultados.ts';
 
 /**
  * El diario, por HTTP (SCRUM-95 en el backend, SCRUM-96 aqui).
@@ -43,10 +42,14 @@ export interface Anotacion {
   readonly editableHasta: string;
 }
 
-/** Lo que responden escribir y editar: la anotacion y su acompanamiento. */
+/**
+ * Lo que responden escribir y editar: la anotacion y si conviene acompanarla.
+ *
+ * **Sin lineas de atencion** (SCRUM-194): el diario no las manda, ni aqui se leen. Con
+ * `sugiereAcompanamiento` la mascota ofrece ayuda y, si la persona acepta, abre VSD IA.
+ */
 export interface AnotacionGuardada extends Anotacion {
   readonly sugiereAcompanamiento: boolean;
-  readonly lineasDeAtencion: readonly LineaDeAtencion[];
 }
 
 export interface AnotacionPorEscribir {

@@ -68,25 +68,6 @@
   margin: 0;
 }
 
-.diario__apoyo {
-  display: grid;
-  gap: 0.75rem;
-  justify-items: start;
-  padding: 1rem;
-  background: var(--app-superficie);
-  border: 1px solid var(--app-borde);
-  border-radius: 16px;
-}
-
-/* Las lineas de atencion traen los tokens de la pantalla de actividad;
-   aqui se les dan los del panel. */
-.diario__apoyo {
-  --texto: var(--app-tinta);
-  --texto-tenue: var(--app-tenue);
-  --borde: var(--app-borde);
-  --fondo-sutil: var(--app-superficie-alta);
-}
-
 /* ---------- El lienzo ---------- */
 
 .lienzo {

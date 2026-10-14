@@ -233,7 +233,7 @@
       ],
       "umbral": 3,
       "mensaje": "Entiendo cómo te sientes, pero por favor evita ese lenguaje si quieres que te siga ayudando. Aquí estoy cuando quieras retomar.",
-      "mensajeAlCerrar": "Voy a cerrar esta conversación por ahora. Puedes abrir una nueva cuando quieras: aquí voy a estar. Y si quieres hablar con alguien, en Recursos encuentras dónde."
+      "mensajeAlCerrar": "Voy a cerrar esta conversación por ahora. Puedes abrir una nueva cuando quieras: aquí voy a estar. Y si quieres hablar con alguien, pregúntame «¿Dónde busco ayuda?» en la conversación nueva."
     },
     "erratas": {
       "ola": "hola",

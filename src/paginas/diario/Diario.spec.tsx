@@ -41,6 +41,13 @@ vi.mock('../../infraestructura/api/aviso.ts', () => ({
 }));
 vi.mock('../../infraestructura/api/cuenta.ts', () => ({
   darDeAltaLaCuenta: () => Promise.resolve({ mascota: null }),
+  // La mascota de la cuenta flota en esta pantalla (SCRUM-194).
+  consultarLaCuentaPropia: () => Promise.resolve({ mascota: null }),
+}));
+// VSD IA se abre desde la invitacion de la mascota; sus respuestas se prueban en su propio archivo.
+vi.mock('../../infraestructura/api/asistente.ts', async (importar) => ({
+  ...(await importar<typeof import('../../infraestructura/api/asistente.ts')>()),
+  preguntarAlAsistente: () => new Promise(() => undefined),
 }));
 vi.mock('../../infraestructura/api/diario.ts', async (importar) => ({
   ...(await importar<typeof import('../../infraestructura/api/diario.ts')>()),
@@ -427,6 +434,8 @@ describe('Mi diario, escribir', () => {
     await new Promise((resolver) => setTimeout(resolver, 60));
 
     expect(screen.queryByRole('region', { name: 'Si te sirve hablarlo con alguien' })).toBeNull();
+    expect(screen.queryByRole('group', { name: /^Un mensaje de / })).toBeNull();
+    expect(screen.queryByText('Línea 1')).toBeNull();
   });
 
   it('si no hay espacio en este equipo, lo dice y deja lo escrito en el lienzo', async () => {
@@ -469,22 +478,57 @@ describe('Mi diario, escribir', () => {
     expect(screen.getByRole('button', { name: 'Guardar anotación' })).toBeInTheDocument();
   });
 
-  it('con una senal de riesgo ensena las lineas de atencion', async () => {
-    api.escribirEnElDiario.mockResolvedValue({
-      ...guardadaCon({ id: 'con-riesgo' }),
-      sugiereAcompanamiento: true,
-      lineasDeAtencion: [
-        { id: 'l-192', titulo: 'Línea 192, opción 4', tipo: 'contacto', cobertura: 'nacional' },
-      ],
+  describe('con una senal de riesgo, la mascota ofrece ayuda y no pone telefonos (SCRUM-194)', () => {
+    async function guardarConSenal() {
+      api.escribirEnElDiario.mockResolvedValue({
+        ...guardadaCon({ id: 'con-riesgo' }),
+        sugiereAcompanamiento: true,
+        // Un servidor anterior todavia las manda: el diario no las pinta.
+        lineasDeAtencion: [
+          { id: 'l-192', titulo: 'Línea 192, opción 4', tipo: 'contacto', cobertura: 'nacional' },
+        ],
+      });
+
+      pintar();
+      await escribirEnElLienzo('ya no puedo mas');
+      await usuario.click(screen.getByRole('button', { name: 'Guardar anotación' }));
+    }
+
+    it('la mascota dice una invitacion calida, y no ensena ninguna linea', async () => {
+      await guardarConSenal();
+
+      const invitacion = await screen.findByRole('group', { name: /^Un mensaje de / });
+
+      expect(within(invitacion).getByText(/Lo que sientes importa/)).toBeInTheDocument();
+      expect(
+        within(invitacion).getByRole('button', { name: 'Sí, ver opciones' }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Línea 192, opción 4')).toBeNull();
+      expect(screen.queryByRole('region', { name: 'Si te sirve hablarlo con alguien' })).toBeNull();
     });
 
-    pintar();
-    await escribirEnElLienzo('ya no puedo mas');
-    await usuario.click(screen.getByRole('button', { name: 'Guardar anotación' }));
+    it('aceptarla abre VSD IA con «¿Dónde busco ayuda?» ya preguntado', async () => {
+      await guardarConSenal();
 
-    const lineas = await screen.findByRole('region', { name: 'Si te sirve hablarlo con alguien' });
+      await usuario.click(await screen.findByRole('button', { name: 'Sí, ver opciones' }));
 
-    expect(within(lineas).getByText('Línea 192, opción 4')).toBeInTheDocument();
+      const dialogo = await screen.findByRole('dialog', { name: 'VSD IA' });
+
+      expect(within(dialogo).getByRole('log', { name: 'Conversación' })).toHaveTextContent(
+        '¿Dónde busco ayuda?',
+      );
+      expect(screen.queryByRole('group', { name: /^Un mensaje de / })).toBeNull();
+    });
+
+    it('«Ahora no» la quita, y no vuelve por la misma anotacion', async () => {
+      await guardarConSenal();
+
+      await usuario.click(await screen.findByRole('button', { name: 'Ahora no' }));
+      await new Promise((resolver) => setTimeout(resolver, 60));
+
+      expect(screen.queryByRole('group', { name: /^Un mensaje de / })).toBeNull();
+      expect(api.escribirEnElDiario).toHaveBeenCalledTimes(1);
+    });
   });
 });
 
@@ -646,7 +690,7 @@ describe('Mi diario, sin conexion (SCRUM-139)', () => {
     expect(within(historial()).getAllByText('No lo pierdo')).toHaveLength(1);
   });
 
-  it('lo escrito sin conexion que pide acompanar ensena las lineas de atencion cuando sale', async () => {
+  it('lo escrito sin conexion que pide acompanar le ofrece ayuda a la persona cuando sale, sin lineas', async () => {
     pintar();
     await within(historial()).findByText('Desayuné temprano');
     sinConexion();
@@ -662,9 +706,10 @@ describe('Mi diario, sin conexion (SCRUM-139)', () => {
     });
     await volverLaConexion();
 
-    const lineas = await screen.findByRole('region', { name: 'Si te sirve hablarlo con alguien' });
+    const invitacion = await screen.findByRole('group', { name: /^Un mensaje de / });
 
-    expect(within(lineas).getByText('Línea 192, opción 4')).toBeInTheDocument();
+    expect(within(invitacion).getByText(/Lo que sientes importa/)).toBeInTheDocument();
+    expect(screen.queryByText('Línea 192, opción 4')).toBeNull();
   });
 
   it('lo recien escrito dice que queda una hora justa, no un minuto de mas', async () => {

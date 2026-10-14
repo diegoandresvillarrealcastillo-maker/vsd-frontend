@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { consultarLaVersionDelAviso } from '../../infraestructura/api/aviso.ts';
 import { darDeAltaLaCuenta } from '../../infraestructura/api/cuenta.ts';
 import { consultarElDiario, type Anotacion } from '../../infraestructura/api/diario.ts';
-import type { LineaDeAtencion } from '../../infraestructura/api/resultados.ts';
 import { useAlVolverLaRed } from '../../conexion/useAlVolverLaRed.ts';
 import { reintentarCambio } from '../../sincronizacion/acciones.ts';
 import {
@@ -96,7 +95,11 @@ export function useDiario() {
   const [local, setLocal] = useState<LoLocalDelDiario>(SIN_NADA_LOCAL);
   const [progreso, setProgreso] = useState<Progreso>({ sincronizando: false });
   const [ahora, setAhora] = useState(ahoraMismo);
-  const [lineas, setLineas] = useState<readonly LineaDeAtencion[] | null>(null);
+  /**
+   * Si la mascota tiene que ofrecer ayuda (SCRUM-194): lo que se guardo trae una senal y la
+   * persona dio el permiso. **Ninguna linea de atencion**: se le ofrece ir a donde pedirla.
+   */
+  const [invitada, setInvitada] = useState(false);
   const [novedad, setNovedad] = useState<NovedadDelDiario | null>(null);
   const [intento, setIntento] = useState(0);
 
@@ -225,8 +228,10 @@ export function useDiario() {
       return;
     }
 
-    if (recibo.sugiereAcompanamiento === true && Array.isArray(recibo.lineasDeAtencion)) {
-      setLineas(recibo.lineasDeAtencion as readonly LineaDeAtencion[]);
+    // Solo si lo sugiere. Las lineas, aunque un servidor anterior todavia las mande, no se
+    // leen: el diario ofrece ayuda y no las pone junto a lo recien escrito (SCRUM-194).
+    if (recibo.sugiereAcompanamiento === true) {
+      setInvitada(true);
     }
 
     if (esAnotacionCopiada(recibo)) {
@@ -368,8 +373,8 @@ export function useDiario() {
     hoy,
     fase,
     entradas,
-    lineas,
-    cerrarLineas: () => setLineas(null),
+    invitada,
+    cerrarLaInvitacion: () => setInvitada(false),
     /** Cuando se guardo la copia que se esta ensenando, o `null` si es lo del servidor. */
     deLaCopia,
     /** El instante de la ultima lectura de lo guardado en este equipo. */
