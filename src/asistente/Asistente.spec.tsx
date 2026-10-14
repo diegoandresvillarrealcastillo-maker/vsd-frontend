@@ -97,6 +97,113 @@ afterEach(() => {
   fijarLaZonaDeLaCuenta('America/Bogota');
 });
 
+describe('VSD IA, el lenguaje ofensivo (SCRUM-192)', () => {
+  const INSULTO: RespuestaDelAsistente = {
+    intencion: 'lenguaje_ofensivo',
+    mensaje:
+      'Entiendo cómo te sientes, pero por favor evita ese lenguaje si quieres que te siga ayudando.',
+    recursos: [],
+    senalDeRiesgo: false,
+    incluyeLineasDeAtencion: false,
+  };
+
+  async function insultar(veces: number) {
+    for (let i = 0; i < veces; i += 1) {
+      await usuario.type(campo(), 'eres un idiota');
+      await usuario.click(screen.getByRole('button', { name: 'Enviar' }));
+      await screen.findAllByText(/evita ese lenguaje/);
+    }
+  }
+
+  beforeEach(() => {
+    preguntarAlAsistente.mockResolvedValue(INSULTO);
+  });
+
+  it('ante un insulto responde con asertividad, sin lineas ni telefonos', async () => {
+    pintar();
+
+    await insultar(1);
+
+    expect(screen.getByText(/evita ese lenguaje/)).toBeInTheDocument();
+    expect(screen.queryByText(/Línea/)).not.toBeInTheDocument();
+    // Y el campo sigue disponible: es una advertencia, no un castigo.
+    expect(campo()).toBeEnabled();
+  });
+
+  it('a la tercera seguida cierra la conversacion, lo dice y deja abrir otra', async () => {
+    pintar();
+
+    await insultar(3);
+
+    expect(await screen.findByText(/Voy a cerrar esta conversación por ahora/)).toBeInTheDocument();
+    expect(campo()).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Enviar' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Abrir una conversación nueva' }),
+    ).toBeInTheDocument();
+  });
+
+  it('el cierre no acusa y apunta a Recursos, sin lineas de atencion', async () => {
+    pintar();
+
+    await insultar(3);
+
+    const cierre = await screen.findByText(/Voy a cerrar esta conversación por ahora/);
+
+    expect(cierre.textContent).toMatch(/aquí voy a estar/);
+    expect(cierre.textContent).toMatch(/Recursos/);
+    expect(cierre.textContent).not.toMatch(/grosero|castigo|bloque|inaceptable/i);
+    expect(screen.queryByText(/Línea d/)).not.toBeInTheDocument();
+  });
+
+  it('el foco pasa al boton de abrir una nueva: el campo ya no recibe', async () => {
+    pintar();
+
+    await insultar(3);
+
+    const nueva = await screen.findByRole('button', { name: 'Abrir una conversación nueva' });
+
+    expect(nueva).toHaveFocus();
+  });
+
+  it('abrir otra conversacion empieza de cero: sin mensajes, con las sugerencias y el campo activo', async () => {
+    pintar();
+
+    await insultar(3);
+    await usuario.click(
+      await screen.findByRole('button', { name: 'Abrir una conversación nueva' }),
+    );
+
+    expect(campo()).toBeEnabled();
+    expect(screen.queryByText(/evita ese lenguaje/)).not.toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Para empezar' })).toBeInTheDocument();
+    expect(campo()).toHaveFocus();
+  });
+
+  it('cerrada y abierta de nuevo, se puede preguntar con normalidad', async () => {
+    pintar();
+
+    await insultar(3);
+    await usuario.click(
+      await screen.findByRole('button', { name: 'Abrir una conversación nueva' }),
+    );
+    preguntarAlAsistente.mockResolvedValue(SOBRE_EL_SUENO);
+    await usuario.type(campo(), 'no duermo bien');
+    await usuario.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    expect(await screen.findByText(/Descansar mejor casi siempre/)).toBeInTheDocument();
+  });
+
+  it('la conversacion cerrada no tiene fallos de accesibilidad', async () => {
+    pintar();
+
+    await insultar(3);
+    await screen.findByText(/Voy a cerrar esta conversación por ahora/);
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+  });
+});
+
 describe('VSD IA, accesibilidad (C-03)', () => {
   it('abierta, no tiene fallos de accesibilidad', async () => {
     pintar();

@@ -175,6 +175,58 @@
         "ahi"
       ]
     },
+    "ofensivo": {
+      "terminos": [
+        "idiota*",
+        "imbecil*",
+        "estupid*",
+        "inutil",
+        "inutiles",
+        "tonto",
+        "tonta",
+        "pendej*",
+        "gilipollas",
+        "cabron*",
+        "malparid*",
+        "hijueputa*",
+        "hijoputa*",
+        "hdp",
+        "eres una mierda",
+        "eres mierda",
+        "eres basura",
+        "eres una basura",
+        "eres un asco",
+        "callate",
+        "cierra la boca",
+        "jodete",
+        "largate",
+        "vete a la mierda",
+        "andate a la mierda",
+        "vete al carajo",
+        "fuck you",
+        "fuck off",
+        "shut up"
+      ],
+      "desahogo": [
+        "me siento",
+        "me sentia",
+        "siento que",
+        "soy",
+        "estoy",
+        "fui",
+        "parezco",
+        "me veo",
+        "me porto",
+        "me comporto",
+        "me odio",
+        "odio mi",
+        "mi vida",
+        "mi culpa"
+      ],
+      "umbral": 3,
+      "mensaje": "Entiendo cómo te sientes, pero por favor evita ese lenguaje si quieres que te siga ayudando. Aquí estoy cuando quieras retomar.",
+      "mensajeAlCerrar": "Voy a cerrar esta conversación por ahora. Puedes abrir una nueva cuando quieras: aquí voy a estar. Y si quieres hablar con alguien, en Recursos encuentras dónde."
+    },
     "intenciones": [
       {
         "intencion": "donde_busco_ayuda",
@@ -562,6 +614,103 @@
         "lineas": [
           "0ffec0de-0000-4000-8000-00000000f1de"
         ]
+      }
+    },
+    {
+      "texto": "eres un idiota",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "ofensivo",
+        "intencion": "lenguaje_ofensivo",
+        "mensaje": "Entiendo cómo te sientes, pero por favor evita ese lenguaje si quieres que te siga ayudando. Aquí estoy cuando quieras retomar."
+      }
+    },
+    {
+      "texto": "CALLATE",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "ofensivo",
+        "intencion": "lenguaje_ofensivo",
+        "mensaje": "Entiendo cómo te sientes, pero por favor evita ese lenguaje si quieres que te siga ayudando. Aquí estoy cuando quieras retomar."
+      }
+    },
+    {
+      "texto": "hola, imbécil",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "ofensivo",
+        "intencion": "lenguaje_ofensivo",
+        "mensaje": "Entiendo cómo te sientes, pero por favor evita ese lenguaje si quieres que te siga ayudando. Aquí estoy cuando quieras retomar."
+      }
+    },
+    {
+      "texto": "vete a la mierda",
+      "zona": "Europe/Madrid",
+      "esperado": {
+        "tipo": "ofensivo",
+        "intencion": "lenguaje_ofensivo",
+        "mensaje": "Entiendo cómo te sientes, pero por favor evita ese lenguaje si quieres que te siga ayudando. Aquí estoy cuando quieras retomar."
+      }
+    },
+    {
+      "texto": "eres un idiota, quiero morirme",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "callate, no aguanto mas",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "me siento una mierda",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "odio mi vida",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "soy un idiota",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "me siento inútil",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "saca la basura",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
       }
     },
     {
