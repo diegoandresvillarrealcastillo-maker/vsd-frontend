@@ -16,6 +16,8 @@ import { MODULOS, ORDEN } from '../panel/modulos.ts';
 import { etapaSiguiente, etapasAnteriores, nombreDeEtapa, tramoDeHoy } from './etapas.ts';
 import { HojaDeHoy } from './HojaDeHoy.tsx';
 import { DatosDeHace } from '../../conexion/DatosDeHace.tsx';
+import { ahoraMismo, diaDe } from '../diario/calendarioDelDiario.ts';
+import { HistorialDelModulo } from './HistorialDelModulo.tsx';
 import { useSendero } from './useSendero.ts';
 
 /**
@@ -133,6 +135,17 @@ export function VistaDelSendero({
 
       {estado.fase === 'listo' && <Camino progreso={estado.progreso} titulo={datos.titulo} />}
 
+      {/* El historial es del servidor y no tiene copia: sin conexion lo dice con calma y no tapa
+          el sendero (SCRUM-184). */}
+      {estado.fase === 'listo' && (
+        <HistorialDelModulo
+          key={modulo}
+          modulo={modulo}
+          titulo={datos.titulo}
+          hoy={diaDe(ahoraMismo())}
+        />
+      )}
+
       {(estado.fase === 'listo' || estado.fase === 'inactivo') && (
         <MascotaFlotante
           mascota={estado.mascota}
@@ -148,7 +161,7 @@ export function VistaDelSendero({
 }
 
 function Camino({ progreso, titulo }: { progreso: ProgresoDelModulo; titulo: string }) {
-  const { hoy } = progreso;
+  const { hoy, sugeridas = [] } = progreso;
   const hechasHoy = hoy.filter((actividad) => actividad.hecha).length;
   const completoHoy = hoy.length > 0 && hechasHoy === hoy.length;
   const { etapa, indiceDeHoy, hoyCuenta, etapaCompletadaHoy } = tramoDeHoy(
@@ -327,7 +340,12 @@ function Camino({ progreso, titulo }: { progreso: ProgresoDelModulo; titulo: str
       </div>
 
       {hojaAbierta && (
-        <HojaDeHoy modulo={titulo} hoy={hoy} alCerrar={() => setHojaAbierta(false)} />
+        <HojaDeHoy
+          modulo={titulo}
+          hoy={hoy}
+          sugeridas={sugeridas}
+          alCerrar={() => setHojaAbierta(false)}
+        />
       )}
     </>
   );

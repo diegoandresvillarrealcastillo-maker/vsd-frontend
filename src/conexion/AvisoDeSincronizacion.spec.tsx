@@ -40,6 +40,7 @@ function aviso(cambios: Partial<AvisoVisible> = {}): AvisoVisible {
     pedirEntrar: false,
     sugiereAcompanamiento: false,
     lineasDeAtencion: [],
+    ofreceAyuda: false,
     orientaciones: [],
     copias: 0,
     ...cambios,
@@ -242,6 +243,27 @@ describe('AvisoDeSincronizacion: el acompanamiento', () => {
     pintar();
 
     expect(screen.queryByText(/urgente|alerta|peligro/i)).toBeNull();
+  });
+
+  it('lo del diario no ensena telefonos: invita a preguntarle a VSD IA (SCRUM-194)', () => {
+    mundo.aviso = aviso({ ofreceAyuda: true });
+    pintar();
+
+    expect(
+      screen.getByText(/toca a tu mascota y pregúntale a VSD IA dónde buscar ayuda/),
+    ).toBeInTheDocument();
+
+    for (const linea of LINEAS_DE_RESPALDO_DE_COLOMBIA) {
+      expect(screen.queryByText(linea.titulo)).toBeNull();
+    }
+  });
+
+  it('si ya trae lineas por un resultado, no se repite la invitacion', () => {
+    mundo.aviso = aviso({ sugiereAcompanamiento: true, ofreceAyuda: true });
+    pintar();
+
+    expect(screen.getByText(/Si te sirve hablarlo con alguien/)).toBeInTheDocument();
+    expect(screen.queryByText(/pregúntale a VSD IA/)).toBeNull();
   });
 });
 

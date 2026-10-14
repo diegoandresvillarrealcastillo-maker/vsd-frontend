@@ -69,6 +69,10 @@ function Orientacion({ orientacion }: { orientacion: OrientacionDelAviso }) {
  * una copia (ADR 0009), lo dice y lleva al diario. Y si lo enviado sugiere acompanamiento
  * —un resultado hecho sin conexion, por ejemplo— ofrece las lineas de atencion.
  *
+ * **Lo que sale del diario no trae telefonos** (SCRUM-194): ofrece ayuda con una frase que lleva
+ * a la mascota y a VSD IA. Un aviso con una lista de lineas de crisis, justo despues de haber
+ * escrito algo personal, es la alarma que el diario evita.
+ *
  * No hay animaciones: con movimiento reducido o sin el, se ve igual.
  */
 export function AvisoDeSincronizacion() {
@@ -120,6 +124,13 @@ export function AvisoDeSincronizacion() {
                 })}
               </ul>
             </section>
+          )}
+
+          {aviso.ofreceAyuda && !aviso.sugiereAcompanamiento && (
+            <p className="aviso-sincronizacion__texto">
+              Si te sirve hablarlo con alguien, toca a tu mascota y pregúntale a VSD IA dónde buscar
+              ayuda.
+            </p>
           )}
 
           <div className="aviso-sincronizacion__acciones">

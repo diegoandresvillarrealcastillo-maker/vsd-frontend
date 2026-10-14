@@ -36,6 +36,7 @@ const {
   guardarLaMascotaPropia,
   quitarLaMascotaPropia,
   pedirLaMascotaPropia,
+  traerElCatalogo,
 } = vi.hoisted(() => ({
   consultarLaVersionDelAviso: vi.fn(),
   darDeAltaLaCuenta: vi.fn(),
@@ -48,6 +49,7 @@ const {
   guardarLaMascotaPropia: vi.fn(),
   quitarLaMascotaPropia: vi.fn(),
   pedirLaMascotaPropia: vi.fn(),
+  traerElCatalogo: vi.fn(),
 }));
 
 // La mascota propia (SCRUM-122): solo la API se simula, y el resto es de verdad.
@@ -57,6 +59,9 @@ vi.mock('../../infraestructura/api/mascotaPropia.ts', () => ({
   pedirLaMascotaPropia,
   TIPO_DEL_SVG: 'image/svg+xml',
 }));
+
+// Los nombres de las actividades para el PDF de los datos (SCRUM-191).
+vi.mock('../../infraestructura/api/catalogo.ts', () => ({ traerElCatalogo }));
 
 // La foto (SCRUM-120): el recorte y la API se simulan, y el resto es de verdad.
 vi.mock('../../infraestructura/api/foto.ts', () => ({
@@ -600,7 +605,7 @@ describe('Perfil', () => {
     });
   });
 
-  it('descarga los datos propios como archivo', async () => {
+  it('descarga los datos propios en JSON', async () => {
     exportarMisDatos.mockResolvedValue({ cuenta: { correo: CUENTA.correo } });
     const crear = vi.fn().mockReturnValue('blob:prueba');
     const revocar = vi.fn();
@@ -609,13 +614,211 @@ describe('Perfil', () => {
 
     pintar();
 
-    await usuario.click(await screen.findByRole('button', { name: 'Descargar mis datos' }));
+    await usuario.click(await screen.findByRole('button', { name: 'Descargar en JSON' }));
 
     expect(exportarMisDatos).toHaveBeenCalled();
     expect(crear).toHaveBeenCalledWith(expect.any(Blob));
     expect(await screen.findByText('Tus datos se descargaron.')).toBeInTheDocument();
 
     vi.unstubAllGlobals();
+  });
+
+  describe('la descarga en PDF (SCRUM-191)', () => {
+    /** Lo que se descargo: el nombre del archivo, su tipo y su contenido como texto. */
+    interface Descargado {
+      readonly nombre: string;
+      readonly tipo: string;
+      readonly texto: string;
+    }
+
+    async function descargarElPdf(): Promise<Descargado> {
+      let archivo: Blob | null = null;
+      const nombres: string[] = [];
+
+      vi.stubGlobal('URL', {
+        ...URL,
+        createObjectURL: (blob: Blob) => {
+          archivo = blob;
+
+          return 'blob:prueba';
+        },
+        revokeObjectURL: vi.fn(),
+      });
+      vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+        this: HTMLAnchorElement,
+      ) {
+        nombres.push(this.download);
+      });
+
+      await usuario.click(await screen.findByRole('button', { name: 'Descargar en PDF' }));
+      await screen.findByText('Tus datos se descargaron.');
+
+      const blob = archivo as Blob | null;
+
+      if (blob === null) {
+        throw new Error('No se descargo nada');
+      }
+
+      const texto = await new Promise<string>((resolver, rechazar) => {
+        const lector = new FileReader();
+
+        lector.onload = () => {
+          resolver(typeof lector.result === 'string' ? lector.result : '');
+        };
+        lector.onerror = () => {
+          rechazar(new Error('No se pudo leer el archivo'));
+        };
+        lector.readAsText(blob);
+      });
+
+      return { nombre: nombres[0] ?? '', tipo: blob.type, texto };
+    }
+
+    beforeEach(async () => {
+      exportarMisDatos.mockResolvedValue({ cuenta: { correo: CUENTA.correo }, diario: [] });
+      traerElCatalogo.mockResolvedValue([]);
+      await abrirUnAlmacenDePrueba();
+    });
+
+    afterEach(() => {
+      cerrarElAlmacenDePrueba();
+      vi.unstubAllGlobals();
+    });
+
+    it('ofrece el PDF y el JSON, uno junto al otro', async () => {
+      pintar();
+
+      expect(await screen.findByRole('button', { name: 'Descargar en PDF' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Descargar en JSON' })).toBeEnabled();
+    });
+
+    it('descarga un PDF con la marca, con su nombre y de tipo application/pdf', async () => {
+      pintar();
+
+      const descargado = await descargarElPdf();
+
+      expect(descargado.tipo).toBe('application/pdf');
+      expect(descargado.nombre).toBe('vsd-health-mis-datos.pdf');
+      expect(descargado.texto.startsWith('%PDF-1.4\n')).toBe(true);
+      expect(descargado.texto).toContain('(VSD Health)');
+      expect(descargado.texto).toContain('(marina@ejemplo.test)');
+    });
+
+    it('un diario con emojis se exporta entero, sin error', async () => {
+      exportarMisDatos.mockResolvedValue({
+        cuenta: { correo: CUENTA.correo },
+        entradasDeDiario: [
+          {
+            dia: '2026-10-03',
+            titulo: 'Un buen día 😀',
+            contenido: {
+              type: 'doc',
+              content: [
+                { type: 'paragraph', content: [{ type: 'text', text: 'Salí a caminar 🌳❤️' }] },
+                { type: 'paragraph', content: [{ type: 'text', text: 'Y comí algo rico' }] },
+              ],
+            },
+            adjuntos: [],
+            creadaEn: '2026-10-03T20:15:00.000Z',
+          },
+        ],
+      });
+      pintar();
+
+      const descargado = await descargarElPdf();
+
+      expect(descargado.texto).toContain('([emoji])');
+      expect(descargado.texto).toContain('(rico)');
+    });
+
+    it('las actividades salen con el nombre del catalogo', async () => {
+      exportarMisDatos.mockResolvedValue({
+        cuenta: { correo: CUENTA.correo },
+        resultados: [
+          {
+            activityId: 'act-1',
+            nivelOrientativo: 'favorable',
+            completedAt: '2026-10-05T15:00:00.000Z',
+          },
+        ],
+      });
+      traerElCatalogo.mockResolvedValue([
+        {
+          id: 'cat-1',
+          nombre: 'Bienestar',
+          actividades: [{ id: 'act-1', nombre: 'Respira', produceNivel: true }],
+        },
+      ]);
+      pintar();
+
+      expect((await descargarElPdf()).texto).toContain('(Respira)');
+    });
+
+    it('si el catalogo no responde, el PDF sale igual, sin los nombres', async () => {
+      exportarMisDatos.mockResolvedValue({
+        cuenta: { correo: CUENTA.correo },
+        resultados: [
+          {
+            activityId: 'act-1',
+            nivelOrientativo: 'favorable',
+            completedAt: '2026-10-05T15:00:00.000Z',
+          },
+        ],
+      });
+      traerElCatalogo.mockRejectedValue(new TypeError('Failed to fetch'));
+      pintar();
+
+      const descargado = await descargarElPdf();
+
+      expect(descargado.texto).toContain('(Favorable)');
+      expect(descargado.texto).not.toContain('(Respira)');
+    });
+
+    it('incluye lo que este equipo no ha enviado, igual que el JSON', async () => {
+      const guardada = await encolar({
+        operationId: 'op-pdf',
+        tipo: 'pendiente.crear',
+        entidad: 'pendiente:1',
+        payload: { texto: 'Llamar a la EPS' },
+      });
+
+      await cicloActual()?.almacen.guardarOperacion({ ...guardada, estado: 'pendiente' });
+      pintar();
+
+      const descargado = await descargarElPdf();
+
+      expect(descargado.texto).toContain('(EPS)');
+      expect(descargado.texto).toContain('(Pendiente)');
+    });
+
+    it('si el servidor no responde, lo dice y no descarga nada', async () => {
+      exportarMisDatos.mockRejectedValue(new TypeError('Failed to fetch'));
+      const crear = vi.fn().mockReturnValue('blob:prueba');
+
+      vi.stubGlobal('URL', { ...URL, createObjectURL: crear, revokeObjectURL: vi.fn() });
+      pintar();
+
+      await usuario.click(await screen.findByRole('button', { name: 'Descargar en PDF' }));
+
+      expect(
+        await screen.findByText('No se pudieron descargar. Inténtalo de nuevo.'),
+      ).toBeInTheDocument();
+      expect(crear).not.toHaveBeenCalled();
+    });
+
+    it('mientras prepara, los dos botones esperan y el que se pulso lo dice', async () => {
+      exportarMisDatos.mockReturnValue(
+        new Promise(function sinResolver() {
+          // A proposito: la exportacion se queda en el aire.
+        }),
+      );
+      pintar();
+
+      await usuario.click(await screen.findByRole('button', { name: 'Descargar en PDF' }));
+
+      expect(await screen.findByRole('button', { name: 'Preparando…' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Descargar en JSON' })).toBeDisabled();
+    });
   });
 
   describe('la descarga incluye lo que este equipo no ha enviado (SCRUM-142)', () => {
@@ -633,7 +836,7 @@ describe('Perfil', () => {
         revokeObjectURL: vi.fn(),
       });
 
-      await usuario.click(await screen.findByRole('button', { name: 'Descargar mis datos' }));
+      await usuario.click(await screen.findByRole('button', { name: 'Descargar en JSON' }));
       await screen.findByText('Tus datos se descargaron.');
 
       const blob = archivo as Blob | null;
@@ -716,6 +919,19 @@ describe('Perfil', () => {
   });
 
   describe('borrar la cuenta', () => {
+    it('dice la verdad de lo que queda: una constancia de lo aceptado, sin nombre ni correo (SCRUM-190)', async () => {
+      pintar();
+
+      const apartadoDeBorrar = await screen.findByRole('region', { name: 'Borrar tu cuenta' });
+      const texto = apartadoDeBorrar.textContent ?? '';
+
+      expect(texto).toMatch(/Se borran tu cuenta, tus resultados, tu diario y tu acceso/);
+      expect(texto).toMatch(/constancia de lo que aceptaste y cuándo/);
+      expect(texto).toMatch(/sin tu nombre ni tu correo/);
+      // Y sigue siendo honesto con que no hay vuelta atras.
+      expect(texto).toMatch(/No tiene vuelta atrás/);
+    });
+
     it('el boton no se habilita hasta escribir la frase exacta', async () => {
       pintar();
 

@@ -25,7 +25,14 @@
         "cortarme",
         "nadie me va a extranar",
         "ya no puedo mas",
-        "no aguanto mas"
+        "no aguanto mas",
+        "quiero desaparecer",
+        "no quiero despertar",
+        "adios a todo",
+        "adios para siempre",
+        "hasta nunca",
+        "que nadie me busque",
+        "me despido de este mundo"
       ],
       "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas."
     },
@@ -64,6 +71,7 @@
             "como te encuentras",
             "como te sientes",
             "como amaneciste",
+            "como vamos",
             "que tal"
           ],
           "mensaje": null,
@@ -173,6 +181,102 @@
         "lo",
         "un",
         "ahi"
+      ]
+    },
+    "ofensivo": {
+      "terminos": [
+        "idiota*",
+        "imbecil*",
+        "estupid*",
+        "inutil",
+        "inutiles",
+        "tonto",
+        "tonta",
+        "pendej*",
+        "gilipollas",
+        "cabron*",
+        "malparid*",
+        "hijueputa*",
+        "hijoputa*",
+        "hdp",
+        "eres una mierda",
+        "eres mierda",
+        "eres basura",
+        "eres una basura",
+        "eres un asco",
+        "callate",
+        "cierra la boca",
+        "jodete",
+        "largate",
+        "vete a la mierda",
+        "andate a la mierda",
+        "vete al carajo",
+        "fuck you",
+        "fuck off",
+        "shut up"
+      ],
+      "desahogo": [
+        "me siento",
+        "me sentia",
+        "siento que",
+        "soy",
+        "estoy",
+        "fui",
+        "parezco",
+        "me veo",
+        "me porto",
+        "me comporto",
+        "me odio",
+        "odio mi",
+        "mi vida",
+        "mi culpa"
+      ],
+      "umbral": 3,
+      "mensaje": "Entiendo cómo te sientes, pero por favor evita ese lenguaje si quieres que te siga ayudando. Aquí estoy cuando quieras retomar.",
+      "mensajeAlCerrar": "Voy a cerrar esta conversación por ahora. Puedes abrir una nueva cuando quieras: aquí voy a estar. Y si quieres hablar con alguien, pregúntame «¿Dónde busco ayuda?» en la conversación nueva."
+    },
+    "erratas": {
+      "ola": "hola",
+      "holaa": "hola",
+      "hol": "hola",
+      "hoa": "hola",
+      "ohla": "hola",
+      "komo": "como",
+      "cmo": "como",
+      "bamos": "vamos",
+      "bamo": "vamos",
+      "vamo": "vamos",
+      "etas": "estas",
+      "ke": "que",
+      "q": "que",
+      "k": "que",
+      "xq": "porque",
+      "pq": "porque",
+      "kiero": "quiero",
+      "kero": "quiero",
+      "qiero": "quiero",
+      "quero": "quiero",
+      "grasias": "gracias",
+      "gracais": "gracias",
+      "gracas": "gracias",
+      "garcias": "gracias",
+      "grcias": "gracias",
+      "gracia": "gracias",
+      "grax": "gracias",
+      "adio": "adios",
+      "sicologo": "psicologo",
+      "sicologa": "psicologa",
+      "sicologia": "psicologia",
+      "mass": "mas"
+    },
+    "fallback": {
+      "mensaje": "No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:",
+      "sugerencias": [
+        "¿Cómo puedo dormir mejor?",
+        "¿Qué significa mi resultado?",
+        "Me siento mal",
+        "¿Qué puedes hacer?",
+        "¿Dónde busco ayuda?"
       ]
     },
     "intenciones": [
@@ -565,6 +669,346 @@
       }
     },
     {
+      "texto": "eres un idiota",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "ofensivo",
+        "intencion": "lenguaje_ofensivo",
+        "mensaje": "Entiendo cómo te sientes, pero por favor evita ese lenguaje si quieres que te siga ayudando. Aquí estoy cuando quieras retomar."
+      }
+    },
+    {
+      "texto": "CALLATE",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "ofensivo",
+        "intencion": "lenguaje_ofensivo",
+        "mensaje": "Entiendo cómo te sientes, pero por favor evita ese lenguaje si quieres que te siga ayudando. Aquí estoy cuando quieras retomar."
+      }
+    },
+    {
+      "texto": "hola, imbécil",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "ofensivo",
+        "intencion": "lenguaje_ofensivo",
+        "mensaje": "Entiendo cómo te sientes, pero por favor evita ese lenguaje si quieres que te siga ayudando. Aquí estoy cuando quieras retomar."
+      }
+    },
+    {
+      "texto": "vete a la mierda",
+      "zona": "Europe/Madrid",
+      "esperado": {
+        "tipo": "ofensivo",
+        "intencion": "lenguaje_ofensivo",
+        "mensaje": "Entiendo cómo te sientes, pero por favor evita ese lenguaje si quieres que te siga ayudando. Aquí estoy cuando quieras retomar."
+      }
+    },
+    {
+      "texto": "eres un idiota, quiero morirme",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "callate, no aguanto mas",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "me siento una mierda",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "odio mi vida",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "fallback",
+        "intencion": "no_reconocida",
+        "mensaje": "No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:",
+        "sugerencias": [
+          "¿Cómo puedo dormir mejor?",
+          "¿Qué significa mi resultado?",
+          "Me siento mal",
+          "¿Qué puedes hacer?",
+          "¿Dónde busco ayuda?"
+        ]
+      }
+    },
+    {
+      "texto": "soy un idiota",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "fallback",
+        "intencion": "no_reconocida",
+        "mensaje": "No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:",
+        "sugerencias": [
+          "¿Cómo puedo dormir mejor?",
+          "¿Qué significa mi resultado?",
+          "Me siento mal",
+          "¿Qué puedes hacer?",
+          "¿Dónde busco ayuda?"
+        ]
+      }
+    },
+    {
+      "texto": "me siento inútil",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "saca la basura",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "fallback",
+        "intencion": "no_reconocida",
+        "mensaje": "No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:",
+        "sugerencias": [
+          "¿Cómo puedo dormir mejor?",
+          "¿Qué significa mi resultado?",
+          "Me siento mal",
+          "¿Qué puedes hacer?",
+          "¿Dónde busco ayuda?"
+        ]
+      }
+    },
+    {
+      "texto": "ola",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "saludo",
+        "mensaje": "¡Hola! Qué bueno tenerte por aquí. Sin conexión puedo saludarte y decirte dónde buscar ayuda; lo demás te lo respondo cuando vuelvas a tener conexión."
+      }
+    },
+    {
+      "texto": "ola, como bamos",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "exige-conexion"
+      }
+    },
+    {
+      "texto": "grasias",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "agradecimiento",
+        "mensaje": "¡Con gusto! Si te surge otra duda, aquí estoy."
+      }
+    },
+    {
+      "texto": "necesito un sicologo",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "ayuda",
+        "intencion": "donde_busco_ayuda",
+        "mensaje": "Pedir ayuda es una buena decisión. Estos son lugares donde te van a escuchar.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "kiero morirme",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "a veces pienso en suisidarme",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "no aguanto mass",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "mi abuela no aguanta mas",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "fallback",
+        "intencion": "no_reconocida",
+        "mensaje": "No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:",
+        "sugerencias": [
+          "¿Cómo puedo dormir mejor?",
+          "¿Qué significa mi resultado?",
+          "Me siento mal",
+          "¿Qué puedes hacer?",
+          "¿Dónde busco ayuda?"
+        ]
+      }
+    },
+    {
+      "texto": "tanto tiempo",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "fallback",
+        "intencion": "no_reconocida",
+        "mensaje": "No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:",
+        "sugerencias": [
+          "¿Cómo puedo dormir mejor?",
+          "¿Qué significa mi resultado?",
+          "Me siento mal",
+          "¿Qué puedes hacer?",
+          "¿Dónde busco ayuda?"
+        ]
+      }
+    },
+    {
+      "texto": "a que hora abre la biblioteca",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "fallback",
+        "intencion": "no_reconocida",
+        "mensaje": "No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:",
+        "sugerencias": [
+          "¿Cómo puedo dormir mejor?",
+          "¿Qué significa mi resultado?",
+          "Me siento mal",
+          "¿Qué puedes hacer?",
+          "¿Dónde busco ayuda?"
+        ]
+      }
+    },
+    {
+      "texto": "a que hora abre la biblioteca",
+      "zona": "Europe/Madrid",
+      "esperado": {
+        "tipo": "fallback",
+        "intencion": "no_reconocida",
+        "mensaje": "No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:",
+        "sugerencias": [
+          "¿Cómo puedo dormir mejor?",
+          "¿Qué significa mi resultado?",
+          "Me siento mal",
+          "¿Qué puedes hacer?",
+          "¿Dónde busco ayuda?"
+        ]
+      }
+    },
+    {
+      "texto": "gracias por todo",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "fallback",
+        "intencion": "no_reconocida",
+        "mensaje": "No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:",
+        "sugerencias": [
+          "¿Cómo puedo dormir mejor?",
+          "¿Qué significa mi resultado?",
+          "Me siento mal",
+          "¿Qué puedes hacer?",
+          "¿Dónde busco ayuda?"
+        ]
+      }
+    },
+    {
+      "texto": "adiós, y gracias por todo",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "fallback",
+        "intencion": "no_reconocida",
+        "mensaje": "No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:",
+        "sugerencias": [
+          "¿Cómo puedo dormir mejor?",
+          "¿Qué significa mi resultado?",
+          "Me siento mal",
+          "¿Qué puedes hacer?",
+          "¿Dónde busco ayuda?"
+        ]
+      }
+    },
+    {
+      "texto": "chao, ya no estoy",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "fallback",
+        "intencion": "no_reconocida",
+        "mensaje": "No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:",
+        "sugerencias": [
+          "¿Cómo puedo dormir mejor?",
+          "¿Qué significa mi resultado?",
+          "Me siento mal",
+          "¿Qué puedes hacer?",
+          "¿Dónde busco ayuda?"
+        ]
+      }
+    },
+    {
+      "texto": "adiós para siempre",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "hola, quiero desaparecer",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
       "texto": "hola",
       "zona": "America/Bogota",
       "esperado": {
@@ -733,7 +1177,16 @@
       "texto": "hola luma",
       "zona": "America/Bogota",
       "esperado": {
-        "tipo": "exige-conexion"
+        "tipo": "fallback",
+        "intencion": "no_reconocida",
+        "mensaje": "No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:",
+        "sugerencias": [
+          "¿Cómo puedo dormir mejor?",
+          "¿Qué significa mi resultado?",
+          "Me siento mal",
+          "¿Qué puedes hacer?",
+          "¿Dónde busco ayuda?"
+        ]
       }
     },
     {
@@ -761,14 +1214,29 @@
       "texto": "adios y gracias por todo",
       "zona": "America/Bogota",
       "esperado": {
-        "tipo": "exige-conexion"
+        "tipo": "fallback",
+        "intencion": "no_reconocida",
+        "mensaje": "No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:",
+        "sugerencias": [
+          "¿Cómo puedo dormir mejor?",
+          "¿Qué significa mi resultado?",
+          "Me siento mal",
+          "¿Qué puedes hacer?",
+          "¿Dónde busco ayuda?"
+        ]
       }
     },
     {
       "texto": "hola, quiero desaparecer",
       "zona": "America/Bogota",
       "esperado": {
-        "tipo": "exige-conexion"
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
       }
     },
     {
@@ -784,7 +1252,16 @@
       "texto": "hola, necesito hablar con alguien",
       "zona": "America/Bogota",
       "esperado": {
-        "tipo": "exige-conexion"
+        "tipo": "fallback",
+        "intencion": "no_reconocida",
+        "mensaje": "No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:",
+        "sugerencias": [
+          "¿Cómo puedo dormir mejor?",
+          "¿Qué significa mi resultado?",
+          "Me siento mal",
+          "¿Qué puedes hacer?",
+          "¿Dónde busco ayuda?"
+        ]
       }
     },
     {
@@ -941,28 +1418,64 @@
       "texto": "cuanto cuesta el parqueadero",
       "zona": "America/Bogota",
       "esperado": {
-        "tipo": "exige-conexion"
+        "tipo": "fallback",
+        "intencion": "no_reconocida",
+        "mensaje": "No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:",
+        "sugerencias": [
+          "¿Cómo puedo dormir mejor?",
+          "¿Qué significa mi resultado?",
+          "Me siento mal",
+          "¿Qué puedes hacer?",
+          "¿Dónde busco ayuda?"
+        ]
       }
     },
     {
       "texto": "asdf qwerty",
       "zona": "America/Bogota",
       "esperado": {
-        "tipo": "exige-conexion"
+        "tipo": "fallback",
+        "intencion": "no_reconocida",
+        "mensaje": "No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:",
+        "sugerencias": [
+          "¿Cómo puedo dormir mejor?",
+          "¿Qué significa mi resultado?",
+          "Me siento mal",
+          "¿Qué puedes hacer?",
+          "¿Dónde busco ayuda?"
+        ]
       }
     },
     {
       "texto": "",
       "zona": "America/Bogota",
       "esperado": {
-        "tipo": "exige-conexion"
+        "tipo": "fallback",
+        "intencion": "no_reconocida",
+        "mensaje": "No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:",
+        "sugerencias": [
+          "¿Cómo puedo dormir mejor?",
+          "¿Qué significa mi resultado?",
+          "Me siento mal",
+          "¿Qué puedes hacer?",
+          "¿Dónde busco ayuda?"
+        ]
       }
     },
     {
       "texto": "esto es normal",
       "zona": "America/Bogota",
       "esperado": {
-        "tipo": "exige-conexion"
+        "tipo": "fallback",
+        "intencion": "no_reconocida",
+        "mensaje": "No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:",
+        "sugerencias": [
+          "¿Cómo puedo dormir mejor?",
+          "¿Qué significa mi resultado?",
+          "Me siento mal",
+          "¿Qué puedes hacer?",
+          "¿Dónde busco ayuda?"
+        ]
       }
     }
   ]

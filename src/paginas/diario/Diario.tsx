@@ -7,17 +7,19 @@ import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/actividad.css';
 import '../../estilos/aplicacion.css';
 import '../../estilos/diario.css';
+import { MascotaFlotante } from '../../mascota/MascotaFlotante.tsx';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { Semaforo } from '../../semaforo/Semaforo.tsx';
 import { AlmacenLleno } from '../../sincronizacion/almacenLocal.ts';
 import { SinAlmacenAbierto } from '../../sincronizacion/ciclo.ts';
-import { LineasDeAtencion } from '../actividad/LineasDeAtencion.tsx';
+import { useCargarLaMascota } from '../actividad/viva/useCargarLaMascota.ts';
 import { BarraSuperior, NavegacionInferior } from '../panel/Estructura.tsx';
 import { Icono } from '../panel/Icono.tsx';
 import { agruparPorDia, ahoraMismo, diaDe, horaDe, nombreDelDia } from './calendarioDelDiario.ts';
 import { DocumentoLeido } from './DocumentoLeido.tsx';
 import { EditorDelDiario, type LoQueSeEscribio } from './EditorDelDiario.tsx';
 import { minutosQueLeQuedan, type OrigenDeLaCopia } from './historial.ts';
+import { INVITACION_DEL_DIARIO } from './invitacionDelDiario.ts';
 import { useDiario, type EntradaDelHistorial, type NovedadDelDiario } from './useDiario.ts';
 
 /** Ver `EditorDeDiagrama.tsx`: solo se descarga al abrir un diagrama. */
@@ -72,9 +74,16 @@ function textoDelOrigen({ motivo, creadaEnLaOriginal }: OrigenDeLaCopia): string
  * N min"). Si al enviarla el servidor dice que ya no, o que otro dispositivo la cambio,
  * no se pierde nada: se guarda como una anotacion nueva del mismo dia, marcada como
  * copia (ADR 0009).
+ *
+ * ## Cuando lo escrito pide acompanar (SCRUM-194)
+ *
+ * La mascota ofrece ayuda con una invitacion que no se va sola, y **no pone ninguna linea de
+ * atencion**: aceptarla abre VSD IA con «¿Dónde busco ayuda?» ya preguntado. Sin el permiso de
+ * SCRUM-108 el servidor no lee lo escrito, y aqui no pasa nada.
  */
 export function Diario() {
   const diario = useDiario();
+  const mascota = useCargarLaMascota();
   const [ahora, setAhora] = useState(ahoraMismo);
   const [editando, setEditando] = useState<EntradaDelHistorial | undefined>(undefined);
   const [diaParaNueva, setDiaParaNueva] = useState(diario.hoy);
@@ -204,19 +213,6 @@ export function Diario() {
           </div>
         )}
 
-        {diario.lineas !== null && (
-          <div className="diario__apoyo">
-            <LineasDeAtencion lineas={diario.lineas} />
-            <button
-              type="button"
-              className="pildora pildora--fantasma"
-              onClick={diario.cerrarLineas}
-            >
-              Cerrar
-            </button>
-          </div>
-        )}
-
         <section className="diario__historial" aria-labelledby={idDelHistorial}>
           <h2 id={idDelHistorial}>Tus días</h2>
 
@@ -289,6 +285,18 @@ export function Diario() {
         </section>
       </main>
 
+      <MascotaFlotante
+        mascota={mascota}
+        momento="diario"
+        {...(diario.invitada
+          ? {
+              invitacion: {
+                ...INVITACION_DEL_DIARIO,
+                alResponder: diario.cerrarLaInvitacion,
+              },
+            }
+          : {})}
+      />
       <Semaforo />
 
       {/* El dock del movil tambien vive aqui (SCRUM-182): desde el diario se vuelve al

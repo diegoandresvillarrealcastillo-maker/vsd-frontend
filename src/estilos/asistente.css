@@ -161,6 +161,7 @@
 }
 
 .asistente__mensaje--asistente,
+.asistente__mensaje--cierre,
 .asistente__mensaje--fallo {
   justify-self: start;
   border: 1px solid var(--app-borde);
@@ -225,6 +226,17 @@
   font-size: 0.8125rem;
   font-weight: 700;
   cursor: pointer;
+}
+
+/* El aviso de que la conversacion se cerro y el boton para abrir otra (SCRUM-192). */
+.asistente__cierre {
+  margin: 0;
+}
+
+.asistente__nueva {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 0.75rem 0.75rem;
 }
 
 .asistente__reintentar:disabled {

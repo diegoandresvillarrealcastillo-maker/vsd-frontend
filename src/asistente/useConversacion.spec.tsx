@@ -149,7 +149,9 @@ describe('useConversacion: sin conexion, con las reglas', () => {
     await escribir(sin, 'hola luma');
 
     expect(deAsistente(con.result.current.mensajes[1])?.respuesta.intencion).toBe('saludo');
-    expect(sin.result.current.mensajes[1]).toMatchObject({ de: 'fallo', motivo: 'exige-conexion' });
+    // Sin ese nombre, «luma» es una palabra que no se entiende: el catalogo (SCRUM-176), no un
+    // saludo. Antes decia que exigia conexion.
+    expect(deAsistente(sin.result.current.mensajes[1])?.respuesta.intencion).toBe('no_reconocida');
   });
 
   it('lo que exige conexion: un fallo con lo que se escribio, para poder reintentarlo', async () => {
@@ -226,6 +228,242 @@ describe('useConversacion: sin conexion y sin reglas', () => {
     expect(gancho.result.current.mensajes[1]).toMatchObject({
       de: 'fallo',
       motivo: 'sin-conexion',
+    });
+  });
+});
+
+describe('useConversacion: lo que no se reconoce (SCRUM-176, SCRUM-193)', () => {
+  it('sin conexion, el dispositivo responde el catalogo, sin lineas y sin decir que exige conexion', async () => {
+    conLaRed(false);
+    const gancho = renderHook(() => useConversacion(REGLAS, 'Luma'));
+
+    await escribir(gancho, 'a que hora abre la biblioteca');
+
+    expect(deAsistente(gancho.result.current.mensajes[1])).toMatchObject({
+      sinConexion: true,
+      respuesta: {
+        intencion: 'no_reconocida',
+        recursos: [],
+        senalDeRiesgo: false,
+        incluyeLineasDeAtencion: false,
+        sugerencias: REGLAS.fallback?.sugerencias,
+      },
+    });
+  });
+
+  it('con conexion, las sugerencias que manda el servidor llegan tal cual', async () => {
+    conLaRed(true);
+    const delServidor: RespuestaDelAsistente = {
+      intencion: 'no_reconocida',
+      mensaje: 'No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones:',
+      recursos: [],
+      senalDeRiesgo: false,
+      incluyeLineasDeAtencion: false,
+      sugerencias: ['¿Dónde busco ayuda?'],
+    };
+
+    preguntarAlAsistente.mockResolvedValue(delServidor);
+    const gancho = renderHook(() => useConversacion(REGLAS, 'Luma'));
+
+    await escribir(gancho, 'a que hora abre la biblioteca');
+
+    expect(deAsistente(gancho.result.current.mensajes[1])?.respuesta).toEqual(delServidor);
+  });
+
+  it('un fallback no es un insulto: es una respuesta que no es ofensiva y reinicia la cuenta', async () => {
+    conLaRed(false);
+    const gancho = renderHook(() => useConversacion(REGLAS, 'Luma'));
+
+    await escribir(gancho, 'idiota');
+    await escribir(gancho, 'idiota');
+    await escribir(gancho, 'a que hora abre la biblioteca');
+    await escribir(gancho, 'idiota');
+
+    // El fallback es una respuesta que no es ofensiva: reinicia, y por eso no cierra a la tercera.
+    expect(gancho.result.current.cerrada).toBe(false);
+  });
+});
+
+describe('useConversacion: el lenguaje ofensivo (SCRUM-192)', () => {
+  const INSULTO: RespuestaDelAsistente = {
+    intencion: 'lenguaje_ofensivo',
+    mensaje: 'Entiendo cómo te sientes, pero por favor evita ese lenguaje.',
+    recursos: [],
+    senalDeRiesgo: false,
+    incluyeLineasDeAtencion: false,
+  };
+
+  beforeEach(() => {
+    conLaRed(true);
+  });
+
+  const cerrada = (gancho: { result: { current: ReturnType<typeof useConversacion> } }) =>
+    gancho.result.current.cerrada;
+
+  it('dos insultos no cierran: es una advertencia, no un castigo', async () => {
+    preguntarAlAsistente.mockResolvedValue(INSULTO);
+    const gancho = renderHook(() => useConversacion(REGLAS, 'Luma'));
+
+    await escribir(gancho, 'eres un idiota');
+    await escribir(gancho, 'eres un idiota');
+
+    expect(cerrada(gancho)).toBe(false);
+    expect(gancho.result.current.mensajes.at(-1)?.de).toBe('asistente');
+  });
+
+  it('a la tercera seguida, la conversacion se cierra y lo dice, con lo que publico el servidor', async () => {
+    preguntarAlAsistente.mockResolvedValue(INSULTO);
+    const gancho = renderHook(() => useConversacion(REGLAS, 'Luma'));
+
+    await escribir(gancho, 'eres un idiota');
+    await escribir(gancho, 'callate');
+    await escribir(gancho, 'estupida');
+
+    expect(cerrada(gancho)).toBe(true);
+
+    const ultimo = gancho.result.current.mensajes.at(-1);
+
+    expect(ultimo).toMatchObject({
+      de: 'cierre',
+      texto: REGLAS.ofensivo?.mensajeAlCerrar,
+    });
+  });
+
+  it('una vez cerrada no se envia nada mas: ni se pregunta al servidor', async () => {
+    preguntarAlAsistente.mockResolvedValue(INSULTO);
+    const gancho = renderHook(() => useConversacion(REGLAS, 'Luma'));
+
+    for (let i = 0; i < 3; i += 1) {
+      await escribir(gancho, 'idiota');
+    }
+
+    preguntarAlAsistente.mockClear();
+    const antes = gancho.result.current.mensajes.length;
+
+    await escribir(gancho, 'hola otra vez');
+
+    expect(preguntarAlAsistente).not.toHaveBeenCalled();
+    expect(gancho.result.current.mensajes).toHaveLength(antes);
+  });
+
+  it('cualquier mensaje que no sea ofensivo reinicia la cuenta: son tres SEGUIDOS', async () => {
+    const gancho = renderHook(() => useConversacion(REGLAS, 'Luma'));
+
+    preguntarAlAsistente.mockResolvedValue(INSULTO);
+    await escribir(gancho, 'idiota');
+    await escribir(gancho, 'idiota');
+    preguntarAlAsistente.mockResolvedValue(DEL_SERVIDOR);
+    await escribir(gancho, 'como duermo mejor');
+    preguntarAlAsistente.mockResolvedValue(INSULTO);
+    await escribir(gancho, 'idiota');
+    await escribir(gancho, 'idiota');
+
+    expect(cerrada(gancho)).toBe(false);
+
+    await escribir(gancho, 'idiota');
+
+    expect(cerrada(gancho)).toBe(true);
+  });
+
+  it('un fallo de red no cuenta ni reinicia', async () => {
+    const gancho = renderHook(() => useConversacion(REGLAS, 'Luma'));
+
+    preguntarAlAsistente.mockResolvedValue(INSULTO);
+    await escribir(gancho, 'idiota');
+    await escribir(gancho, 'idiota');
+    preguntarAlAsistente.mockRejectedValue(new ErrorDeLaApi(500, 'x'));
+    await escribir(gancho, 'hola');
+    preguntarAlAsistente.mockResolvedValue(INSULTO);
+    await escribir(gancho, 'idiota');
+
+    expect(cerrada(gancho)).toBe(true);
+  });
+
+  it('abrir una conversacion nueva no tiene bloqueo: empieza de cero', async () => {
+    preguntarAlAsistente.mockResolvedValue(INSULTO);
+    const gancho = renderHook(() => useConversacion(REGLAS, 'Luma'));
+
+    for (let i = 0; i < 3; i += 1) {
+      await escribir(gancho, 'idiota');
+    }
+
+    expect(cerrada(gancho)).toBe(true);
+
+    act(() => {
+      gancho.result.current.empezarDeNuevo();
+    });
+
+    expect(cerrada(gancho)).toBe(false);
+    expect(gancho.result.current.mensajes).toEqual([]);
+
+    preguntarAlAsistente.mockResolvedValue(DEL_SERVIDOR);
+    await escribir(gancho, 'como duermo mejor');
+
+    expect(gancho.result.current.mensajes).toHaveLength(2);
+  });
+
+  it('el riesgo despues de los insultos se responde: la ventana nueva no esconde nada', async () => {
+    preguntarAlAsistente.mockResolvedValue(INSULTO);
+    const gancho = renderHook(() => useConversacion(REGLAS, 'Luma'));
+
+    for (let i = 0; i < 3; i += 1) {
+      await escribir(gancho, 'idiota');
+    }
+
+    act(() => {
+      gancho.result.current.empezarDeNuevo();
+    });
+    preguntarAlAsistente.mockResolvedValue({
+      ...DEL_SERVIDOR,
+      intencion: 'me_siento_mal',
+      senalDeRiesgo: true,
+      incluyeLineasDeAtencion: true,
+    });
+    await escribir(gancho, 'quiero morirme');
+
+    expect(deAsistente(gancho.result.current.mensajes.at(-1))?.respuesta.senalDeRiesgo).toBe(true);
+  });
+
+  describe('sin conexion', () => {
+    beforeEach(() => {
+      conLaRed(false);
+    });
+
+    it('un insulto se responde en el dispositivo, sin lineas, y cuenta igual', async () => {
+      const gancho = renderHook(() => useConversacion(REGLAS, 'Luma'));
+
+      await escribir(gancho, 'eres un idiota');
+
+      expect(deAsistente(gancho.result.current.mensajes[1])).toMatchObject({
+        sinConexion: true,
+        respuesta: {
+          intencion: 'lenguaje_ofensivo',
+          mensaje: REGLAS.ofensivo?.mensaje,
+          recursos: [],
+          senalDeRiesgo: false,
+          incluyeLineasDeAtencion: false,
+        },
+      });
+
+      await escribir(gancho, 'callate');
+      await escribir(gancho, 'imbecil');
+
+      expect(cerrada(gancho)).toBe(true);
+    });
+  });
+
+  describe('sin las reglas guardadas', () => {
+    it('cierra igual a la tercera, con el texto y el umbral de siempre', async () => {
+      conLaRed(true);
+      preguntarAlAsistente.mockResolvedValue(INSULTO);
+      const gancho = renderHook(() => useConversacion(null, 'Luma'));
+
+      for (let i = 0; i < 3; i += 1) {
+        await escribir(gancho, 'idiota');
+      }
+
+      expect(cerrada(gancho)).toBe(true);
+      expect(gancho.result.current.mensajes.at(-1)).toMatchObject({ de: 'cierre' });
     });
   });
 });

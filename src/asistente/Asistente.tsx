@@ -39,6 +39,16 @@ import { useReglasLocales } from './useReglasLocales.ts';
  *   lineas nacionales.
  * - Se abre a la vez que la mascota vuela a su esquina. Con
  *   `prefers-reduced-motion`, aparece sin desplazarse.
+ * - **Un insulto no es un castigo, y tres seguidos cierran la conversacion** (SCRUM-192): la
+ *   primera y la segunda vez se responde con asertividad y sin lineas de atencion; a la
+ *   tercera seguida la conversacion se cierra y se dice, y se puede abrir otra al momento.
+ *   Cualquier mensaje que no sea ofensivo reinicia la cuenta, y el riesgo se evalua antes que la
+ *   ofensa, tambien en la conversacion nueva.
+ * - **Se puede abrir con una pregunta ya hecha** (SCRUM-194): la invitacion del diario lleva
+ *   a «¿Dónde busco ayuda?» sin que la persona tenga que escribir nada. Se ve como cualquier
+ *   pregunta, y se hace **una sola vez**. Sin conexion espera un instante a las reglas del
+ *   dispositivo (llegan de la copia guardada) para responder con ellas, y si no llegan lo
+ *   intenta igual: nunca se queda callada.
  * - **Sin conexion es un asistente mixto** (SCRUM-141): responde un saludo, un
  *   agradecimiento, una despedida, donde buscar ayuda y las lineas de atencion si hay una
  *   senal de riesgo, con lo que el servidor publico y este dispositivo guardo. Lo demas
@@ -65,16 +75,22 @@ const TEXTO_DEL_FALLO: Readonly<Record<MotivoDelFallo, string>> = {
 const AVISO_SIN_CONEXION =
   'Sin conexión. Puedo saludarte y decirte dónde buscar ayuda; lo demás lo respondo cuando vuelvas a tener conexión.';
 
+/** Cuanto se espera a las reglas del dispositivo, sin conexion, antes de hacer la pregunta inicial. */
+export const ESPERA_DE_LAS_REGLAS_MS = 1_500;
+
 export function Asistente({
   marco,
   ladoDeLaMascota,
   nombreDeLaMascota,
   alCerrar,
+  preguntaInicial,
 }: {
   marco: Marco;
   ladoDeLaMascota: number;
   nombreDeLaMascota: string;
   alCerrar: () => void;
+  /** Una pregunta que se hace al abrirse, como si la persona la hubiera tocado (SCRUM-194). */
+  preguntaInicial?: string;
 }) {
   const sinMovimiento = useReducedMotion() ?? false;
   const campo = useRef<HTMLTextAreaElement>(null);
@@ -85,15 +101,72 @@ export function Asistente({
   const [texto, setTexto] = useState('');
   const reglas = useReglasLocales();
   const enLinea = useEnLinea();
-  const { mensajes, esperando, enviar } = useConversacion(reglas, nombreDeLaMascota);
+  const { mensajes, esperando, cerrada, enviar, empezarDeNuevo } = useConversacion(
+    reglas,
+    nombreDeLaMascota,
+  );
+  const abrirOtra = useRef<HTMLButtonElement>(null);
+  const yaPreguntada = useRef(false);
+
+  // La pregunta con la que se abrio, **una sola vez**. Con conexion sale de inmediato; sin ella
+  // espera a que lleguen las reglas del dispositivo (la copia guardada, que se lee de forma
+  // asincrona) para responder con ellas, y si no llegan en un instante, lo intenta igual.
+  useEffect(() => {
+    if (preguntaInicial === undefined || yaPreguntada.current) {
+      return undefined;
+    }
+
+    function preguntar() {
+      if (preguntaInicial !== undefined && !yaPreguntada.current) {
+        yaPreguntada.current = true;
+        void enviar(preguntaInicial);
+      }
+    }
+
+    if (enLinea || reglas !== null) {
+      preguntar();
+
+      return undefined;
+    }
+
+    const espera = setTimeout(preguntar, ESPERA_DE_LAS_REGLAS_MS);
+
+    return () => {
+      clearTimeout(espera);
+    };
+  }, [preguntaInicial, enLinea, reglas, enviar]);
 
   // Lo ultimo siempre a la vista.
   useEffect(() => {
     final.current?.scrollIntoView({ block: 'end' });
   }, [mensajes, esperando]);
 
+  // Cerrada la conversacion el campo deja de recibir: el foco pasa a lo unico que se puede hacer.
+  useEffect(() => {
+    if (cerrada) {
+      abrirOtra.current?.focus();
+    }
+  }, [cerrada]);
+
+  // Cuando la conversacion se reabre, el campo vuelve a estar activo y recibe el foco. Es un
+  // efecto y no una espera: el campo solo se puede enfocar cuando ya no esta desactivado.
+  const estabaCerrada = useRef(false);
+
+  useEffect(() => {
+    if (estabaCerrada.current && !cerrada) {
+      campo.current?.focus();
+    }
+
+    estabaCerrada.current = cerrada;
+  }, [cerrada]);
+
+  function abrirUnaNueva() {
+    empezarDeNuevo();
+    setTexto('');
+  }
+
   function mandar(pregunta: string) {
-    if (pregunta.trim() === '' || esperando) {
+    if (pregunta.trim() === '' || esperando || cerrada) {
       return;
     }
 
@@ -196,7 +269,9 @@ export function Asistente({
                       mensaje={mensaje}
                       reglas={reglas}
                       esperando={esperando}
+                      puedeElegir={!esperando && !cerrada}
                       alReintentar={(pregunta) => void enviar(pregunta, { reintento: true })}
+                      alElegir={mandar}
                     />
                   </li>
                 ))}
@@ -223,8 +298,9 @@ export function Asistente({
               rows={2}
               value={texto}
               maxLength={LARGO_MAXIMO_DE_LA_PREGUNTA}
-              placeholder="Escribe aquí…"
+              placeholder={cerrada ? 'Esta conversación se cerró' : 'Escribe aquí…'}
               autoComplete="off"
+              disabled={cerrada}
               onChange={(evento) => setTexto(evento.target.value)}
               onKeyDown={(evento) => {
                 // Enter envia; Mayus+Enter, salto de linea.
@@ -237,11 +313,24 @@ export function Asistente({
             <button
               type="submit"
               className="asistente__enviar"
-              disabled={esperando || texto.trim() === ''}
+              disabled={esperando || cerrada || texto.trim() === ''}
             >
               Enviar
             </button>
           </form>
+
+          {cerrada && (
+            <div className="asistente__nueva">
+              <button
+                ref={abrirOtra}
+                type="button"
+                className="asistente__reintentar"
+                onClick={abrirUnaNueva}
+              >
+                Abrir una conversación nueva
+              </button>
+            </div>
+          )}
         </motion.div>
       </div>
     </div>
@@ -252,12 +341,16 @@ function ContenidoDelMensaje({
   mensaje,
   reglas,
   esperando,
+  puedeElegir,
   alReintentar,
+  alElegir,
 }: {
   mensaje: Mensaje;
   reglas: ReglasLocales | null;
   esperando: boolean;
+  puedeElegir: boolean;
   alReintentar: (pregunta: string) => void;
+  alElegir: (texto: string) => void;
 }) {
   switch (mensaje.de) {
     case 'persona':
@@ -268,7 +361,22 @@ function ContenidoDelMensaje({
         </p>
       );
     case 'asistente':
-      return <Respuesta respuesta={mensaje.respuesta} sinConexion={mensaje.sinConexion} />;
+      return (
+        <Respuesta
+          respuesta={mensaje.respuesta}
+          sinConexion={mensaje.sinConexion}
+          puedeElegir={puedeElegir}
+          alElegir={alElegir}
+        />
+      );
+    case 'cierre':
+      // Lo pone la ventana, no el servidor: la conversacion se cerro (SCRUM-192).
+      return (
+        <p className="asistente__cierre">
+          <span className="solo-lectores">VSD IA: </span>
+          {mensaje.texto}
+        </p>
+      );
     case 'fallo':
       return (
         <div className="asistente__fallo" role="alert">
@@ -354,9 +462,13 @@ function RespaldoDelFallo({ reglas }: { reglas: ReglasLocales | null }) {
 function Respuesta({
   respuesta,
   sinConexion,
+  puedeElegir,
+  alElegir,
 }: {
   respuesta: RespuestaDelAsistente;
   sinConexion: boolean;
+  puedeElegir: boolean;
+  alElegir: (texto: string) => void;
 }) {
   const contactos = respuesta.recursos.filter((recurso) => recurso.tipo === 'contacto');
   const otros = respuesta.recursos.filter((recurso) => recurso.tipo !== 'contacto');
@@ -375,6 +487,28 @@ function Respuesta({
       )}
 
       {otros.length > 0 && <Recursos recursos={otros} />}
+
+      {/* Lo que no entendio (SCRUM-176, SCRUM-193): en lugar de un telefono que nadie pidio, lo que
+          si sabe responder. Cada opcion se envia como si la persona la hubiera escrito. */}
+      {respuesta.sugerencias !== undefined && respuesta.sugerencias.length > 0 && (
+        <ul
+          className="asistente__sugerencias asistente__sugerencias--respuesta"
+          aria-label="Temas con los que puedo ayudarte"
+        >
+          {respuesta.sugerencias.map((sugerencia) => (
+            <li key={sugerencia}>
+              <button
+                type="button"
+                className="asistente__sugerencia"
+                disabled={!puedeElegir}
+                onClick={() => alElegir(sugerencia)}
+              >
+                {sugerencia}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {/* Lo respondio este dispositivo con lo que tenia guardado: se dice, no se disfraza. */}
       {sinConexion && <p className="asistente__origen">Respondido sin conexión</p>}

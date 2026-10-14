@@ -1,3 +1,4 @@
+import { FungitoAbogado } from '../../mascota/FungitoAbogado.tsx';
 import { LienzoDeAcceso, Aparece } from './LienzoDeAcceso.tsx';
 import { textoDeCobertura } from '../actividad/lineasParaMostrar.ts';
 import { lineasParaMenores } from './lineasParaMenores.ts';
@@ -29,6 +30,15 @@ export function SoloMayores() {
     >
       <Aparece>
         <section className="solo-mayores" aria-labelledby="solo-mayores-titulo">
+          {/* Fungito de abogado (SCRUM-189): la regla dicha con calidez, sin pistas ni reproche. */}
+          <div className="solo-mayores__abogado">
+            <FungitoAbogado tamano={144} />
+            <p className="solo-mayores__globo">
+              Me puse el traje para explicártelo bien: es una regla, no un reproche. Mientras tanto,
+              aquí tienes a quién acudir.
+            </p>
+          </div>
+
           <h2 id="solo-mayores-titulo" className="solo-mayores__titulo">
             Si quieres hablar con alguien
           </h2>

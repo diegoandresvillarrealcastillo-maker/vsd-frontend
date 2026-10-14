@@ -224,7 +224,14 @@ async function pedir(ruta: string, opciones: Opciones, acepta: string): Promise<
     // El codigo si se conserva, porque sirve para diagnosticar y no se ensena.
     const { codigo } = await explicacionDe(respuesta);
 
-    throw new ErrorDeLaApi(401, 'Tu sesión caducó. Vuelve a entrar.', identificador, codigo);
+    // Una cuenta dada de baja desde otro dispositivo (SCRUM-190): su sesion seguia siendo
+    // autentica, pero ya no hay cuenta. «Vuelve a entrar» no tendria a donde llevarla.
+    const mensaje =
+      codigo === 'CUENTA_INACTIVA'
+        ? 'Esta cuenta ya no existe. Si quieres volver a usar VSD Health, crea una cuenta nueva.'
+        : 'Tu sesión caducó. Vuelve a entrar.';
+
+    throw new ErrorDeLaApi(401, mensaje, identificador, codigo);
   }
 
   // "Sigue siendo la misma": lo que se pidio con `etag` y no cambio. No es un fallo.

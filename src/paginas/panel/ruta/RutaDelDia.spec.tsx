@@ -66,10 +66,16 @@ describe('RutaDelDia', () => {
     expect(screen.getByText('1 de 3')).toBeInTheDocument();
   });
 
-  it('lo hecho dice que esta hecho y no es un enlace', () => {
+  it('lo hecho dice que esta hecho y se puede volver a hacer: no hay tope diario (SCRUM-184)', () => {
     pintar(PROGRESO);
 
     expect(screen.getByText('Hecha hoy')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Hecha hoy: Parejas de cartas. Hacer otra vez' }),
+    ).toHaveAttribute('href', '/actividad/a1');
+    // Repetirla no cambia lo que cuenta el plan: sigue siendo 1 de 3.
+    expect(screen.getByText('1 de 3')).toBeInTheDocument();
+    // «Empezar» sigue siendo solo de lo que falta.
     expect(
       screen.queryByRole('link', { name: 'Empezar Parejas de cartas' }),
     ).not.toBeInTheDocument();

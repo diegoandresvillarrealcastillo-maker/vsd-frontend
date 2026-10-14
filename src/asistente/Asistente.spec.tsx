@@ -8,7 +8,7 @@ import { ErrorDeLaApi } from '../infraestructura/api/clienteHttp.ts';
 import type { ReglasLocales } from '../infraestructura/api/reglasLocales.ts';
 import { fallosDeAccesibilidad } from '../pruebas/axe.ts';
 import { fijarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
-import { Asistente } from './Asistente.tsx';
+import { Asistente, ESPERA_DE_LAS_REGLAS_MS } from './Asistente.tsx';
 import contratoJson from './contrato/reglas-locales.json';
 import { ESPERA_MAXIMA_MS } from './useConversacion.ts';
 
@@ -63,7 +63,7 @@ const CON_RIESGO: RespuestaDelAsistente = {
 
 const usuario = userEvent.setup({ delay: null });
 
-function pintar() {
+function pintar(preguntaInicial?: string) {
   const alCerrar = vi.fn();
 
   render(
@@ -72,6 +72,7 @@ function pintar() {
       ladoDeLaMascota={72}
       nombreDeLaMascota="Chispita"
       alCerrar={alCerrar}
+      {...(preguntaInicial === undefined ? {} : { preguntaInicial })}
     />,
   );
 
@@ -95,6 +96,204 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.clearAllMocks();
   fijarLaZonaDeLaCuenta('America/Bogota');
+});
+
+describe('VSD IA, lo que no entiende: un catalogo de temas, sin telefonos (SCRUM-176, SCRUM-193)', () => {
+  const NO_ENTIENDE: RespuestaDelAsistente = {
+    intencion: 'no_reconocida',
+    mensaje:
+      'No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:',
+    recursos: [],
+    senalDeRiesgo: false,
+    incluyeLineasDeAtencion: false,
+    sugerencias: [
+      '¿Cómo puedo dormir mejor?',
+      '¿Qué significa mi resultado?',
+      '¿Dónde busco ayuda?',
+    ],
+  };
+
+  beforeEach(() => {
+    preguntarAlAsistente.mockResolvedValue(NO_ENTIENDE);
+  });
+
+  async function preguntarCualquierCosa() {
+    await usuario.type(campo(), 'a que hora abre la biblioteca');
+    await usuario.click(screen.getByRole('button', { name: 'Enviar' }));
+    await screen.findByText(/No puedo ayudarte con ese tema/);
+  }
+
+  it('ensena las opciones como botones y ninguna linea de atencion', async () => {
+    pintar();
+
+    await preguntarCualquierCosa();
+
+    const opciones = screen.getByRole('list', { name: 'Temas con los que puedo ayudarte' });
+
+    expect(within(opciones).getAllByRole('button')).toHaveLength(3);
+    expect(
+      within(opciones).getByRole('button', { name: '¿Dónde busco ayuda?' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Línea \d/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ahora mismo y son gratuitas/)).not.toBeInTheDocument();
+  });
+
+  it('tocar una opcion la envia como si la persona la hubiera escrito', async () => {
+    pintar();
+
+    await preguntarCualquierCosa();
+    preguntarAlAsistente.mockResolvedValue(SOBRE_EL_SUENO);
+    await usuario.click(screen.getByRole('button', { name: '¿Cómo puedo dormir mejor?' }));
+
+    expect(preguntarAlAsistente).toHaveBeenLastCalledWith(
+      '¿Cómo puedo dormir mejor?',
+      expect.any(AbortSignal),
+    );
+    expect(await screen.findByText(/Descansar mejor casi siempre/)).toBeInTheDocument();
+  });
+
+  it('las opciones se leen como una lista, con teclado y sin atrapar el foco', async () => {
+    pintar();
+
+    await preguntarCualquierCosa();
+
+    const primera = screen.getByRole('button', { name: '¿Cómo puedo dormir mejor?' });
+
+    primera.focus();
+
+    expect(primera).toHaveFocus();
+    expect(primera).toBeEnabled();
+  });
+
+  it('una respuesta que ya entendio no trae el catalogo', async () => {
+    preguntarAlAsistente.mockResolvedValue(SOBRE_EL_SUENO);
+    pintar();
+
+    await usuario.type(campo(), 'no duermo bien');
+    await usuario.click(screen.getByRole('button', { name: 'Enviar' }));
+    await screen.findByText(/Descansar mejor casi siempre/);
+
+    expect(
+      screen.queryByRole('list', { name: 'Temas con los que puedo ayudarte' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('con el catalogo en pantalla, no tiene fallos de accesibilidad', async () => {
+    pintar();
+
+    await preguntarCualquierCosa();
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+  });
+});
+
+describe('VSD IA, el lenguaje ofensivo (SCRUM-192)', () => {
+  const INSULTO: RespuestaDelAsistente = {
+    intencion: 'lenguaje_ofensivo',
+    mensaje:
+      'Entiendo cómo te sientes, pero por favor evita ese lenguaje si quieres que te siga ayudando.',
+    recursos: [],
+    senalDeRiesgo: false,
+    incluyeLineasDeAtencion: false,
+  };
+
+  async function insultar(veces: number) {
+    for (let i = 0; i < veces; i += 1) {
+      await usuario.type(campo(), 'eres un idiota');
+      await usuario.click(screen.getByRole('button', { name: 'Enviar' }));
+      await screen.findAllByText(/evita ese lenguaje/);
+    }
+  }
+
+  beforeEach(() => {
+    preguntarAlAsistente.mockResolvedValue(INSULTO);
+  });
+
+  it('ante un insulto responde con asertividad, sin lineas ni telefonos', async () => {
+    pintar();
+
+    await insultar(1);
+
+    expect(screen.getByText(/evita ese lenguaje/)).toBeInTheDocument();
+    expect(screen.queryByText(/Línea/)).not.toBeInTheDocument();
+    // Y el campo sigue disponible: es una advertencia, no un castigo.
+    expect(campo()).toBeEnabled();
+  });
+
+  it('a la tercera seguida cierra la conversacion, lo dice y deja abrir otra', async () => {
+    pintar();
+
+    await insultar(3);
+
+    expect(await screen.findByText(/Voy a cerrar esta conversación por ahora/)).toBeInTheDocument();
+    expect(campo()).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Enviar' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Abrir una conversación nueva' }),
+    ).toBeInTheDocument();
+  });
+
+  it('el cierre no acusa y dice como pedir ayuda, sin lineas de atencion', async () => {
+    pintar();
+
+    await insultar(3);
+
+    const cierre = await screen.findByText(/Voy a cerrar esta conversación por ahora/);
+
+    expect(cierre.textContent).toMatch(/aquí voy a estar/);
+    // Dice como pedir donde buscar ayuda: no manda a una pantalla que no existe (SCRUM-194).
+    expect(cierre.textContent).toMatch(/¿Dónde busco ayuda?/);
+    expect(cierre.textContent).not.toMatch(/Recursos/);
+    expect(cierre.textContent).not.toMatch(/grosero|castigo|bloque|inaceptable/i);
+    expect(screen.queryByText(/Línea d/)).not.toBeInTheDocument();
+  });
+
+  it('el foco pasa al boton de abrir una nueva: el campo ya no recibe', async () => {
+    pintar();
+
+    await insultar(3);
+
+    const nueva = await screen.findByRole('button', { name: 'Abrir una conversación nueva' });
+
+    expect(nueva).toHaveFocus();
+  });
+
+  it('abrir otra conversacion empieza de cero: sin mensajes, con las sugerencias y el campo activo', async () => {
+    pintar();
+
+    await insultar(3);
+    await usuario.click(
+      await screen.findByRole('button', { name: 'Abrir una conversación nueva' }),
+    );
+
+    expect(campo()).toBeEnabled();
+    expect(screen.queryByText(/evita ese lenguaje/)).not.toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Para empezar' })).toBeInTheDocument();
+    expect(campo()).toHaveFocus();
+  });
+
+  it('cerrada y abierta de nuevo, se puede preguntar con normalidad', async () => {
+    pintar();
+
+    await insultar(3);
+    await usuario.click(
+      await screen.findByRole('button', { name: 'Abrir una conversación nueva' }),
+    );
+    preguntarAlAsistente.mockResolvedValue(SOBRE_EL_SUENO);
+    await usuario.type(campo(), 'no duermo bien');
+    await usuario.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    expect(await screen.findByText(/Descansar mejor casi siempre/)).toBeInTheDocument();
+  });
+
+  it('la conversacion cerrada no tiene fallos de accesibilidad', async () => {
+    pintar();
+
+    await insultar(3);
+    await screen.findByText(/Voy a cerrar esta conversación por ahora/);
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+  });
 });
 
 describe('VSD IA, accesibilidad (C-03)', () => {
@@ -810,6 +1009,100 @@ describe('sin conexion: un asistente mixto (SCRUM-141)', () => {
       });
 
       expect(screen.getByRole('alert')).toHaveTextContent('tardando más de la cuenta');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('VSD IA abierto con una pregunta ya hecha (SCRUM-194)', () => {
+  const PREGUNTA = '¿Dónde busco ayuda?';
+  const RESPUESTA: RespuestaDelAsistente = {
+    intencion: 'donde_busco_ayuda',
+    mensaje: 'Si necesitas hablar con alguien, estas líneas te atienden.',
+    recursos: [],
+    senalDeRiesgo: false,
+    incluyeLineasDeAtencion: false,
+  };
+
+  const conversacion = () => screen.getByRole('log', { name: 'Conversación' });
+
+  it('con conexion, la hace al abrirse y se ve como cualquier pregunta', async () => {
+    preguntarAlAsistente.mockResolvedValue(RESPUESTA);
+
+    pintar(PREGUNTA);
+
+    expect(await screen.findByText(RESPUESTA.mensaje)).toBeInTheDocument();
+    expect(preguntarAlAsistente).toHaveBeenCalledTimes(1);
+    expect(preguntarAlAsistente).toHaveBeenCalledWith(PREGUNTA, expect.any(AbortSignal));
+    expect(within(conversacion()).getByText(PREGUNTA)).toBeInTheDocument();
+  });
+
+  it('sin pregunta inicial, no pregunta nada', async () => {
+    pintar();
+
+    await act(async () => {
+      await new Promise((resolver) => setTimeout(resolver, 30));
+    });
+
+    expect(preguntarAlAsistente).not.toHaveBeenCalled();
+  });
+
+  it('la hace una sola vez, aunque las reglas lleguen despues', async () => {
+    let entregar: (lectura: unknown) => void = () => undefined;
+
+    leerLasReglasLocalesConCopia.mockReturnValue(
+      new Promise((resolver) => {
+        entregar = resolver;
+      }),
+    );
+    preguntarAlAsistente.mockResolvedValue(RESPUESTA);
+
+    pintar(PREGUNTA);
+    await screen.findByText(RESPUESTA.mensaje);
+
+    await act(async () => {
+      entregar({ valor: REGLAS, deLaCopia: false, guardadoEn: '2026-10-08T10:00:00.000Z' });
+      await new Promise((resolver) => setTimeout(resolver, 30));
+    });
+
+    expect(preguntarAlAsistente).toHaveBeenCalledTimes(1);
+  });
+
+  it('sin conexion y con las reglas guardadas, espera a que lleguen y responde con ellas', async () => {
+    fijarLaZonaDeLaCuenta('America/Bogota');
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    leerLasReglasLocalesConCopia.mockResolvedValue({
+      valor: REGLAS,
+      deLaCopia: true,
+      guardadoEn: '2026-10-08T10:00:00.000Z',
+    });
+
+    pintar(PREGUNTA);
+
+    expect(await screen.findByText('Respondido sin conexión')).toBeInTheDocument();
+    expect(preguntarAlAsistente).not.toHaveBeenCalled();
+    // Lo que responde el dispositivo para donde buscar ayuda: las lineas del pais.
+    expect(conversacion()).toHaveTextContent(/Línea 192/);
+  });
+
+  it('sin conexion y sin reglas, no se queda callada: tras una espera corta lo intenta igual', async () => {
+    vi.useFakeTimers();
+
+    try {
+      vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+      leerLasReglasLocalesConCopia.mockReturnValue(new Promise(() => undefined));
+
+      pintar(PREGUNTA);
+
+      expect(within(conversacion()).queryByText(PREGUNTA)).not.toBeInTheDocument();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(ESPERA_DE_LAS_REGLAS_MS);
+      });
+
+      expect(within(conversacion()).getByText(PREGUNTA)).toBeInTheDocument();
+      expect(preguntarAlAsistente).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }

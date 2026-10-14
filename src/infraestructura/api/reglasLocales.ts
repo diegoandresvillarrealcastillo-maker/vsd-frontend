@@ -45,6 +45,33 @@ export interface ReglaLocalDeIntencion {
   readonly conLineas: boolean;
 }
 
+/**
+ * El lenguaje ofensivo hacia el asistente (SCRUM-192). Es **aditivo**: un paquete que se guardo
+ * antes de que existiera no lo trae, y entonces el dispositivo no cuenta nada como ofensivo.
+ */
+export interface OfensivoLocal {
+  /** Lo que cuenta como insulto o como orden de callar. Ya normalizado; `*` final es una raiz. */
+  readonly terminos: readonly string[];
+  /** Si el mensaje lleva alguna, habla de quien lo escribe y no cuenta: «soy un idiota». */
+  readonly desahogo: readonly string[];
+  /** A cuantos insultos seguidos, en la misma ventana de chat, se cierra la conversacion. */
+  readonly umbral: number;
+  /** Lo que se responde a un insulto, sin lineas de atencion. */
+  readonly mensaje: string;
+  /** Lo que se dice al cerrar la conversacion. */
+  readonly mensajeAlCerrar: string;
+}
+
+/**
+ * Lo que se responde cuando no se reconoce lo que se escribio (SCRUM-176, SCRUM-193): sin lineas
+ * de atencion y con el catalogo de temas que si se atienden. Aditivo.
+ */
+export interface FallbackLocal {
+  readonly mensaje: string;
+  /** Frases que la persona puede tocar y que se envian tal cual. */
+  readonly sugerencias: readonly string[];
+}
+
 export interface PaisConLineas {
   readonly zonas: readonly string[];
   readonly lineas: readonly LineaDeAtencion[];
@@ -64,6 +91,15 @@ export interface ReglasLocales {
     readonly reglas: readonly ReglaLocalDeCharla[];
     readonly relleno: readonly string[];
   };
+  /** El lenguaje ofensivo (SCRUM-192): va despues del riesgo y antes de la charla. */
+  readonly ofensivo?: OfensivoLocal;
+  /**
+   * Las erratas frecuentes (SCRUM-193), ya normalizadas, hacia la palabra que se quiso escribir.
+   * Aditivo: un paquete anterior no la trae y no se corrige por la tabla.
+   */
+  readonly erratas?: Readonly<Record<string, string>>;
+  /** Lo que se responde cuando nada se reconoce (SCRUM-176). Aditivo. */
+  readonly fallback?: FallbackLocal;
   /** Lo demas que el servidor reconoce, en su orden. */
   readonly intenciones: readonly ReglaLocalDeIntencion[];
   /** Los paises con lineas verificadas, por su codigo de dos letras. */

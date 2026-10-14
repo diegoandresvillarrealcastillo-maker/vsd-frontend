@@ -45,6 +45,11 @@ import { useExpresion } from './useExpresion.ts';
  * - Con `prefers-reduced-motion` no se anima: cambia de cara y de sitio sin
  *   transiciones.
  *
+ * **Puede traer una invitacion de la pantalla** (SCRUM-194): un globo que no se va solo, con
+ * dos botones, para ofrecer algo que importa (el diario ofrece ir a donde pedir ayuda). No
+ * es una frase: no desaparece a los segundos, no la tapa otra frase y la dice quien la
+ * escucha aunque no toque a la mascota. Aceptarla abre VSD IA con la pregunta ya hecha.
+ *
  * Abre VSD IA (SCRUM-100) al mantenerla pulsada, o desde el boton de su globo,
  * que es el camino para el teclado. Al abrirlo vuela a la esquina de arriba a
  * la izquierda del asistente mientras este se despliega, y al cerrarlo vuelve
@@ -62,6 +67,20 @@ interface Posicion {
 interface Punto {
   readonly x: number;
   readonly y: number;
+}
+
+/** Algo que la pantalla le pide a la mascota que ofrezca, y que no se va solo (SCRUM-194). */
+export interface InvitacionDeLaMascota {
+  /** Lo que dice la mascota. */
+  readonly texto: string;
+  /** Lo que dice el boton que la acepta: abre VSD IA con la pregunta. */
+  readonly aceptar: string;
+  /** Lo que dice el boton que la deja para otro momento. */
+  readonly rechazar: string;
+  /** Lo que se le pregunta a VSD IA al aceptarla, como si la persona lo hubiera tocado. */
+  readonly pregunta: string;
+  /** Se llama al aceptarla o al rechazarla: la pantalla deja de ofrecerla. */
+  readonly alResponder: () => void;
 }
 
 /** Donde la deja cada persona. Es una comodidad de este navegador, no un dato personal. */
@@ -225,6 +244,7 @@ export function MascotaFlotante({
   mascota,
   celebrar = false,
   momento,
+  invitacion,
 }: {
   mascota: Mascota | null;
   /** La pantalla pide celebrar: plan del dia completo, modulo desbloqueado. */
@@ -235,6 +255,8 @@ export function MascotaFlotante({
    * hora de la persona.
    */
   momento?: Momento;
+  /** Una invitacion que la pantalla quiere que la mascota diga y no se pierda (SCRUM-194). */
+  invitacion?: InvitacionDeLaMascota;
 }) {
   const { personaje, nombre, propia } = mascotaParaMostrar(mascota);
   const dibujoPropio = useMascotaPropia();
@@ -258,6 +280,8 @@ export function MascotaFlotante({
   const ignorarClic = useRef(false);
   const pulsacionLarga = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [conAsistente, setConAsistente] = useState(false);
+  /** La pregunta con la que se abrio VSD IA, si se abrio desde una invitacion (SCRUM-194). */
+  const [preguntaInicial, setPreguntaInicial] = useState<string | undefined>(undefined);
   const volverAlBoton = useRef(false);
   const boton = useRef<HTMLButtonElement>(null);
   const idDeInstrucciones = useId();
@@ -293,7 +317,24 @@ export function MascotaFlotante({
 
   function cerrarAsistente() {
     volverAlBoton.current = true;
+    setPreguntaInicial(undefined);
     setConAsistente(false);
+  }
+
+  function aceptarLaInvitacion() {
+    if (invitacion === undefined) {
+      return;
+    }
+
+    setPreguntaInicial(invitacion.pregunta);
+    abrirAsistente();
+    invitacion.alResponder();
+  }
+
+  function rechazarLaInvitacion() {
+    invitacion?.alResponder();
+    // El globo se va: el foco se queda en quien lo dijo, y no se pierde en la pagina.
+    boton.current?.focus();
   }
 
   function moverA(nueva: Posicion) {
@@ -406,6 +447,11 @@ export function MascotaFlotante({
       return;
     }
 
+    // Una invitacion no se tapa con una frase: sigue hasta que se responda.
+    if (invitacion !== undefined && !conAsistente) {
+      return;
+    }
+
     decirFrase();
   }
 
@@ -443,6 +489,7 @@ export function MascotaFlotante({
           ladoDeLaMascota={lado}
           nombreDeLaMascota={nombre}
           alCerrar={cerrarAsistente}
+          {...(preguntaInicial === undefined ? {} : { preguntaInicial })}
         />
       )}
 
@@ -512,10 +559,42 @@ export function MascotaFlotante({
           anuncia. Con aria-live y sin role="status", para no confundirse con
           los avisos de la pantalla. */}
         <p className="solo-lectores" aria-live="polite">
-          {frase === null ? '' : `${nombre}: ${frase}`}
+          {invitacion !== undefined && !conAsistente
+            ? `${nombre}: ${invitacion.texto}`
+            : frase === null
+              ? ''
+              : `${nombre}: ${frase}`}
         </p>
 
-        {frase !== null && (
+        {invitacion !== undefined && !conAsistente && (
+          <div
+            className="mascota__globo mascota__globo--invitacion"
+            style={estiloDelGlobo}
+            role="group"
+            aria-label={`Un mensaje de ${nombre}`}
+          >
+            <button
+              type="button"
+              className="mascota__cerrar"
+              aria-label="Cerrar el mensaje"
+              onClick={rechazarLaInvitacion}
+            >
+              ×
+            </button>
+            <p className="mascota__quien">{nombre} te acompaña</p>
+            <p className="mascota__frase">{invitacion.texto}</p>
+            <div className="mascota__acciones">
+              <button type="button" className="mascota__hablar" onClick={aceptarLaInvitacion}>
+                {invitacion.aceptar}
+              </button>
+              <button type="button" className="mascota__rechazar" onClick={rechazarLaInvitacion}>
+                {invitacion.rechazar}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {frase !== null && invitacion === undefined && (
           <div className="mascota__globo" style={estiloDelGlobo}>
             <button
               type="button"

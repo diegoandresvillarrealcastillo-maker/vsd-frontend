@@ -30,6 +30,13 @@ import {
 type Esperado =
   | { readonly tipo: 'riesgo'; readonly mensaje: string; readonly lineas: readonly string[] }
   | { readonly tipo: 'charla'; readonly intencion: string; readonly mensaje: string }
+  | { readonly tipo: 'ofensivo'; readonly intencion: string; readonly mensaje: string }
+  | {
+      readonly tipo: 'fallback';
+      readonly intencion: string;
+      readonly mensaje: string;
+      readonly sugerencias: readonly string[];
+    }
   | {
       readonly tipo: 'ayuda';
       readonly intencion: string;
@@ -85,10 +92,10 @@ describe('el contrato del backend', () => {
     expect(REGLAS.esquema).toBe(1);
   });
 
-  it('trae un conjunto de frases con de todo: riesgo, charla, ayuda y lo que exige conexion', () => {
+  it('trae un conjunto de frases con de todo: riesgo, ofensivo, charla, ayuda y lo que exige conexion', () => {
     expect(contrato.casos.length).toBeGreaterThan(40);
     expect(new Set(contrato.casos.map((caso) => caso.esperado.tipo))).toEqual(
-      new Set(['riesgo', 'charla', 'ayuda', 'exige-conexion']),
+      new Set(['riesgo', 'ofensivo', 'fallback', 'charla', 'ayuda', 'exige-conexion']),
     );
   });
 
@@ -104,6 +111,189 @@ describe('el contrato del backend', () => {
       expect(comoEnElContrato(respuesta)).toEqual(caso.esperado);
     },
   );
+});
+
+describe('las erratas y el fallback (SCRUM-193, SCRUM-176)', () => {
+  const responder = (texto: string) =>
+    responderSinConexion(REGLAS, { texto, zona: 'America/Bogota' });
+
+  it('el paquete trae la tabla de erratas y el fallback con su catalogo', () => {
+    expect(REGLAS.erratas?.ola).toBe('hola');
+    expect(REGLAS.fallback?.mensaje).toMatch(/No puedo ayudarte con ese tema/);
+    expect(REGLAS.fallback?.sugerencias).toContain('¿Dónde busco ayuda?');
+  });
+
+  describe('las erratas se leen como se quisieron escribir', () => {
+    it.each([
+      ['ola', 'saludo'],
+      ['grasias', 'agradecimiento'],
+      ['adioss', 'despedida'],
+    ])('«%s» es %s', (texto, intencion) => {
+      expect(responder(texto)).toMatchObject({ tipo: 'charla', intencion });
+    });
+
+    // «Como estas» exige conexion sin red, pero **se entiende**: de otro modo seria el fallback.
+    it.each(['cómo bamos', 'k tal', 'como vamos'])(
+      '«%s» se entiende como «cómo estás»',
+      (texto) => {
+        expect(responder(texto)).toEqual({ tipo: 'exige-conexion' });
+      },
+    );
+
+    it('«necesito un sicologo» lleva a dónde buscar ayuda', () => {
+      expect(responder('necesito un sicologo')).toMatchObject({
+        tipo: 'ayuda',
+        intencion: 'donde_busco_ayuda',
+      });
+    });
+  });
+
+  describe('el riesgo con erratas: la tolerancia amplia, no debilita', () => {
+    it.each([
+      'kiero morirme',
+      'quiero morirne',
+      'quiero mrirme',
+      'a veces pienso en suisidarme',
+      'no aguanto mass',
+      'hola, kiero morirme',
+    ])('«%s» sigue siendo riesgo', (texto) => {
+      expect(responder(texto).tipo).toBe('riesgo');
+    });
+
+    it.each([
+      'mi abuela no aguanta mas',
+      'ya no puede mas con el trabajo',
+      'quiere morir de la risa',
+    ])('«%s» es de otra persona y no se corrige hacia el riesgo', (texto) => {
+      expect(responder(texto).tipo).not.toBe('riesgo');
+    });
+
+    it('lo que ya se detectaba se sigue detectando', () => {
+      for (const expresion of REGLAS.riesgo.expresiones) {
+        expect(responder(`hola, ${expresion}, gracias`).tipo, expresion).toBe('riesgo');
+      }
+    });
+  });
+
+  describe('el lenguaje ofensivo no se corrige por distancia', () => {
+    it.each(['tanto tiempo', 'quiero tanto', 'tanto'])('«%s» no es un insulto', (texto) => {
+      expect(responder(texto).tipo).not.toBe('ofensivo');
+    });
+  });
+
+  describe('lo que no se reconoce', () => {
+    it('responde el catalogo, sin lineas de atencion y sin esperar la red', () => {
+      const respuesta = responder('a que hora abre la biblioteca');
+
+      expect(respuesta).toEqual({
+        tipo: 'fallback',
+        intencion: 'no_reconocida',
+        mensaje: REGLAS.fallback?.mensaje,
+        sugerencias: REGLAS.fallback?.sugerencias,
+      });
+    });
+
+    it('«gracias por todo» no es charla ni riesgo: recibe el catalogo', () => {
+      expect(responder('gracias por todo').tipo).toBe('fallback');
+    });
+
+    it('lo que se reconoce pero exige conexion sigue exigiendola', () => {
+      expect(responder('como duermo mejor')).toEqual({ tipo: 'exige-conexion' });
+    });
+
+    it('con un paquete guardado antes del fallback, no se inventa nada: exige conexion', () => {
+      const { fallback: _sin, ...antiguo } = REGLAS;
+
+      expect(
+        responderSinConexion(antiguo, {
+          texto: 'a que hora abre la biblioteca',
+          zona: 'America/Bogota',
+        }),
+      ).toEqual({ tipo: 'exige-conexion' });
+    });
+
+    it('un paquete con el fallback o las erratas mal formados no se usa', () => {
+      expect(esReglasLocales({ ...REGLAS, fallback: { mensaje: 3, sugerencias: [] } })).toBe(false);
+      expect(esReglasLocales({ ...REGLAS, fallback: { mensaje: 'x', sugerencias: 'una' } })).toBe(
+        false,
+      );
+      expect(esReglasLocales({ ...REGLAS, erratas: { ola: 7 } })).toBe(false);
+      expect(esReglasLocales({ ...REGLAS, erratas: ['ola'] })).toBe(false);
+    });
+
+    it('y uno anterior, sin ninguna de las dos secciones, se sigue aceptando', () => {
+      const { erratas: _e, fallback: _f, ...antiguo } = REGLAS;
+
+      expect(esReglasLocales(antiguo)).toBe(true);
+    });
+  });
+});
+
+describe('el lenguaje ofensivo (SCRUM-192)', () => {
+  const OFENSIVO = REGLAS.ofensivo;
+
+  it('el paquete lo trae, con su umbral y sus dos mensajes', () => {
+    expect(OFENSIVO).toBeDefined();
+    expect(OFENSIVO?.umbral).toBe(3);
+    expect(OFENSIVO?.mensaje).toMatch(/evita ese lenguaje/);
+    expect(OFENSIVO?.mensajeAlCerrar).toMatch(/cerrar esta conversación/);
+  });
+
+  it.each(['eres un idiota', 'CALLATE', 'hola, imbécil', 'vete a la mierda'])(
+    '«%s» se responde igual que en el servidor: asertivo y sin lineas',
+    (texto) => {
+      const respuesta = responderSinConexion(REGLAS, { texto, zona: 'America/Bogota' });
+
+      expect(respuesta).toEqual({
+        tipo: 'ofensivo',
+        intencion: 'lenguaje_ofensivo',
+        mensaje: OFENSIVO?.mensaje,
+      });
+    },
+  );
+
+  it.each([
+    'me siento una mierda',
+    'odio mi vida',
+    'soy un idiota',
+    'me siento inútil',
+    'saca la basura',
+  ])('«%s» no es un insulto: es un desahogo', (texto) => {
+    const respuesta = responderSinConexion(REGLAS, { texto, zona: 'America/Bogota' });
+
+    expect(respuesta.tipo).not.toBe('ofensivo');
+  });
+
+  it('el riesgo va antes: un insulto con una senal de riesgo es riesgo', () => {
+    const respuesta = responderSinConexion(REGLAS, {
+      texto: 'eres un idiota, quiero morirme',
+      zona: 'America/Bogota',
+    });
+
+    expect(respuesta.tipo).toBe('riesgo');
+  });
+
+  it('con un paquete guardado antes de que existiera, no hay nada ofensivo y todo sigue igual', () => {
+    const { ofensivo: _sin, ...antiguo } = REGLAS;
+    const respuesta = responderSinConexion(antiguo, {
+      texto: 'eres un idiota',
+      zona: 'America/Bogota',
+    });
+
+    expect(respuesta.tipo).not.toBe('ofensivo');
+  });
+
+  it('un paquete con la seccion mal formada no se usa', () => {
+    expect(esReglasLocales({ ...REGLAS, ofensivo: { terminos: 'idiota' } })).toBe(false);
+    expect(esReglasLocales({ ...REGLAS, ofensivo: { ...OFENSIVO, umbral: 'tres' } })).toBe(false);
+    expect(esReglasLocales({ ...REGLAS, ofensivo: null })).toBe(false);
+  });
+
+  it('y uno sin la seccion se sigue aceptando: es lo que guardo una version anterior', () => {
+    const { ofensivo: _sin, ...antiguo } = REGLAS;
+
+    expect(esReglasLocales(antiguo)).toBe(true);
+  });
 });
 
 describe('lo que publica el servidor, regla por regla', () => {

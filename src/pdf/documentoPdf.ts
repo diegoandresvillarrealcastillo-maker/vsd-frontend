@@ -48,12 +48,37 @@ export type Marcador = string | { readonly casilla: true };
 
 export type Color = readonly [number, number, number];
 
+/** Una columna de una tabla. */
+export interface Columna {
+  readonly titulo: string;
+  /** Su parte del ancho util, de 0 a 1: las de todas las columnas suman 1. */
+  readonly ancho: number;
+}
+
+export interface OpcionesDeLaTabla {
+  readonly tamano?: number;
+  readonly color?: Color;
+  /** El fondo de la fila de titulos. */
+  readonly fondoDelEncabezado?: Color;
+  /** Lo que se dice si no hay filas, en lugar del encabezado solo. */
+  readonly vacia?: string;
+  /** El espacio que queda debajo, en puntos. */
+  readonly despues?: number;
+}
+
 export interface OpcionesDelDocumento {
   readonly titulo: string;
   readonly asunto?: string;
   readonly idioma: string;
   /** El pie de cada pagina, dados su numero y el total. */
   readonly pie: (pagina: number, total: number) => { izquierda: string; derecha: string };
+  /**
+   * Si se da, **todo** texto pasa por aqui antes de escribirse. Sin el, un caracter que WinAnsi
+   * no tiene es un error (la guia, cuyo texto escribimos nosotros, quiere eso). Con el, el
+   * documento nunca se rompe por un caracter: es lo que usa la exportacion de los datos de la
+   * persona, cuyo diario puede traer cualquier cosa.
+   */
+  readonly saneador?: (texto: string) => string;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,7 +148,8 @@ interface Glifo {
   readonly ancho: number;
 }
 
-function glifoDe(caracter: string, fuente: Fuente): Glifo {
+/** El glifo de un caracter, o `undefined` si WinAnsi no lo tiene. No lanza: es la regla, en un solo sitio. */
+function buscarGlifo(caracter: string, fuente: Fuente): Glifo | undefined {
   const codigo = caracter.codePointAt(0) ?? 0;
 
   if (codigo >= 32 && codigo <= 126) {
@@ -139,13 +165,37 @@ function glifoDe(caracter: string, fuente: Fuente): Glifo {
   }
 
   // Latin-1: á é í ó ú ü ñ y sus mayusculas ocupan el mismo byte en WinAnsi.
-  const base = caracter.normalize('NFD').charAt(0);
+  if (codigo >= 0xc0 && codigo <= 0xff && codigo !== 0xd7) {
+    const base = caracter.normalize('NFD').charAt(0);
 
-  if (codigo >= 0xc0 && codigo <= 0xff && LETRAS_ACENTUADAS.test(base) && codigo !== 0xd7) {
-    return { byte: codigo, ancho: glifoDe(base, fuente).ancho };
+    if (LETRAS_ACENTUADAS.test(base)) {
+      return { byte: codigo, ancho: buscarGlifo(base, fuente)?.ancho ?? 0 };
+    }
   }
 
-  throw new Error(`El PDF no puede escribir el caracter «${caracter}» (U+${codigo.toString(16)}).`);
+  return undefined;
+}
+
+function glifoDe(caracter: string, fuente: Fuente): Glifo {
+  const glifo = buscarGlifo(caracter, fuente);
+
+  if (glifo === undefined) {
+    const codigo = caracter.codePointAt(0) ?? 0;
+
+    throw new Error(
+      `El PDF no puede escribir el caracter «${caracter}» (U+${codigo.toString(16)}).`,
+    );
+  }
+
+  return glifo;
+}
+
+/**
+ * Si el escritor puede poner este caracter tal cual. Es la misma regla que aplica al escribir:
+ * `sanearParaPdf` la usa para no tener una segunda lista que se pueda quedar atras.
+ */
+export function sePuedeEscribir(caracter: string): boolean {
+  return buscarGlifo(caracter, 'normal') !== undefined;
 }
 
 function anchoDe(texto: string, fuente: Fuente, tamano: number): number {
@@ -314,7 +364,7 @@ export class DocumentoPdf {
   medir(tramos: readonly Tramo[], estilo: EstiloDeTexto = {}): number {
     const { tamano, interlineado, anchoMaximo, despues } = this.resolver(estilo);
     const lineas = partirEnLineas(
-      palabrasDe(tramos, estilo.fuente ?? 'normal', tamano),
+      palabrasDe(this.limpios(tramos), estilo.fuente ?? 'normal', tamano),
       tamano,
       anchoMaximo,
     );
@@ -330,19 +380,20 @@ export class DocumentoPdf {
   texto(tramos: readonly Tramo[], estilo: EstiloDeTexto = {}, marcador?: Marcador): void {
     const { tamano, interlineado, anchoMaximo, sangria, despues, color } = this.resolver(estilo);
     const fuenteBase = estilo.fuente ?? 'normal';
-    const lineas = partirEnLineas(palabrasDe(tramos, fuenteBase, tamano), tamano, anchoMaximo);
+    const lineas = partirEnLineas(
+      palabrasDe(this.limpios(tramos), fuenteBase, tamano),
+      tamano,
+      anchoMaximo,
+    );
     const alto = tamano * interlineado;
-    const espacio = anchoDe(' ', 'normal', tamano);
 
     for (const [indice, linea] of lineas.entries()) {
       if (alto > this.espacioLibre) {
         this.nuevaPagina();
       }
 
-      // La linea base: el cursor es el borde de arriba de la linea, y el texto
-      // va centrado en ella, con las letras subiendo 0,8 del tamano sobre la base.
-      const y = ALTO_DE_LA_PAGINA - this.cursor - ((alto - tamano) / 2 + tamano * 0.8);
-      let x = MARGEN_LATERAL + sangria;
+      const y = this.lineaBase(alto, tamano);
+      const x = MARGEN_LATERAL + sangria;
 
       if (indice === 0 && marcador !== undefined) {
         // Sangria francesa: el marcador cuelga a la izquierda del texto.
@@ -360,18 +411,198 @@ export class DocumentoPdf {
         }
       }
 
-      for (const [numeroDePalabra, palabra] of linea.palabras.entries()) {
-        if (numeroDePalabra > 0) {
-          x += espacio;
-        }
+      this.escribirLinea(linea, x, y, tamano, color);
 
-        for (const segmento of palabra.segmentos) {
-          this.poner(this.operacionDeTexto(segmento.texto, segmento.fuente, tamano, color, x, y));
-          x += anchoDe(segmento.texto, segmento.fuente, tamano);
+      this.cursor += alto;
+    }
+
+    this.cursor += despues;
+  }
+
+  /**
+   * La banda de marca: un rectangulo de color de borde a borde, pegado al borde de arriba de la
+   * pagina, con el nombre en blanco y, debajo, una linea mas chica.
+   *
+   * Va al principio de una pagina: si ya hay algo escrito en esta, empieza otra en vez de taparlo.
+   * Lo que se escriba despues queda por debajo.
+   */
+  banda(opciones: {
+    readonly titulo: string;
+    readonly subtitulo?: string;
+    readonly fondo: Color;
+    readonly alto?: number;
+  }): void {
+    if (this.cursor > MARGEN_SUPERIOR) {
+      this.nuevaPagina();
+    }
+
+    const alto = opciones.alto ?? (opciones.subtitulo === undefined ? 74 : 96);
+    const blanco: Color = [1, 1, 1];
+
+    this.poner(
+      `${colorDe(opciones.fondo)} rg 0 ${numero(ALTO_DE_LA_PAGINA - alto)} ` +
+        `${numero(ANCHO_DE_LA_PAGINA)} ${numero(alto)} re f`,
+    );
+    this.poner(
+      this.operacionDeTexto(
+        this.limpio(opciones.titulo),
+        'negrita',
+        26,
+        blanco,
+        MARGEN_LATERAL,
+        ALTO_DE_LA_PAGINA - (opciones.subtitulo === undefined ? alto / 2 + 9 : 50),
+      ),
+    );
+
+    if (opciones.subtitulo !== undefined) {
+      this.poner(
+        this.operacionDeTexto(
+          this.limpio(opciones.subtitulo),
+          'normal',
+          11.5,
+          blanco,
+          MARGEN_LATERAL,
+          ALTO_DE_LA_PAGINA - 72,
+        ),
+      );
+    }
+
+    this.cursor = alto + 26;
+  }
+
+  /**
+   * Una tabla: un encabezado en negrita sobre un fondo y una fila por cada elemento de `filas`,
+   * con una linea fina debajo de cada una.
+   *
+   * - El texto de cada celda se parte dentro de **su columna**: nunca invade la vecina.
+   * - Una fila que cabe en una pagina no se parte: pasa entera a la siguiente. Una mas alta que
+   *   una pagina fluye linea a linea, con todas sus columnas alineadas, y no pierde nada.
+   * - Al seguir en otra pagina, el encabezado se repite.
+   * - Sin filas, dice `opciones.vacia` (si la hay) en lugar de dejar un encabezado solo.
+   */
+  tabla(
+    columnas: readonly Columna[],
+    filas: readonly (readonly string[])[],
+    opciones: OpcionesDeLaTabla = {},
+  ): void {
+    const tamano = opciones.tamano ?? 9.5;
+    const alto = tamano * 1.35;
+    const relleno = 5;
+    const lateral = 6;
+    const despues = opciones.despues ?? 14;
+    const fondo = opciones.fondoDelEncabezado ?? [0.9, 0.95, 0.92];
+    const color = opciones.color ?? NEGRO;
+
+    if (filas.length === 0 && opciones.vacia !== undefined) {
+      this.texto([{ texto: opciones.vacia }], { color: [0.4, 0.4, 0.4], despues });
+
+      return;
+    }
+
+    const izquierdas: number[] = [];
+    const anchos: number[] = [];
+    let desde = 0;
+
+    for (const columna of columnas) {
+      const ancho = columna.ancho * ANCHO_UTIL;
+
+      izquierdas.push(desde);
+      anchos.push(ancho);
+      desde += ancho;
+    }
+
+    const lineasDe = (celdas: readonly string[], fuente: Fuente): Linea[][] =>
+      columnas.map((_, i) =>
+        partirEnLineas(
+          palabrasDe([{ texto: this.limpio(celdas[i] ?? '') }], fuente, tamano),
+          tamano,
+          Math.max((anchos[i] ?? 0) - 2 * lateral, 20),
+        ),
+      );
+    const cuantas = (lineas: readonly (readonly Linea[])[]) =>
+      Math.max(1, ...lineas.map((deLaColumna) => deLaColumna.length));
+
+    const lineasDelEncabezado = lineasDe(
+      columnas.map((columna) => columna.titulo),
+      'negrita',
+    );
+    const altoDelEncabezado = cuantas(lineasDelEncabezado) * alto + 2 * relleno;
+    const espacioDeUnaPagina =
+      ALTO_DE_LA_PAGINA - MARGEN_INFERIOR - MARGEN_SUPERIOR - altoDelEncabezado;
+
+    const escribirLinea = (lineas: readonly (readonly Linea[])[], numeroDeLinea: number) => {
+      const y = this.lineaBase(alto, tamano);
+
+      for (const [i, deLaColumna] of lineas.entries()) {
+        const linea = deLaColumna[numeroDeLinea];
+
+        if (linea !== undefined) {
+          this.escribirLinea(
+            linea,
+            MARGEN_LATERAL + (izquierdas[i] ?? 0) + lateral,
+            y,
+            tamano,
+            color,
+          );
         }
       }
 
       this.cursor += alto;
+    };
+
+    const encabezado = () => {
+      this.poner(
+        `${colorDe(fondo)} rg ${numero(MARGEN_LATERAL)} ` +
+          `${numero(ALTO_DE_LA_PAGINA - this.cursor - altoDelEncabezado)} ` +
+          `${numero(ANCHO_UTIL)} ${numero(altoDelEncabezado)} re f`,
+      );
+      this.cursor += relleno;
+
+      for (let linea = 0; linea < cuantas(lineasDelEncabezado); linea += 1) {
+        escribirLinea(lineasDelEncabezado, linea);
+      }
+
+      this.cursor += relleno;
+    };
+
+    const otraPaginaConEncabezado = () => {
+      this.nuevaPagina();
+      encabezado();
+    };
+
+    // El encabezado nunca se queda solo al final de una pagina: va con la primera fila.
+    const primera = lineasDe(filas[0] ?? [], 'normal');
+    const altoDeLaPrimera = Math.min(cuantas(primera), 2) * alto + 2 * relleno;
+
+    if (altoDelEncabezado + altoDeLaPrimera > this.espacioLibre && this.cursor > MARGEN_SUPERIOR) {
+      this.nuevaPagina();
+    }
+
+    encabezado();
+
+    for (const fila of filas) {
+      const lineas = lineasDe(fila, 'normal');
+      const total = cuantas(lineas);
+      const altoDeLaFila = total * alto + 2 * relleno;
+      // Si cabe en una pagina, que no se parta; si no, al menos dos lineas juntas.
+      const necesario = altoDeLaFila <= espacioDeUnaPagina ? altoDeLaFila : 2 * alto + 2 * relleno;
+
+      if (necesario > this.espacioLibre) {
+        otraPaginaConEncabezado();
+      }
+
+      this.cursor += relleno;
+
+      for (let linea = 0; linea < total; linea += 1) {
+        if (alto > this.espacioLibre) {
+          otraPaginaConEncabezado();
+        }
+
+        escribirLinea(lineas, linea);
+      }
+
+      this.cursor += relleno;
+      this.regla([0.88, 0.88, 0.88], 0.5);
     }
 
     this.cursor += despues;
@@ -400,7 +631,7 @@ export class DocumentoPdf {
     // El texto se parte en el ancho que queda dentro del recuadro, a ambos lados.
     const anchoDelTexto = ANCHO_UTIL - 2 * relleno;
     const lineas = partirEnLineas(
-      palabrasDe(tramos, estilo.fuente ?? 'normal', tamano),
+      palabrasDe(this.limpios(tramos), estilo.fuente ?? 'normal', tamano),
       tamano,
       anchoDelTexto,
     );
@@ -433,13 +664,19 @@ export class DocumentoPdf {
       `<< /Type /Pages /Count ${total} /Kids [${this.paginas.map((_, i) => `${idDeLaPagina(i)} 0 R`).join(' ')}] >>`,
       '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
       '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
-      `<< /Title ${cadenaDePdf(this.opciones.titulo)} ${
-        this.opciones.asunto === undefined ? '' : `/Subject ${cadenaDePdf(this.opciones.asunto)} `
+      `<< /Title ${cadenaDePdf(this.limpio(this.opciones.titulo))} ${
+        this.opciones.asunto === undefined
+          ? ''
+          : `/Subject ${cadenaDePdf(this.limpio(this.opciones.asunto))} `
       }/Producer (VSD Health) >>`,
     );
 
     for (const [indice, operaciones] of this.paginas.entries()) {
-      const pie = this.opciones.pie(indice + 1, total);
+      const delPie = this.opciones.pie(indice + 1, total);
+      const pie = {
+        izquierda: this.limpio(delPie.izquierda),
+        derecha: this.limpio(delPie.derecha),
+      };
       const yDelPie = MARGEN_INFERIOR - 22;
       const gris: Color = [0.45, 0.45, 0.45];
       const contenido = [
@@ -498,6 +735,46 @@ export class DocumentoPdf {
       despues: estilo.despues ?? 0,
       color: estilo.color ?? NEGRO,
     };
+  }
+
+  /** Un texto, por el saneador del documento si lo tiene. */
+  private limpio(texto: string): string {
+    return this.opciones.saneador === undefined ? texto : this.opciones.saneador(texto);
+  }
+
+  private limpios(tramos: readonly Tramo[]): readonly Tramo[] {
+    const { saneador } = this.opciones;
+
+    return saneador === undefined
+      ? tramos
+      : tramos.map((tramo) => ({ ...tramo, texto: saneador(tramo.texto) }));
+  }
+
+  /**
+   * La linea base de una linea de texto: el cursor es el borde de arriba de la linea, y el texto
+   * va centrado en ella, con las letras subiendo 0,8 del tamano sobre la base.
+   */
+  private lineaBase(alto: number, tamano: number): number {
+    return ALTO_DE_LA_PAGINA - this.cursor - ((alto - tamano) / 2 + tamano * 0.8);
+  }
+
+  /** Escribe una linea ya partida, palabra a palabra, desde `x`. */
+  private escribirLinea(linea: Linea, x: number, y: number, tamano: number, color: Color): void {
+    const espacio = anchoDe(' ', 'normal', tamano);
+    let posicion = x;
+
+    for (const [numeroDePalabra, palabra] of linea.palabras.entries()) {
+      if (numeroDePalabra > 0) {
+        posicion += espacio;
+      }
+
+      for (const segmento of palabra.segmentos) {
+        this.poner(
+          this.operacionDeTexto(segmento.texto, segmento.fuente, tamano, color, posicion, y),
+        );
+        posicion += anchoDe(segmento.texto, segmento.fuente, tamano);
+      }
+    }
   }
 
   private operacionDeTexto(
