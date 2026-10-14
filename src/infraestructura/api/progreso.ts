@@ -46,7 +46,15 @@ export interface ProgresoDelModulo {
   /** Dias distintos en los que hizo algo de este modulo. */
   readonly sesiones: number;
   readonly etapa: Etapa;
+  /** Lo que toca hoy. Sin tope: salen todas, y nada impide hacer mas (SCRUM-184). */
   readonly hoy: readonly ActividadDeHoy[];
+  /**
+   * Otras actividades abiertas que hoy no tocan, hasta completar un minimo sugerido de tres con
+   * lo de hoy (SCRUM-184). Es una **sugerencia**: no entra al plan del dia, ni suma sesiones, ni
+   * cuenta para la racha. Opcional porque una API anterior (o una copia guardada en este equipo
+   * antes de este cambio) no la manda: sin ella simplemente no hay seccion.
+   */
+  readonly sugeridas?: readonly ActividadDeHoy[];
 }
 
 /**

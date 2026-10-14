@@ -201,10 +201,16 @@ function Nodo({ nodo, nueva }: { nodo: NodoDeLaRuta; nueva: boolean }) {
       <span className="ruta__punto">
         {estado === 'hecha' ? (
           <>
-            <span className={clase}>
+            {/* Sin tope diario (SCRUM-184): lo ya hecho se puede volver a hacer. El nombre
+                dice las dos cosas, el estado y lo que pasa al pulsarlo. */}
+            <Link
+              className={clase}
+              to={rutaDeActividad(actividad.id)}
+              aria-label={`Hecha hoy: ${actividad.nombre}. Hacer otra vez`}
+            >
               <Icono nombre={icono} tamano={30} />
               <span className="solo-lectores">Hecha hoy</span>
-            </span>
+            </Link>
             {nueva && <span className="ruta__destello" aria-hidden="true" />}
           </>
         ) : (
