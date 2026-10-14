@@ -19,8 +19,9 @@ import type { LineaDeAtencion } from '../infraestructura/api/resultados.ts';
  * El orden es el del servidor y no se negocia:
  *
  * 1. **El riesgo**, primero y aparte, sobre el texto normalizado.
- * 2. **La charla**, solo si el mensaje **entero** es charla.
- * 3. **Lo demas que se reconoce**, la primera regla que coincide.
+ * 2. **El lenguaje ofensivo** (SCRUM-192), despues del riesgo y nunca antes.
+ * 3. **La charla**, solo si el mensaje **entero** es charla.
+ * 4. **Lo demas que se reconoce**, la primera regla que coincide.
  *
  * Y lo que no se puede responder sin conexion **no se inventa**: `exige-conexion`.
  */
@@ -79,6 +80,18 @@ function apariciones(palabras: readonly string[], patron: string): readonly numb
 /** Cierto si alguno de los patrones aparece completo, palabra por palabra. */
 function contieneAlguno(palabras: readonly string[], patrones: readonly string[]): boolean {
   return patrones.some((patron) => apariciones(palabras, patron).length > 0);
+}
+
+/**
+ * Cierto si el mensaje es un insulto o una orden de callar dirigida al asistente (SCRUM-192):
+ * lleva alguno de los terminos **y no** habla de quien lo escribe. «Soy un idiota» o «me siento
+ * una mierda» son un desahogo. Ante la duda no cuenta.
+ */
+function esLenguajeOfensivo(
+  palabras: readonly string[],
+  regla: { readonly terminos: readonly string[]; readonly desahogo: readonly string[] },
+): boolean {
+  return contieneAlguno(palabras, regla.terminos) && !contieneAlguno(palabras, regla.desahogo);
 }
 
 /**
@@ -159,6 +172,7 @@ export type ResultadoSinConexion =
       readonly lineas: readonly LineaDeAtencion[];
     }
   | { readonly tipo: 'charla'; readonly intencion: string; readonly mensaje: string }
+  | { readonly tipo: 'ofensivo'; readonly intencion: string; readonly mensaje: string }
   | {
       readonly tipo: 'ayuda';
       readonly intencion: string;
@@ -190,6 +204,13 @@ export function responderSinConexion(
   }
 
   const palabras = palabrasDe(consulta.texto);
+
+  // Despues del riesgo y antes de la charla (SCRUM-192). Sin lineas y sin conexion: es una frase
+  // fija. Un paquete anterior a esto no trae la seccion y no cuenta nada como ofensivo.
+  if (reglas.ofensivo !== undefined && esLenguajeOfensivo(palabras, reglas.ofensivo)) {
+    return { tipo: 'ofensivo', intencion: 'lenguaje_ofensivo', mensaje: reglas.ofensivo.mensaje };
+  }
+
   const relleno = new Set([...reglas.charla.relleno, ...palabrasDe(consulta.mascota ?? '')]);
   const charla = reconocerCharla(palabras, reglas.charla.reglas, relleno);
 
@@ -294,6 +315,20 @@ function esPais(valor: unknown): boolean {
   return esObjeto(valor) && sonTextos(valor.zonas) && sonLineas(valor.lineas);
 }
 
+/** La seccion ofensiva (SCRUM-192), si viene: completa y bien formada, o el paquete no se usa. */
+function esOfensivo(valor: unknown): boolean {
+  return (
+    esObjeto(valor) &&
+    sonTextos(valor.terminos) &&
+    sonTextos(valor.desahogo) &&
+    typeof valor.umbral === 'number' &&
+    Number.isInteger(valor.umbral) &&
+    valor.umbral > 0 &&
+    esTexto(valor.mensaje) &&
+    esTexto(valor.mensajeAlCerrar)
+  );
+}
+
 /**
  * Si algo que se leyo del servidor o del dispositivo es un paquete de reglas que esta
  * aplicacion sabe aplicar: del esquema que conoce y con todo lo que el motor usa.
@@ -317,6 +352,7 @@ export function esReglasLocales(valor: unknown): valor is ReglasLocales {
     Array.isArray(charla.reglas) &&
     charla.reglas.every(esReglaDeCharla) &&
     sonTextos(charla.relleno) &&
+    (valor.ofensivo === undefined || esOfensivo(valor.ofensivo)) &&
     Array.isArray(valor.intenciones) &&
     valor.intenciones.every(esReglaDeIntencion) &&
     esObjeto(paises) &&

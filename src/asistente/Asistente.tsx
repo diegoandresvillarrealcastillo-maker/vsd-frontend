@@ -39,6 +39,11 @@ import { useReglasLocales } from './useReglasLocales.ts';
  *   lineas nacionales.
  * - Se abre a la vez que la mascota vuela a su esquina. Con
  *   `prefers-reduced-motion`, aparece sin desplazarse.
+ * - **Un insulto no es un castigo, y tres seguidos cierran la conversacion** (SCRUM-192): la
+ *   primera y la segunda vez se responde con asertividad y sin lineas de atencion; a la
+ *   tercera seguida la conversacion se cierra y se dice, y se puede abrir otra al momento.
+ *   Cualquier mensaje que no sea ofensivo reinicia la cuenta, y el riesgo se evalua antes que la
+ *   ofensa, tambien en la conversacion nueva.
  * - **Sin conexion es un asistente mixto** (SCRUM-141): responde un saludo, un
  *   agradecimiento, una despedida, donde buscar ayuda y las lineas de atencion si hay una
  *   senal de riesgo, con lo que el servidor publico y este dispositivo guardo. Lo demas
@@ -85,15 +90,33 @@ export function Asistente({
   const [texto, setTexto] = useState('');
   const reglas = useReglasLocales();
   const enLinea = useEnLinea();
-  const { mensajes, esperando, enviar } = useConversacion(reglas, nombreDeLaMascota);
+  const { mensajes, esperando, cerrada, enviar, empezarDeNuevo } = useConversacion(
+    reglas,
+    nombreDeLaMascota,
+  );
+  const abrirOtra = useRef<HTMLButtonElement>(null);
 
   // Lo ultimo siempre a la vista.
   useEffect(() => {
     final.current?.scrollIntoView({ block: 'end' });
   }, [mensajes, esperando]);
 
+  // Cerrada la conversacion el campo deja de recibir: el foco pasa a lo unico que se puede hacer.
+  useEffect(() => {
+    if (cerrada) {
+      abrirOtra.current?.focus();
+    }
+  }, [cerrada]);
+
+  function abrirUnaNueva() {
+    empezarDeNuevo();
+    setTexto('');
+    // Cuando el campo vuelve a estar activo, el foco vuelve a el.
+    requestAnimationFrame(() => campo.current?.focus());
+  }
+
   function mandar(pregunta: string) {
-    if (pregunta.trim() === '' || esperando) {
+    if (pregunta.trim() === '' || esperando || cerrada) {
       return;
     }
 
@@ -223,8 +246,9 @@ export function Asistente({
               rows={2}
               value={texto}
               maxLength={LARGO_MAXIMO_DE_LA_PREGUNTA}
-              placeholder="Escribe aquí…"
+              placeholder={cerrada ? 'Esta conversación se cerró' : 'Escribe aquí…'}
               autoComplete="off"
+              disabled={cerrada}
               onChange={(evento) => setTexto(evento.target.value)}
               onKeyDown={(evento) => {
                 // Enter envia; Mayus+Enter, salto de linea.
@@ -237,11 +261,24 @@ export function Asistente({
             <button
               type="submit"
               className="asistente__enviar"
-              disabled={esperando || texto.trim() === ''}
+              disabled={esperando || cerrada || texto.trim() === ''}
             >
               Enviar
             </button>
           </form>
+
+          {cerrada && (
+            <div className="asistente__nueva">
+              <button
+                ref={abrirOtra}
+                type="button"
+                className="asistente__reintentar"
+                onClick={abrirUnaNueva}
+              >
+                Abrir una conversación nueva
+              </button>
+            </div>
+          )}
         </motion.div>
       </div>
     </div>
@@ -269,6 +306,14 @@ function ContenidoDelMensaje({
       );
     case 'asistente':
       return <Respuesta respuesta={mensaje.respuesta} sinConexion={mensaje.sinConexion} />;
+    case 'cierre':
+      // Lo pone la ventana, no el servidor: la conversacion se cerro (SCRUM-192).
+      return (
+        <p className="asistente__cierre">
+          <span className="solo-lectores">VSD IA: </span>
+          {mensaje.texto}
+        </p>
+      );
     case 'fallo':
       return (
         <div className="asistente__fallo" role="alert">
