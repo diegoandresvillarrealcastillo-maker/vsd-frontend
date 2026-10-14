@@ -10,6 +10,7 @@ import { MedidorDeContrasena } from '../../componentes/MedidorDeContrasena.tsx';
 import { entorno } from '../../infraestructura/entorno.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { evaluarLaFecha } from '../../sesion/edad.ts';
+import { guardarLaFechaDelRegistro } from '../../sesion/fechaDelRegistro.ts';
 import { mensajeSiNoCumple } from '../../sesion/reglaDeContrasena.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { CamposDelRegistro } from './CamposDelRegistro.tsx';
@@ -119,8 +120,10 @@ export function Registro() {
     setEstado('enviando');
 
     // La fecha no se manda a Supabase: no hace falta para crear la identidad, y
-    // no tiene por que quedar en ningun sitio que no sea nuestra base. Al entrar
-    // por primera vez se vuelve a pedir, y es entonces cuando la API la guarda.
+    // no tiene por que quedar en ningun sitio que no sea nuestra base. Se recuerda
+    // **solo en este dispositivo** (SCRUM-189) para no pedirla otra vez al entrar
+    // por primera vez; es entonces cuando la API la recibe y la guarda. Si el
+    // enlace se abre en otro equipo, alli se pide de nuevo.
     const resultado = await registrarse({
       correo,
       contrasena,
@@ -138,6 +141,7 @@ export function Registro() {
       return;
     }
 
+    guardarLaFechaDelRegistro(correo, fecha);
     setEstado('hecho');
     setEnviado(true);
   }
@@ -154,7 +158,7 @@ export function Registro() {
         // delata). Es la misma regla de Recuperar.tsx (S-08 de la auditoria 360).
         // Quien ya tenia cuenta no se queda esperando un correo que no va a
         // llegar: el pie le deja a un enlace entrar o recuperar la contrasena.
-        entradilla={`Si ${correo} es un correo válido, te enviamos un mensaje para continuar. Ábrelo y pulsa el enlace. Al entrar por primera vez te pediremos confirmar tu fecha de nacimiento y aceptar el aviso y los términos.`}
+        entradilla={`Si ${correo} es un correo válido, te enviamos un mensaje para continuar. Ábrelo y pulsa el enlace. Al entrar por primera vez solo te pediremos aceptar el aviso y los términos. Si abres el enlace en otro equipo, te preguntaremos también tu fecha de nacimiento.`}
         pie={
           <span>
             ¿Ya tenías una cuenta con este correo?{' '}

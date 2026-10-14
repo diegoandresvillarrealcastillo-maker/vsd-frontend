@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { BotonDeEnvio, type EstadoDeEnvio } from '../../componentes/BotonDeEnvio.tsx';
@@ -11,6 +11,10 @@ import {
 } from '../../infraestructura/api/registro.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { evaluarLaFecha } from '../../sesion/edad.ts';
+import {
+  leerLaFechaDelRegistro,
+  olvidarLaFechaDelRegistro,
+} from '../../sesion/fechaDelRegistro.ts';
 import { recordarQueElRegistroEstaCompleto } from '../../sesion/useRegistroCompleto.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { CamposDelRegistro } from './CamposDelRegistro.tsx';
@@ -79,7 +83,14 @@ export function CompletarRegistro() {
   const destino = (ubicacion.state as { volverA?: string } | null)?.volverA ?? RUTAS.PANEL;
 
   const [comprobando, setComprobando] = useState(true);
-  const [fecha, setFecha] = useState('');
+  // La fecha que se escribio al registrarse en este equipo, si es de esta cuenta (SCRUM-189):
+  // no se pide otra vez. `null` en `fechaEscrita` quiere decir que la persona no ha tocado nada.
+  const correo = sesion?.user.email;
+  const delRegistro = useMemo(() => leerLaFechaDelRegistro(correo), [correo]);
+  const [fechaEscrita, setFechaEscrita] = useState<string | null>(null);
+  const fecha = fechaEscrita ?? delRegistro ?? '';
+  const fechaYaDada = delRegistro !== null && fechaEscrita === null;
+  const setFecha = setFechaEscrita;
   const [avisoAceptado, setAvisoAceptado] = useState(false);
   const [terminosAceptados, setTerminosAceptados] = useState(false);
   const [estado, setEstado] = useState<EstadoDeEnvio>('listo');
@@ -122,6 +133,7 @@ export function CompletarRegistro() {
 
   function rechazar() {
     // La fecha se descarta: ya cumplio su funcion y no se guarda en ninguna parte.
+    olvidarLaFechaDelRegistro();
     setFecha('');
     void navegar(RUTAS.SOLO_MAYORES, { replace: true });
     void salir();
@@ -170,10 +182,19 @@ export function CompletarRegistro() {
         return;
       }
 
+      // La API dice que la fecha no sirve: la recordada tampoco, y se deja escribir otra.
+      if (fallo instanceof ErrorDeLaApi && fallo.codigo === 'FECHA_DE_NACIMIENTO_INVALIDA') {
+        olvidarLaFechaDelRegistro();
+        setFecha('');
+      }
+
       setEstado('listo');
       setError(explicar(fallo));
       return;
     }
+
+    // Cumplio su funcion: ya la tiene la API y no hay por que dejarla en el dispositivo.
+    olvidarLaFechaDelRegistro();
 
     if (persona !== null) {
       recordarQueElRegistroEstaCompleto(persona);
@@ -203,7 +224,10 @@ export function CompletarRegistro() {
           type="button"
           className="acceso__enlace acceso__enlace--boton"
           disabled={ocupado}
-          onClick={() => void salir()}
+          onClick={() => {
+            olvidarLaFechaDelRegistro();
+            void salir();
+          }}
         >
           Prefiero no continuar y cerrar la sesión
         </button>
@@ -227,6 +251,13 @@ export function CompletarRegistro() {
           terminosAceptados={terminosAceptados}
           alCambiarLosTerminos={setTerminosAceptados}
           disabled={ocupado}
+          alPedirOtraFecha={
+            fechaYaDada
+              ? () => {
+                  setFechaEscrita('');
+                }
+              : undefined
+          }
         />
 
         <Aparece>

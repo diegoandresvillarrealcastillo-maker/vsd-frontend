@@ -1,0 +1,40 @@
+/* Fungito de abogado (SCRUM-189): el sprite de siempre con el traje y las gafas encima. */
+.fungito-abogado {
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  max-width: 100%;
+  margin-inline: auto;
+  user-select: none;
+}
+
+.fungito-abogado__base,
+.fungito-abogado__traje,
+.fungito-abogado__gafas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.fungito-abogado__base {
+  object-fit: contain;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+/* El traje solo se pinta donde el sprite tiene dibujo: su silueta hace de mascara. */
+.fungito-abogado__traje {
+  -webkit-mask-image: var(--fungito-sprite);
+  mask-image: var(--fungito-sprite);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+.fungito-abogado svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
