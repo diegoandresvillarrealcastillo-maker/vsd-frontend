@@ -14,6 +14,11 @@ interface Props {
   terminosAceptados: boolean;
   alCambiarLosTerminos: (aceptados: boolean) => void;
   disabled?: boolean;
+  /**
+   * La fecha ya se dio al registrarse en este equipo (SCRUM-189): en vez del campo se dice que ya
+   * se tiene y se ofrece usar otra. Sin esto, la fecha se pide como siempre.
+   */
+  alPedirOtraFecha?: (() => void) | undefined;
 }
 
 /** El enlace a un documento: en otra pestana, para no perder lo que se lleva escrito. */
@@ -60,24 +65,42 @@ export function CamposDelRegistro({
   terminosAceptados,
   alCambiarLosTerminos,
   disabled,
+  alPedirOtraFecha,
 }: Props) {
   return (
     <>
       <Aparece>
-        <Campo
-          etiqueta="Fecha de nacimiento"
-          type="date"
-          name="bday"
-          autoComplete="bday"
-          required
-          min={fechaMinimaDelCampo()}
-          max={fechaMaximaDelCampo()}
-          ayuda="VSD Health es solo para personas mayores de 18 años. La usamos únicamente para comprobarlo."
-          error={errorDeLaFecha}
-          value={fecha}
-          disabled={disabled}
-          onChange={(e) => alCambiarLaFecha(e.target.value)}
-        />
+        {alPedirOtraFecha !== undefined ? (
+          <div className="campo">
+            <p className="campo__ayuda">
+              Ya tenemos tu fecha de nacimiento: la que escribiste al crear tu cuenta. La usamos
+              únicamente para comprobar que eres mayor de 18 años.
+            </p>
+            <button
+              type="button"
+              className="acceso__enlace acceso__enlace--boton"
+              disabled={disabled === true}
+              onClick={alPedirOtraFecha}
+            >
+              Usar otra fecha
+            </button>
+          </div>
+        ) : (
+          <Campo
+            etiqueta="Fecha de nacimiento"
+            type="date"
+            name="bday"
+            autoComplete="bday"
+            required
+            min={fechaMinimaDelCampo()}
+            max={fechaMaximaDelCampo()}
+            ayuda="VSD Health es solo para personas mayores de 18 años. La usamos únicamente para comprobarlo."
+            error={errorDeLaFecha}
+            value={fecha}
+            disabled={disabled}
+            onChange={(e) => alCambiarLaFecha(e.target.value)}
+          />
+        )}
       </Aparece>
 
       <Aparece>

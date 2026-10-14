@@ -572,6 +572,37 @@
   text-align: left;
 }
 
+/* Fungito de abogado y lo que dice: en columna en el movil y lado a lado si cabe. */
+.solo-mayores__abogado {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.solo-mayores__globo {
+  position: relative;
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--fondo-sutil);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  color: var(--texto-tenue);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+@media (min-width: 30rem) {
+  .solo-mayores__abogado {
+    flex-direction: row;
+  }
+
+  .solo-mayores__abogado > .fungito-abogado {
+    flex: none;
+    margin-inline: 0;
+  }
+}
+
 .solo-mayores__titulo {
   margin: 0;
   font-size: 1.0625rem;

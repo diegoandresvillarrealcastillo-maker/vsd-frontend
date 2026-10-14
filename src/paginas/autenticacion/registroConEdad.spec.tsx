@@ -6,6 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
+import {
+  guardarLaFechaDelRegistro,
+  leerLaFechaDelRegistro,
+  olvidarLaFechaDelRegistro,
+} from '../../sesion/fechaDelRegistro.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { olvidarElRegistro } from '../../sesion/useRegistroCompleto.ts';
 import { fijarLaZonaDeLaCuenta, olvidarLaZonaDeLaCuenta } from '../../tiempo/zonaHoraria.ts';
@@ -63,6 +68,7 @@ let usuario: ReturnType<typeof userEvent.setup>;
 beforeEach(() => {
   usuario = userEvent.setup({ delay: null });
   olvidarElRegistro();
+  olvidarLaFechaDelRegistro();
   consultarElEstadoDelRegistro.mockResolvedValue({ estado: 'sin-cuenta' });
   completarElRegistro.mockResolvedValue({});
   consultarLosTextosVigentes.mockResolvedValue({ aviso: '2026-09-1', terminos: '2026-10-1' });
@@ -213,7 +219,7 @@ describe('Registro con correo: la edad', () => {
     expect(JSON.stringify(registrarse.mock.calls)).not.toContain(ADULTO);
   });
 
-  it('al terminar avisa de que la fecha se volvera a pedir al entrar', async () => {
+  it('al terminar dice que al entrar no se vuelve a pedir la fecha, y que en otro equipo si', async () => {
     pintarElRegistro(estado({ sesion: null }));
 
     await rellenarElRegistro(ADULTO);
@@ -221,8 +227,50 @@ describe('Registro con correo: la edad', () => {
     await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
     expect(
-      await screen.findByText(/te pediremos confirmar tu fecha de nacimiento/),
+      await screen.findByText(/solo te pediremos aceptar el aviso y los términos/),
     ).toBeInTheDocument();
+    expect(screen.getByText(/otro equipo/)).toBeInTheDocument();
+    expect(screen.queryByText(/te pediremos confirmar tu fecha de nacimiento/)).toBeNull();
+  });
+
+  describe('la fecha queda en este dispositivo para el primer ingreso (SCRUM-189)', () => {
+    it('se recuerda para ese correo, para no pedirla otra vez', async () => {
+      pintarElRegistro(estado({ sesion: null }));
+
+      await rellenarElRegistro(ADULTO);
+      await aceptarTodo();
+      await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+      await screen.findByText(/Revisa tu correo/);
+
+      expect(leerLaFechaDelRegistro('ana@ejemplo.test')).toBe(ADULTO);
+      expect(leerLaFechaDelRegistro('otra@ejemplo.test')).toBeNull();
+    });
+
+    it('si el registro falla, no queda nada', async () => {
+      const registrarse = vi
+        .fn()
+        .mockResolvedValue({ ok: false, mensaje: 'No se pudo crear la cuenta.' });
+      pintarElRegistro(estado({ sesion: null, registrarse }));
+
+      await rellenarElRegistro(ADULTO);
+      await aceptarTodo();
+      await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+      await screen.findByText('No se pudo crear la cuenta.');
+
+      expect(leerLaFechaDelRegistro('ana@ejemplo.test')).toBeNull();
+    });
+
+    it('un menor no deja nada en el dispositivo', async () => {
+      pintarElRegistro(estado({ sesion: null }));
+
+      await rellenarElRegistro(MENOR);
+      await aceptarTodo();
+      await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+      await screen.findByRole('heading', { level: 1, name: /para mayores de 18 años/ });
+
+      expect(leerLaFechaDelRegistro('ana@ejemplo.test')).toBeNull();
+      expect(localStorage.getItem('vsd-h:fecha-del-registro')).toBeNull();
+    });
   });
 });
 
@@ -435,6 +483,162 @@ describe('Completa tu registro', () => {
   });
 });
 
+describe('Completa tu registro: la fecha se pide una sola vez (SCRUM-189)', () => {
+  beforeEach(() => {
+    guardarLaFechaDelRegistro('ana@ejemplo.test', ADULTO);
+  });
+
+  it('si ya la dio al registrarse en este equipo, no se la vuelve a pedir', async () => {
+    pintarCompletar(estado());
+    await formularioListo();
+
+    expect(screen.queryByLabelText('Fecha de nacimiento')).not.toBeInTheDocument();
+    expect(screen.getByText(/Ya tenemos tu fecha de nacimiento/)).toBeInTheDocument();
+    // Las dos casillas siguen siendo de esta pantalla: el consentimiento se da con su version.
+    expect(screen.getByLabelText(/Acepto el aviso de privacidad/)).not.toBeChecked();
+    expect(screen.getByLabelText(/Acepto los términos/)).not.toBeChecked();
+  });
+
+  it('con las dos casillas basta: manda la fecha recordada y sigue', async () => {
+    pintarCompletar(estado());
+    await formularioListo();
+
+    await aceptarTodo();
+    await usuario.click(screen.getByRole('button', { name: 'Continuar' }));
+
+    await waitFor(() => {
+      expect(completarElRegistro).toHaveBeenCalledTimes(1);
+    });
+    expect(completarElRegistro).toHaveBeenCalledWith({
+      fechaNacimiento: ADULTO,
+      textos: { aviso: '2026-09-1', terminos: '2026-10-1' },
+    });
+    expect(await screen.findByText('Panel de prueba')).toBeInTheDocument();
+  });
+
+  it('al terminar, se borra del dispositivo', async () => {
+    pintarCompletar(estado());
+    await formularioListo();
+
+    await aceptarTodo();
+    await usuario.click(screen.getByRole('button', { name: 'Continuar' }));
+    await screen.findByText('Panel de prueba');
+
+    expect(leerLaFechaDelRegistro('ana@ejemplo.test')).toBeNull();
+    expect(localStorage.getItem('vsd-h:fecha-del-registro')).toBeNull();
+  });
+
+  it('el 29 de febrero se trata bien', async () => {
+    guardarLaFechaDelRegistro('ana@ejemplo.test', '2000-02-29');
+    pintarCompletar(estado());
+    await formularioListo();
+
+    await aceptarTodo();
+    await usuario.click(screen.getByRole('button', { name: 'Continuar' }));
+
+    await waitFor(() => {
+      expect(completarElRegistro).toHaveBeenCalledWith(
+        expect.objectContaining({ fechaNacimiento: '2000-02-29' }),
+      );
+    });
+  });
+
+  it('quien la quiere corregir puede escribir otra, y esa es la que se manda', async () => {
+    pintarCompletar(estado());
+    await formularioListo();
+
+    await usuario.click(screen.getByRole('button', { name: /Usar otra fecha/ }));
+
+    expect(screen.getByLabelText('Fecha de nacimiento')).toHaveValue('');
+
+    ponerLaFecha('1990-07-01');
+    await aceptarTodo();
+    await usuario.click(screen.getByRole('button', { name: 'Continuar' }));
+
+    await waitFor(() => {
+      expect(completarElRegistro).toHaveBeenCalledWith(
+        expect.objectContaining({ fechaNacimiento: '1990-07-01' }),
+      );
+    });
+  });
+
+  it('la de otro correo no se usa: se pide, como siempre', async () => {
+    olvidarLaFechaDelRegistro();
+    guardarLaFechaDelRegistro('otra@ejemplo.test', ADULTO);
+    pintarCompletar(estado());
+    await formularioListo();
+
+    expect(screen.getByLabelText('Fecha de nacimiento')).toHaveValue('');
+    expect(screen.queryByText(/Ya tenemos tu fecha de nacimiento/)).not.toBeInTheDocument();
+  });
+
+  it('sin nada guardado (otro equipo, otro navegador) se pide, como siempre', async () => {
+    olvidarLaFechaDelRegistro();
+    pintarCompletar(estado());
+    await formularioListo();
+
+    expect(screen.getByLabelText('Fecha de nacimiento')).toBeInTheDocument();
+  });
+
+  it('si la API rechaza por la edad, se borra y es el rechazo de siempre', async () => {
+    completarElRegistro.mockRejectedValue(
+      new ErrorDeLaApi(403, 'VSD Health es solo para mayores', undefined, 'MENOR_DE_EDAD'),
+    );
+    const salir = vi.fn().mockResolvedValue(undefined);
+    pintarCompletar(estado({ salir }));
+    await formularioListo();
+
+    await aceptarTodo();
+    await usuario.click(screen.getByRole('button', { name: 'Continuar' }));
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: /para mayores de 18 años/ }),
+    ).toBeInTheDocument();
+    expect(salir).toHaveBeenCalledTimes(1);
+    expect(leerLaFechaDelRegistro('ana@ejemplo.test')).toBeNull();
+  });
+
+  it('si la API dice que la fecha no es valida, deja escribir otra y no insiste con la vieja', async () => {
+    completarElRegistro.mockRejectedValueOnce(
+      new ErrorDeLaApi(400, 'x', undefined, 'FECHA_DE_NACIMIENTO_INVALIDA'),
+    );
+    pintarCompletar(estado());
+    await formularioListo();
+
+    await aceptarTodo();
+    await usuario.click(screen.getByRole('button', { name: 'Continuar' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Revisa tu fecha de nacimiento/);
+    expect(screen.getByLabelText('Fecha de nacimiento')).toHaveValue('');
+    expect(leerLaFechaDelRegistro('ana@ejemplo.test')).toBeNull();
+  });
+
+  it('quien elige no continuar tampoco deja su fecha en el dispositivo', async () => {
+    pintarCompletar(estado());
+    await formularioListo();
+
+    await usuario.click(screen.getByRole('button', { name: /Prefiero no continuar/ }));
+
+    expect(leerLaFechaDelRegistro('ana@ejemplo.test')).toBeNull();
+  });
+
+  it('un fallo de red no la borra: se puede volver a intentar', async () => {
+    completarElRegistro.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    pintarCompletar(estado());
+    await formularioListo();
+
+    await aceptarTodo();
+    await usuario.click(screen.getByRole('button', { name: 'Continuar' }));
+    await screen.findByRole('alert');
+
+    expect(leerLaFechaDelRegistro('ana@ejemplo.test')).toBe(ADULTO);
+
+    await usuario.click(screen.getByRole('button', { name: 'Continuar' }));
+
+    expect(await screen.findByText('Panel de prueba')).toBeInTheDocument();
+  });
+});
+
 // ---------------------------------------------------------------------------
 // La pantalla de rechazo
 // ---------------------------------------------------------------------------
@@ -474,6 +678,22 @@ describe('La pantalla de rechazo', () => {
     expect(screen.getByText(/Cuando cumplas 18 años te daremos la bienvenida/)).toBeInTheDocument();
   });
 
+  it('Fungito hace de abogado: lo explica con calidez, de traje y con gafas oscuras', () => {
+    pintarElRechazo();
+
+    expect(screen.getByRole('img', { name: /Fungito.*traje.*gafas oscuras/i })).toBeInTheDocument();
+    // Lo dice Fungito, como una regla y no como un reproche, y no promete ni insinua nada mas.
+    expect(screen.getByText(/Me puse el traje para explicártelo bien/)).toBeInTheDocument();
+    expect(screen.getByText(/es una regla, no un reproche/)).toBeInTheDocument();
+  });
+
+  it('con Fungito sigue sin pistas: la burbuja no dice como saltarse la regla', () => {
+    const { container } = pintarElRechazo();
+
+    expect(container.textContent).not.toMatch(
+      /otra fecha|fecha correcta|si te equivocaste|miente/i,
+    );
+  });
   it('no pide ni muestra nada: sin campos, sin fecha, sin formulario', () => {
     pintarElRechazo();
 
