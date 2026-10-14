@@ -236,6 +236,30 @@ describe('llamarALaApi, cuando la sesion no vale', () => {
       codigo: 'SESION_REQUERIDA',
     });
   });
+
+  describe('cuando la cuenta se dio de baja (SCRUM-190)', () => {
+    it('lo dice, en lugar de pedir que vuelva a entrar: no hay a donde volver', async () => {
+      // Su sesion sigue siendo autentica un rato, pero la cuenta ya no existe (se dio de baja
+      // desde otro dispositivo). Decirle «vuelve a entrar» la mandaria a un acceso que ya no
+      // funciona.
+      cuandoLaApiResponde(respuesta({ codigo: 'CUENTA_INACTIVA', mensaje: 'Ya no existe.' }, 401));
+
+      await expect(llamarALaApi('/api/cuenta')).rejects.toThrow(
+        'Esta cuenta ya no existe. Si quieres volver a usar VSD Health, crea una cuenta nueva.',
+      );
+    });
+
+    it('igual cierra la sesion de este dispositivo y conserva el codigo', async () => {
+      cuandoLaApiResponde(respuesta({ codigo: 'CUENTA_INACTIVA' }, 401));
+
+      await expect(llamarALaApi('/api/cuenta')).rejects.toMatchObject({
+        estado: 401,
+        codigo: 'CUENTA_INACTIVA',
+      });
+
+      expect(signOut).toHaveBeenCalledTimes(1);
+    });
+  });
 });
 
 describe('llamarALaApi, la cabecera de autorizacion', () => {
