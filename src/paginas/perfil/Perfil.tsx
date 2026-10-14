@@ -7,6 +7,7 @@ import { DatosDeHace } from '../../conexion/DatosDeHace.tsx';
 import { PieDeLaApp } from '../../componentes/PieDeLaApp.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/aplicacion.css';
+import { traerElCatalogo } from '../../infraestructura/api/catalogo.ts';
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
 import {
   borrarMiCuenta,
@@ -41,6 +42,7 @@ import { BarraSuperior } from '../panel/Estructura.tsx';
 import { Icono } from '../panel/Icono.tsx';
 import { MODULOS, ORDEN } from '../panel/modulos.ts';
 import { armarLaExportacion } from './exportacion.ts';
+import { generarLaExportacionEnPdf, NOMBRE_DEL_PDF } from './exportacionEnPdf.ts';
 import { CampoDeContrasena } from './CampoDeContrasena.tsx';
 import { Apartado, MensajeDeAviso, SIN_CONEXION, type Aviso } from './piezas.tsx';
 import { TuFoto } from './TuFoto.tsx';
@@ -729,18 +731,52 @@ function Contrasena({ correo }: { correo: string }) {
   );
 }
 
+/** Entrega un archivo al navegador para que lo guarde. */
+function guardarArchivo(archivo: Blob, nombre: string): void {
+  const enlace = document.createElement('a');
+
+  enlace.href = URL.createObjectURL(archivo);
+  enlace.download = nombre;
+  enlace.click();
+  URL.revokeObjectURL(enlace.href);
+}
+
 /**
- * Descarga lo que VSD Health guarda de la persona, en un archivo JSON.
+ * El nombre de cada actividad por su identificador, para el PDF (SCRUM-191).
+ *
+ * Es el catalogo, que es el mismo para todo el mundo. Si no responde, el PDF sale igual con las
+ * actividades sin nombre: faltar un nombre no es motivo para no entregar los datos.
+ */
+async function nombresDeLasActividades(): Promise<ReadonlyMap<string, string>> {
+  try {
+    const catalogo = await traerElCatalogo();
+
+    return new Map(
+      catalogo.flatMap((categoria) =>
+        categoria.actividades.map((actividad) => [actividad.id, actividad.nombre] as const),
+      ),
+    );
+  } catch {
+    return new Map();
+  }
+}
+
+type Formato = 'pdf' | 'json';
+
+/**
+ * Descarga lo que VSD Health guarda de la persona: en un PDF con la marca, que se lee facil
+ * (SCRUM-191), o en un archivo JSON, que es el completo y el que se puede llevar a otro sitio
+ * (D9). Los dos salen de **la misma exportacion**.
  *
  * Incluye lo que este equipo todavia tiene guardado y no ha enviado (SCRUM-142). Exige
  * conexion: lo que guarda el servidor solo lo sabe el servidor.
  */
 function TusDatos() {
-  const [ocupado, setOcupado] = useState(false);
+  const [preparando, setPreparando] = useState<Formato | null>(null);
   const [aviso, setAviso] = useState<Aviso>(null);
 
-  async function descargar() {
-    setOcupado(true);
+  async function descargar(formato: Formato) {
+    setPreparando(formato);
     setAviso(null);
 
     try {
@@ -749,35 +785,53 @@ function TusDatos() {
         await exportarMisDatos(),
         await exportarLoQueNoSeHaEnviado(),
       );
-      const archivo = new Blob([JSON.stringify(datos, null, 2)], { type: 'application/json' });
-      const enlace = document.createElement('a');
 
-      enlace.href = URL.createObjectURL(archivo);
-      enlace.download = 'vsd-health-mis-datos.json';
-      enlace.click();
-      URL.revokeObjectURL(enlace.href);
+      if (formato === 'json') {
+        guardarArchivo(
+          new Blob([JSON.stringify(datos, null, 2)], { type: 'application/json' }),
+          'vsd-health-mis-datos.json',
+        );
+      } else {
+        const pdf = generarLaExportacionEnPdf(datos, {
+          actividades: await nombresDeLasActividades(),
+        });
+
+        guardarArchivo(new Blob([pdf], { type: 'application/pdf' }), NOMBRE_DEL_PDF);
+      }
 
       setAviso({ tipo: 'bien', texto: 'Tus datos se descargaron.' });
     } catch {
       setAviso({ tipo: 'fallo', texto: 'No se pudieron descargar. Inténtalo de nuevo.' });
     } finally {
-      setOcupado(false);
+      setPreparando(null);
     }
   }
+
+  const ocupado = preparando !== null;
 
   return (
     <Apartado
       titulo="Tus datos"
-      ayuda="Descarga en un archivo todo lo que VSD Health guarda de ti: tu cuenta, tus resultados y tu diario. Si este equipo todavía guarda cambios que no se han enviado, también van."
+      ayuda="Descarga todo lo que VSD Health guarda de ti: tu cuenta, tus resultados y tu diario. El PDF se lee fácil; el JSON es el archivo completo, con tu foto y tu mascota, para llevártelo a otro sitio. Si este equipo todavía guarda cambios que no se han enviado, también van."
     >
-      <button
-        type="button"
-        className="app__boton perfil__accion"
-        onClick={() => void descargar()}
-        disabled={ocupado}
-      >
-        {ocupado ? 'Preparando…' : 'Descargar mis datos'}
-      </button>
+      <div className="perfil__acciones">
+        <button
+          type="button"
+          className="app__boton perfil__accion"
+          onClick={() => void descargar('pdf')}
+          disabled={ocupado}
+        >
+          {preparando === 'pdf' ? 'Preparando…' : 'Descargar en PDF'}
+        </button>
+        <button
+          type="button"
+          className="app__boton perfil__accion"
+          onClick={() => void descargar('json')}
+          disabled={ocupado}
+        >
+          {preparando === 'json' ? 'Preparando…' : 'Descargar en JSON'}
+        </button>
+      </div>
       <MensajeDeAviso aviso={aviso} />
     </Apartado>
   );
