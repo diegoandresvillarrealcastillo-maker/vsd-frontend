@@ -8,7 +8,7 @@ import { ErrorDeLaApi } from '../infraestructura/api/clienteHttp.ts';
 import type { ReglasLocales } from '../infraestructura/api/reglasLocales.ts';
 import { fallosDeAccesibilidad } from '../pruebas/axe.ts';
 import { fijarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
-import { Asistente } from './Asistente.tsx';
+import { Asistente, ESPERA_DE_LAS_REGLAS_MS } from './Asistente.tsx';
 import contratoJson from './contrato/reglas-locales.json';
 import { ESPERA_MAXIMA_MS } from './useConversacion.ts';
 
@@ -63,7 +63,7 @@ const CON_RIESGO: RespuestaDelAsistente = {
 
 const usuario = userEvent.setup({ delay: null });
 
-function pintar() {
+function pintar(preguntaInicial?: string) {
   const alCerrar = vi.fn();
 
   render(
@@ -72,6 +72,7 @@ function pintar() {
       ladoDeLaMascota={72}
       nombreDeLaMascota="Chispita"
       alCerrar={alCerrar}
+      {...(preguntaInicial === undefined ? {} : { preguntaInicial })}
     />,
   );
 
@@ -232,7 +233,7 @@ describe('VSD IA, el lenguaje ofensivo (SCRUM-192)', () => {
     ).toBeInTheDocument();
   });
 
-  it('el cierre no acusa y apunta a Recursos, sin lineas de atencion', async () => {
+  it('el cierre no acusa y dice como pedir ayuda, sin lineas de atencion', async () => {
     pintar();
 
     await insultar(3);
@@ -240,7 +241,9 @@ describe('VSD IA, el lenguaje ofensivo (SCRUM-192)', () => {
     const cierre = await screen.findByText(/Voy a cerrar esta conversación por ahora/);
 
     expect(cierre.textContent).toMatch(/aquí voy a estar/);
-    expect(cierre.textContent).toMatch(/Recursos/);
+    // Dice como pedir donde buscar ayuda: no manda a una pantalla que no existe (SCRUM-194).
+    expect(cierre.textContent).toMatch(/¿Dónde busco ayuda?/);
+    expect(cierre.textContent).not.toMatch(/Recursos/);
     expect(cierre.textContent).not.toMatch(/grosero|castigo|bloque|inaceptable/i);
     expect(screen.queryByText(/Línea d/)).not.toBeInTheDocument();
   });
@@ -1006,6 +1009,100 @@ describe('sin conexion: un asistente mixto (SCRUM-141)', () => {
       });
 
       expect(screen.getByRole('alert')).toHaveTextContent('tardando más de la cuenta');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('VSD IA abierto con una pregunta ya hecha (SCRUM-194)', () => {
+  const PREGUNTA = '¿Dónde busco ayuda?';
+  const RESPUESTA: RespuestaDelAsistente = {
+    intencion: 'donde_busco_ayuda',
+    mensaje: 'Si necesitas hablar con alguien, estas líneas te atienden.',
+    recursos: [],
+    senalDeRiesgo: false,
+    incluyeLineasDeAtencion: false,
+  };
+
+  const conversacion = () => screen.getByRole('log', { name: 'Conversación' });
+
+  it('con conexion, la hace al abrirse y se ve como cualquier pregunta', async () => {
+    preguntarAlAsistente.mockResolvedValue(RESPUESTA);
+
+    pintar(PREGUNTA);
+
+    expect(await screen.findByText(RESPUESTA.mensaje)).toBeInTheDocument();
+    expect(preguntarAlAsistente).toHaveBeenCalledTimes(1);
+    expect(preguntarAlAsistente).toHaveBeenCalledWith(PREGUNTA, expect.any(AbortSignal));
+    expect(within(conversacion()).getByText(PREGUNTA)).toBeInTheDocument();
+  });
+
+  it('sin pregunta inicial, no pregunta nada', async () => {
+    pintar();
+
+    await act(async () => {
+      await new Promise((resolver) => setTimeout(resolver, 30));
+    });
+
+    expect(preguntarAlAsistente).not.toHaveBeenCalled();
+  });
+
+  it('la hace una sola vez, aunque las reglas lleguen despues', async () => {
+    let entregar: (lectura: unknown) => void = () => undefined;
+
+    leerLasReglasLocalesConCopia.mockReturnValue(
+      new Promise((resolver) => {
+        entregar = resolver;
+      }),
+    );
+    preguntarAlAsistente.mockResolvedValue(RESPUESTA);
+
+    pintar(PREGUNTA);
+    await screen.findByText(RESPUESTA.mensaje);
+
+    await act(async () => {
+      entregar({ valor: REGLAS, deLaCopia: false, guardadoEn: '2026-10-08T10:00:00.000Z' });
+      await new Promise((resolver) => setTimeout(resolver, 30));
+    });
+
+    expect(preguntarAlAsistente).toHaveBeenCalledTimes(1);
+  });
+
+  it('sin conexion y con las reglas guardadas, espera a que lleguen y responde con ellas', async () => {
+    fijarLaZonaDeLaCuenta('America/Bogota');
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    leerLasReglasLocalesConCopia.mockResolvedValue({
+      valor: REGLAS,
+      deLaCopia: true,
+      guardadoEn: '2026-10-08T10:00:00.000Z',
+    });
+
+    pintar(PREGUNTA);
+
+    expect(await screen.findByText('Respondido sin conexión')).toBeInTheDocument();
+    expect(preguntarAlAsistente).not.toHaveBeenCalled();
+    // Lo que responde el dispositivo para donde buscar ayuda: las lineas del pais.
+    expect(conversacion()).toHaveTextContent(/Línea 192/);
+  });
+
+  it('sin conexion y sin reglas, no se queda callada: tras una espera corta lo intenta igual', async () => {
+    vi.useFakeTimers();
+
+    try {
+      vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+      leerLasReglasLocalesConCopia.mockReturnValue(new Promise(() => undefined));
+
+      pintar(PREGUNTA);
+
+      expect(within(conversacion()).queryByText(PREGUNTA)).not.toBeInTheDocument();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(ESPERA_DE_LAS_REGLAS_MS);
+      });
+
+      expect(within(conversacion()).getByText(PREGUNTA)).toBeInTheDocument();
+      expect(preguntarAlAsistente).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }

@@ -44,6 +44,11 @@ import { useReglasLocales } from './useReglasLocales.ts';
  *   tercera seguida la conversacion se cierra y se dice, y se puede abrir otra al momento.
  *   Cualquier mensaje que no sea ofensivo reinicia la cuenta, y el riesgo se evalua antes que la
  *   ofensa, tambien en la conversacion nueva.
+ * - **Se puede abrir con una pregunta ya hecha** (SCRUM-194): la invitacion del diario lleva
+ *   a «¿Dónde busco ayuda?» sin que la persona tenga que escribir nada. Se ve como cualquier
+ *   pregunta, y se hace **una sola vez**. Sin conexion espera un instante a las reglas del
+ *   dispositivo (llegan de la copia guardada) para responder con ellas, y si no llegan lo
+ *   intenta igual: nunca se queda callada.
  * - **Sin conexion es un asistente mixto** (SCRUM-141): responde un saludo, un
  *   agradecimiento, una despedida, donde buscar ayuda y las lineas de atencion si hay una
  *   senal de riesgo, con lo que el servidor publico y este dispositivo guardo. Lo demas
@@ -70,16 +75,22 @@ const TEXTO_DEL_FALLO: Readonly<Record<MotivoDelFallo, string>> = {
 const AVISO_SIN_CONEXION =
   'Sin conexión. Puedo saludarte y decirte dónde buscar ayuda; lo demás lo respondo cuando vuelvas a tener conexión.';
 
+/** Cuanto se espera a las reglas del dispositivo, sin conexion, antes de hacer la pregunta inicial. */
+export const ESPERA_DE_LAS_REGLAS_MS = 1_500;
+
 export function Asistente({
   marco,
   ladoDeLaMascota,
   nombreDeLaMascota,
   alCerrar,
+  preguntaInicial,
 }: {
   marco: Marco;
   ladoDeLaMascota: number;
   nombreDeLaMascota: string;
   alCerrar: () => void;
+  /** Una pregunta que se hace al abrirse, como si la persona la hubiera tocado (SCRUM-194). */
+  preguntaInicial?: string;
 }) {
   const sinMovimiento = useReducedMotion() ?? false;
   const campo = useRef<HTMLTextAreaElement>(null);
@@ -95,6 +106,35 @@ export function Asistente({
     nombreDeLaMascota,
   );
   const abrirOtra = useRef<HTMLButtonElement>(null);
+  const yaPreguntada = useRef(false);
+
+  // La pregunta con la que se abrio, **una sola vez**. Con conexion sale de inmediato; sin ella
+  // espera a que lleguen las reglas del dispositivo (la copia guardada, que se lee de forma
+  // asincrona) para responder con ellas, y si no llegan en un instante, lo intenta igual.
+  useEffect(() => {
+    if (preguntaInicial === undefined || yaPreguntada.current) {
+      return undefined;
+    }
+
+    function preguntar() {
+      if (preguntaInicial !== undefined && !yaPreguntada.current) {
+        yaPreguntada.current = true;
+        void enviar(preguntaInicial);
+      }
+    }
+
+    if (enLinea || reglas !== null) {
+      preguntar();
+
+      return undefined;
+    }
+
+    const espera = setTimeout(preguntar, ESPERA_DE_LAS_REGLAS_MS);
+
+    return () => {
+      clearTimeout(espera);
+    };
+  }, [preguntaInicial, enLinea, reglas, enviar]);
 
   // Lo ultimo siempre a la vista.
   useEffect(() => {

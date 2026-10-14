@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Mascota } from '../infraestructura/api/cuenta.ts';
@@ -549,6 +550,114 @@ describe('MascotaFlotante', () => {
 
       expect(screen.getByRole('log')).not.toHaveTextContent('algo mío');
     });
+  });
+});
+
+describe('MascotaFlotante: una invitacion de la pantalla (SCRUM-194)', () => {
+  const alResponder = vi.fn();
+  const INVITACION = {
+    texto: 'Gracias por escribirlo. Lo que sientes importa.',
+    aceptar: 'Sí, ver opciones',
+    rechazar: 'Ahora no',
+    pregunta: '¿Dónde busco ayuda?',
+    alResponder,
+  };
+
+  beforeEach(() => {
+    alResponder.mockClear();
+  });
+
+  /** Una pantalla que ofrece la invitacion y la quita cuando se responde, como hace el diario. */
+  function Pantalla() {
+    const [abierta, setAbierta] = useState(true);
+
+    return (
+      <MascotaFlotante
+        mascota={SPARKY}
+        {...(abierta
+          ? {
+              invitacion: {
+                ...INVITACION,
+                alResponder: () => {
+                  alResponder();
+                  setAbierta(false);
+                },
+              },
+            }
+          : {})}
+      />
+    );
+  }
+
+  function invitacion(): HTMLElement {
+    return screen.getByRole('group', { name: 'Un mensaje de Chispita' });
+  }
+
+  it('la dice sin que nadie toque a la mascota, y la anuncia sin interrumpir', () => {
+    render(<MascotaFlotante mascota={SPARKY} invitacion={INVITACION} />);
+
+    expect(invitacion()).toHaveTextContent(INVITACION.texto);
+    expect(document.querySelector('[aria-live="polite"]')).toHaveTextContent(
+      `Chispita: ${INVITACION.texto}`,
+    );
+  });
+
+  it('no se va sola: una frase dura 8 segundos y esto no es una frase', () => {
+    render(<MascotaFlotante mascota={SPARKY} invitacion={INVITACION} />);
+
+    adelantar(60_000);
+
+    expect(invitacion()).toBeInTheDocument();
+  });
+
+  it('aceptarla abre VSD IA con la pregunta ya hecha, y avisa a la pantalla', () => {
+    render(<Pantalla />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sí, ver opciones' }));
+
+    expect(screen.getByRole('dialog', { name: 'VSD IA' })).toBeInTheDocument();
+    expect(screen.getByRole('log', { name: 'Conversación' })).toHaveTextContent(
+      '¿Dónde busco ayuda?',
+    );
+    expect(alResponder).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('group', { name: 'Un mensaje de Chispita' })).not.toBeInTheDocument();
+  });
+
+  it('rechazarla la quita, avisa a la pantalla y deja el foco en la mascota', () => {
+    render(<Pantalla />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ahora no' }));
+
+    expect(alResponder).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('group', { name: 'Un mensaje de Chispita' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(mascota()).toHaveFocus();
+  });
+
+  it('la x la rechaza igual', () => {
+    render(<Pantalla />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar el mensaje' }));
+
+    expect(alResponder).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('group', { name: 'Un mensaje de Chispita' })).not.toBeInTheDocument();
+  });
+
+  it('tocar a la mascota no la tapa con una frase', () => {
+    render(<MascotaFlotante mascota={SPARKY} invitacion={INVITACION} />);
+
+    fireEvent.click(mascota());
+
+    expect(invitacion()).toBeInTheDocument();
+    // El unico globo es el de la invitacion: ninguna frase del banco se le suma.
+    expect(document.querySelectorAll('.mascota__globo')).toHaveLength(1);
+  });
+
+  it('no tiene fallos de accesibilidad', async () => {
+    vi.useRealTimers();
+    render(<MascotaFlotante mascota={SPARKY} invitacion={INVITACION} />);
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
   });
 });
 

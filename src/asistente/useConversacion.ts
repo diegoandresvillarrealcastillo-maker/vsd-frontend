@@ -54,7 +54,7 @@ const UMBRAL_POR_OMISION = 3;
 
 /** Lo que se dice al cerrar, si el servidor no publico otra cosa (nunca se abrio con conexion). */
 const CIERRE_POR_OMISION =
-  'Voy a cerrar esta conversación por ahora. Puedes abrir una nueva cuando quieras: aquí voy a estar. Y si quieres hablar con alguien, en Recursos encuentras dónde.';
+  'Voy a cerrar esta conversación por ahora. Puedes abrir una nueva cuando quieras: aquí voy a estar. Y si quieres hablar con alguien, pregúntame «¿Dónde busco ayuda?» en la conversación nueva.';
 
 const INTENCION_OFENSIVA = 'lenguaje_ofensivo';
 

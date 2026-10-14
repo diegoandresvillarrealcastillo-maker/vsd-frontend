@@ -621,6 +621,7 @@ describe('construirAviso: uno por tanda, no uno por cambio', () => {
         pedirEntrar: false,
         sugiereAcompanamiento: false,
         lineasDeAtencion: [],
+        ofreceAyuda: false,
         orientaciones: [],
         copias: 0,
       });
@@ -1117,6 +1118,81 @@ describe('construirAviso: uno por tanda, no uno por cambio', () => {
 
       expect(a?.tono).toBe('atencion');
       expect(a?.sugiereAcompanamiento).toBe(true);
+    });
+
+    describe('el diario no manda lineas: ofrece ayuda (SCRUM-194)', () => {
+      const delDiario = (
+        tipo: 'diario.escribir' | 'diario.editar',
+        sugiere: boolean,
+        lineas?: unknown,
+      ) => ({
+        operationId: 'd',
+        tipo,
+        recibo: {
+          id: 'anotacion',
+          sugiereAcompanamiento: sugiere,
+          ...(lineas === undefined ? {} : { lineasDeAtencion: lineas }),
+        },
+      });
+
+      it('una anotacion que sugiere acompanar ofrece ayuda y no trae lineas', () => {
+        const a = aviso(
+          resultado('terminada', { enviadas: 1, recibos: [delDiario('diario.escribir', true)] }),
+          'conexion',
+          true,
+        );
+
+        expect(a?.sugiereAcompanamiento).toBe(false);
+        expect(a?.lineasDeAtencion).toEqual([]);
+        expect(a?.ofreceAyuda).toBe(true);
+      });
+
+      it('si un servidor anterior todavia manda las lineas del diario, no se ensenan', () => {
+        const a = aviso(
+          resultado('terminada', {
+            enviadas: 1,
+            recibos: [delDiario('diario.escribir', true, [linea('1')])],
+          }),
+          'conexion',
+        );
+
+        expect(a?.lineasDeAtencion).toEqual([]);
+        expect(a?.sugiereAcompanamiento).toBe(false);
+        expect(a?.ofreceAyuda).toBe(true);
+      });
+
+      it('una correccion del diario tambien', () => {
+        const a = aviso(
+          resultado('terminada', { enviadas: 1, recibos: [delDiario('diario.editar', true)] }),
+          'conexion',
+        );
+
+        expect(a?.ofreceAyuda).toBe(true);
+        expect(a?.sugiereAcompanamiento).toBe(false);
+      });
+
+      it('una anotacion sin sugerencia no ofrece nada', () => {
+        const a = aviso(
+          resultado('terminada', { enviadas: 1, recibos: [delDiario('diario.escribir', false)] }),
+          'conexion',
+        );
+
+        expect(a?.ofreceAyuda).toBe(false);
+      });
+
+      it('un resultado sigue trayendo sus lineas, y el diario ofrece ayuda aparte', () => {
+        const a = aviso(
+          resultado('terminada', {
+            enviadas: 2,
+            recibos: [recibo(true, [linea('1')]), delDiario('diario.escribir', true)],
+          }),
+          'conexion',
+        );
+
+        expect(a?.sugiereAcompanamiento).toBe(true);
+        expect(a?.lineasDeAtencion.map((l) => l.id)).toEqual(['1']);
+        expect(a?.ofreceAyuda).toBe(true);
+      });
     });
   });
 });

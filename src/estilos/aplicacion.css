@@ -2323,6 +2323,36 @@
   cursor: pointer;
 }
 
+/* Una invitacion de la pantalla (SCRUM-194): no se va sola y deja elegir sin culpa. Los dos
+   botones caben en una fila; en un telefono estrecho pasan a dos. */
+.mascota__globo--invitacion {
+  width: min(320px, calc(100vw - 24px));
+}
+
+.mascota__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.mascota__acciones .mascota__hablar {
+  margin-top: 0;
+}
+
+.mascota__rechazar {
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--app-tinta);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 /* Con VSD IA abierto (SCRUM-100) se posa en la esquina del asistente, por
    encima de su velo (z-index 60), y es solo un dibujo: no recibe toques. */
 .mascota--con-asistente {
