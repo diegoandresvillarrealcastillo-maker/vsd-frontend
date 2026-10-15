@@ -1188,6 +1188,9 @@
 
 .viva-tarjeta {
   display: grid;
+  /* `minmax(0, 1fr)` y no `auto`: con `auto` un hijo no puede ser mas angosto que su contenido
+     y un campo de hora de iOS se sale de la tarjeta (SCRUM-199). */
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   padding: 18px;
   border: 2px solid var(--borde);
