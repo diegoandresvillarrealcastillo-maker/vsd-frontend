@@ -229,6 +229,23 @@
   box-sizing: border-box;
 }
 
+/* Los campos nativos de fecha y hora en iPhone (SCRUM-199).
+   iOS Safari pinta su propio control y no respeta bien el ancho dentro de una rejilla: la caja
+   de la hora sobresalia de su tarjeta ~36 px aunque ya tenia `width: 100%` y `border-box`. Solo
+   en iOS (`-webkit-touch-callout` no existe en escritorio ni en Android) el campo deja de ser
+   el control nativo, puede encogerse y no pasa de su contenedor; el selector de fecha y hora
+   se abre igual al tocarlo. `:where` le quita peso al selector para que sigan mandando el
+   ancho y el alto de cada campo (`.perfil__hora`, `.viva-hora`...). */
+@supports (-webkit-touch-callout: none) {
+  :where(input[type='date'], input[type='time']) {
+    min-width: 0;
+    max-width: 100%;
+    min-height: 2.5rem;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+}
+
 html,
 body,
 #raiz {
