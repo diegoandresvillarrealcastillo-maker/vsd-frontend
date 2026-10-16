@@ -43,6 +43,7 @@ function Dibujo({ nivel, enDescanso }: { nivel: NivelDeLaLlama; enDescanso: bool
       <defs>
         <linearGradient id={degradado} x1="0" y1="1" x2="0" y2="0">
           <stop offset="0" style={{ stopColor: 'var(--llama-base)' }} />
+          <stop offset="0.55" style={{ stopColor: 'var(--llama-media)' }} />
           <stop offset="1" style={{ stopColor: 'var(--llama-punta)' }} />
         </linearGradient>
       </defs>
