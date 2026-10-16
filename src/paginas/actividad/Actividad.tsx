@@ -231,6 +231,12 @@ function Terminada({
   const celebrar =
     !resultado.sugiereAcompanamiento && resultado.nivelOrientativo !== 'requiere_atencion';
 
+  // Un solo resultado que requiere atencion se registra, pero no es una semana dificil
+  // (SCRUM-200): el servidor no sugiere acompanar y el texto es neutro, sin el color de la
+  // atencion. El borde de color solo acompana a lo que el servidor decidio acompanar.
+  const aislado =
+    resultado.nivelOrientativo === 'requiere_atencion' && !resultado.sugiereAcompanamiento;
+
   return (
     <>
       <LogroDeLaActividad celebrar={celebrar} />
@@ -242,8 +248,14 @@ function Terminada({
         </p>
       ) : (
         <>
-          <p className={`actividad__nivel actividad__nivel--${resultado.nivelOrientativo}`}>
-            {textoDelNivel(resultado.nivelOrientativo)}
+          <p
+            className={
+              aislado
+                ? 'actividad__nivel'
+                : `actividad__nivel actividad__nivel--${resultado.nivelOrientativo}`
+            }
+          >
+            {textoDelNivel(resultado.nivelOrientativo, resultado.sugiereAcompanamiento)}
           </p>
 
           {/* Bajo cada nivel, siempre la misma linea: un resultado se lee sin la

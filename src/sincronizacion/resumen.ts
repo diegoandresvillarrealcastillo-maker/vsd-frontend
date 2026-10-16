@@ -301,6 +301,12 @@ const NIVELES_ORIENTATIVOS: ReadonlySet<unknown> = new Set<NivelOrientativo>([
 export interface OrientacionDelAviso {
   readonly activityId: string;
   readonly nivelOrientativo: NivelOrientativo;
+  /**
+   * Si el servidor sugirio acompanar **este** resultado (SCRUM-200): un patron de la semana o una
+   * senal en lo escrito. Un nivel que requiere atencion sin esto es un resultado aislado y se
+   * lee neutro. Un servidor anterior no manda el campo: nunca se supone que si.
+   */
+  readonly sugiereAcompanamiento: boolean;
 }
 
 /**
@@ -384,6 +390,7 @@ function orientacionesDe(recibos: readonly ReciboDeEnvio[]): readonly Orientacio
       orientaciones.push({
         activityId: recibo.activityId,
         nivelOrientativo: recibo.nivelOrientativo as NivelOrientativo,
+        sugiereAcompanamiento: recibo.sugiereAcompanamiento === true,
       });
     }
   }

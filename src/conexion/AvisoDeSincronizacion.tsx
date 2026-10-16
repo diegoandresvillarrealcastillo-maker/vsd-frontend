@@ -45,7 +45,7 @@ function Orientacion({ orientacion }: { orientacion: OrientacionDelAviso }) {
   return (
     <li>
       <strong>Tu resultado de «{nombre ?? 'una actividad'}»:</strong>{' '}
-      {textoDelNivel(orientacion.nivelOrientativo)}
+      {textoDelNivel(orientacion.nivelOrientativo, orientacion.sugiereAcompanamiento)}
     </li>
   );
 }
