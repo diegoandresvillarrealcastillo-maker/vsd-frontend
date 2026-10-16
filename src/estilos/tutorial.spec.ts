@@ -49,3 +49,32 @@ describe('El tutorial de Fungito', () => {
     expect(CSS.match(/#[0-9a-f]{3,8}\b/gi) ?? []).toEqual([]);
   });
 });
+
+describe('El spotlight del tutorial (SCRUM-201)', () => {
+  it('el hueco es solo un dibujo: no recibe el puntero, que lo atrapa el fondo', () => {
+    expect(regla('.tutorial__hueco')).toMatch(/pointer-events:\s*none/);
+  });
+
+  it('el hueco atenua todo lo demas con su propia sombra, y el fondo deja de oscurecer', () => {
+    expect(regla('.tutorial__hueco')).toMatch(/box-shadow:\s*0 0 0 100vmax/);
+    expect(regla('.tutorial--spotlight')).toMatch(/background:\s*transparent/);
+  });
+
+  it('con movimiento reducido el hueco no se desliza', () => {
+    // Hay un bloque por cada parte del tutorial; el del hueco va despues de su regla, para ganar.
+    const bloques = [
+      ...CSS.matchAll(/@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*?)\n\}/g),
+    ].map((encontrado) => encontrado[1] ?? '');
+    const delHueco = bloques.find((bloque) => bloque.includes('.tutorial__hueco'));
+
+    expect(delHueco, 'ningun bloque de movimiento reducido apaga el hueco').toBeDefined();
+    expect(delHueco).toMatch(/transition:\s*none/);
+    // La regla del hueco va antes que el bloque que la apaga: a igual peso, gana la ultima.
+    expect(CSS.indexOf('.tutorial__hueco {')).toBeLessThan(CSS.indexOf(delHueco ?? ''));
+  });
+
+  it('la caja va arriba o abajo, sin dejar de respetar la zona segura', () => {
+    expect(regla('.tutorial--arriba')).toMatch(/place-items:\s*start center/);
+    expect(regla('.tutorial--abajo')).toMatch(/place-items:\s*end center/);
+  });
+});

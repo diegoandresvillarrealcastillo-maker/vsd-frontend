@@ -173,3 +173,56 @@
     transform: none;
   }
 }
+
+/* ============================================================
+   El spotlight (SCRUM-201)
+
+   Cuando el paso senala un elemento, el hueco lo ilumina y su
+   propia sombra atenua todo lo demas: el fondo deja de oscurecer.
+   La caja de Fungito va arriba o abajo, donde hay mas sitio.
+   El hueco es solo un dibujo: el puntero lo atrapa el fondo.
+   ============================================================ */
+
+.tutorial--spotlight {
+  background: transparent;
+}
+
+.tutorial--arriba {
+  place-items: start center;
+}
+
+.tutorial--abajo {
+  place-items: end center;
+}
+
+.tutorial__hueco {
+  position: fixed;
+  border-radius: 1rem;
+  box-shadow:
+    0 0 0 100vmax rgb(0 0 0 / 0.55),
+    0 0 0 3px var(--app-primario);
+  pointer-events: none;
+  transition:
+    left 0.28s ease,
+    top 0.28s ease,
+    width 0.28s ease,
+    height 0.28s ease;
+}
+
+/* Con el elemento a la vista, la caja es mas compacta: deja ver lo que senala. */
+.tutorial--spotlight .tutorial__caja {
+  width: min(24rem, 100%);
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+}
+
+.tutorial--spotlight .tutorial__fungito {
+  width: 4.5rem;
+  height: 4.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tutorial__hueco {
+    transition: none;
+  }
+}
