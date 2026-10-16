@@ -54,6 +54,27 @@ describe('LlamaDeRacha', () => {
       ).toBeInTheDocument();
     });
 
+    it('el degradado tiene tres paradas, para que el nivel de 3 meses tenga un color de en medio (SCRUM-202)', () => {
+      const { container } = render(<LlamaDeRacha racha={racha({ nivel: 3, dias: 90 })} />);
+      const paradas = [...container.querySelectorAll('linearGradient stop')];
+
+      expect(paradas).toHaveLength(3);
+      expect(paradas.map((parada) => parada.getAttribute('style'))).toEqual([
+        expect.stringContaining('--llama-base'),
+        expect.stringContaining('--llama-media'),
+        expect.stringContaining('--llama-punta'),
+      ]);
+    });
+
+    it('el dibujo de cada nivel sigue siendo decorativo y la llama en descanso no lleva degradado', () => {
+      const { container } = render(
+        <LlamaDeRacha racha={racha({ dias: 0, nivel: 0, hechoHoy: false, enDescanso: true })} />,
+      );
+
+      expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+      expect(container.querySelector('.llama__cuerpo')).toHaveAttribute('fill', 'none');
+    });
+
     it('un dia se dice en singular', () => {
       render(<LlamaDeRacha racha={racha({ dias: 1, nivel: 0 })} />);
 

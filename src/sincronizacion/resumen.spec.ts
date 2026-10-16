@@ -896,7 +896,37 @@ describe('construirAviso: uno por tanda, no uno por cambio', () => {
         true,
       );
 
-      expect(a?.orientaciones).toEqual([{ activityId: 'a1', nivelOrientativo: 'favorable' }]);
+      expect(a?.orientaciones).toEqual([
+        { activityId: 'a1', nivelOrientativo: 'favorable', sugiereAcompanamiento: false },
+      ]);
+    });
+
+    it('cada orientacion lleva si el servidor sugirio acompanar ESE resultado (SCRUM-200)', () => {
+      const a = aviso(
+        resultado('terminada', {
+          enviadas: 3,
+          recibos: [
+            // Un solo resultado bajo: se registra y no se acompana.
+            resultadoCon({
+              activityId: 'a1',
+              nivelOrientativo: 'requiere_atencion',
+              sugiereAcompanamiento: false,
+            }),
+            // Con patron de la semana: el servidor si sugiere.
+            resultadoCon({
+              activityId: 'a2',
+              nivelOrientativo: 'requiere_atencion',
+              sugiereAcompanamiento: true,
+            }),
+            // Un servidor anterior no manda el campo: nunca se supone que si.
+            resultadoCon({ activityId: 'a3', nivelOrientativo: 'requiere_atencion' }),
+          ],
+        }),
+        'conexion',
+        true,
+      );
+
+      expect(a?.orientaciones.map((o) => o.sugiereAcompanamiento)).toEqual([false, true, false]);
     });
 
     it('los tres niveles', () => {
@@ -993,6 +1023,7 @@ describe('construirAviso: uno por tanda, no uno por cambio', () => {
       expect(Object.keys(a?.orientaciones[0] ?? {}).sort()).toEqual([
         'activityId',
         'nivelOrientativo',
+        'sugiereAcompanamiento',
       ]);
     });
 

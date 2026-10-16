@@ -43,6 +43,7 @@ function Dibujo({ nivel, enDescanso }: { nivel: NivelDeLaLlama; enDescanso: bool
       <defs>
         <linearGradient id={degradado} x1="0" y1="1" x2="0" y2="0">
           <stop offset="0" style={{ stopColor: 'var(--llama-base)' }} />
+          <stop offset="0.55" style={{ stopColor: 'var(--llama-media)' }} />
           <stop offset="1" style={{ stopColor: 'var(--llama-punta)' }} />
         </linearGradient>
       </defs>
@@ -132,7 +133,7 @@ export function LlamaDeRacha({ racha }: { racha: Racha }) {
     : `Tu racha: ${diasSeguidos(racha.dias)}`;
 
   return (
-    <div className="llama" ref={contenedor}>
+    <div className="llama" ref={contenedor} data-tutorial="llama">
       <button
         ref={boton}
         type="button"

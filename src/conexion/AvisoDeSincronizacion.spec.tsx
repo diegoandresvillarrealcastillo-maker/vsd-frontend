@@ -271,7 +271,9 @@ describe('AvisoDeSincronizacion: la orientacion al sincronizar (SCRUM-138)', () 
   it('un resultado hecho sin conexion se ensena con el nombre de la actividad y su nivel', async () => {
     vi.mocked(nombreDeLaActividad).mockResolvedValue('Cómo dormiste anoche');
     mundo.aviso = aviso({
-      orientaciones: [{ activityId: 'a1', nivelOrientativo: 'favorable' }],
+      orientaciones: [
+        { activityId: 'a1', nivelOrientativo: 'favorable', sugiereAcompanamiento: false },
+      ],
     });
     pintar();
 
@@ -283,9 +285,10 @@ describe('AvisoDeSincronizacion: la orientacion al sincronizar (SCRUM-138)', () 
   it('con el mismo texto que la pantalla de la actividad, en sus tres niveles', async () => {
     mundo.aviso = aviso({
       orientaciones: [
-        { activityId: 'a1', nivelOrientativo: 'favorable' },
-        { activityId: 'a2', nivelOrientativo: 'en_seguimiento' },
-        { activityId: 'a3', nivelOrientativo: 'requiere_atencion' },
+        { activityId: 'a1', nivelOrientativo: 'favorable', sugiereAcompanamiento: false },
+        { activityId: 'a2', nivelOrientativo: 'en_seguimiento', sugiereAcompanamiento: false },
+        // Con patron: el servidor sugiere acompanar y el texto es el de atencion.
+        { activityId: 'a3', nivelOrientativo: 'requiere_atencion', sugiereAcompanamiento: true },
       ],
     });
     pintar();
@@ -296,9 +299,24 @@ describe('AvisoDeSincronizacion: la orientacion al sincronizar (SCRUM-138)', () 
     expect(screen.getByText(/Conviene prestarle atención estos días\./)).toBeInTheDocument();
   });
 
+  it('un resultado que requiere atencion sin patron se ensena neutro, como en la pantalla (SCRUM-200)', async () => {
+    mundo.aviso = aviso({
+      orientaciones: [
+        { activityId: 'a3', nivelOrientativo: 'requiere_atencion', sugiereAcompanamiento: false },
+      ],
+    });
+    pintar();
+    await screen.findAllByText(/Tu resultado de/);
+
+    expect(screen.getByText(/Quedó registrado\. Un día es solo un día\./)).toBeInTheDocument();
+    expect(screen.queryByText(/Conviene prestarle atención/)).not.toBeInTheDocument();
+  });
+
   it('si no se sabe como se llama, dice "una actividad" y no inventa nada', async () => {
     mundo.aviso = aviso({
-      orientaciones: [{ activityId: 'a1', nivelOrientativo: 'favorable' }],
+      orientaciones: [
+        { activityId: 'a1', nivelOrientativo: 'favorable', sugiereAcompanamiento: false },
+      ],
     });
     pintar();
 
@@ -314,7 +332,9 @@ describe('AvisoDeSincronizacion: la orientacion al sincronizar (SCRUM-138)', () 
       }),
     );
     mundo.aviso = aviso({
-      orientaciones: [{ activityId: 'a1', nivelOrientativo: 'favorable' }],
+      orientaciones: [
+        { activityId: 'a1', nivelOrientativo: 'favorable', sugiereAcompanamiento: false },
+      ],
     });
     pintar();
 
@@ -337,7 +357,9 @@ describe('AvisoDeSincronizacion: la orientacion al sincronizar (SCRUM-138)', () 
       }),
     );
     mundo.aviso = aviso({
-      orientaciones: [{ activityId: 'a1', nivelOrientativo: 'favorable' }],
+      orientaciones: [
+        { activityId: 'a1', nivelOrientativo: 'favorable', sugiereAcompanamiento: false },
+      ],
     });
 
     const { unmount } = pintar();
@@ -354,7 +376,9 @@ describe('AvisoDeSincronizacion: la orientacion al sincronizar (SCRUM-138)', () 
 
   it('nunca dice un numero: ni puntaje ni "nivel 8"', async () => {
     mundo.aviso = aviso({
-      orientaciones: [{ activityId: 'a1', nivelOrientativo: 'requiere_atencion' }],
+      orientaciones: [
+        { activityId: 'a1', nivelOrientativo: 'requiere_atencion', sugiereAcompanamiento: true },
+      ],
     });
     pintar();
     await screen.findByText(/Tu resultado de/);
@@ -374,8 +398,8 @@ describe('AvisoDeSincronizacion: la orientacion al sincronizar (SCRUM-138)', () 
   it('cada resultado tiene su renglon, aunque sean de la misma actividad', async () => {
     mundo.aviso = aviso({
       orientaciones: [
-        { activityId: 'a1', nivelOrientativo: 'favorable' },
-        { activityId: 'a1', nivelOrientativo: 'en_seguimiento' },
+        { activityId: 'a1', nivelOrientativo: 'favorable', sugiereAcompanamiento: false },
+        { activityId: 'a1', nivelOrientativo: 'en_seguimiento', sugiereAcompanamiento: false },
       ],
     });
     pintar();

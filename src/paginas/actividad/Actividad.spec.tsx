@@ -662,6 +662,84 @@ describe('Actividad, el nivel', () => {
   });
 });
 
+describe('Actividad, un solo resultado que requiere atencion (SCRUM-200)', () => {
+  // El servidor lo registra con su nivel y NO sugiere acompanar: no hay patron de la semana.
+  function unSoloResultadoBajo() {
+    registrarResultado.mockResolvedValue({
+      id: 'res-aislado',
+      activityId: SUENO,
+      nivelOrientativo: 'requiere_atencion',
+      sugiereAcompanamiento: false,
+      lineasDeAtencion: [],
+      metadata: {},
+      completedAt: '2026-09-30T11:00:00.000Z',
+    });
+  }
+
+  it('dice algo neutro, no que conviene prestarle atencion', async () => {
+    unSoloResultadoBajo();
+
+    pintar(SUENO);
+    await terminarLaActividad();
+
+    expect(await screen.findByText('Quedó registrado. Un día es solo un día.')).toBeInTheDocument();
+    expect(screen.queryByText(/Conviene prestarle atención/)).not.toBeInTheDocument();
+  });
+
+  it('no ensena las lineas de atencion', async () => {
+    unSoloResultadoBajo();
+
+    pintar(SUENO);
+    await terminarLaActividad();
+    await screen.findByText('Quedó registrado. Un día es solo un día.');
+
+    expect(
+      screen.queryByRole('region', { name: 'Si te sirve hablarlo con alguien' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('no pinta el borde de atencion: el texto neutro no lleva el color del nivel', async () => {
+    unSoloResultadoBajo();
+
+    pintar(SUENO);
+    await terminarLaActividad();
+
+    const texto = await screen.findByText('Quedó registrado. Un día es solo un día.');
+
+    expect(texto).not.toHaveClass('actividad__nivel--requiere_atencion');
+  });
+
+  it('no celebra con confeti, y sigue recordando que es orientativo', async () => {
+    unSoloResultadoBajo();
+
+    pintar(SUENO);
+    await terminarLaActividad();
+    await screen.findByText('Quedó registrado. Un día es solo un día.');
+
+    expect(screen.queryByText('¡Lo hiciste!')).not.toBeInTheDocument();
+    expect(screen.getByText(TEXTO_DEL_AVISO_ORIENTATIVO)).toBeInTheDocument();
+  });
+
+  it('con un patron (el servidor sugiere acompanar) conserva el texto y las lineas', async () => {
+    registrarResultado.mockResolvedValue({
+      id: 'res-patron',
+      activityId: SUENO,
+      nivelOrientativo: 'requiere_atencion',
+      sugiereAcompanamiento: true,
+      metadata: {},
+      completedAt: '2026-09-30T11:00:00.000Z',
+    });
+
+    pintar(SUENO);
+    await terminarLaActividad();
+
+    expect(await screen.findByText('Conviene prestarle atención estos días.')).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'Si te sirve hablarlo con alguien' }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe('Actividad, las lineas de atencion (SCRUM-94)', () => {
   const NACIONAL = {
     id: 'l-192',
