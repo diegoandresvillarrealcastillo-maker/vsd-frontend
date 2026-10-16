@@ -66,6 +66,75 @@ describe('Los cinco aspectos de la llama', () => {
   });
 });
 
+describe('Los cuatro niveles se distinguen (SCRUM-202)', () => {
+  it('el de 7 dias esta reforzado: su cuerpo lleva un trazo propio', () => {
+    const cuerpo = regla('.llama--nivel-1 .llama__cuerpo');
+
+    expect(cuerpo).toMatch(/stroke:\s*var\(--llama-base\)/);
+    expect(cuerpo).toMatch(/stroke-width:\s*[\d.]+/);
+  });
+
+  it('el de 1 mes cambia de color: pasa al ambar mas intenso', () => {
+    const nivel = regla('.llama--nivel-2');
+
+    expect(nivel).toMatch(/--llama-base:\s*var\(--llama-ambar-base\)/);
+    expect(nivel).toMatch(/--llama-punta:\s*var\(--llama-ambar-punta\)/);
+  });
+
+  it('el de 3 meses tiene un degradado de tres paradas: el color de en medio es propio', () => {
+    const nivel = regla('.llama--nivel-3');
+
+    expect(nivel).toMatch(/--llama-base:\s*var\(--llama-fuego-base\)/);
+    expect(nivel).toMatch(/--llama-media:\s*var\(--llama-fuego-media\)/);
+    expect(nivel).toMatch(/--llama-punta:\s*var\(--llama-fuego-punta\)/);
+  });
+
+  it('el de 1 ano es multicolor y se anima: su matiz da la vuelta despacio', () => {
+    const dibujo = regla('.llama--nivel-4 .llama__dibujo');
+
+    expect(dibujo).toMatch(/animation:[^;]*llama-matiz/);
+    expect(CSS).toMatch(/@keyframes llama-matiz\s*\{[\s\S]*?hue-rotate\(/);
+
+    // Despacio: una llama que se mueve con calma no es una alarma.
+    const segundos = Number(/llama-matiz\s+([\d.]+)s/.exec(dibujo)?.[1]);
+
+    expect(segundos).toBeGreaterThanOrEqual(6);
+  });
+
+  it('cada nivel nuevo trae sus colores como tokens, y los dos temas tienen los mismos', () => {
+    const oscuro = /(?:^|\n)\.app\s*\{([^}]*)\}/.exec(CSS)?.[1] ?? '';
+
+    for (const token of [
+      '--llama-ambar-base',
+      '--llama-ambar-punta',
+      '--llama-fuego-base',
+      '--llama-fuego-media',
+      '--llama-fuego-punta',
+      '--llama-ascua-base',
+      '--llama-ascua-punta',
+    ]) {
+      expect(oscuro, `falta ${token} en el tema oscuro`).toContain(`${token}:`);
+    }
+  });
+
+  it('el ascua no se refiere a si misma: una variable que se usa a si misma queda invalida (SCRUM-202)', () => {
+    // `--llama-base: color-mix(... var(--llama-base) ...)` en el mismo elemento es un ciclo: el
+    // navegador la da por invalida y el degradado del ascua (la llama de quien lleva de 1 a 6
+    // dias) se queda sin color. Se comprobo con el estilo calculado: salia vacia.
+    const ascua = regla('.llama--nivel-0');
+
+    expect(ascua).not.toMatch(/--llama-base:[^;]*var\(--llama-base\)/);
+    expect(ascua).not.toMatch(/--llama-punta:[^;]*var\(--llama-punta\)/);
+    expect(ascua).toMatch(/--llama-base:\s*var\(--llama-ascua-base\)/);
+    expect(ascua).toMatch(/--llama-punta:\s*var\(--llama-ascua-punta\)/);
+  });
+
+  it('la llama que descansa no se anima con el matiz, aunque haya niveles mas altos', () => {
+    expect(regla('.llama--descanso .llama__dibujo')).toMatch(/animation:\s*none/);
+    expect(CSS).not.toMatch(/\.llama--descanso[^{]*\{[^}]*llama-matiz/);
+  });
+});
+
 describe('Los colores viven en los tokens', () => {
   it('no hay colores en hexadecimal fuera de los dos bloques de tokens', () => {
     const fuera = CSS.replace(
@@ -93,6 +162,14 @@ describe('Con movimiento reducido', () => {
   it.each(['.llama__dibujo', '.llama__chispa', '.llama__boton'])('%s no se anima', (selector) => {
     expect(reducido).toContain(selector);
     expect(reducido).toMatch(/animation:\s*none/);
+  });
+
+  it('el matiz del nivel de un ano se queda quieto, y su regla va despues de la que lo anima (SCRUM-202)', () => {
+    expect(reducido).toContain('.llama--nivel-4 .llama__dibujo');
+    // A igual peso gana la ultima: el bloque de movimiento reducido tiene que venir despues.
+    expect(CSS.lastIndexOf('@media (prefers-reduced-motion: reduce)')).toBeGreaterThan(
+      CSS.indexOf('.llama--nivel-4 .llama__dibujo {'),
+    );
   });
 
   it('el desplazamiento al pasar el raton o pulsar tambien se quita', () => {

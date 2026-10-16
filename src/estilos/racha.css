@@ -16,6 +16,13 @@
   --llama-brillo: rgb(240 168 64 / 0.55);
   --llama-oro-base: #d9a21f;
   --llama-oro-punta: #fbe48a;
+  --llama-ambar-base: #e8890c;
+  --llama-ambar-punta: #ffd24a;
+  --llama-fuego-base: #dd5a1c;
+  --llama-fuego-media: #f4a53a;
+  --llama-fuego-punta: #fff0b8;
+  --llama-ascua-base: #a8714f;
+  --llama-ascua-punta: #c9a46a;
 }
 
 :root[data-tema='claro'] .app {
@@ -25,6 +32,13 @@
   --llama-brillo: rgb(210 96 42 / 0.4);
   --llama-oro-base: #b8860b;
   --llama-oro-punta: #f0c24a;
+  --llama-ambar-base: #d4780a;
+  --llama-ambar-punta: #f0b938;
+  --llama-fuego-base: #c24a12;
+  --llama-fuego-media: #e0902a;
+  --llama-fuego-punta: #f8d77a;
+  --llama-ascua-base: #b0735a;
+  --llama-ascua-punta: #cfa77a;
 }
 
 /* ---------- El boton ---------- */
@@ -34,6 +48,10 @@
 }
 
 .llama__boton {
+  /* El color de en medio del degradado (SCRUM-202). Por defecto es la mezcla de los dos
+     extremos, asi que los niveles sin color propio se ven como siempre; el de 3 meses y el de
+     1 ano lo cambian. */
+  --llama-media: color-mix(in srgb, var(--llama-base) 50%, var(--llama-punta));
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -129,30 +147,79 @@
 
 /* El ascua: menos de 7 dias. Mas pequena y apagada de color, sin brillo. */
 .llama--nivel-0 {
-  --llama-base: color-mix(in srgb, var(--llama-base) 45%, var(--app-tenue));
-  --llama-punta: color-mix(in srgb, var(--llama-punta) 50%, var(--app-tenue));
+  /* Colores propios, no derivados: `--llama-base: color-mix(... var(--llama-base) ...)` en el
+     mismo elemento es un ciclo, el navegador lo da por invalido y el degradado se quedaba sin
+     color (SCRUM-202). */
+  --llama-base: var(--llama-ascua-base);
+  --llama-punta: var(--llama-ascua-punta);
 }
 
 .llama--nivel-0 .llama__dibujo {
   transform: scale(0.88);
 }
 
+/* 7 dias: reforzada. El cuerpo gana un trazo del color de la llama: mas peso, no mas tamano
+   (la barra de arriba ya va justa en un telefono angosto). Los niveles que siguen lo conservan. */
+.llama--nivel-1 .llama__cuerpo {
+  stroke: var(--llama-base);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+
+/* 1 mes: del naranja al ambar, mas intenso. */
+.llama--nivel-2 {
+  --llama-base: var(--llama-ambar-base);
+  --llama-punta: var(--llama-ambar-punta);
+}
+
+.llama--nivel-2 .llama__cuerpo,
+.llama--nivel-3 .llama__cuerpo,
+.llama--nivel-4 .llama__cuerpo {
+  stroke: var(--llama-base);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+
 .llama--nivel-2 .llama__dibujo {
   filter: drop-shadow(0 0 3px var(--llama-brillo));
+}
+
+/* 3 a 6 meses: un degradado de tres paradas, de un naranja profundo a un oro palido pasando por
+   el ambar. */
+.llama--nivel-3 {
+  --llama-base: var(--llama-fuego-base);
+  --llama-media: var(--llama-fuego-media);
+  --llama-punta: var(--llama-fuego-punta);
 }
 
 .llama--nivel-3 .llama__dibujo {
   filter: drop-shadow(0 0 5px var(--llama-brillo));
 }
 
-/* El nivel de un ano es dorado. */
+/* 1 ano: dorado y multicolor. El matiz da la vuelta muy despacio (12 s) sobre el dorado: se
+   mueve como una brasa, no como una alarma. Los niveles tambien se distinguen por la forma (las
+   chispas desde los 3 meses, la estrella al ano), no solo por el color. */
 .llama--nivel-4 {
   --llama-base: var(--llama-oro-base);
+  --llama-media: var(--llama-fuego-media);
   --llama-punta: var(--llama-oro-punta);
 }
 
 .llama--nivel-4 .llama__dibujo {
   filter: drop-shadow(0 0 6px var(--llama-brillo));
+  animation:
+    llama-parpadeo 2.8s ease-in-out infinite,
+    llama-matiz 12s linear infinite;
+}
+
+@keyframes llama-matiz {
+  from {
+    filter: drop-shadow(0 0 6px var(--llama-brillo)) hue-rotate(0deg);
+  }
+
+  to {
+    filter: drop-shadow(0 0 6px var(--llama-brillo)) hue-rotate(360deg);
+  }
 }
 
 /* La llama descansa: solo el contorno, quieto. Es un estado, no una falta. */
@@ -252,6 +319,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .llama__dibujo,
+  .llama--nivel-4 .llama__dibujo,
   .llama__chispa,
   .llama__boton {
     animation: none;
