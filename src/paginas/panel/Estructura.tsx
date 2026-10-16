@@ -385,6 +385,9 @@ export function NavegacionInferior({ enDiario = false }: { enDiario?: boolean })
         className={`app__nav-inferior-enlace${enDiario ? ' app__nav-inferior-enlace--activo' : ''}`}
         to={RUTAS.DIARIO}
         aria-current={enDiario ? 'page' : undefined}
+        // El tutorial senala el diario donde se ve: en el movil, en el dock (SCRUM-201). En
+        // escritorio no se ve, y el paso va centrado.
+        data-tutorial="diario"
       >
         {enDiario && pastilla}
         <span className="app__nav-inferior-icono">

@@ -132,7 +132,7 @@ export function LlamaDeRacha({ racha }: { racha: Racha }) {
     : `Tu racha: ${diasSeguidos(racha.dias)}`;
 
   return (
-    <div className="llama" ref={contenedor}>
+    <div className="llama" ref={contenedor} data-tutorial="llama">
       <button
         ref={boton}
         type="button"

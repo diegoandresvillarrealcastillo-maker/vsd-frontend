@@ -58,7 +58,9 @@ export function RutaDelDia({
         } as CSSProperties
       }
     >
-      <div className="ruta__cabecera">
+      {/* La ruta entera es muy alta y no cabe junto a la caja de Fungito (SCRUM-201): el
+          tutorial senala su cabecera, que siempre esta y siempre es pequena. */}
+      <div className="ruta__cabecera" data-tutorial="ruta">
         <div>
           <p className="app__antetitulo">Para hoy</p>
           <h2 id="titulo-ruta" className="app__titulo app__titulo--mediano">

@@ -185,6 +185,7 @@ export function Semaforo() {
         ref={boton}
         type="button"
         className="semaforo__boton"
+        data-tutorial="semaforo"
         aria-label={`${
           urgentes === 0
             ? 'Abrir tu semáforo de pendientes'

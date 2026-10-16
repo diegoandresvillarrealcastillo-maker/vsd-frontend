@@ -500,6 +500,8 @@ export function MascotaFlotante({
       >
         <motion.div
           className="mascota__cuerpo"
+          // El tutorial senala a la mascota (SCRUM-201): el cuerpo es lo que tiene tamano.
+          data-tutorial="asistente"
           style={{ width: lado, height: lado }}
           initial={false}
           animate={{ x: punto.x, y: punto.y }}

@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PASOS_DEL_TUTORIAL } from './pasos.ts';
 import {
@@ -68,6 +68,233 @@ describe('los pasos', () => {
     const asistente = PASOS_DEL_TUTORIAL.find((paso) => paso.titulo.includes('VSD IA'));
 
     expect(asistente?.texto).toMatch(/no (sustituye|diagnostica)/i);
+  });
+});
+
+/**
+ * El spotlight (SCRUM-201): la pantalla se atenua y el paso senala el elemento real.
+ *
+ * jsdom no calcula el diseno, asi que cada elemento marcado recibe a mano su rectangulo. Lo que se
+ * vigila es la **decision**: a donde mira cada paso, que pasa si el elemento no esta o no se ve, y
+ * que lo de SCRUM-187 (omitir, Escape, una vez por cuenta) sigue igual.
+ */
+describe('el spotlight (SCRUM-201)', () => {
+  const RECTANGULO = { left: 40, top: 120, width: 300, height: 200 };
+
+  /** Un elemento de la pagina marcado como ancla, con el rectangulo que se le diga. */
+  function anclar(ancla: string, rect = RECTANGULO): HTMLElement {
+    const nodo = document.createElement('div');
+
+    nodo.setAttribute('data-tutorial', ancla);
+    vi.spyOn(nodo, 'getBoundingClientRect').mockReturnValue({
+      ...rect,
+      right: rect.left + rect.width,
+      bottom: rect.top + rect.height,
+      x: rect.left,
+      y: rect.top,
+      toJSON: () => ({}),
+    });
+    nodo.scrollIntoView = vi.fn();
+    document.body.append(nodo);
+
+    return nodo;
+  }
+
+  /** Va al paso con ese id, pulsando «Siguiente». */
+  async function irAlPaso(id: string) {
+    const indice = PASOS_DEL_TUTORIAL.findIndex((paso) => paso.id === id);
+
+    for (let i = 0; i < indice; i++) {
+      await usuario.click(screen.getByRole('button', { name: 'Siguiente' }));
+    }
+  }
+
+  const hueco = (contenedor: HTMLElement) =>
+    contenedor.querySelector<HTMLElement>('.tutorial__hueco');
+
+  afterEach(() => {
+    document.body.querySelectorAll('[data-tutorial]').forEach((nodo) => {
+      nodo.remove();
+    });
+    vi.restoreAllMocks();
+  });
+
+  it('los pasos del recorrido con elemento: ruta, llama, semaforo, diario y asistente', () => {
+    const conAncla = PASOS_DEL_TUTORIAL.filter((paso) => paso.ancla !== undefined);
+
+    expect(conAncla.map((paso) => paso.ancla)).toEqual([
+      'ruta',
+      'llama',
+      'semaforo',
+      'diario',
+      'asistente',
+    ]);
+  });
+
+  it('el primer paso y el ultimo se quedan centrados: no senalan nada', () => {
+    expect(PASOS_DEL_TUTORIAL.at(0)?.ancla).toBeUndefined();
+    expect(PASOS_DEL_TUTORIAL.at(-1)?.ancla).toBeUndefined();
+  });
+
+  it('sin el elemento en la pagina, el paso se ve centrado: sin hueco', async () => {
+    const { container } = render(<TutorialDeFungito cuenta={CUENTA} />);
+
+    await irAlPaso('ruta');
+
+    expect(hueco(container)).toBeNull();
+    expect(container.querySelector('.tutorial--spotlight')).toBeNull();
+  });
+
+  it('con el elemento, ilumina un hueco con el margen puesto', async () => {
+    anclar('ruta');
+    const { container } = render(<TutorialDeFungito cuenta={CUENTA} />);
+
+    await irAlPaso('ruta');
+
+    const luz = hueco(container);
+
+    expect(container.querySelector('.tutorial--spotlight')).not.toBeNull();
+    expect(luz).not.toBeNull();
+    expect(luz).toHaveStyle({ left: '32px', top: '112px', width: '316px', height: '216px' });
+    // Es solo un dibujo: no se anuncia ni recibe el puntero.
+    expect(luz).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('lleva el elemento a la vista antes de medirlo', async () => {
+    const ruta = anclar('ruta');
+    render(<TutorialDeFungito cuenta={CUENTA} />);
+
+    await irAlPaso('ruta');
+
+    expect(ruta.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it('cada paso mueve el hueco a su elemento', async () => {
+    anclar('ruta', { left: 40, top: 120, width: 300, height: 200 });
+    anclar('llama', { left: 300, top: 10, width: 40, height: 40 });
+    const { container } = render(<TutorialDeFungito cuenta={CUENTA} />);
+
+    await irAlPaso('ruta');
+    const enRuta = hueco(container)?.getAttribute('style');
+
+    await usuario.click(screen.getByRole('button', { name: 'Siguiente' }));
+    const enLlama = hueco(container)?.getAttribute('style');
+
+    expect(enRuta).toBeTruthy();
+    expect(enLlama).toBeTruthy();
+    expect(enLlama).not.toBe(enRuta);
+    expect(hueco(container)).toHaveStyle({ left: '292px', top: '2px' });
+  });
+
+  it('un elemento que existe pero no se ve (sin tamano) cae al paso centrado', async () => {
+    anclar('ruta', { left: 0, top: 0, width: 0, height: 0 });
+    const { container } = render(<TutorialDeFungito cuenta={CUENTA} />);
+
+    await irAlPaso('ruta');
+
+    expect(hueco(container)).toBeNull();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('un elemento que ocupa casi toda la pantalla cae al paso centrado', async () => {
+    anclar('ruta', { left: 0, top: 0, width: 300, height: 700 });
+    const { container } = render(<TutorialDeFungito cuenta={CUENTA} />);
+
+    await irAlPaso('ruta');
+
+    expect(hueco(container)).toBeNull();
+  });
+
+  it('la caja va arriba cuando el elemento esta en la parte de abajo', async () => {
+    anclar('diario', { left: 20, top: 700, width: 60, height: 50 });
+    const { container } = render(<TutorialDeFungito cuenta={CUENTA} />);
+
+    await irAlPaso('diario');
+
+    expect(container.querySelector('.tutorial--arriba')).not.toBeNull();
+  });
+
+  it('la caja va abajo cuando el elemento esta en la parte de arriba', async () => {
+    anclar('llama', { left: 300, top: 10, width: 40, height: 40 });
+    const { container } = render(<TutorialDeFungito cuenta={CUENTA} />);
+
+    await irAlPaso('llama');
+
+    expect(container.querySelector('.tutorial--abajo')).not.toBeNull();
+  });
+
+  it('si cambia el tamano de la ventana, el hueco sigue al elemento', async () => {
+    const ruta = anclar('ruta');
+    const { container } = render(<TutorialDeFungito cuenta={CUENTA} />);
+
+    await irAlPaso('ruta');
+    expect(hueco(container)).toHaveStyle({ left: '32px' });
+
+    vi.mocked(ruta.getBoundingClientRect).mockReturnValue({
+      left: 100,
+      top: 120,
+      width: 300,
+      height: 200,
+      right: 400,
+      bottom: 320,
+      x: 100,
+      y: 120,
+      toJSON: () => ({}),
+    });
+    await act(async () => {
+      window.dispatchEvent(new Event('resize'));
+      await Promise.resolve();
+    });
+
+    expect(hueco(container)).toHaveStyle({ left: '92px' });
+  });
+
+  it('con el spotlight se puede omitir con el boton y con Escape, como siempre', async () => {
+    anclar('ruta');
+    const { unmount } = render(<TutorialDeFungito cuenta={CUENTA} />);
+
+    await irAlPaso('ruta');
+    await usuario.click(screen.getByRole('button', { name: 'Omitir' }));
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(tutorialVisto(CUENTA)).toBe(true);
+
+    unmount();
+    volverAVerElTutorial(CUENTA);
+    render(<TutorialDeFungito cuenta={CUENTA} />);
+    await irAlPaso('ruta');
+    await usuario.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('el dialogo sigue siendo modal y con nombre, tambien con el spotlight', async () => {
+    anclar('semaforo', { left: 330, top: 700, width: 56, height: 56 });
+    render(<TutorialDeFungito cuenta={CUENTA} />);
+
+    await irAlPaso('semaforo');
+
+    const dialogo = screen.getByRole('dialog');
+
+    expect(dialogo).toHaveAttribute('aria-modal', 'true');
+    expect(dialogo).toHaveAccessibleName('Tu semáforo');
+  });
+
+  it('las anclas que usan los pasos existen en el codigo de la app', () => {
+    const FUENTES = import.meta.glob<string>(['../**/*.tsx', '!../**/*.spec.tsx'], {
+      query: '?raw',
+      import: 'default',
+      eager: true,
+    });
+    const todo = Object.values(FUENTES).join('\n');
+
+    for (const paso of PASOS_DEL_TUTORIAL) {
+      if (paso.ancla !== undefined) {
+        expect(todo, `nadie marca data-tutorial="${paso.ancla}"`).toMatch(
+          new RegExp(`data-tutorial=["']${paso.ancla}["']`),
+        );
+      }
+    }
   });
 });
 

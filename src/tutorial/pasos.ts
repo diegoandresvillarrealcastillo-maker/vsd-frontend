@@ -1,6 +1,15 @@
 import type { Expresion } from '../mascota/personajes.ts';
 
 /**
+ * Los elementos de la pantalla que un paso puede senalar (SCRUM-201).
+ *
+ * Cada nombre es un `data-tutorial="..."` puesto en el elemento real. Si el elemento no esta o no
+ * se ve (sin conexion, otra pantalla, un tamano en el que no existe), el paso se ve centrado,
+ * como antes: el recorrido nunca depende de que el elemento este.
+ */
+export type AnclaDelTutorial = 'ruta' | 'llama' | 'semaforo' | 'diario' | 'asistente';
+
+/**
  * Los pasos del tutorial de bienvenida (SCRUM-187).
  *
  * Los textos acompanan: ninguno apura, exige ni reprocha, y ninguno promete lo que la
@@ -13,6 +22,8 @@ export interface PasoDelTutorial {
   readonly texto: string;
   /** La cara con la que Fungito dice este paso. */
   readonly expresion: Expresion;
+  /** El elemento que ilumina este paso (SCRUM-201). Sin el, el paso va centrado. */
+  readonly ancla?: AnclaDelTutorial;
 }
 
 export const PASOS_DEL_TUTORIAL: readonly PasoDelTutorial[] = [
@@ -29,6 +40,15 @@ export const PASOS_DEL_TUTORIAL: readonly PasoDelTutorial[] = [
     texto:
       'Cada día te preparo una ruta con actividades cortas de memoria, bienestar y emociones. Haz las que quieras, en el orden que quieras: no hay una cantidad que cumplir.',
     expresion: 'normal',
+    ancla: 'ruta',
+  },
+  {
+    id: 'llama',
+    titulo: 'Tu llama',
+    texto:
+      'Esta llama cuenta los días en que haces algo. Si un día no puedes, ella descansa y vuelve contigo cuando quieras.',
+    expresion: 'feliz',
+    ancla: 'llama',
   },
   {
     id: 'semaforo',
@@ -36,6 +56,7 @@ export const PASOS_DEL_TUTORIAL: readonly PasoDelTutorial[] = [
     texto:
       'Anota lo que tienes pendiente y ponle un color: urgente, prioridad o aplazable. Es para ordenar la cabeza, no para exigirte.',
     expresion: 'feliz',
+    ancla: 'semaforo',
   },
   {
     id: 'diario',
@@ -43,6 +64,7 @@ export const PASOS_DEL_TUTORIAL: readonly PasoDelTutorial[] = [
     texto:
       'Un espacio para escribir lo que quieras. Es tuyo: solo se usa para recomendarte algo si tú lo permites en tu perfil.',
     expresion: 'normal',
+    ancla: 'diario',
   },
   {
     id: 'asistente',
@@ -50,6 +72,7 @@ export const PASOS_DEL_TUTORIAL: readonly PasoDelTutorial[] = [
     texto:
       'Si quieres hablar, el asistente te escucha y te orienta. No sustituye a un profesional: no diagnostica ni receta nada.',
     expresion: 'feliz',
+    ancla: 'asistente',
   },
   {
     id: 'aqui-estoy',
