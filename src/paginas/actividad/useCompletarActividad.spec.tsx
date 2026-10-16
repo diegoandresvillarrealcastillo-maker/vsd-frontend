@@ -1,9 +1,11 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { SesionDeLaActividad } from '../../infraestructura/api/progreso.ts';
 import { reintentarCambio } from '../../sincronizacion/acciones.ts';
 import { buscarActividadConCopia } from '../../sincronizacion/catalogoLocal.ts';
 import { encolar } from '../../sincronizacion/ciclo.ts';
+import { leerLaSesionGuardada } from '../../sincronizacion/panelLocal.ts';
 import { seguirUnaOperacion, type Seguimiento } from '../../sincronizacion/seguimiento.ts';
 import {
   mostrarLoQuePaso,
@@ -23,6 +25,7 @@ vi.mock('../../sincronizacion/ciclo.ts', () => ({
 vi.mock('../../sincronizacion/seguimiento.ts', () => ({ seguirUnaOperacion: vi.fn() }));
 vi.mock('../../sincronizacion/catalogoLocal.ts', () => ({ buscarActividadConCopia: vi.fn() }));
 vi.mock('../../sincronizacion/acciones.ts', () => ({ reintentarCambio: vi.fn() }));
+vi.mock('../../sincronizacion/panelLocal.ts', () => ({ leerLaSesionGuardada: vi.fn() }));
 
 const FICHA = {
   actividad: { id: 'a1', nombre: 'Como dormiste anoche', produceNivel: true },
@@ -39,6 +42,8 @@ beforeEach(() => {
   vi.mocked(buscarActividadConCopia).mockResolvedValue(FICHA);
   vi.mocked(reintentarCambio).mockReset();
   vi.mocked(reintentarCambio).mockResolvedValue(true);
+  vi.mocked(leerLaSesionGuardada).mockReset();
+  vi.mocked(leerLaSesionGuardada).mockResolvedValue(null);
 });
 
 async function listo() {
@@ -79,6 +84,18 @@ describe('mostrarLoQuePaso: lo que se le dice a la persona (SCRUM-138)', () => {
 
     expect(estado).toMatchObject({ fase: 'error', ficha: FICHA });
     expect(estado).toHaveProperty('mensaje', expect.stringMatching(/registra lo que haces/));
+  });
+
+  it('una sesion que no es de la actividad: dice que cambio y manda a abrirla otra vez', () => {
+    const [estado] = mostrar({
+      tipo: 'rechazada',
+      error: { codigo: 'LA_SESION_NO_ES_DE_LA_ACTIVIDAD', estado: 400, momento: 'ahora' },
+      conflicto: false,
+    });
+
+    expect(estado).toMatchObject({ fase: 'error', ficha: FICHA });
+    expect(estado).toHaveProperty('mensaje', expect.stringMatching(/sesión de hoy cambió/));
+    expect(estado).toHaveProperty('mensaje', expect.stringMatching(/panel/));
   });
 
   it('sin almacen: lo dice, y que no hay donde guardar', () => {
@@ -231,5 +248,175 @@ describe('useCompletarActividad: la espera de lo guardado', () => {
     });
 
     expect(seguir.mock.calls[2]?.[1]?.senal?.aborted).toBe(false);
+  });
+});
+
+describe('useCompletarActividad: la sesion del dia (SCRUM-208, ADR 0030)', () => {
+  const SESION: SesionDeLaActividad = {
+    id: 's-1',
+    titulo: 'Secuencia de números, versión original',
+    nivel: 1,
+    parametros: { rondas: 12 },
+  };
+
+  async function terminar(gancho: Awaited<ReturnType<typeof listo>>) {
+    await act(async () => {
+      gancho.result.current.completar({ score: 9 });
+      await Promise.resolve();
+    });
+  }
+
+  function loQueSeGuardo(n = 0): Record<string, unknown> {
+    return (vi.mocked(encolar).mock.calls[n]?.[0] as { payload: Record<string, unknown> }).payload;
+  }
+
+  beforeEach(() => {
+    seguir.mockResolvedValue({ tipo: 'enviada', recibo: { id: 'r1' } });
+  });
+
+  it('lee la sesion de la actividad que se abre, de lo que dejo guardado el panel', async () => {
+    vi.mocked(leerLaSesionGuardada).mockResolvedValue(SESION);
+
+    await listo();
+
+    expect(leerLaSesionGuardada).toHaveBeenCalledWith('a1');
+  });
+
+  it('entrega la sesion para que la mecanica la pinte, ya cuando la actividad esta lista', async () => {
+    vi.mocked(leerLaSesionGuardada).mockResolvedValue(SESION);
+
+    const gancho = await listo();
+
+    expect(gancho.result.current.sesion).toEqual(SESION);
+  });
+
+  it('el resultado lleva el idSesion de la sesion que se hizo', async () => {
+    vi.mocked(leerLaSesionGuardada).mockResolvedValue(SESION);
+
+    const gancho = await listo();
+
+    await terminar(gancho);
+
+    expect(loQueSeGuardo()).toMatchObject({ activityId: 'a1', score: 9, idSesion: 's-1' });
+  });
+
+  it('sin sesion guardada, el resultado no lleva idSesion y la pantalla es la de siempre', async () => {
+    const gancho = await listo();
+
+    expect(gancho.result.current.sesion).toBeUndefined();
+
+    await terminar(gancho);
+
+    expect(loQueSeGuardo()).not.toHaveProperty('idSesion');
+  });
+
+  it('si no se puede leer la sesion, la actividad carga igual, sin sesion', async () => {
+    vi.mocked(leerLaSesionGuardada).mockRejectedValue(new Error('el almacen fallo'));
+
+    const gancho = await listo();
+
+    expect(gancho.result.current.sesion).toBeUndefined();
+
+    await terminar(gancho);
+
+    expect(loQueSeGuardo()).not.toHaveProperty('idSesion');
+  });
+
+  it('no sale a pintar la mecanica sin saber antes cual es la sesion', async () => {
+    let entregar: (valor: SesionDeLaActividad) => void = () => undefined;
+
+    vi.mocked(leerLaSesionGuardada).mockReturnValue(
+      new Promise((resolver) => {
+        entregar = resolver;
+      }),
+    );
+
+    const gancho = renderHook(() => useCompletarActividad('a1'));
+
+    // Con la ficha ya leida pero sin saber aun la sesion, sigue cargando: pintar la mecanica con
+    // lo de siempre y cambiarla despues haria perder lo que la persona lleve hecho.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(gancho.result.current.estado.fase).toBe('cargando');
+
+    await act(async () => {
+      entregar(SESION);
+      await Promise.resolve();
+    });
+    await vi.waitFor(() => {
+      expect(gancho.result.current.estado.fase).toBe('lista');
+    });
+
+    expect(gancho.result.current.sesion).toEqual(SESION);
+  });
+
+  it('una actividad que no existe no tiene sesion', async () => {
+    vi.mocked(buscarActividadConCopia).mockResolvedValue(null);
+    vi.mocked(leerLaSesionGuardada).mockResolvedValue(SESION);
+
+    const gancho = renderHook(() => useCompletarActividad('a1'));
+
+    await vi.waitFor(() => {
+      expect(gancho.result.current.estado.fase).toBe('no-existe');
+    });
+
+    expect(gancho.result.current.sesion).toBeUndefined();
+  });
+
+  it('reintentar guardar manda la misma sesion', async () => {
+    vi.mocked(leerLaSesionGuardada).mockResolvedValue(SESION);
+    seguir.mockResolvedValueOnce({
+      tipo: 'rechazada',
+      error: { codigo: 'SIN_RESPUESTA', momento: 'ahora' },
+      conflicto: false,
+    });
+
+    const gancho = await listo();
+
+    await terminar(gancho);
+    await vi.waitFor(() => {
+      expect(gancho.result.current.estado.fase).toBe('error');
+    });
+
+    await act(async () => {
+      gancho.result.current.reintentar();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await vi.waitFor(() => {
+      expect(encolar).toHaveBeenCalledTimes(2);
+    });
+
+    expect(loQueSeGuardo(0)).toMatchObject({ idSesion: 's-1' });
+    expect(loQueSeGuardo(1)).toMatchObject({ idSesion: 's-1' });
+  });
+
+  it('hacerla otra vez vuelve a leer la sesion: la de ahora, no la del intento anterior', async () => {
+    vi.mocked(leerLaSesionGuardada).mockResolvedValueOnce(SESION);
+    vi.mocked(leerLaSesionGuardada).mockResolvedValueOnce({ ...SESION, id: 's-2' });
+
+    const gancho = await listo();
+
+    await terminar(gancho);
+    await vi.waitFor(() => {
+      expect(gancho.result.current.estado.fase).toBe('hecha');
+    });
+
+    await act(async () => {
+      gancho.result.current.empezarDeNuevo();
+      await Promise.resolve();
+    });
+    await vi.waitFor(() => {
+      expect(gancho.result.current.estado.fase).toBe('lista');
+    });
+
+    expect(gancho.result.current.sesion).toMatchObject({ id: 's-2' });
+
+    await terminar(gancho);
+
+    expect(loQueSeGuardo(0)).toMatchObject({ idSesion: 's-1' });
+    expect(loQueSeGuardo(1)).toMatchObject({ idSesion: 's-2' });
   });
 });

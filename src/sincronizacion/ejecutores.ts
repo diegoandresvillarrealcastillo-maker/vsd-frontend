@@ -141,7 +141,9 @@ export function comprobarLaOperacion(operacion: Operacion): string | null {
             'score',
             (valor) => typeof valor === 'number' && Number.isFinite(valor),
           ) &&
-          opcional(payload, 'metadata', esObjeto)
+          opcional(payload, 'metadata', esObjeto) &&
+          // La sesion de la actividad que se hizo (SCRUM-208): si viaja, es un identificador.
+          opcional(payload, 'idSesion', esTextoConContenido)
         );
 
       case 'diario.escribir':

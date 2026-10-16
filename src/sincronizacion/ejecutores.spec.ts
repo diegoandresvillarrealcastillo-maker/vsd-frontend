@@ -183,6 +183,11 @@ describe('comprobarLaOperacion', () => {
         ...cambios,
       });
 
+    it('la sesion que se hizo (idSesion) es opcional, y si esta, es un texto con contenido', () => {
+      expect(comprobarLaOperacion(con({ idSesion: 's-1' }))).toBeNull();
+      expect(comprobarLaOperacion(con({ idSesion: undefined }))).toBeNull();
+    });
+
     it('el puntaje es opcional', () => {
       const { score: _quitado, ...sin } = VALIDOS['resultado.registrar'] as Record<string, unknown>;
 
@@ -201,6 +206,9 @@ describe('comprobarLaOperacion', () => {
       ['con un puntaje que no es un numero', { score: Number.NaN }],
       ['con metadata que es una lista', { metadata: [1] }],
       ['con metadata que es un texto', { metadata: 'x' }],
+      ['con la sesion vacia', { idSesion: '  ' }],
+      ['con la sesion que no es texto', { idSesion: 3 }],
+      ['con la sesion nula', { idSesion: null }],
     ])('%s es invalido', (_nombre, cambios) => {
       expect(comprobarLaOperacion(con(cambios))).toBe('PAYLOAD_INVALIDO');
     });

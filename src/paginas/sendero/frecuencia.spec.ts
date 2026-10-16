@@ -10,6 +10,10 @@ describe('etiquetaDeFrecuencia', () => {
     expect(etiquetaDeFrecuencia({ tipo: 'semanal', dias: [6, 7] })).toBe('Sáb · Dom');
   });
 
+  it('una actividad rotativa (SCRUM-205) no lleva etiqueta: no toca por su frecuencia', () => {
+    expect(etiquetaDeFrecuencia({ tipo: 'rotativa' })).toBeUndefined();
+  });
+
   it('sin frecuencia, o con dias que no existen, no inventa etiqueta', () => {
     expect(etiquetaDeFrecuencia(undefined)).toBeUndefined();
     expect(etiquetaDeFrecuencia({ tipo: 'semanal', dias: [] })).toBeUndefined();

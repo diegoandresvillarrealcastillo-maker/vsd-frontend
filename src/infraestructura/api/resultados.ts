@@ -45,6 +45,14 @@ export interface ResultadoPorRegistrar {
   readonly completedAt: string;
 
   readonly metadata?: Metadata;
+
+  /**
+   * La sesion de la actividad que se hizo (SCRUM-208, ADR 0030): la que el servidor entrego como la
+   * de hoy. Con ella el servidor sabe cual le toca despues a la persona, y la exportacion dice cual
+   * hizo. Se omite en las actividades que todavia no tienen sesiones. Si no es una sesion de esa
+   * actividad, la API responde 400 `LA_SESION_NO_ES_DE_LA_ACTIVIDAD`.
+   */
+  readonly idSesion?: string;
 }
 
 /**

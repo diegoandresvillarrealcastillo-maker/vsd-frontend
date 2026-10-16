@@ -19,12 +19,33 @@ export interface Etapa {
 
 /**
  * Cada cuanto toca una actividad: todos los dias, ciertos dias de la semana
- * (1 es lunes y 7 domingo) o una sola vez.
+ * (1 es lunes y 7 domingo), una sola vez, o por **rotacion** (SCRUM-205): no toca por su
+ * frecuencia, sino que el servidor elige hasta tres mecanicas por modulo y por dia.
  */
 export type Frecuencia =
   | { readonly tipo: 'diaria' }
   | { readonly tipo: 'semanal'; readonly dias: readonly number[] }
-  | { readonly tipo: 'unica' };
+  | { readonly tipo: 'unica' }
+  | { readonly tipo: 'rotativa' };
+
+/**
+ * Lo que toca hacer hoy de una mecanica (SCRUM-205, ADR 0030): el contenido de **una vez**.
+ *
+ * Una actividad es una mecanica; lo que cambia cada dia es su sesion. La elige el servidor (la que
+ * ya hizo hoy, o la siguiente que no hizo en 365 dias) y el cliente **no la elige**: la pinta y,
+ * al terminar, dice cual fue (`idSesion`).
+ */
+export interface SesionDeLaActividad {
+  readonly id: string;
+  /** Nombre corto: lo usan la exportacion y la revision, no lo lee quien la hace. */
+  readonly titulo: string;
+  readonly nivel: number;
+  /**
+   * Lo que el motor necesita (tamano, textos, pasos...). Su forma es el contrato del motor; aqui
+   * llega sin leer, y cada pantalla lo lee con cuidado (`parametrosDeLaSesion.ts`).
+   */
+  readonly parametros: Readonly<Record<string, unknown>>;
+}
 
 /** Una actividad que toca hoy. */
 export interface ActividadDeHoy {
@@ -38,6 +59,13 @@ export interface ActividadDeHoy {
    * a ese cambio no la manda; sin ella simplemente no se pinta la etiqueta.
    */
   readonly frecuencia?: Frecuencia;
+  /**
+   * Que componente pinta la mecanica (SCRUM-205). Ausente en las actividades que todavia no
+   * pasaron al modelo de sesiones, y en una API anterior.
+   */
+  readonly motor?: string;
+  /** La sesion de hoy, cuando la actividad tiene motor. Ausente si no (o en una API anterior). */
+  readonly sesion?: SesionDeLaActividad;
 }
 
 /** El progreso de un modulo activo. */

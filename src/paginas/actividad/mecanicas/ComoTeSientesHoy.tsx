@@ -1,4 +1,11 @@
+import { useMemo } from 'react';
+
 import { Cuestionario } from './Cuestionario.tsx';
+import {
+  leerCuestionario,
+  maximoDelCuestionario,
+  type ParametrosDeCuestionario,
+} from './parametrosDeLaSesion.ts';
 import type { PropsDeMecanica } from './registro.tsx';
 
 /**
@@ -16,9 +23,6 @@ import type { PropsDeMecanica } from './registro.tsx';
  * eso basta para orientar, y no suena a test.
  */
 
-/** Cinco preguntas de 0 a 2. Tiene que coincidir con el maximo del catalogo. */
-const MAXIMO = 10;
-
 const PREGUNTAS = [
   { clave: 'arrancar', texto: '¿Cuánto te costó arrancar el día?' },
   { clave: 'tension', texto: '¿Cuánta tensión has cargado hoy?' },
@@ -33,14 +37,20 @@ const OPCIONES = [
   { valor: 2, texto: 'Mucho' },
 ] as const;
 
-export function ComoTeSientesHoy(props: PropsDeMecanica) {
-  return (
-    <Cuestionario
-      {...props}
-      indicacion="Piensa solo en hoy. No hay respuestas buenas ni malas."
-      preguntas={PREGUNTAS}
-      opciones={OPCIONES}
-      maximo={MAXIMO}
-    />
-  );
+/**
+ * Lo de siempre: cinco preguntas de 0 a 2, el maximo del catalogo (10). Es lo mismo que lleva la
+ * sesion de la Fase 0 (SCRUM-207), y es lo que se usa si la sesion no llega o no se entiende.
+ */
+const DE_SIEMPRE: ParametrosDeCuestionario = {
+  indicacion: 'Piensa solo en hoy. No hay respuestas buenas ni malas.',
+  preguntas: PREGUNTAS,
+  opciones: OPCIONES,
+};
+
+export function ComoTeSientesHoy({ sesion, ...props }: PropsDeMecanica) {
+  // El maximo se deduce de lo que se pinta (preguntas por la opcion mas alta): tiene que coincidir
+  // con el del catalogo, o la API responde 400, y asi no hay dos numeros que cuadrar.
+  const cuestionario = useMemo(() => leerCuestionario(sesion?.parametros) ?? DE_SIEMPRE, [sesion]);
+
+  return <Cuestionario {...props} {...cuestionario} maximo={maximoDelCuestionario(cuestionario)} />;
 }

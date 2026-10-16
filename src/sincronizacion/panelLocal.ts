@@ -4,12 +4,17 @@ import {
   darDeAltaLaCuenta,
   type Cuenta,
 } from '../infraestructura/api/cuenta.ts';
-import { consultarElProgreso, type ProgresoDelModulo } from '../infraestructura/api/progreso.ts';
+import {
+  consultarElProgreso,
+  type ProgresoDelModulo,
+  type SesionDeLaActividad,
+} from '../infraestructura/api/progreso.ts';
 import { fijarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
 import { cicloActual } from './ciclo.ts';
 import type { Operacion } from './cola.ts';
 import {
   leerConCopia,
+  leerSoloLaCopia,
   leerSoloLaCopiaConFecha,
   modificarLaCopia,
   type LecturaConCopia,
@@ -135,6 +140,46 @@ export async function leerLaCuentaGuardada(): Promise<{
   fijarLaZonaDeLaCuenta(guardada.valor.cuenta.zonaHoraria);
 
   return { cuenta: guardada.valor.cuenta, guardadoEn: guardada.guardadoEn };
+}
+
+/** Lo guardado puede ser de otra version: una sesion sin identificador o sin parametros no sirve. */
+function esSesionDeLaActividad(valor: unknown): valor is SesionDeLaActividad {
+  return (
+    esObjeto(valor) && typeof valor.id === 'string' && valor.id !== '' && esObjeto(valor.parametros)
+  );
+}
+
+/**
+ * La sesion de hoy que el panel dejo guardada para una actividad, **sin preguntar a nadie**
+ * (SCRUM-208, ADR 0030). `null` si no hay copia, no se entiende, o esa actividad no tiene sesion.
+ *
+ * ## Por que de la copia del panel y no de otra consulta
+ *
+ * La sesion la elige el servidor y viaja en el progreso, que el panel ya guarda entero. Leerla de
+ * ahi hace que sea **la misma que la persona vio al tocar la actividad** y que funcione igual sin
+ * conexion, sin una segunda peticion que pudiera traer otra distinta (la regla de que sesion toca
+ * cambia si, mientras tanto, la persona hace una).
+ *
+ * Se busca en lo que toca hoy y en lo sugerido: una sugerida tambien se puede hacer.
+ */
+export async function leerLaSesionGuardada(
+  idDeLaActividad: string,
+): Promise<SesionDeLaActividad | null> {
+  const guardado = await leerSoloLaCopia<unknown>(CLAVE_DEL_PANEL);
+
+  if (!esDatosDelPanel(guardado)) {
+    return null;
+  }
+
+  for (const modulo of guardado.progreso) {
+    for (const actividad of [...modulo.hoy, ...(modulo.sugeridas ?? [])]) {
+      if (actividad.id === idDeLaActividad && esSesionDeLaActividad(actividad.sesion)) {
+        return actividad.sesion;
+      }
+    }
+  }
+
+  return null;
 }
 
 /**
