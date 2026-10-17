@@ -172,6 +172,82 @@ export function leerSecuenciaDeCasillas(
 }
 
 // ---------------------------------------------------------------------------
+// Guia paso a paso, «Respiracion guiada» (motor `guia_paso_a_paso`)
+// ---------------------------------------------------------------------------
+
+export interface PatronDeRespiracion {
+  readonly inhalaSegundos: number;
+  readonly exhalaSegundos: number;
+  /** Una pausa entre inhalar y exhalar. Cero si no hay. Nunca mas de 4 s: ninguna retencion larga. */
+  readonly pausaSegundos: number;
+}
+
+export interface ParametrosDeGuiaDeRespiracion {
+  /** Lo que se dice antes de empezar («si te mareas...»): a la vista, no en letra pequena. */
+  readonly advertenciaInicial: string;
+  readonly patron: PatronDeRespiracion;
+  readonly duracionSegundos: number;
+  /** El fondo y el color de la sesion; el estilo de cada una llega con su contenido. */
+  readonly ambientacion?: string;
+  /** Frases breves de acompanamiento, una por ciclo. Pueden no haber. */
+  readonly frases: readonly string[];
+  /** Una vibracion suave al cambiar de etapa, si el dispositivo puede. */
+  readonly haptico: boolean;
+}
+
+function leerElPatron(valor: unknown): PatronDeRespiracion | null {
+  if (!esObjeto(valor)) {
+    return null;
+  }
+
+  const { inhalaSegundos, exhalaSegundos, pausaSegundos } = valor;
+
+  if (
+    !esEntero(inhalaSegundos, 3, 8) ||
+    !esEntero(exhalaSegundos, 3, 10) ||
+    // La baranda de la ficha BIE-01: ninguna retencion de mas de 4 s.
+    !esEntero(pausaSegundos, 0, 4)
+  ) {
+    return null;
+  }
+
+  return { inhalaSegundos, exhalaSegundos, pausaSegundos };
+}
+
+export function leerGuiaDeRespiracion(parametros: unknown): ParametrosDeGuiaDeRespiracion | null {
+  if (!esObjeto(parametros)) {
+    return null;
+  }
+
+  const patron = leerElPatron(parametros.patron);
+  const { advertenciaInicial, duracionSegundos } = parametros;
+  const ambientacion = parametros.ambientacion;
+  const frases = parametros.frases ?? [];
+  const haptico = parametros.haptico ?? false;
+
+  if (
+    patron === null ||
+    !esTexto(advertenciaInicial) ||
+    !esEntero(duracionSegundos, 60, 600) ||
+    (ambientacion !== undefined && !esTexto(ambientacion)) ||
+    !Array.isArray(frases) ||
+    !(frases as unknown[]).every(esTexto) ||
+    typeof haptico !== 'boolean'
+  ) {
+    return null;
+  }
+
+  return {
+    advertenciaInicial,
+    patron,
+    duracionSegundos,
+    ...(ambientacion === undefined ? {} : { ambientacion }),
+    frases: [...(frases as string[])],
+    haptico,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Encuentra la diferencia (motor `tocar_el_objetivo`)
 // ---------------------------------------------------------------------------
 

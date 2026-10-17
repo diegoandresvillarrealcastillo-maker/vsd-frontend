@@ -33,6 +33,17 @@ const CASILLAS: SesionDeLaActividad = {
   },
 };
 
+const RESPIRACION: SesionDeLaActividad = {
+  id: 's-2',
+  titulo: 'Inhalar 4, exhalar 6',
+  nivel: 1,
+  parametros: {
+    advertenciaInicial: 'Si te mareas o te incomoda, suelta el patrón y respira como siempre.',
+    patron: { inhalaSegundos: 4, exhalaSegundos: 6, pausaSegundos: 0 },
+    duracionSegundos: 120,
+  },
+};
+
 function pantalla(id: string, motor?: string, sesion?: SesionDeLaActividad) {
   const mecanica = mecanicaDe(id, motor);
 
@@ -72,8 +83,21 @@ describe('mecanicaDe', () => {
     expect(screen.getByText(/necesita la sesión de hoy/)).toBeInTheDocument();
   });
 
+  it('el motor guia_paso_a_paso elige la respiracion guiada', () => {
+    pantalla(UNA_NUEVA, 'guia_paso_a_paso', RESPIRACION);
+
+    expect(screen.getByRole('heading', { name: 'Antes de empezar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Empezar/ })).toBeInTheDocument();
+  });
+
+  it('la respiracion, sin sesion, lo dice: no hay con que pintarla', () => {
+    pantalla(UNA_NUEVA, 'guia_paso_a_paso');
+
+    expect(screen.getByText(/necesita la sesión de hoy/)).toBeInTheDocument();
+  });
+
   it('un motor que todavia no tiene pantalla, o ninguno, no tiene mecanica', () => {
-    expect(mecanicaDe(UNA_NUEVA, 'guia_paso_a_paso')).toBeUndefined();
+    expect(mecanicaDe(UNA_NUEVA, 'clasificar')).toBeUndefined();
     expect(mecanicaDe(UNA_NUEVA, 'motor_que_no_existe')).toBeUndefined();
     expect(mecanicaDe(UNA_NUEVA)).toBeUndefined();
     expect(mecanicaDe('no-es-un-identificador')).toBeUndefined();

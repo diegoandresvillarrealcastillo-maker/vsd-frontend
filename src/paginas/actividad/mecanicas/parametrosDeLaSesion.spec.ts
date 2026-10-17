@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   leerCuestionario,
+  leerGuiaDeRespiracion,
   leerSecuenciaDeCasillas,
   maximoDelCuestionario,
   leerEscrituraDeUnCampo,
@@ -31,6 +32,17 @@ const SECUENCIA = {
 };
 
 const DIFERENCIA = { rondas: 15, segundosPorRonda: 15, lados: [3, 4, 5] };
+
+/** Una sesion de «Respiracion guiada» (BIE-01): inhala 4, exhala 6, dos minutos. */
+const RESPIRACION = {
+  advertenciaInicial:
+    'Si te mareas o te incomoda, suelta el patrón y respira como siempre. Puedes parar cuando quieras.',
+  patron: { inhalaSegundos: 4, exhalaSegundos: 6, pausaSegundos: 0 },
+  duracionSegundos: 120,
+  ambientacion: 'bosque',
+  frases: ['Sin prisa.', 'Deja que el aire entre y salga a tu ritmo.'],
+  haptico: true,
+};
 
 const COLORES = [
   { clave: 'circulo', nombre: 'círculo verde', forma: 'círculo', color: 'verde' },
@@ -324,6 +336,141 @@ describe('leerSecuenciaDeCasillas', () => {
     recibido.casillas[0] = { ...COLORES[0]!, nombre: 'Cambiada' };
 
     expect(leido?.casillas[0]?.nombre).toBe('círculo verde');
+  });
+});
+
+describe('leerGuiaDeRespiracion', () => {
+  const conPatron = (cambios: Record<string, unknown>) =>
+    con(RESPIRACION, { patron: { ...RESPIRACION.patron, ...cambios } });
+
+  it('lee la sesion de la respiracion', () => {
+    expect(leerGuiaDeRespiracion(RESPIRACION)).toEqual({
+      advertenciaInicial: RESPIRACION.advertenciaInicial,
+      patron: { inhalaSegundos: 4, exhalaSegundos: 6, pausaSegundos: 0 },
+      duracionSegundos: 120,
+      ambientacion: 'bosque',
+      frases: ['Sin prisa.', 'Deja que el aire entre y salga a tu ritmo.'],
+      haptico: true,
+    });
+  });
+
+  it.each(NO_ES_UN_OBJETO)('devuelve null si no es un objeto: %j', (valor) => {
+    expect(leerGuiaDeRespiracion(valor)).toBeNull();
+  });
+
+  it.each(['advertenciaInicial', 'patron', 'duracionSegundos'])(
+    'devuelve null si falta %s',
+    (campo) => {
+      expect(leerGuiaDeRespiracion(sin(RESPIRACION, campo))).toBeNull();
+    },
+  );
+
+  it.each(['inhalaSegundos', 'exhalaSegundos', 'pausaSegundos'])(
+    'devuelve null si al patron le falta %s',
+    (campo) => {
+      const patron: Record<string, unknown> = { ...RESPIRACION.patron };
+
+      delete patron[campo];
+
+      expect(leerGuiaDeRespiracion(con(RESPIRACION, { patron }))).toBeNull();
+    },
+  );
+
+  it.each([
+    ['advertenciaInicial', ''],
+    ['advertenciaInicial', '   '],
+    ['advertenciaInicial', 4],
+    ['duracionSegundos', 59],
+    ['duracionSegundos', 601],
+    ['duracionSegundos', 90.5],
+    ['duracionSegundos', '120'],
+    ['patron', 'cuatro-seis'],
+    ['patron', [4, 6, 0]],
+    ['patron', null],
+    ['ambientacion', ''],
+    ['ambientacion', 3],
+    ['frases', 'Sin prisa.'],
+    ['frases', ['Sin prisa.', '']],
+    ['frases', ['Sin prisa.', 7]],
+    ['haptico', 'si'],
+  ])('devuelve null si %s vale %j', (campo, valor) => {
+    expect(leerGuiaDeRespiracion(con(RESPIRACION, { [campo]: valor }))).toBeNull();
+  });
+
+  it.each([
+    ['inhalaSegundos', 2],
+    ['inhalaSegundos', 9],
+    ['exhalaSegundos', 2],
+    ['exhalaSegundos', 11],
+    // La baranda de la ficha: ninguna retencion de mas de 4 s.
+    ['pausaSegundos', 5],
+    ['pausaSegundos', 30],
+    ['pausaSegundos', -1],
+    ['pausaSegundos', 1.5],
+    ['inhalaSegundos', '4'],
+  ])('devuelve null si el patron trae %s en %j', (campo, valor) => {
+    expect(leerGuiaDeRespiracion(conPatron({ [campo]: valor }))).toBeNull();
+  });
+
+  it.each([
+    ['inhalaSegundos', 3],
+    ['inhalaSegundos', 8],
+    ['exhalaSegundos', 3],
+    ['exhalaSegundos', 10],
+    ['pausaSegundos', 0],
+    ['pausaSegundos', 4],
+  ])('acepta el borde del patron: %s vale %j', (campo, valor) => {
+    expect(leerGuiaDeRespiracion(conPatron({ [campo]: valor }))).not.toBeNull();
+  });
+
+  it.each([60, 600])('acepta una duracion de %i segundos', (duracionSegundos) => {
+    expect(leerGuiaDeRespiracion(con(RESPIRACION, { duracionSegundos }))).not.toBeNull();
+  });
+
+  it('lo opcional que falta toma su valor por omision: sin ambientacion, sin frases y sin vibracion', () => {
+    const minima = {
+      advertenciaInicial: 'Puedes parar cuando quieras.',
+      patron: { inhalaSegundos: 5, exhalaSegundos: 5, pausaSegundos: 0 },
+      duracionSegundos: 60,
+    };
+
+    // Estricto: sin ambientacion no hay una clave `ambientacion: undefined`, que no es lo mismo que no tenerla.
+    expect(leerGuiaDeRespiracion(minima)).toStrictEqual({
+      advertenciaInicial: 'Puedes parar cuando quieras.',
+      patron: { inhalaSegundos: 5, exhalaSegundos: 5, pausaSegundos: 0 },
+      duracionSegundos: 60,
+      frases: [],
+      haptico: false,
+    });
+  });
+
+  it('con la pausa de 2 s del piloto', () => {
+    expect(
+      leerGuiaDeRespiracion(conPatron({ inhalaSegundos: 4, exhalaSegundos: 4, pausaSegundos: 2 })),
+    )?.toMatchObject({ patron: { pausaSegundos: 2 } });
+  });
+
+  it('tolera un parametro de mas, y en el patron tambien', () => {
+    expect(
+      leerGuiaDeRespiracion(
+        con(RESPIRACION, { otra: true, patron: { ...RESPIRACION.patron, x: 1 } }),
+      ),
+    ).not.toBeNull();
+  });
+
+  it('devuelve copias: lo que se lee no cambia si cambia lo recibido', () => {
+    const recibido = {
+      ...RESPIRACION,
+      frases: [...RESPIRACION.frases],
+      patron: { ...RESPIRACION.patron },
+    };
+    const leido = leerGuiaDeRespiracion(recibido);
+
+    recibido.frases[0] = 'Cambiada';
+    recibido.patron.inhalaSegundos = 8;
+
+    expect(leido?.frases[0]).toBe('Sin prisa.');
+    expect(leido?.patron.inhalaSegundos).toBe(4);
   });
 });
 
