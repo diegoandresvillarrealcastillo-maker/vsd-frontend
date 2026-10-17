@@ -5,6 +5,7 @@ import type { LoQueProduceLaActividad } from '../useCompletarActividad.ts';
 import { ComoDormisteAnoche } from './ComoDormisteAnoche.tsx';
 import { ComoTeSientesHoy } from './ComoTeSientesHoy.tsx';
 import { EncuentraLaDiferencia } from './EncuentraLaDiferencia.tsx';
+import { EscrituraBreve } from './EscrituraBreve.tsx';
 import { GuiaDeRespiracion } from './GuiaDeRespiracion.tsx';
 import { LaCargaDeTuSemana } from './LaCargaDeTuSemana.tsx';
 import { MovimientoDelDia } from './MovimientoDelDia.tsx';
@@ -99,6 +100,7 @@ const MECANICAS: Readonly<Record<string, Mecanica>> = {
 const MECANICAS_POR_MOTOR: Readonly<Record<string, Mecanica>> = {
   secuencia: (props) => <SecuenciaDeCasillas {...props} />,
   guia_paso_a_paso: (props) => <GuiaDeRespiracion {...props} />,
+  escritura_breve: (props) => <EscrituraBreve {...props} />,
 };
 
 /**

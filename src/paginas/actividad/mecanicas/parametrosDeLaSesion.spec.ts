@@ -5,6 +5,7 @@ import {
   leerGuiaDeRespiracion,
   leerSecuenciaDeCasillas,
   maximoDelCuestionario,
+  leerEscrituraBreve,
   leerEscrituraDeUnCampo,
   leerSecuenciaDeNumeros,
   leerTocarElObjetivo,
@@ -80,6 +81,15 @@ const ESCRITURA = {
   campos: 1,
   minimo: 1,
   largoMaximo: 500,
+  permiteNingunaHoy: true,
+};
+
+/** Una sesion de «Tres cosas buenas» (EMO-02): hasta tres campos, y con una basta. */
+const TRES_COSAS = {
+  invitacion: 'Algo que probaste hoy, aunque sea pequeño.',
+  campos: 3,
+  minimo: 1,
+  largoMaximo: 200,
   permiteNingunaHoy: true,
 };
 
@@ -759,5 +769,112 @@ describe('leerEscrituraDeUnCampo', () => {
 
   it('tolera un parametro de mas', () => {
     expect(leerEscrituraDeUnCampo(con(ESCRITURA, { otra: true }))).not.toBeNull();
+  });
+});
+
+describe('leerEscrituraBreve', () => {
+  it('lee la sesion de «Tres cosas buenas»', () => {
+    expect(leerEscrituraBreve(TRES_COSAS)).toStrictEqual({
+      invitacion: 'Algo que probaste hoy, aunque sea pequeño.',
+      campos: 3,
+      minimo: 1,
+      ideas: [],
+      largoMaximo: 200,
+      permiteNingunaHoy: true,
+    });
+  });
+
+  it('lee tambien la de un solo campo', () => {
+    expect(leerEscrituraBreve(ESCRITURA)).toStrictEqual({
+      invitacion: '¿Qué estuvo bien hoy?',
+      campos: 1,
+      minimo: 1,
+      ideas: ['Un café a buena hora', 'Una conversación bonita'],
+      largoMaximo: 500,
+      permiteNingunaHoy: true,
+    });
+  });
+
+  it.each(NO_ES_UN_OBJETO)('devuelve null si no es un objeto: %j', (valor) => {
+    expect(leerEscrituraBreve(valor)).toBeNull();
+  });
+
+  it.each(['invitacion', 'campos', 'largoMaximo'])('devuelve null si falta %s', (campo) => {
+    expect(leerEscrituraBreve(sin(TRES_COSAS, campo))).toBeNull();
+  });
+
+  it('lo opcional que falta toma su valor por omision: con una basta, sin ideas y sin «ninguna hoy»', () => {
+    const minima = { invitacion: 'Algo bueno', campos: 3, largoMaximo: 300 };
+
+    expect(leerEscrituraBreve(minima)).toStrictEqual({
+      invitacion: 'Algo bueno',
+      campos: 3,
+      minimo: 1,
+      ideas: [],
+      largoMaximo: 300,
+      permiteNingunaHoy: false,
+    });
+  });
+
+  it.each([
+    ['invitacion', ''],
+    ['invitacion', '  '],
+    ['invitacion', 3],
+    ['campos', 0],
+    ['campos', 6],
+    ['campos', 2.5],
+    ['campos', '3'],
+    ['minimo', 0],
+    ['minimo', 4],
+    ['minimo', 1.5],
+    ['minimo', '1'],
+    // Un nulo no es «no lo dijo»: es una forma que no se entiende.
+    ['minimo', null],
+    ['largoMaximo', 49],
+    ['largoMaximo', 1001],
+    ['largoMaximo', 200.5],
+    ['largoMaximo', '200'],
+    ['ideas', 'un cafe'],
+    ['ideas', [3]],
+    ['ideas', ['']],
+    ['ideas', ['bien', '  ']],
+    ['permiteNingunaHoy', 'si'],
+  ])('devuelve null si %s vale %j', (campo, valor) => {
+    expect(leerEscrituraBreve(con(TRES_COSAS, { [campo]: valor }))).toBeNull();
+  });
+
+  it.each([
+    ['campos', 1],
+    ['campos', 5],
+    ['minimo', 1],
+    ['minimo', 3],
+    ['largoMaximo', 50],
+    ['largoMaximo', 1000],
+  ])('acepta el borde: %s vale %j', (campo, valor) => {
+    expect(leerEscrituraBreve(con(TRES_COSAS, { [campo]: valor }))).not.toBeNull();
+  });
+
+  it('no pide mas respuestas de las que hay campos', () => {
+    expect(leerEscrituraBreve(con(TRES_COSAS, { campos: 2, minimo: 3 }))).toBeNull();
+    expect(leerEscrituraBreve(con(TRES_COSAS, { campos: 2, minimo: 2 }))).not.toBeNull();
+    // Con un solo campo, la unica respuesta posible es una.
+    expect(leerEscrituraBreve(con(TRES_COSAS, { campos: 1, minimo: 2 }))).toBeNull();
+  });
+
+  it('pide al menos una respuesta: «basta con ninguna» no es lo de esta pantalla', () => {
+    expect(leerEscrituraBreve(con(TRES_COSAS, { minimo: 0 }))).toBeNull();
+  });
+
+  it('devuelve copias: lo leido no cambia si cambia lo recibido', () => {
+    const ideas = ['Una receta nueva'];
+    const leido = leerEscrituraBreve(con(TRES_COSAS, { ideas }));
+
+    ideas.push('Otra');
+
+    expect(leido?.ideas).toEqual(['Una receta nueva']);
+  });
+
+  it('tolera un parametro de mas', () => {
+    expect(leerEscrituraBreve(con(TRES_COSAS, { otra: true }))).not.toBeNull();
   });
 });

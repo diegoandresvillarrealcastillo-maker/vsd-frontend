@@ -327,3 +327,185 @@ describe('una mecanica nueva, elegida por su motor (SCRUM-209)', () => {
     expect(screen.queryByRole('button', { name: /Empezar/ })).not.toBeInTheDocument();
   });
 });
+
+describe('una mecanica de varios campos, elegida por su motor (SCRUM-211)', () => {
+  const NUEVA = '0acd0000-0000-4000-8000-0000000000b1';
+
+  const SESION_DE_TRES_COSAS = {
+    id: 's-10',
+    titulo: 'Algo que probaste',
+    nivel: 1,
+    parametros: {
+      invitacion: 'Algo que probaste hoy, aunque sea pequeño.',
+      campos: 3,
+      minimo: 1,
+      largoMaximo: 200,
+      permiteNingunaHoy: true,
+    },
+  };
+
+  function panelDeLaNueva(): readonly ProgresoDelModulo[] {
+    return [
+      {
+        modulo: 'emociones',
+        sesiones: 3,
+        etapa: { numero: 1, esTemporada: false, sesionesHechas: 3, sesionesDeLaEtapa: 5 },
+        hoy: [
+          {
+            id: NUEVA,
+            nombre: 'Tres cosas buenas',
+            hecha: false,
+            frecuencia: { tipo: 'rotativa' },
+            motor: 'escritura_breve',
+            sesion: SESION_DE_TRES_COSAS,
+          },
+        ],
+      },
+    ];
+  }
+
+  function campo(n: number) {
+    return screen.getByRole('textbox', { name: `Respuesta ${String(n)} de 3` });
+  }
+
+  beforeEach(() => {
+    // Una actividad que el mapa por identificador no conoce, con su motor, como la trae el catalogo.
+    buscarActividad.mockImplementation((id: string) =>
+      Promise.resolve({
+        actividad: {
+          id,
+          nombre: 'Tres cosas buenas',
+          tipo: 'bitacora',
+          produceNivel: false,
+          motor: 'escritura_breve',
+        },
+        categoria: { id: 'cat-3', nombre: 'Emociones', actividades: [] },
+      }),
+    );
+  });
+
+  it('se escribe con la sesion del panel y el resultado dice cual fue, sin puntaje', async () => {
+    await guardarElPanel({ cuenta: CUENTA, progreso: panelDeLaNueva() });
+    pintar(NUEVA);
+
+    expect(
+      await screen.findByRole('group', { name: 'Algo que probaste hoy, aunque sea pequeño.' }),
+    ).toBeInTheDocument();
+
+    await usuario.type(campo(1), 'Una sopa de lentejas');
+    await usuario.type(campo(3), '  Llamar a mi hermana ');
+    await usuario.click(screen.getByRole('button', { name: 'Terminar' }));
+
+    await waitFor(() => {
+      expect(registrarResultado).toHaveBeenCalledTimes(1);
+    });
+    expect(enviado()).toMatchObject({
+      activityId: NUEVA,
+      idSesion: 's-10',
+      metadata: { encontroUno: true, textos: ['Una sopa de lentejas', 'Llamar a mi hermana'] },
+    });
+    expect(enviado()).not.toHaveProperty('score');
+    expect(await screen.findByText(/Quedó registrado/)).toBeInTheDocument();
+  });
+
+  it('«Hoy no me sale ninguna» tambien se registra, con su sesion', async () => {
+    await guardarElPanel({ cuenta: CUENTA, progreso: panelDeLaNueva() });
+    pintar(NUEVA);
+
+    await usuario.click(await screen.findByRole('button', { name: 'Hoy no me sale ninguna' }));
+
+    await waitFor(() => {
+      expect(registrarResultado).toHaveBeenCalledTimes(1);
+    });
+    expect(enviado()).toMatchObject({
+      activityId: NUEVA,
+      idSesion: 's-10',
+      metadata: { encontroUno: false },
+    });
+    expect(enviado()).not.toHaveProperty('score');
+  });
+
+  it('sin la sesion del panel, dice que hace falta y no ofrece escribir', async () => {
+    pintar(NUEVA);
+
+    expect(await screen.findByText(/necesita la sesión de hoy/)).toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it('una senal de riesgo en lo escrito siempre ensena las lineas de atencion', async () => {
+    // La deteccion es del servidor, que mira todo el texto: la pantalla ensena lo que el dice.
+    registrarResultado.mockResolvedValue({
+      id: 'r-2',
+      activityId: NUEVA,
+      sugiereAcompanamiento: true,
+      lineasDeAtencion: [
+        { id: 'l-192', titulo: 'Línea 192, opción 4', tipo: 'contacto', cobertura: 'nacional' },
+      ],
+      metadata: {},
+      completedAt: '2026-10-17T15:00:00.000Z',
+    });
+    await guardarElPanel({ cuenta: CUENTA, progreso: panelDeLaNueva() });
+    pintar(NUEVA);
+
+    await usuario.type(await screen.findByRole('textbox', { name: 'Respuesta 2 de 3' }), 'nada');
+    await usuario.click(screen.getByRole('button', { name: 'Terminar' }));
+
+    const seccion = await screen.findByRole('region', { name: 'Si te sirve hablarlo con alguien' });
+
+    expect(within(seccion).getByText('Línea 192, opción 4')).toBeInTheDocument();
+  });
+
+  it('sin conexion, lo escrito queda en la cola con su sesion y sale al volver la red', async () => {
+    hayConexionConLaApi.mockResolvedValue(false);
+    await guardarElPanel({ cuenta: CUENTA, progreso: panelDeLaNueva() });
+    pintar(NUEVA);
+
+    await usuario.type(
+      await screen.findByRole('textbox', { name: 'Respuesta 1 de 3' }),
+      'Una sopa',
+    );
+    await usuario.click(screen.getByRole('button', { name: 'Terminar' }));
+
+    expect(await screen.findByText(/Guardado en este equipo/)).toBeInTheDocument();
+    expect(registrarResultado).not.toHaveBeenCalled();
+
+    const [operacion] = (await cicloActual()?.almacen.operaciones()) ?? [];
+
+    expect(operacion?.payload).toMatchObject({
+      activityId: NUEVA,
+      idSesion: 's-10',
+      metadata: { encontroUno: true, textos: ['Una sopa'] },
+    });
+  });
+
+  it('lo escrito no sale por la consola, ni cuando falla el envio', async () => {
+    const TEXTO = 'algo muy personal que nadie mas deberia leer';
+    const espias = (['log', 'info', 'warn', 'error', 'debug'] as const).map((metodo) =>
+      vi.spyOn(console, metodo).mockImplementation(() => undefined),
+    );
+
+    registrarResultado.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    await guardarElPanel({ cuenta: CUENTA, progreso: panelDeLaNueva() });
+    pintar(NUEVA);
+
+    await usuario.type(await screen.findByRole('textbox', { name: 'Respuesta 3 de 3' }), TEXTO);
+    await usuario.click(screen.getByRole('button', { name: 'Terminar' }));
+
+    // Falla el envio: queda guardado en este equipo (SCRUM-138) y, al volver la conexion, sale. Lo
+    // escrito no puede salir por la consola en ninguno de los dos.
+    await screen.findByText(/Guardado en este equipo/);
+    await cicloActual()?.motor.sincronizar('conexion');
+    await screen.findByText(/Quedó registrado/);
+
+    // Sanity: el texto si llego a la peticion. Lo que no puede es salir por ningun otro lado.
+    expect(registrarResultado.mock.calls[1]?.[0]).toMatchObject({
+      metadata: { textos: [TEXTO] },
+    });
+
+    for (const espia of espias) {
+      for (const argumentos of espia.mock.calls) {
+        expect(argumentos.map((uno) => String(uno)).join(' ')).not.toContain('muy personal');
+      }
+    }
+  });
+});
