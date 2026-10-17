@@ -20,6 +20,7 @@ import {
   type ParametrosDeSecuenciaDeCasillas,
 } from './parametrosDeLaSesion.ts';
 import type { PropsDeMecanica } from './registro.tsx';
+import { SinSesion } from './SinSesion.tsx';
 
 /**
  * «Recuerda los colores»: unas casillas se iluminan una a una, se apagan y hay que tocarlas en el
@@ -67,14 +68,7 @@ export function SecuenciaDeCasillas({ sesion, ...props }: PropsDeMecanica) {
   const reglas = useMemo(() => leerSecuenciaDeCasillas(sesion?.parametros), [sesion]);
 
   if (reglas === null) {
-    return (
-      <div className="actividad__pendiente">
-        <p className="actividad__texto">
-          Esta actividad necesita la sesión de hoy y no la tenemos en este equipo. Vuelve al panel y
-          ábrela desde ahí.
-        </p>
-      </div>
-    );
+    return <SinSesion />;
   }
 
   return <Juego {...props} reglas={reglas} />;
