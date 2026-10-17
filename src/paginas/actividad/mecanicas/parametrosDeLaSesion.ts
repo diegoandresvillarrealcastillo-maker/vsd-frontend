@@ -378,7 +378,64 @@ export function maximoDelCuestionario(
 }
 
 // ---------------------------------------------------------------------------
-// Escritura breve de un solo campo (motor `escritura_breve`)
+// Escritura breve (motor `escritura_breve`)
+// ---------------------------------------------------------------------------
+
+export interface ParametrosDeEscrituraBreve {
+  /** Lo que pregunta la pantalla. */
+  readonly invitacion: string;
+  /** Cuantos campos de texto hay, de 1 a 5. */
+  readonly campos: number;
+  /** Cuantos hay que llenar para poder terminar: con «una basta», 1. */
+  readonly minimo: number;
+  /** Ideas para empezar, a un toque. Pueden no haber. */
+  readonly ideas: readonly string[];
+  /** El largo de **cada** campo. */
+  readonly largoMaximo: number;
+  /** Si se ofrece «hoy no me sale ninguno». */
+  readonly permiteNingunaHoy: boolean;
+}
+
+/**
+ * Esta pantalla pide al menos una respuesta: «basta con ninguna» no es lo suyo (para eso esta el
+ * boton de «hoy no me sale ninguno»), y pedir mas de las que hay campos no se podria cumplir.
+ */
+export function leerEscrituraBreve(parametros: unknown): ParametrosDeEscrituraBreve | null {
+  if (
+    !esObjeto(parametros) ||
+    !esTexto(parametros.invitacion) ||
+    !esEntero(parametros.campos, 1, 5) ||
+    !esEntero(parametros.largoMaximo, 50, 1000)
+  ) {
+    return null;
+  }
+
+  const { invitacion, campos, largoMaximo } = parametros;
+  const minimo = parametros.minimo === undefined ? 1 : parametros.minimo;
+  const ideasRecibidas = parametros.ideas ?? [];
+  const permiteNingunaHoy = parametros.permiteNingunaHoy ?? false;
+
+  if (
+    !esEntero(minimo, 1, campos) ||
+    !Array.isArray(ideasRecibidas) ||
+    !(ideasRecibidas as unknown[]).every(esTexto) ||
+    typeof permiteNingunaHoy !== 'boolean'
+  ) {
+    return null;
+  }
+
+  return {
+    invitacion,
+    campos,
+    minimo,
+    ideas: [...(ideasRecibidas as string[])],
+    largoMaximo,
+    permiteNingunaHoy,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Escritura breve de un solo campo (`UnMomentoBueno`)
 // ---------------------------------------------------------------------------
 
 export interface ParametrosDeEscrituraDeUnCampo {
@@ -391,38 +448,15 @@ export interface ParametrosDeEscrituraDeUnCampo {
   readonly permiteNingunaHoy: boolean;
 }
 
+/** Lo mismo que `leerEscrituraBreve`, pero con un solo campo: es lo unico que esa pantalla tiene. */
 export function leerEscrituraDeUnCampo(parametros: unknown): ParametrosDeEscrituraDeUnCampo | null {
-  if (
-    !esObjeto(parametros) ||
-    !esTexto(parametros.invitacion) ||
-    // Varios campos llegan con su propio motor; esta pantalla tiene uno.
-    parametros.campos !== 1 ||
-    !esEntero(parametros.largoMaximo, 50, 1000)
-  ) {
+  const escritura = leerEscrituraBreve(parametros);
+
+  if (escritura?.campos !== 1) {
     return null;
   }
 
-  // Esta pantalla pide una respuesta: «basta con ninguna» o «hacen falta dos» no es lo suyo.
-  if (parametros.minimo !== undefined && parametros.minimo !== 1) {
-    return null;
-  }
+  const { invitacion, ideas, largoMaximo, permiteNingunaHoy } = escritura;
 
-  const ideasRecibidas = parametros.ideas ?? [];
-
-  if (!Array.isArray(ideasRecibidas) || !(ideasRecibidas as unknown[]).every(esTexto)) {
-    return null;
-  }
-
-  const permiteNingunaHoy = parametros.permiteNingunaHoy ?? false;
-
-  if (typeof permiteNingunaHoy !== 'boolean') {
-    return null;
-  }
-
-  return {
-    invitacion: parametros.invitacion,
-    ideas: [...(ideasRecibidas as string[])],
-    largoMaximo: parametros.largoMaximo,
-    permiteNingunaHoy,
-  };
+  return { invitacion, ideas, largoMaximo, permiteNingunaHoy };
 }
