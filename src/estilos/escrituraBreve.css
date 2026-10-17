@@ -1,0 +1,21 @@
+/* «Tres cosas buenas» (SCRUM-211, ficha EMO-02): de uno a cinco campos de texto bajo una invitacion.
+   Todo lo demas (la tarjeta, los atajos, el aviso, los botones) es del kit de las actividades. */
+
+/* Un grupo de campos: sin el borde ni el relleno que un fieldset trae de fabrica. */
+.escritura {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.escritura__campo {
+  display: grid;
+  gap: 16px;
+}
+
+/* Varios campos a la vez: cada uno mas bajo que el campo unico, para que quepan en un telefono
+   sin que el ultimo quede lejos del boton de terminar. */
+.viva-texto.escritura__texto {
+  min-height: 84px;
+}

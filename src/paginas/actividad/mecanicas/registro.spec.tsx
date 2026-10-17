@@ -14,6 +14,8 @@ import { mecanicaDe } from './registro.tsx';
 const SECUENCIA_DE_NUMEROS = '0acd0000-0000-4000-8000-000000000002';
 const UNA_NUEVA = '0acd0000-0000-4000-8000-0000000000a1';
 
+const UN_MOMENTO_BUENO = '0acd0000-0000-4000-8000-000000000009';
+
 const alTerminar = vi.fn();
 
 const CASILLAS: SesionDeLaActividad = {
@@ -41,6 +43,19 @@ const RESPIRACION: SesionDeLaActividad = {
     advertenciaInicial: 'Si te mareas o te incomoda, suelta el patrón y respira como siempre.',
     patron: { inhalaSegundos: 4, exhalaSegundos: 6, pausaSegundos: 0 },
     duracionSegundos: 120,
+  },
+};
+
+const TRES_COSAS: SesionDeLaActividad = {
+  id: 's-3',
+  titulo: 'Algo que probaste',
+  nivel: 1,
+  parametros: {
+    invitacion: 'Algo que probaste hoy, aunque sea pequeño.',
+    campos: 3,
+    minimo: 1,
+    largoMaximo: 200,
+    permiteNingunaHoy: true,
   },
 };
 
@@ -94,6 +109,29 @@ describe('mecanicaDe', () => {
     pantalla(UNA_NUEVA, 'guia_paso_a_paso');
 
     expect(screen.getByText(/necesita la sesión de hoy/)).toBeInTheDocument();
+  });
+
+  it('el motor escritura_breve elige la de varios campos', () => {
+    pantalla(UNA_NUEVA, 'escritura_breve', TRES_COSAS);
+
+    expect(screen.getAllByRole('textbox')).toHaveLength(3);
+    expect(screen.getByRole('button', { name: 'Hoy no me sale ninguna' })).toBeInTheDocument();
+  });
+
+  it('la de varios campos, sin sesion, lo dice: no tiene respaldo', () => {
+    pantalla(UNA_NUEVA, 'escritura_breve');
+
+    expect(screen.getByText(/necesita la sesión de hoy/)).toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it('«Un momento bueno del dia» sigue con su pantalla de siempre aunque tenga el mismo motor', () => {
+    // Sin sesion usa lo de siempre: su pregunta y su boton, no el aviso de que falta la sesion.
+    pantalla(UN_MOMENTO_BUENO, 'escritura_breve');
+
+    expect(screen.getByRole('textbox', { name: '¿Qué estuvo bien hoy?' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hoy no me sale ninguno' })).toBeInTheDocument();
+    expect(screen.queryByText(/necesita la sesión de hoy/)).not.toBeInTheDocument();
   });
 
   it('un motor que todavia no tiene pantalla, o ninguno, no tiene mecanica', () => {
