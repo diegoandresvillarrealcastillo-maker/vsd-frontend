@@ -81,6 +81,97 @@ export function leerSecuenciaDeNumeros(parametros: unknown): ParametrosDeSecuenc
 }
 
 // ---------------------------------------------------------------------------
+// Secuencia de casillas, «Recuerda los colores» (motor `secuencia`, con destello)
+// ---------------------------------------------------------------------------
+
+export interface CasillaDeLaSesion {
+  readonly clave: string;
+  /** Lo que se lee de ella, y lo que se anuncia al iluminarse. Nunca falta: el color no basta (R10). */
+  readonly nombre: string;
+  readonly forma?: string;
+  readonly color?: string;
+}
+
+export interface ParametrosDeSecuenciaDeCasillas {
+  readonly casillas: readonly CasillaDeLaSesion[];
+  readonly largoInicial: number;
+  readonly rondas: number;
+  /** Cuanto pasa entre el comienzo de una casilla y el de la siguiente. */
+  readonly msPorElemento: number;
+  /** La espera antes de que se ilumine la primera. */
+  readonly msDeMargen: number;
+  /** Cuanto tiempo se queda iluminada cada casilla. */
+  readonly msDestello: number;
+}
+
+const igualSinMayusculas = (texto: string): string => texto.trim().toLowerCase();
+
+function leerLasCasillas(valor: unknown): CasillaDeLaSesion[] | null {
+  if (!Array.isArray(valor) || valor.length < 2 || valor.length > 12) {
+    return null;
+  }
+
+  const casillas: CasillaDeLaSesion[] = [];
+
+  for (const casilla of valor as unknown[]) {
+    if (!esObjeto(casilla) || !esTexto(casilla.clave) || !esTexto(casilla.nombre)) {
+      return null;
+    }
+
+    const { clave, nombre, forma, color } = casilla;
+
+    if (
+      (forma !== undefined && !esTexto(forma)) ||
+      (color !== undefined && !esTexto(color)) ||
+      // El color nunca es la unica pista (R10): sin forma, no hay color.
+      (color !== undefined && forma === undefined) ||
+      casillas.some(
+        (otra) =>
+          otra.clave === clave || igualSinMayusculas(otra.nombre) === igualSinMayusculas(nombre),
+      )
+    ) {
+      return null;
+    }
+
+    casillas.push({
+      clave,
+      nombre,
+      ...(forma === undefined ? {} : { forma }),
+      ...(color === undefined ? {} : { color }),
+    });
+  }
+
+  return casillas;
+}
+
+export function leerSecuenciaDeCasillas(
+  parametros: unknown,
+): ParametrosDeSecuenciaDeCasillas | null {
+  if (!esObjeto(parametros)) {
+    return null;
+  }
+
+  const casillas = leerLasCasillas(parametros.casillas);
+  const { largoInicial, rondas, msPorElemento, msDeMargen, msDestello } = parametros;
+
+  if (
+    casillas === null ||
+    !esEntero(largoInicial, 1, 10) ||
+    !esEntero(rondas, 1, 50) ||
+    !esEntero(msPorElemento, 200, 5000) ||
+    !esEntero(msDeMargen, 0, 10_000) ||
+    // Sin destello es la secuencia de numeros; y menos de 600 ms no se alcanza a ver (R10).
+    !esEntero(msDestello, 600, 5000) ||
+    // El destello cabe en el turno de cada casilla: si lo pasara, la siguiente no tendria su momento.
+    msDestello > msPorElemento
+  ) {
+    return null;
+  }
+
+  return { casillas, largoInicial, rondas, msPorElemento, msDeMargen, msDestello };
+}
+
+// ---------------------------------------------------------------------------
 // Encuentra la diferencia (motor `tocar_el_objetivo`)
 // ---------------------------------------------------------------------------
 

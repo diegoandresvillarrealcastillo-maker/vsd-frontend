@@ -100,6 +100,7 @@ export function Actividad() {
 
                 <Mecanica
                   idDeLaActividad={estado.ficha.actividad.id}
+                  motor={estado.ficha.actividad.motor}
                   sesion={sesion}
                   alTerminar={completar}
                   enviando={estado.fase === 'enviando'}
@@ -142,17 +143,20 @@ export function Actividad() {
 /** La mecanica de la actividad, o el aviso de que todavia no existe. */
 function Mecanica({
   idDeLaActividad,
+  motor,
   sesion,
   alTerminar,
   enviando,
 }: {
   idDeLaActividad: string;
+  /** El motor de la actividad (SCRUM-209): elige la pantalla de las que no la tienen por identificador. */
+  motor: string | undefined;
   /** La sesion de hoy (SCRUM-208): lo que la pantalla pinta en lugar de lo de siempre. */
   sesion: SesionDeLaActividad | undefined;
   alTerminar: (produjo: LoQueProduceLaActividad) => void;
   enviando: boolean;
 }) {
-  const mecanica = mecanicaDe(idDeLaActividad);
+  const mecanica = mecanicaDe(idDeLaActividad, motor);
 
   if (mecanica === undefined) {
     return (

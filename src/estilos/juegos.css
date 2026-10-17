@@ -555,3 +555,123 @@
     font-size: 1.75rem;
   }
 }
+
+/* ---------- Secuencia de casillas, «Recuerda los colores» (SCRUM-209) ----------
+   Casillas con forma, nombre y color: el color es un apoyo, nunca la unica pista (R10). El tono de
+   cada una llega en `--simbolo` (ver `coloresDeCasillas.ts`) y sale de la paleta de la aplicacion.
+   Una casilla iluminada se rellena entera con su tono; apagada, solo lleva el tinte y el borde. */
+
+.juego__nombre-activa {
+  min-height: 1.5em;
+  margin: 0;
+  color: var(--viva-texto);
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.juego__casillas {
+  display: grid;
+  grid-template-columns: repeat(var(--columnas, 2), minmax(0, 1fr));
+  gap: 12px;
+}
+
+.juego__ficha {
+  display: grid;
+  min-height: 96px;
+  align-content: center;
+  justify-items: center;
+  padding: 12px 8px;
+  border: 2px solid color-mix(in srgb, var(--tono) 45%, transparent);
+  border-radius: 18px;
+  cursor: pointer;
+  font: inherit;
+  gap: 6px;
+  opacity: 1;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 140ms ease,
+    box-shadow 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+/* Mientras se mira, las casillas no se tocan, pero tampoco se ven apagadas: se ven como son. */
+.juego__ficha:disabled {
+  cursor: default;
+}
+
+.juego__ficha:focus-visible {
+  outline: 3px solid var(--viva-texto);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) {
+  .juego__ficha:hover:not(:disabled) {
+    box-shadow: 0 0 0 2px var(--tono);
+  }
+}
+
+.juego__ficha:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.juego__ficha-nombre {
+  color: var(--texto);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.juego__ficha--activa {
+  border-color: var(--tono);
+  background: var(--tono);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--tono) 30%, transparent);
+  color: var(--fondo-elevado);
+  transform: scale(1.04);
+}
+
+.juego__ficha--activa .juego__ficha-nombre {
+  color: var(--fondo-elevado);
+}
+
+/* Lo que habia que repetir, al terminar la ronda: las figuras en su orden. */
+.juego__repaso {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.juego__repaso-ficha {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 12px;
+}
+
+/* Sin movimiento la casilla cambia de golpe, sin crecer ni deslizarse. El tiempo que se ilumina es
+   el mismo: es parte de la tarea, no un adorno. */
+@media (prefers-reduced-motion: reduce) {
+  .juego__ficha {
+    transition: none;
+  }
+
+  .juego__ficha--activa,
+  .juego__ficha:active:not(:disabled) {
+    transform: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .juego__ficha {
+    min-height: 84px;
+    padding: 10px 6px;
+  }
+
+  .juego__ficha-nombre {
+    font-size: 0.75rem;
+  }
+}

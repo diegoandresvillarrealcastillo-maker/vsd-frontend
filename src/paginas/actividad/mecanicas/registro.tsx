@@ -9,6 +9,7 @@ import { LaCargaDeTuSemana } from './LaCargaDeTuSemana.tsx';
 import { MovimientoDelDia } from './MovimientoDelDia.tsx';
 import { ParejasDeCartas } from './ParejasDeCartas.tsx';
 import { QueTeEstaPesando } from './QueTeEstaPesando.tsx';
+import { SecuenciaDeCasillas } from './SecuenciaDeCasillas.tsx';
 import { SecuenciaDeNumeros } from './SecuenciaDeNumeros.tsx';
 import { UnMomentoBueno } from './UnMomentoBueno.tsx';
 
@@ -88,7 +89,32 @@ const MECANICAS: Readonly<Record<string, Mecanica>> = {
   '0acd0000-0000-4000-8000-000000000009': (props) => <UnMomentoBueno {...props} />,
 };
 
-/** La mecanica de esa actividad, o `undefined` si todavia no existe. */
-export function mecanicaDe(idDeLaActividad: string): Mecanica | undefined {
-  return MECANICAS[idDeLaActividad];
+/**
+ * La pantalla de cada **motor** (SCRUM-209, ADR 0030): la que se usa para una mecanica que no tiene
+ * la suya por identificador. Una mecanica nueva sobre un motor que ya tiene pantalla es una fila
+ * en la base y no un cambio aqui; las sesiones le dicen que pintar. Las pantallas de motor viven de
+ * la sesion de hoy: sin ella no hay con que pintarlas, y lo dicen.
+ */
+const MECANICAS_POR_MOTOR: Readonly<Record<string, Mecanica>> = {
+  secuencia: (props) => <SecuenciaDeCasillas {...props} />,
+};
+
+/**
+ * La mecanica de esa actividad, o `undefined` si todavia no existe.
+ *
+ * Primero por identificador: las nueve de siempre tienen su pantalla escrita a mano, y el
+ * identificador manda sobre el motor (la secuencia de numeros y «Recuerda los colores» comparten
+ * motor y se juegan distinto). Si no esta ahi, por el `motor` de la actividad.
+ */
+export function mecanicaDe(idDeLaActividad: string, motor?: string): Mecanica | undefined {
+  // Solo lo que esta en las tablas: «constructor» no es una mecanica, aunque el objeto tenga uno.
+  const propia = (
+    tabla: Readonly<Record<string, Mecanica>>,
+    clave: string,
+  ): Mecanica | undefined => (Object.hasOwn(tabla, clave) ? tabla[clave] : undefined);
+
+  return (
+    propia(MECANICAS, idDeLaActividad) ??
+    (motor === undefined ? undefined : propia(MECANICAS_POR_MOTOR, motor))
+  );
 }

@@ -25,6 +25,11 @@ export interface ActividadDelCatalogo {
   readonly tipo?: string;
   readonly descripcion?: string;
   readonly produceNivel: boolean;
+  /**
+   * Que componente pinta la mecanica (SCRUM-205, ADR 0030). Ausente en las que todavia no pasaron al
+   * modelo de sesiones, y en una API anterior.
+   */
+  readonly motor?: string;
 }
 
 /** Una categoria con las actividades que ofrece. */

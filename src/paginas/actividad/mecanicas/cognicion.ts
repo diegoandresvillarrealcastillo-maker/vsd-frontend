@@ -111,6 +111,14 @@ export function generarSecuencia(largo: number): string {
 }
 
 /**
+ * Una secuencia de casillas para `largo` turnos, cada una elegida al azar entre `cuantas` (SCRUM-209).
+ * Una casilla se puede repetir: es una secuencia, no una baraja. Devuelve sus posiciones.
+ */
+export function generarSecuenciaDeCasillas(largo: number, cuantas: number): number[] {
+  return Array.from({ length: largo }, () => Math.floor(Math.random() * cuantas));
+}
+
+/**
  * Un acierto alarga la siguiente un digito; un fallo la acorta, sin bajar del largo inicial (tres,
  * salvo que la sesion diga otro: SCRUM-208).
  */
