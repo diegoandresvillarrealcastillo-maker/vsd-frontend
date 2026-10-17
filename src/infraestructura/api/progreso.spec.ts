@@ -55,6 +55,43 @@ describe('consultarElProgreso', () => {
     expect(peticion.headers.get('Authorization')).toBe('Bearer token-de-prueba');
   });
 
+  it('devuelve el motor y la sesion del dia de una actividad, tal cual (SCRUM-205 y SCRUM-208)', async () => {
+    const conSesion = [
+      {
+        ...PROGRESO[0],
+        hoy: [
+          {
+            id: 'a',
+            nombre: 'Secuencia de números',
+            hecha: false,
+            frecuencia: { tipo: 'rotativa' },
+            motor: 'secuencia',
+            sesion: {
+              id: 's-1',
+              titulo: 'Secuencia de números, versión original',
+              nivel: 1,
+              parametros: { rondas: 12 },
+            },
+          },
+        ],
+      },
+    ];
+
+    vi.mocked(globalThis.fetch).mockResolvedValue(respuesta(conSesion));
+
+    const progreso = await consultarElProgreso();
+    const actividad = progreso[0]?.hoy[0];
+
+    expect(actividad?.motor).toBe('secuencia');
+    expect(actividad?.sesion).toEqual({
+      id: 's-1',
+      titulo: 'Secuencia de números, versión original',
+      nivel: 1,
+      parametros: { rondas: 12 },
+    });
+    expect(actividad?.frecuencia).toEqual({ tipo: 'rotativa' });
+  });
+
   it('devuelve el progreso tal cual lo calcula el servidor', async () => {
     await expect(consultarElProgreso()).resolves.toEqual(PROGRESO);
   });

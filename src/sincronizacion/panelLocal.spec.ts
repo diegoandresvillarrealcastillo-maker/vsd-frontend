@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ErrorDeLaApi } from '../infraestructura/api/clienteHttp.ts';
 import type { Cuenta } from '../infraestructura/api/cuenta.ts';
-import type { ProgresoDelModulo } from '../infraestructura/api/progreso.ts';
+import type { ProgresoDelModulo, SesionDeLaActividad } from '../infraestructura/api/progreso.ts';
 import { fijarLaZonaDeLaCuenta, zonaActual } from '../tiempo/zonaHoraria.ts';
 import { alCambiarLaSesion, cicloActual, reiniciarElCicloParaLasPruebas } from './ciclo.ts';
 import { nuevaOperacion, type Operacion, type TipoDeOperacion } from './cola.ts';
@@ -13,6 +13,7 @@ import {
   guardarElPanel,
   leerElPanelConCopia,
   leerLaCuentaGuardada,
+  leerLaSesionGuardada,
   leerLosResultadosDeLaCola,
   precargarElPanel,
 } from './panelLocal.ts';
@@ -270,6 +271,98 @@ describe('leerLaCuentaGuardada (SCRUM-142)', () => {
 
     expect(await leerLaCuentaGuardada()).toBeNull();
     expect(zonaActual()).toBe('America/Bogota');
+  });
+});
+
+describe('leerLaSesionGuardada (SCRUM-208)', () => {
+  const SESION: SesionDeLaActividad = {
+    id: 's-1',
+    titulo: 'Secuencia de números, versión original',
+    nivel: 1,
+    parametros: { rondas: 12, largoInicial: 3 },
+  };
+
+  /** Un panel con una actividad que tiene motor y sesion, en `hoy` o en `sugeridas`. */
+  function panelConSesion(donde: 'hoy' | 'sugeridas', sesion: unknown = SESION) {
+    const actividad = { id: 'a-1', nombre: 'Secuencia', hecha: false, motor: 'secuencia', sesion };
+    const otra = { id: 'a-2', nombre: 'Otra', hecha: false };
+    const [modulo] = progreso([]);
+
+    return [
+      {
+        ...modulo!,
+        hoy: donde === 'hoy' ? [otra, actividad] : [otra],
+        ...(donde === 'sugeridas' ? { sugeridas: [actividad] } : {}),
+      },
+    ] as unknown as ProgresoDelModulo[];
+  }
+
+  it('devuelve la sesion de hoy que dejo el panel, sin preguntar a la API', async () => {
+    await guardarElPanel({ cuenta: cuenta(), progreso: panelConSesion('hoy') });
+
+    expect(await leerLaSesionGuardada('a-1')).toEqual(SESION);
+    expect(consultarElProgreso).not.toHaveBeenCalled();
+    expect(consultarLaCuentaPropia).not.toHaveBeenCalled();
+  });
+
+  it('tambien la encuentra entre las sugeridas: una sugerida se puede hacer', async () => {
+    await guardarElPanel({ cuenta: cuenta(), progreso: panelConSesion('sugeridas') });
+
+    expect(await leerLaSesionGuardada('a-1')).toEqual(SESION);
+  });
+
+  it('una actividad que no tiene sesion, o que no esta, no tiene nada guardado', async () => {
+    await guardarElPanel({ cuenta: cuenta(), progreso: panelConSesion('hoy') });
+
+    expect(await leerLaSesionGuardada('a-2')).toBeNull();
+    expect(await leerLaSesionGuardada('no-esta')).toBeNull();
+  });
+
+  it('sin nada guardado, nulo: nunca se inventa una sesion', async () => {
+    expect(await leerLaSesionGuardada('a-1')).toBeNull();
+  });
+
+  it('sin almacen abierto, nulo', async () => {
+    reiniciarElCicloParaLasPruebas();
+
+    expect(await leerLaSesionGuardada('a-1')).toBeNull();
+  });
+
+  it('una copia que no se entiende no se usa', async () => {
+    await cicloActual()!.almacen.guardarLectura(
+      CLAVE_DEL_PANEL,
+      { valor: { cuenta: { id: 'c-1' }, progreso: [] }, etag: null },
+      new Date(),
+    );
+
+    expect(await leerLaSesionGuardada('a-1')).toBeNull();
+  });
+
+  it.each([
+    ['sin identificador', { titulo: 't', nivel: 1, parametros: {} }],
+    ['con un identificador vacio', { id: '', titulo: 't', nivel: 1, parametros: {} }],
+    ['sin parametros', { id: 's-1', titulo: 't', nivel: 1 }],
+    ['con parametros que no son un objeto', { id: 's-1', titulo: 't', nivel: 1, parametros: [1] }],
+    ['que no es un objeto', 'una sesion'],
+    ['nula', null],
+  ])('una sesion %s no se usa', async (_caso, sesion) => {
+    await guardarElPanel({ cuenta: cuenta(), progreso: panelConSesion('hoy', sesion) });
+
+    expect(await leerLaSesionGuardada('a-1')).toBeNull();
+  });
+
+  it('con la actividad en un modulo y la sesion en otro, no las mezcla', async () => {
+    const [uno] = panelConSesion('hoy');
+    const otro = {
+      ...uno!,
+      modulo: 'emociones',
+      hoy: [{ id: 'a-9', nombre: 'Nueve', hecha: false }],
+    };
+
+    await guardarElPanel({ cuenta: cuenta(), progreso: [uno!, otro] as ProgresoDelModulo[] });
+
+    expect(await leerLaSesionGuardada('a-1')).toEqual(SESION);
+    expect(await leerLaSesionGuardada('a-9')).toBeNull();
   });
 });
 

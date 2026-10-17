@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 
 import '../../../estilos/juegos.css';
 import { BarraDeAccion, BotonPrincipal } from '../viva/BarraDeAccion.tsx';
@@ -9,13 +9,13 @@ import { useMascotaDeLaPersona } from '../viva/mascotaDeLaPersona.ts';
 import { VozDeLaMascota } from '../viva/VozDeLaMascota.tsx';
 import {
   generarSecuencia,
-  LARGO_INICIAL,
   marcaDeTiempo,
-  RONDAS_DE_SECUENCIA as RONDAS,
+  SECUENCIA_DE_SIEMPRE,
   segundosDesde,
   siguienteLargo,
   tiempoAlaVista,
 } from './cognicion.ts';
+import { leerSecuenciaDeNumeros } from './parametrosDeLaSesion.ts';
 import type { PropsDeMecanica } from './registro.tsx';
 
 /**
@@ -25,6 +25,10 @@ import type { PropsDeMecanica } from './registro.tsx';
  * Son doce rondas. Empieza con tres digitos; cada acierto alarga la siguiente
  * un digito, y cada fallo la acorta uno, sin bajar de tres. El puntaje crudo es
  * el numero de rondas acertadas, sobre doce.
+ *
+ * Esos numeros (rondas, largo inicial, tiempo a la vista) son los de siempre; si el servidor
+ * entrega la sesion de hoy (SCRUM-208, ADR 0030) se usan los de la sesion, que en la Fase 0 son
+ * los mismos. Si la sesion no llega o no se entiende, se usan los de siempre.
  *
  * Acortar al fallar, en vez de terminar la partida, es lo que hace util el
  * resultado: con "al primer fallo se acaba", casi todo el mundo se quedaria en
@@ -95,8 +99,13 @@ function Huecos({ largo, escrito }: { largo: number; escrito: string }) {
   );
 }
 
-export function SecuenciaDeNumeros({ alTerminar, enviando }: PropsDeMecanica) {
+export function SecuenciaDeNumeros({ alTerminar, enviando, sesion }: PropsDeMecanica) {
   const mascota = useMascotaDeLaPersona();
+  const reglas = useMemo(
+    () => leerSecuenciaDeNumeros(sesion?.parametros) ?? SECUENCIA_DE_SIEMPRE,
+    [sesion],
+  );
+  const { largoInicial, rondas: RONDAS, msPorElemento, msDeMargen } = reglas;
   const [fase, setFase] = useState<Fase>({ tipo: 'inicio' });
   const [rondas, setRondas] = useState<readonly Ronda[]>([]);
   const [respuesta, setRespuesta] = useState('');
@@ -113,11 +122,11 @@ export function SecuenciaDeNumeros({ alTerminar, enviando }: PropsDeMecanica) {
 
     const temporizador = setTimeout(
       () => setFase({ tipo: 'respondiendo', secuencia: fase.secuencia }),
-      tiempoAlaVista(fase.secuencia.length),
+      tiempoAlaVista(fase.secuencia.length, msPorElemento, msDeMargen),
     );
 
     return () => clearTimeout(temporizador);
-  }, [fase]);
+  }, [fase, msPorElemento, msDeMargen]);
 
   // El foco va a donde toca: al campo para responder, al boton para seguir.
   useEffect(() => {
@@ -137,7 +146,7 @@ export function SecuenciaDeNumeros({ alTerminar, enviando }: PropsDeMecanica) {
 
   function empezar() {
     inicio.current = marcaDeTiempo();
-    empezarRonda(LARGO_INICIAL);
+    empezarRonda(largoInicial);
   }
 
   function comprobar(evento: FormEvent) {
@@ -162,7 +171,9 @@ export function SecuenciaDeNumeros({ alTerminar, enviando }: PropsDeMecanica) {
       const ultima = rondas.at(-1);
 
       empezarRonda(
-        ultima === undefined ? LARGO_INICIAL : siguienteLargo(ultima.largo, ultima.acerto),
+        ultima === undefined
+          ? largoInicial
+          : siguienteLargo(ultima.largo, ultima.acerto, largoInicial),
       );
       return;
     }
@@ -260,7 +271,7 @@ export function SecuenciaDeNumeros({ alTerminar, enviando }: PropsDeMecanica) {
             <span
               style={
                 {
-                  '--duracion': `${String(tiempoAlaVista(fase.secuencia.length))}ms`,
+                  '--duracion': `${String(tiempoAlaVista(fase.secuencia.length, msPorElemento, msDeMargen))}ms`,
                 } as CSSProperties
               }
             />

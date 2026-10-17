@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 
+import type { SesionDeLaActividad } from '../../../infraestructura/api/progreso.ts';
 import type { LoQueProduceLaActividad } from '../useCompletarActividad.ts';
 import { ComoDormisteAnoche } from './ComoDormisteAnoche.tsx';
 import { ComoTeSientesHoy } from './ComoTeSientesHoy.tsx';
@@ -51,6 +52,12 @@ import { UnMomentoBueno } from './UnMomentoBueno.tsx';
 export interface PropsDeMecanica {
   readonly alTerminar: (produjo: LoQueProduceLaActividad) => void;
   readonly enviando: boolean;
+  /**
+   * La sesion de hoy de esta mecanica (SCRUM-208, ADR 0030), si el servidor la entrego: el
+   * contenido de **esta vez** (preguntas, rondas, tiempos...). Cada pantalla la lee con cuidado
+   * (`parametrosDeLaSesion.ts`) y, sin ella o con una que no entiende, usa lo de siempre.
+   */
+  readonly sesion?: SesionDeLaActividad | undefined;
 }
 
 type Mecanica = (props: PropsDeMecanica) => ReactElement;

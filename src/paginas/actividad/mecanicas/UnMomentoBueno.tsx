@@ -1,8 +1,12 @@
-import { useId, useState, type FormEvent } from 'react';
+import { useId, useMemo, useState, type FormEvent } from 'react';
 
 import { BarraDeAccion, BotonPrincipal, BotonSecundario } from '../viva/BarraDeAccion.tsx';
 import { useMascotaDeLaPersona } from '../viva/mascotaDeLaPersona.ts';
 import { VozDeLaMascota } from '../viva/VozDeLaMascota.tsx';
+import {
+  leerEscrituraDeUnCampo,
+  type ParametrosDeEscrituraDeUnCampo,
+} from './parametrosDeLaSesion.ts';
 import type { PropsDeMecanica } from './registro.tsx';
 
 /**
@@ -45,8 +49,33 @@ const IDEAS = [
   'Algo rico para comer',
 ] as const;
 
-export function UnMomentoBueno({ alTerminar, enviando }: PropsDeMecanica) {
+/**
+ * Lo de siempre: la pregunta, las cinco ideas, los 500 caracteres y el boton de «hoy no me sale
+ * ninguno». Es lo mismo que lleva la sesion de la Fase 0 (SCRUM-207, SCRUM-208), y es lo que se usa
+ * si la sesion no llega o no se entiende.
+ */
+const DE_SIEMPRE: ParametrosDeEscrituraDeUnCampo = {
+  invitacion: '¿Qué estuvo bien hoy?',
+  ideas: IDEAS,
+  largoMaximo: LARGO_MAXIMO,
+  permiteNingunaHoy: true,
+};
+
+/**
+ * El ejemplo gris del campo. Habla de lo mismo que la pregunta de siempre, asi que solo se pone con
+ * ella: con otra invitacion («¿Qué probaste hoy?») contradiria lo que se pide, y el contrato de la
+ * sesion no tiene un texto propio para el campo.
+ */
+const EJEMPLO_DEL_CAMPO =
+  'Un café a buena hora, una conversación, algo que salió mejor de lo que esperabas…';
+
+export function UnMomentoBueno({ alTerminar, enviando, sesion }: PropsDeMecanica) {
   const mascota = useMascotaDeLaPersona();
+  const { invitacion, ideas, largoMaximo, permiteNingunaHoy } = useMemo(
+    () => leerEscrituraDeUnCampo(sesion?.parametros) ?? DE_SIEMPRE,
+    [sesion],
+  );
+  const ejemplo = invitacion === DE_SIEMPRE.invitacion ? EJEMPLO_DEL_CAMPO : undefined;
   const [texto, setTexto] = useState('');
   const [falta, setFalta] = useState<string | null>(null);
   // Sube cada vez que se toca una idea: hace saltar a la mascota.
@@ -60,7 +89,7 @@ export function UnMomentoBueno({ alTerminar, enviando }: PropsDeMecanica) {
       const base = antes.trim();
       const siguiente = base === '' ? idea : `${base}. ${idea}`;
 
-      return siguiente.slice(0, LARGO_MAXIMO);
+      return siguiente.slice(0, largoMaximo);
     });
   }
 
@@ -95,31 +124,33 @@ export function UnMomentoBueno({ alTerminar, enviando }: PropsDeMecanica) {
 
       <section className="viva-paso">
         <label className="viva-paso__titulo" htmlFor={idDelCampo}>
-          ¿Qué estuvo bien hoy?
+          {invitacion}
         </label>
 
-        <div className="viva-atajos">
-          {IDEAS.map((idea) => (
-            <button key={idea} type="button" className="viva-atajo" onClick={() => sumar(idea)}>
-              {idea}
-            </button>
-          ))}
-        </div>
+        {ideas.length > 0 && (
+          <div className="viva-atajos">
+            {ideas.map((idea) => (
+              <button key={idea} type="button" className="viva-atajo" onClick={() => sumar(idea)}>
+                {idea}
+              </button>
+            ))}
+          </div>
+        )}
 
         <textarea
           id={idDelCampo}
           className="viva-texto"
           rows={4}
-          maxLength={LARGO_MAXIMO}
+          maxLength={largoMaximo}
           value={texto}
-          placeholder="Un café a buena hora, una conversación, algo que salió mejor de lo que esperabas…"
+          {...(ejemplo === undefined ? {} : { placeholder: ejemplo })}
           onChange={(evento) => {
             setFalta(null);
             setTexto(evento.target.value);
           }}
         />
         <p className="viva-texto__cuenta" aria-hidden="true">
-          {texto.length} / {LARGO_MAXIMO}
+          {texto.length} / {largoMaximo}
         </p>
       </section>
 
@@ -130,14 +161,16 @@ export function UnMomentoBueno({ alTerminar, enviando }: PropsDeMecanica) {
       )}
 
       {/* Fuera de la franja de abajo: esa es para el gesto principal, y asi no tapa el texto. */}
-      <div className="viva-salida">
-        <BotonSecundario
-          deshabilitado={enviando}
-          alPulsar={() => alTerminar({ metadata: { encontroUno: false } })}
-        >
-          Hoy no me sale ninguno
-        </BotonSecundario>
-      </div>
+      {permiteNingunaHoy && (
+        <div className="viva-salida">
+          <BotonSecundario
+            deshabilitado={enviando}
+            alPulsar={() => alTerminar({ metadata: { encontroUno: false } })}
+          >
+            Hoy no me sale ninguno
+          </BotonSecundario>
+        </div>
+      )}
 
       <BarraDeAccion>
         <BotonPrincipal tipo="submit" deshabilitado={enviando}>
