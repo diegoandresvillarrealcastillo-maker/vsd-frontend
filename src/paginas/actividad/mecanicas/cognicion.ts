@@ -95,18 +95,51 @@ export const LARGO_INICIAL = 3;
 const MS_POR_DIGITO = 700;
 const MS_DE_MARGEN = 1000;
 
+/**
+ * Las reglas de la secuencia **de siempre**: las que usa la pantalla cuando no hay sesion, o la
+ * que llega no se entiende (SCRUM-208). Son las mismas que lleva la sesion de la Fase 0.
+ */
+export const SECUENCIA_DE_SIEMPRE = {
+  largoInicial: LARGO_INICIAL,
+  rondas: RONDAS_DE_SECUENCIA,
+  msPorElemento: MS_POR_DIGITO,
+  msDeMargen: MS_DE_MARGEN,
+} as const;
+
 export function generarSecuencia(largo: number): string {
   return Array.from({ length: largo }, () => Math.floor(Math.random() * 10)).join('');
 }
 
-/** Un acierto alarga la siguiente un digito; un fallo la acorta, sin bajar de tres. */
-export function siguienteLargo(largo: number, acerto: boolean): number {
-  return acerto ? largo + 1 : Math.max(LARGO_INICIAL, largo - 1);
+/**
+ * Una secuencia de casillas para `largo` turnos, cada una elegida al azar entre `cuantas` (SCRUM-209).
+ * Una casilla se puede repetir: es una secuencia, no una baraja. Devuelve sus posiciones.
+ */
+export function generarSecuenciaDeCasillas(largo: number, cuantas: number): number[] {
+  return Array.from({ length: largo }, () => Math.floor(Math.random() * cuantas));
 }
 
-/** Tiempo a la vista: un poco por cada digito, mas un margen para leerla. */
-export function tiempoAlaVista(largo: number): number {
-  return largo * MS_POR_DIGITO + MS_DE_MARGEN;
+/**
+ * Un acierto alarga la siguiente un digito; un fallo la acorta, sin bajar del largo inicial (tres,
+ * salvo que la sesion diga otro: SCRUM-208).
+ */
+export function siguienteLargo(
+  largo: number,
+  acerto: boolean,
+  largoInicial: number = LARGO_INICIAL,
+): number {
+  return acerto ? largo + 1 : Math.max(largoInicial, largo - 1);
+}
+
+/**
+ * Tiempo a la vista: un poco por cada digito, mas un margen para leerla. Sin decir nada son los de
+ * siempre; con una sesion, los suyos.
+ */
+export function tiempoAlaVista(
+  largo: number,
+  msPorElemento: number = MS_POR_DIGITO,
+  msDeMargen: number = MS_DE_MARGEN,
+): number {
+  return largo * msPorElemento + msDeMargen;
 }
 
 // ---------------------------------------------------------------------------
@@ -133,13 +166,30 @@ export interface Tablero {
   readonly cambio: number;
 }
 
-/** 3×3 las cinco primeras rondas, 4×4 las cinco siguientes y 5×5 las ultimas. */
-export function ladoDeLaRonda(ronda: number): number {
-  if (ronda <= 5) {
-    return 3;
-  }
+/** Los tamanos de siempre: 3×3, 4×4 y 5×5. */
+export const LADOS_DE_SIEMPRE: readonly number[] = [3, 4, 5];
 
-  return ronda <= 10 ? 4 : 5;
+/** Las reglas de «Encuentra la diferencia» **de siempre** (SCRUM-208): las de la sesion de la Fase 0. */
+export const DIFERENCIA_DE_SIEMPRE = {
+  rondas: RONDAS_DE_DIFERENCIA,
+  segundosPorRonda: SEGUNDOS_POR_RONDA,
+  lados: LADOS_DE_SIEMPRE,
+} as const;
+
+/**
+ * El lado del tablero de una ronda: las rondas se reparten en **tramos iguales** entre los lados
+ * (SCRUM-208). Con quince rondas y lados de 3, 4 y 5: 3×3 las cinco primeras, 4×4 las cinco
+ * siguientes y 5×5 las ultimas. Una ronda fuera de rango se queda en el primero o en el ultimo.
+ */
+export function ladoDeLaRondaSegun(
+  ronda: number,
+  rondas: number,
+  lados: readonly number[],
+): number {
+  const tramo = Math.floor(((ronda - 1) * lados.length) / rondas);
+  const indice = Math.min(Math.max(tramo, 0), lados.length - 1);
+
+  return lados[indice] ?? LADOS_DE_SIEMPRE[0] ?? 3;
 }
 
 export function generarTablero(lado: number): Tablero {

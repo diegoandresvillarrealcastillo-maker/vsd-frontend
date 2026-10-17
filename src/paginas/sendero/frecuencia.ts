@@ -18,6 +18,9 @@ export function etiquetaDeFrecuencia(frecuencia: Frecuencia | undefined): string
       return 'Diaria';
     case 'unica':
       return 'Una vez';
+    // No toca por su frecuencia, asi que no hay nada que decir de cuando.
+    case 'rotativa':
+      return undefined;
     case 'semanal': {
       const dias = frecuencia.dias
         .map((dia) => DIAS[dia])

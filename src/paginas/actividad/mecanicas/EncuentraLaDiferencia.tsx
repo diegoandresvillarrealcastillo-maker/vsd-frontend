@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
 import '../../../estilos/juegos.css';
 import { Icono } from '../../panel/Icono.tsx';
@@ -11,15 +11,15 @@ import { useMascotaDeLaPersona } from '../viva/mascotaDeLaPersona.ts';
 import { VozDeLaMascota } from '../viva/VozDeLaMascota.tsx';
 import { estiloDelSimbolo } from './coloresDeSimbolos.ts';
 import {
+  DIFERENCIA_DE_SIEMPRE,
   generarTablero,
-  ladoDeLaRonda,
+  ladoDeLaRondaSegun,
   marcaDeTiempo,
-  RONDAS_DE_DIFERENCIA as RONDAS,
   segundosDesde,
-  SEGUNDOS_POR_RONDA,
   SIMBOLOS_DE_DIFERENCIA as SIMBOLOS,
   type Tablero,
 } from './cognicion.ts';
+import { leerTocarElObjetivo } from './parametrosDeLaSesion.ts';
 import type { PropsDeMecanica } from './registro.tsx';
 
 /**
@@ -42,6 +42,12 @@ import type { PropsDeMecanica } from './registro.tsx';
  * cambio se ilumina con el color del modulo; la tocada por error se rodea de ambar, no de rojo.
  * El texto de cada veredicto es el de siempre y vive en el globo de la mascota, que es la zona
  * que anuncian los lectores de pantalla.
+ *
+ * ## Lo que dice la sesion (SCRUM-208)
+ *
+ * Las rondas, los segundos y los tamanos del tablero son los de siempre; si el servidor entrega la
+ * sesion de hoy (ADR 0030) se usan los de la sesion, que en la Fase 0 son los mismos. Si la sesion
+ * no llega o no se entiende, se usan los de siempre.
  */
 
 /** Cuanto se ve la solucion antes de pasar a la siguiente ronda. */
@@ -72,12 +78,50 @@ const VEREDICTOS: Readonly<
   },
 };
 
+const PALABRAS_DE_CANTIDAD: Readonly<Record<number, string>> = {
+  2: 'dos',
+  3: 'tres',
+  4: 'cuatro',
+  5: 'cinco',
+  6: 'seis',
+  7: 'siete',
+  8: 'ocho',
+  9: 'nueve',
+  10: 'diez',
+};
+
+/**
+ * Lo que la presentacion dice del tamano del tablero: «, y el tablero crece cada cinco» con las
+ * reglas de siempre (quince rondas y tres tamanos). Con un solo tamano no hay nada que decir, y si
+ * las rondas no se reparten parejo entre los tamanos, solo que va creciendo.
+ */
+function cuantoCreceElTablero(rondas: number, lados: readonly number[]): string {
+  if (lados.length < 2) {
+    return '';
+  }
+
+  const porTramo = rondas / lados.length;
+
+  if (!Number.isInteger(porTramo)) {
+    return ', y el tablero crece poco a poco';
+  }
+
+  return porTramo === 1
+    ? ', y el tablero crece en cada ronda'
+    : `, y el tablero crece cada ${PALABRAS_DE_CANTIDAD[porTramo] ?? String(porTramo)}`;
+}
+
 function nombreDe(simbolo: number | undefined): string {
   return simbolo === undefined ? '' : (SIMBOLOS[simbolo]?.nombre ?? '');
 }
 
-export function EncuentraLaDiferencia({ alTerminar, enviando }: PropsDeMecanica) {
+export function EncuentraLaDiferencia({ alTerminar, enviando, sesion }: PropsDeMecanica) {
   const mascota = useMascotaDeLaPersona();
+  const reglas = useMemo(
+    () => leerTocarElObjetivo(sesion?.parametros) ?? DIFERENCIA_DE_SIEMPRE,
+    [sesion],
+  );
+  const { rondas: RONDAS, segundosPorRonda: SEGUNDOS_POR_RONDA, lados } = reglas;
   const [fase, setFase] = useState<Fase>({ tipo: 'inicio' });
   const [resultados, setResultados] = useState<readonly Motivo[]>([]);
   const [restantes, setRestantes] = useState(SEGUNDOS_POR_RONDA);
@@ -87,7 +131,11 @@ export function EncuentraLaDiferencia({ alTerminar, enviando }: PropsDeMecanica)
 
   function empezarRonda(ronda: number) {
     setRestantes(SEGUNDOS_POR_RONDA);
-    setFase({ tipo: 'jugando', ronda, tablero: generarTablero(ladoDeLaRonda(ronda)) });
+    setFase({
+      tipo: 'jugando',
+      ronda,
+      tablero: generarTablero(ladoDeLaRondaSegun(ronda, RONDAS, lados)),
+    });
   }
 
   function cerrarRonda(elegida: number | null) {
@@ -124,7 +172,7 @@ export function EncuentraLaDiferencia({ alTerminar, enviando }: PropsDeMecanica)
     }, 250);
 
     return () => clearInterval(reloj);
-  }, [fase]);
+  }, [fase, SEGUNDOS_POR_RONDA]);
 
   // Con la ronda ya revisada, un momento para ver la solucion y a la siguiente.
   useEffect(() => {
@@ -138,7 +186,7 @@ export function EncuentraLaDiferencia({ alTerminar, enviando }: PropsDeMecanica)
         setFase({
           tipo: 'jugando',
           ronda: fase.ronda + 1,
-          tablero: generarTablero(ladoDeLaRonda(fase.ronda + 1)),
+          tablero: generarTablero(ladoDeLaRondaSegun(fase.ronda + 1, RONDAS, lados)),
         });
         return;
       }
@@ -164,7 +212,7 @@ export function EncuentraLaDiferencia({ alTerminar, enviando }: PropsDeMecanica)
     }, PAUSA_TRAS_RONDA_MS);
 
     return () => clearTimeout(temporizador);
-  }, [fase, resultados, alTerminar]);
+  }, [fase, resultados, alTerminar, RONDAS, SEGUNDOS_POR_RONDA, lados]);
 
   // Cada ronda nueva empieza con el foco en el tablero, para jugar con teclado.
   const rondaEnJuego = fase.tipo === 'jugando' ? fase.ronda : null;
@@ -190,8 +238,8 @@ export function EncuentraLaDiferencia({ alTerminar, enviando }: PropsDeMecanica)
 
         <p className="actividad__texto">
           Verás dos tableros casi iguales. En el segundo cambió una casilla: tócala antes de que se
-          acabe el tiempo. Son {RONDAS} rondas de {SEGUNDOS_POR_RONDA} segundos, y el tablero crece
-          cada cinco.
+          acabe el tiempo. Son {RONDAS} rondas de {SEGUNDOS_POR_RONDA} segundos
+          {cuantoCreceElTablero(RONDAS, lados)}.
         </p>
 
         <BarraDeAccion>

@@ -4,6 +4,7 @@ import { estiloDelSimbolo } from '../paginas/actividad/mecanicas/coloresDeSimbol
 import type { NombreDeIcono } from '../paginas/panel/Icono.tsx';
 import APLICACION from './aplicacion.css?raw';
 import JUEGOS from './juegos.css?raw';
+import RESPIRACION from './respiracion.css?raw';
 import VIVA from './viva.css?raw';
 
 /**
@@ -33,6 +34,7 @@ describe('La paleta de las actividades', () => {
   it.each([
     ['viva.css', VIVA],
     ['juegos.css', JUEGOS],
+    ['respiracion.css', RESPIRACION],
   ])('%s no inventa colores: solo los de la aplicacion y unos pocos permitidos', (_nombre, css) => {
     const sueltos = coloresFijos(css).filter((color) => !PERMITIDOS.has(color));
 

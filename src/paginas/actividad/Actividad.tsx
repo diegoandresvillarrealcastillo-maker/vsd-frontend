@@ -8,6 +8,7 @@ import '../../estilos/aplicacion.css';
 import '../../estilos/actividad.css';
 import '../../estilos/viva.css';
 import type { ActividadConSuCategoria } from '../../infraestructura/api/catalogo.ts';
+import type { SesionDeLaActividad } from '../../infraestructura/api/progreso.ts';
 import type { ResultadoRegistrado } from '../../infraestructura/api/resultados.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
@@ -31,7 +32,7 @@ import { ProveedorDeLaMascota } from './viva/ProveedorDeLaMascota.tsx';
  */
 export function Actividad() {
   const { id } = useParams<{ id: string }>();
-  const { estado, completar, reintentar, empezarDeNuevo } = useCompletarActividad(id);
+  const { estado, sesion, completar, reintentar, empezarDeNuevo } = useCompletarActividad(id);
 
   // Se llega desde el panel, que casi siempre esta desplazado hacia abajo: la actividad empieza
   // por su cabecera y no a media pantalla.
@@ -99,6 +100,8 @@ export function Actividad() {
 
                 <Mecanica
                   idDeLaActividad={estado.ficha.actividad.id}
+                  motor={estado.ficha.actividad.motor}
+                  sesion={sesion}
                   alTerminar={completar}
                   enviando={estado.fase === 'enviando'}
                 />
@@ -140,14 +143,20 @@ export function Actividad() {
 /** La mecanica de la actividad, o el aviso de que todavia no existe. */
 function Mecanica({
   idDeLaActividad,
+  motor,
+  sesion,
   alTerminar,
   enviando,
 }: {
   idDeLaActividad: string;
+  /** El motor de la actividad (SCRUM-209): elige la pantalla de las que no la tienen por identificador. */
+  motor: string | undefined;
+  /** La sesion de hoy (SCRUM-208): lo que la pantalla pinta en lugar de lo de siempre. */
+  sesion: SesionDeLaActividad | undefined;
   alTerminar: (produjo: LoQueProduceLaActividad) => void;
   enviando: boolean;
 }) {
-  const mecanica = mecanicaDe(idDeLaActividad);
+  const mecanica = mecanicaDe(idDeLaActividad, motor);
 
   if (mecanica === undefined) {
     return (
@@ -163,7 +172,7 @@ function Mecanica({
     );
   }
 
-  return mecanica({ alTerminar, enviando });
+  return mecanica({ alTerminar, enviando, sesion });
 }
 
 /**

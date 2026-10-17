@@ -1,13 +1,16 @@
 import type { ReactElement } from 'react';
 
+import type { SesionDeLaActividad } from '../../../infraestructura/api/progreso.ts';
 import type { LoQueProduceLaActividad } from '../useCompletarActividad.ts';
 import { ComoDormisteAnoche } from './ComoDormisteAnoche.tsx';
 import { ComoTeSientesHoy } from './ComoTeSientesHoy.tsx';
 import { EncuentraLaDiferencia } from './EncuentraLaDiferencia.tsx';
+import { GuiaDeRespiracion } from './GuiaDeRespiracion.tsx';
 import { LaCargaDeTuSemana } from './LaCargaDeTuSemana.tsx';
 import { MovimientoDelDia } from './MovimientoDelDia.tsx';
 import { ParejasDeCartas } from './ParejasDeCartas.tsx';
 import { QueTeEstaPesando } from './QueTeEstaPesando.tsx';
+import { SecuenciaDeCasillas } from './SecuenciaDeCasillas.tsx';
 import { SecuenciaDeNumeros } from './SecuenciaDeNumeros.tsx';
 import { UnMomentoBueno } from './UnMomentoBueno.tsx';
 
@@ -51,6 +54,12 @@ import { UnMomentoBueno } from './UnMomentoBueno.tsx';
 export interface PropsDeMecanica {
   readonly alTerminar: (produjo: LoQueProduceLaActividad) => void;
   readonly enviando: boolean;
+  /**
+   * La sesion de hoy de esta mecanica (SCRUM-208, ADR 0030), si el servidor la entrego: el
+   * contenido de **esta vez** (preguntas, rondas, tiempos...). Cada pantalla la lee con cuidado
+   * (`parametrosDeLaSesion.ts`) y, sin ella o con una que no entiende, usa lo de siempre.
+   */
+  readonly sesion?: SesionDeLaActividad | undefined;
 }
 
 type Mecanica = (props: PropsDeMecanica) => ReactElement;
@@ -81,7 +90,33 @@ const MECANICAS: Readonly<Record<string, Mecanica>> = {
   '0acd0000-0000-4000-8000-000000000009': (props) => <UnMomentoBueno {...props} />,
 };
 
-/** La mecanica de esa actividad, o `undefined` si todavia no existe. */
-export function mecanicaDe(idDeLaActividad: string): Mecanica | undefined {
-  return MECANICAS[idDeLaActividad];
+/**
+ * La pantalla de cada **motor** (SCRUM-209, ADR 0030): la que se usa para una mecanica que no tiene
+ * la suya por identificador. Una mecanica nueva sobre un motor que ya tiene pantalla es una fila
+ * en la base y no un cambio aqui; las sesiones le dicen que pintar. Las pantallas de motor viven de
+ * la sesion de hoy: sin ella no hay con que pintarlas, y lo dicen.
+ */
+const MECANICAS_POR_MOTOR: Readonly<Record<string, Mecanica>> = {
+  secuencia: (props) => <SecuenciaDeCasillas {...props} />,
+  guia_paso_a_paso: (props) => <GuiaDeRespiracion {...props} />,
+};
+
+/**
+ * La mecanica de esa actividad, o `undefined` si todavia no existe.
+ *
+ * Primero por identificador: las nueve de siempre tienen su pantalla escrita a mano, y el
+ * identificador manda sobre el motor (la secuencia de numeros y «Recuerda los colores» comparten
+ * motor y se juegan distinto). Si no esta ahi, por el `motor` de la actividad.
+ */
+export function mecanicaDe(idDeLaActividad: string, motor?: string): Mecanica | undefined {
+  // Solo lo que esta en las tablas: «constructor» no es una mecanica, aunque el objeto tenga uno.
+  const propia = (
+    tabla: Readonly<Record<string, Mecanica>>,
+    clave: string,
+  ): Mecanica | undefined => (Object.hasOwn(tabla, clave) ? tabla[clave] : undefined);
+
+  return (
+    propia(MECANICAS, idDeLaActividad) ??
+    (motor === undefined ? undefined : propia(MECANICAS_POR_MOTOR, motor))
+  );
 }
