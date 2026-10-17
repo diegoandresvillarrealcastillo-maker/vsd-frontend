@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -144,6 +144,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   cerrarElAlmacenDePrueba();
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.clearAllMocks();
 });
@@ -217,5 +218,112 @@ describe('la actividad con la sesion del panel', () => {
     const [operacion] = (await cicloActual()?.almacen.operaciones()) ?? [];
 
     expect(operacion?.payload).toMatchObject({ activityId: MOMENTO, idSesion: 's-1' });
+  });
+});
+
+describe('una mecanica nueva, elegida por su motor (SCRUM-209)', () => {
+  const NUEVA = '0acd0000-0000-4000-8000-0000000000a1';
+
+  const SESION_DE_CASILLAS = {
+    id: 's-9',
+    titulo: 'Cuatro colores',
+    nivel: 1,
+    parametros: {
+      casillas: [
+        { clave: 'circulo', nombre: 'círculo verde', forma: 'círculo', color: 'verde' },
+        { clave: 'cuadrado', nombre: 'cuadrado azul', forma: 'cuadrado', color: 'azul' },
+        { clave: 'triangulo', nombre: 'triángulo ámbar', forma: 'triángulo', color: 'ámbar' },
+        { clave: 'rombo', nombre: 'rombo violeta', forma: 'rombo', color: 'violeta' },
+      ],
+      largoInicial: 3,
+      rondas: 1,
+      msPorElemento: 1000,
+      msDeMargen: 1000,
+      msDestello: 700,
+    },
+  };
+
+  function panelDeLaNueva(): readonly ProgresoDelModulo[] {
+    return [
+      {
+        modulo: 'cognicion',
+        sesiones: 3,
+        etapa: { numero: 1, esTemporada: false, sesionesHechas: 3, sesionesDeLaEtapa: 5 },
+        hoy: [
+          {
+            id: NUEVA,
+            nombre: 'Recuerda los colores',
+            hecha: false,
+            frecuencia: { tipo: 'rotativa' },
+            motor: 'secuencia',
+            sesion: SESION_DE_CASILLAS,
+          },
+        ],
+      },
+    ];
+  }
+
+  beforeEach(() => {
+    // Una actividad que el mapa por identificador no conoce, con su motor, como la trae el catalogo.
+    buscarActividad.mockImplementation((id: string) =>
+      Promise.resolve({
+        actividad: {
+          id,
+          nombre: 'Recuerda los colores',
+          tipo: 'juego',
+          produceNivel: true,
+          motor: 'secuencia',
+        },
+        categoria: { id: 'cat-1', nombre: 'Cognición', actividades: [] },
+      }),
+    );
+  });
+
+  it('se juega con la sesion del panel y el resultado dice cual fue', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    // La secuencia de la ronda: la primera, la segunda y la tercera casilla.
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.1)
+      .mockReturnValueOnce(0.35)
+      .mockReturnValueOnce(0.6)
+      .mockReturnValue(0.01);
+
+    const jugador = userEvent.setup({ delay: null, advanceTimers: vi.advanceTimersByTime });
+
+    await guardarElPanel({ cuenta: CUENTA, progreso: panelDeLaNueva() });
+    pintar(NUEVA);
+
+    expect(await screen.findByText(/Son 1 rondas/)).toBeInTheDocument();
+
+    await jugador.click(screen.getByRole('button', { name: /Empezar/ }));
+
+    // El margen, tres casillas a un segundo cada una, y un instante para responder.
+    act(() => {
+      vi.advanceTimersByTime(1000 + 2 * 1000 + 700 + 400);
+    });
+
+    const casillas = within(screen.getByRole('group', { name: 'Casillas' }));
+
+    await jugador.click(casillas.getByRole('button', { name: 'círculo verde' }));
+    await jugador.click(casillas.getByRole('button', { name: 'cuadrado azul' }));
+    await jugador.click(casillas.getByRole('button', { name: 'triángulo ámbar' }));
+    await jugador.click(screen.getByRole('button', { name: 'Terminar' }));
+
+    await waitFor(() => {
+      expect(registrarResultado).toHaveBeenCalledTimes(1);
+    });
+    expect(enviado()).toMatchObject({
+      activityId: NUEVA,
+      idSesion: 's-9',
+      score: 1,
+      metadata: { aciertos: 1, largoMaximo: 3 },
+    });
+  });
+
+  it('sin la sesion del panel, dice que hay que abrirla desde el panel y no ofrece empezar', async () => {
+    pintar(NUEVA);
+
+    expect(await screen.findByText(/necesita la sesión de hoy/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Empezar/ })).not.toBeInTheDocument();
   });
 });

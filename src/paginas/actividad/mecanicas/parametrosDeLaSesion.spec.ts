@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   leerCuestionario,
+  leerSecuenciaDeCasillas,
   maximoDelCuestionario,
   leerEscrituraDeUnCampo,
   leerSecuenciaDeNumeros,
@@ -30,6 +31,23 @@ const SECUENCIA = {
 };
 
 const DIFERENCIA = { rondas: 15, segundosPorRonda: 15, lados: [3, 4, 5] };
+
+const COLORES = [
+  { clave: 'circulo', nombre: 'círculo verde', forma: 'círculo', color: 'verde' },
+  { clave: 'cuadrado', nombre: 'cuadrado azul', forma: 'cuadrado', color: 'azul' },
+  { clave: 'triangulo', nombre: 'triángulo ámbar', forma: 'triángulo', color: 'ámbar' },
+  { clave: 'rombo', nombre: 'rombo violeta', forma: 'rombo', color: 'violeta' },
+];
+
+/** Una sesion de «Recuerda los colores»: casillas que se iluminan una a una. */
+const CASILLAS = {
+  casillas: COLORES,
+  largoInicial: 3,
+  rondas: 12,
+  msPorElemento: 1000,
+  msDeMargen: 1000,
+  msDestello: 700,
+};
 
 const CUESTIONARIO = {
   indicacion: 'Piensa solo en hoy. No hay respuestas buenas ni malas.',
@@ -140,6 +158,172 @@ describe('leerSecuenciaDeNumeros', () => {
 
   it('tolera un parametro de mas, que un servidor mas nuevo podria mandar', () => {
     expect(leerSecuenciaDeNumeros(con(SECUENCIA, { msDestello: 700, otra: true }))).not.toBeNull();
+  });
+});
+
+describe('leerSecuenciaDeCasillas', () => {
+  it('lee la sesion de las casillas, con su forma, su nombre y su color', () => {
+    expect(leerSecuenciaDeCasillas(CASILLAS)).toEqual({
+      casillas: COLORES,
+      largoInicial: 3,
+      rondas: 12,
+      msPorElemento: 1000,
+      msDeMargen: 1000,
+      msDestello: 700,
+    });
+  });
+
+  it.each(NO_ES_UN_OBJETO)('devuelve null si no es un objeto: %j', (valor) => {
+    expect(leerSecuenciaDeCasillas(valor)).toBeNull();
+  });
+
+  it.each([
+    'casillas',
+    'largoInicial',
+    'rondas',
+    'msPorElemento',
+    'msDeMargen',
+    // Sin destello es la secuencia de numeros, que muestra todos los digitos a la vez.
+    'msDestello',
+  ])('devuelve null si falta %s', (campo) => {
+    expect(leerSecuenciaDeCasillas(sin(CASILLAS, campo))).toBeNull();
+  });
+
+  it.each([
+    ['largoInicial', 0],
+    ['largoInicial', 11],
+    ['largoInicial', 2.5],
+    ['rondas', 0],
+    ['rondas', 51],
+    ['msPorElemento', 199],
+    ['msPorElemento', 5001],
+    ['msDeMargen', -1],
+    ['msDeMargen', 10_001],
+    // La baranda de accesibilidad R10: una casilla que se ilumina menos de 600 ms no se alcanza a ver.
+    ['msDestello', 599],
+    ['msDestello', 5001],
+    ['msDestello', '700'],
+  ])('devuelve null si %s vale %j', (campo, valor) => {
+    expect(leerSecuenciaDeCasillas(con(CASILLAS, { [campo]: valor }))).toBeNull();
+  });
+
+  it.each([
+    ['largoInicial', 1],
+    ['largoInicial', 10],
+    ['rondas', 1],
+    ['rondas', 50],
+    ['msPorElemento', 5000],
+    ['msDeMargen', 0],
+    ['msDeMargen', 10_000],
+    ['msDestello', 600],
+  ])('acepta el borde: %s vale %j', (campo, valor) => {
+    const base = con(CASILLAS, { msPorElemento: 5000 }) as Record<string, unknown>;
+
+    expect(leerSecuenciaDeCasillas({ ...base, [campo]: valor })).not.toBeNull();
+  });
+
+  it('acepta el turno mas corto posible: 600 ms por casilla con un destello de 600', () => {
+    expect(
+      leerSecuenciaDeCasillas(con(CASILLAS, { msPorElemento: 600, msDestello: 600 })),
+    ).not.toBeNull();
+  });
+
+  it('el destello cabe en el tiempo de cada casilla: si lo pasa, la siguiente no tendria su momento', () => {
+    expect(
+      leerSecuenciaDeCasillas(con(CASILLAS, { msPorElemento: 800, msDestello: 801 })),
+    ).toBeNull();
+    // Justo es posible: sin pausa entre una y otra.
+    expect(
+      leerSecuenciaDeCasillas(con(CASILLAS, { msPorElemento: 800, msDestello: 800 })),
+    ).not.toBeNull();
+  });
+
+  it('la sesion lenta del piloto: iluminada 1.100 ms y 600 ms de pausa', () => {
+    expect(
+      leerSecuenciaDeCasillas(con(CASILLAS, { msPorElemento: 1700, msDestello: 1100 })),
+    ).toMatchObject({ msPorElemento: 1700, msDestello: 1100 });
+  });
+
+  describe('las casillas', () => {
+    const conCasillas = (casillas: unknown) => con(CASILLAS, { casillas });
+    const letras = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({
+        clave: `c${String(i)}`,
+        nombre: `Casilla ${String(i)}`,
+      }));
+
+    it.each([
+      ['no es una lista', 'cuatro'],
+      ['es una sola', letras(1)],
+      ['son 13', letras(13)],
+      ['trae una que no es un objeto', [...letras(2), null]],
+      ['trae una sin nombre', [...letras(2), { clave: 'x' }]],
+      ['trae una sin clave', [...letras(2), { nombre: 'Sin clave' }]],
+      ['trae un nombre vacio', [...letras(2), { clave: 'x', nombre: '  ' }]],
+      ['repite la clave', [...letras(2), { clave: 'c0', nombre: 'Otra' }]],
+      ['repite el nombre', [...letras(2), { clave: 'x', nombre: 'Casilla 0' }]],
+      [
+        'repite el nombre con otras mayusculas',
+        [...letras(2), { clave: 'x', nombre: ' casilla 0 ' }],
+      ],
+      ['trae una forma que no es texto', [...letras(2), { clave: 'x', nombre: 'X', forma: 3 }]],
+      ['trae una forma vacia', [...letras(2), { clave: 'x', nombre: 'X', forma: '' }]],
+      [
+        'trae un color que no es texto',
+        [...letras(2), { clave: 'x', nombre: 'X', forma: 'cuadrado', color: 7 }],
+      ],
+      // R10: el color nunca es la unica pista.
+      ['trae un color sin forma', [...letras(2), { clave: 'x', nombre: 'X', color: 'verde' }]],
+    ])('devuelve null si %s', (_caso, casillas) => {
+      expect(leerSecuenciaDeCasillas(conCasillas(casillas))).toBeNull();
+    });
+
+    it('acepta de 2 a 12 casillas', () => {
+      expect(leerSecuenciaDeCasillas(conCasillas(letras(2)))).not.toBeNull();
+      expect(leerSecuenciaDeCasillas(conCasillas(letras(12)))).not.toBeNull();
+    });
+
+    it('una forma sin color es posible: la casilla es de un solo tono', () => {
+      const leida = leerSecuenciaDeCasillas(
+        conCasillas([...letras(1), { clave: 'x', nombre: 'Estrella', forma: 'estrella' }]),
+      );
+
+      expect(leida?.casillas[1]).toEqual({ clave: 'x', nombre: 'Estrella', forma: 'estrella' });
+    });
+
+    it('sin forma ni color, es solo su nombre', () => {
+      expect(leerSecuenciaDeCasillas(conCasillas(letras(2)))?.casillas[0]).toEqual({
+        clave: 'c0',
+        nombre: 'Casilla 0',
+      });
+    });
+
+    it('acepta los diez digitos tambien, mientras traiga destello', () => {
+      expect(leerSecuenciaDeCasillas(conCasillas(DIGITOS))).not.toBeNull();
+    });
+  });
+
+  it('tolera un parametro de mas, y en una casilla tambien', () => {
+    expect(
+      leerSecuenciaDeCasillas(
+        con(CASILLAS, {
+          otra: true,
+          casillas: [
+            { ...COLORES[0], peso: 1 },
+            { ...COLORES[1], peso: 2 },
+          ],
+        }),
+      ),
+    ).not.toBeNull();
+  });
+
+  it('devuelve copias: lo que se lee no cambia si cambia lo recibido', () => {
+    const recibido = { ...CASILLAS, casillas: COLORES.map((casilla) => ({ ...casilla })) };
+    const leido = leerSecuenciaDeCasillas(recibido);
+
+    recibido.casillas[0] = { ...COLORES[0]!, nombre: 'Cambiada' };
+
+    expect(leido?.casillas[0]?.nombre).toBe('círculo verde');
   });
 });
 

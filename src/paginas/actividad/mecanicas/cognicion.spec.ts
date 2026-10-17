@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   barajar,
   generarSecuencia,
+  generarSecuenciaDeCasillas,
   generarTablero,
   ladoDeLaRondaSegun,
   LADOS_DE_SIEMPRE,
@@ -100,6 +101,37 @@ describe('Secuencia de numeros', () => {
       expect(siguienteLargo(5, true, 5)).toBe(6);
       expect(siguienteLargo(2, false, 2)).toBe(2);
     });
+  });
+});
+
+describe('Secuencia de casillas (SCRUM-209)', () => {
+  it('elige tantas casillas como se piden, todas de las que hay', () => {
+    for (let vez = 0; vez < 50; vez++) {
+      const secuencia = generarSecuenciaDeCasillas(7, 4);
+
+      expect(secuencia).toHaveLength(7);
+      expect(
+        secuencia.every((indice) => Number.isInteger(indice) && indice >= 0 && indice < 4),
+      ).toBe(true);
+    }
+  });
+
+  it('la primera casilla posible y la ultima salen, y nunca una que no existe', () => {
+    const azar = vi.spyOn(Math, 'random');
+
+    azar.mockReturnValueOnce(0).mockReturnValueOnce(0.9999999);
+
+    expect(generarSecuenciaDeCasillas(2, 9)).toEqual([0, 8]);
+  });
+
+  it('una casilla se puede repetir: es una secuencia, no una baraja', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+
+    expect(generarSecuenciaDeCasillas(3, 4)).toEqual([2, 2, 2]);
+  });
+
+  it('con largo cero, nada', () => {
+    expect(generarSecuenciaDeCasillas(0, 4)).toEqual([]);
   });
 });
 
