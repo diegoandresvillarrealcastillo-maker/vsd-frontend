@@ -1,0 +1,17 @@
+/* ============================================================
+   Pictogramas del catalogo (SCRUM-225)
+   ============================================================
+   Los dibujos de `paginas/actividad/pictogramas/dibujos.tsx` toman
+   su color de `currentColor`. Los huecos (un ojo, una ventana, las
+   semillas de una fresa) toman el color del fondo de la tarjeta, asi
+   que se leen igual sobre el tema claro y el oscuro.
+   ============================================================ */
+
+.pict-hueco {
+  fill: var(--fondo-elevado, #fff);
+  stroke: none;
+}
+
+.pict-trazo-hueco {
+  stroke: var(--fondo-elevado, #fff);
+}
