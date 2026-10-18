@@ -2,7 +2,14 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { SesionDeLaActividad } from '../../../infraestructura/api/progreso.ts';
-import { ESTIRAMIENTO } from '../../../pruebas/sesionesDeBienestar.ts';
+import {
+  CARTA,
+  ESTIRAMIENTO,
+  GESTOS,
+  PREGUNTAS,
+  RUEDA,
+  TARJETA,
+} from '../../../pruebas/sesionesDeBienestar.ts';
 import {
   ANAGRAMA,
   CALCULO,
@@ -148,7 +155,6 @@ describe('mecanicaDe', () => {
   });
 
   it('un motor que todavia no tiene pantalla, o ninguno, no tiene mecanica', () => {
-    expect(mecanicaDe(UNA_NUEVA, 'cuestionario_corto')).toBeUndefined();
     expect(mecanicaDe(UNA_NUEVA, 'motor_que_no_existe')).toBeUndefined();
     expect(mecanicaDe(UNA_NUEVA)).toBeUndefined();
     expect(mecanicaDe('no-es-un-identificador')).toBeUndefined();
@@ -165,21 +171,29 @@ describe('mecanicaDe', () => {
     ['palabras', 'anagrama', ANAGRAMA, /Son 3 palabras con las letras revueltas/],
     ['calculo', undefined, CALCULO, /Son 3 cuentas cortas/],
     ['guia_paso_a_paso', 'pasos', ESTIRAMIENTO, /Tres movimientos suaves/],
-  ] as const)('el motor %s en su modo %s (SCRUM-225)', (motor, modo, parametros, presentacion) => {
-    it('elige la pantalla de su modo por el `modo` de la sesion', () => {
-      pantalla(UNA_NUEVA, motor, sesionDeCognicion(parametros));
+    ['cuestionario_corto', 'tarjeta', TARJETA, /Una práctica pequeña para hoy/],
+    ['cuestionario_corto', 'lista', GESTOS, /Antes de dormir, marca los que hagas hoy/],
+    ['cuestionario_corto', 'preguntas', PREGUNTAS, /Tres preguntas cortas sobre mañana/],
+    ['cuestionario_corto', 'rueda', RUEDA, /No hay respuestas correctas/],
+    ['escritura_breve', undefined, CARTA, /Dile algo amable a quien despierta mañana/],
+  ] as const)(
+    'el motor %s en su modo %s (SCRUM-225 y SCRUM-227)',
+    (motor, modo, parametros, presentacion) => {
+      it('elige la pantalla de su modo por el `modo` de la sesion', () => {
+        pantalla(UNA_NUEVA, motor, sesionDeCognicion(parametros));
 
-      expect(screen.getByText(presentacion)).toBeInTheDocument();
-      expect(screen.queryByText(/necesita la sesión de hoy/)).not.toBeInTheDocument();
-      expect(modo === undefined || parametros.modo === modo).toBe(true);
-    });
+        expect(screen.getByText(presentacion)).toBeInTheDocument();
+        expect(screen.queryByText(/necesita la sesión de hoy/)).not.toBeInTheDocument();
+        expect(modo === undefined || ('modo' in parametros && parametros.modo === modo)).toBe(true);
+      });
 
-    it('sin sesion, lo dice: lo que se juega sale entero de la sesion', () => {
-      pantalla(UNA_NUEVA, motor);
+      it('sin sesion, lo dice: lo que se juega sale entero de la sesion', () => {
+        pantalla(UNA_NUEVA, motor);
 
-      expect(screen.getByText(/necesita la sesión de hoy/)).toBeInTheDocument();
-    });
-  });
+        expect(screen.getByText(/necesita la sesión de hoy/)).toBeInTheDocument();
+      });
+    },
+  );
 
   it('un motor de varios modos, ante un modo que no conoce, dice que necesita la sesion de hoy', () => {
     pantalla(

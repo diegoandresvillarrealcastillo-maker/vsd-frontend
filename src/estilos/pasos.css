@@ -41,47 +41,6 @@
   line-height: 1.5;
 }
 
-/* El aviso que no se va: una linea tenue, con el acceso a las lineas de atencion al lado si lo hay. */
-.guia-pasos__siempre {
-  display: grid;
-  gap: 8px;
-  padding: 10px 14px;
-  border-left: 4px solid var(--viva-modulo);
-  border-radius: 10px;
-  background: var(--fondo-sutil);
-}
-
-.guia-pasos__siempre-texto {
-  margin: 0;
-  color: var(--texto);
-  font-size: 0.9375rem;
-  line-height: 1.45;
-}
-
-.guia-pasos__lineas {
-  display: grid;
-  gap: 10px;
-}
-
-.guia-pasos__boton-lineas {
-  justify-self: start;
-  min-height: 44px;
-  padding: 8px 16px;
-  border: 2px solid var(--borde);
-  border-radius: 999px;
-  background: var(--fondo-elevado);
-  color: var(--viva-texto);
-  font: inherit;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.guia-pasos__boton-lineas:focus-visible {
-  outline: 3px solid var(--viva-modulo);
-  outline-offset: 2px;
-}
-
 .guia-pasos__elecciones {
   display: grid;
   gap: 12px;

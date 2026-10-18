@@ -1,13 +1,10 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import '../../../estilos/pasos.css';
-import { useReglasLocales } from '../../../asistente/useReglasLocales.ts';
-import { lineasDeLaZona } from '../../../asistente/reglasLocales.ts';
-import { zonaActual } from '../../../tiempo/zonaHoraria.ts';
 import { FiguraDeEstiramiento } from '../figuras/FiguraDeEstiramiento.tsx';
 import { existeLaFigura } from '../figuras/estiramientos.tsx';
-import { LineasDeAtencion } from '../LineasDeAtencion.tsx';
 import { Pictograma } from '../pictogramas/Pictograma.tsx';
+import { AvisoSiempre } from '../viva/AvisoSiempre.tsx';
 import { BarraDeAccion, BotonPrincipal, BotonSecundario } from '../viva/BarraDeAccion.tsx';
 import { BarraDeProgreso } from '../viva/BarraDeProgreso.tsx';
 import { vibrar } from '../viva/haptico.ts';
@@ -68,41 +65,6 @@ function Dibujo({ clave, tamano }: { clave: string; tamano: number }) {
     <FiguraDeEstiramiento clave={clave} tamano={tamano} />
   ) : (
     <Pictograma clave={clave} tamano={tamano} />
-  );
-}
-
-/**
- * El acceso a las lineas de atencion, siempre a mano durante la guia. Las reglas locales se leen al montarse
- * (con conexion o de la copia), de modo que al abrirlas ya estan: quien las busca en un mal momento no espera.
- */
-function AccesoALasLineas() {
-  const reglas = useReglasLocales();
-  const [abiertas, setAbiertas] = useState(false);
-  const idDelPanel = useId();
-
-  return (
-    <div className="guia-pasos__lineas">
-      <button
-        type="button"
-        className="guia-pasos__boton-lineas"
-        aria-expanded={abiertas}
-        aria-controls={idDelPanel}
-        onClick={() => {
-          setAbiertas((antes) => !antes);
-        }}
-      >
-        {abiertas ? 'Ocultar las líneas de atención' : 'Líneas de atención'}
-      </button>
-
-      <div id={idDelPanel} hidden={!abiertas}>
-        {abiertas && (
-          // Sin reglas todavia, `LineasDeAtencion` usa su respaldo: nunca se queda sin un telefono.
-          <LineasDeAtencion
-            lineas={reglas === null ? undefined : lineasDeLaZona(reglas, zonaActual())}
-          />
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -212,10 +174,7 @@ function Guia({
 
   const aviso =
     avisoSiempre === undefined ? null : (
-      <div className="guia-pasos__siempre" role="note">
-        <p className="guia-pasos__siempre-texto">{avisoSiempre}</p>
-        {conLineasDeAyuda && <AccesoALasLineas />}
-      </div>
+      <AvisoSiempre texto={avisoSiempre} conLineasDeAyuda={conLineasDeAyuda} />
     );
 
   if (fase === 'inicio') {
