@@ -9,6 +9,7 @@ import { CompletaLaPalabra } from './CompletaLaPalabra.tsx';
 import { CuentasConCalma } from './CuentasConCalma.tsx';
 import { EncuentraLaDiferencia } from './EncuentraLaDiferencia.tsx';
 import { EscrituraBreve } from './EscrituraBreve.tsx';
+import { GuiaDePasos } from './GuiaDePasos.tsx';
 import { GuiaDeRespiracion } from './GuiaDeRespiracion.tsx';
 import { LaCargaDeTuSemana } from './LaCargaDeTuSemana.tsx';
 import { LoQueVi } from './LoQueVi.tsx';
@@ -107,7 +108,13 @@ const MECANICAS: Readonly<Record<string, Mecanica>> = {
  */
 const MECANICAS_POR_MOTOR: Readonly<Record<string, Mecanica>> = {
   secuencia: (props) => <SecuenciaDeCasillas {...props} />,
-  guia_paso_a_paso: (props) => <GuiaDeRespiracion {...props} />,
+  // La guia de pasos (SCRUM-226) y la respiracion acompasada comparten motor: la de pasos trae `modo: pasos`.
+  guia_paso_a_paso: (props) =>
+    modoDe(props.sesion) === 'pasos' ? (
+      <GuiaDePasos {...props} />
+    ) : (
+      <GuiaDeRespiracion {...props} />
+    ),
   escritura_breve: (props) => <EscrituraBreve {...props} />,
 
   // Los motores de Cognicion del catalogo (SCRUM-225). Un motor que sirve a varias mecanicas elige por el

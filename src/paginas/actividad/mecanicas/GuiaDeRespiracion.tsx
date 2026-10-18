@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
+import '../../../estilos/ambientaciones.css';
 import '../../../estilos/respiracion.css';
 import { BarraDeAccion, BotonPrincipal, BotonSecundario } from '../viva/BarraDeAccion.tsx';
 import { vibrar } from '../viva/haptico.ts';

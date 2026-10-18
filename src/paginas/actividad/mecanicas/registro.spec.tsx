@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { SesionDeLaActividad } from '../../../infraestructura/api/progreso.ts';
+import { ESTIRAMIENTO } from '../../../pruebas/sesionesDeBienestar.ts';
 import {
   ANAGRAMA,
   CALCULO,
@@ -163,6 +164,7 @@ describe('mecanicaDe', () => {
     ['palabras', 'completar', COMPLETAR, /Son 3 palabras con letras que faltan/],
     ['palabras', 'anagrama', ANAGRAMA, /Son 3 palabras con las letras revueltas/],
     ['calculo', undefined, CALCULO, /Son 3 cuentas cortas/],
+    ['guia_paso_a_paso', 'pasos', ESTIRAMIENTO, /Tres movimientos suaves/],
   ] as const)('el motor %s en su modo %s (SCRUM-225)', (motor, modo, parametros, presentacion) => {
     it('elige la pantalla de su modo por el `modo` de la sesion', () => {
       pantalla(UNA_NUEVA, motor, sesionDeCognicion(parametros));
