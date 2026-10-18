@@ -17,17 +17,17 @@
  * pida mas de lo que la pantalla sabe hacer cae a lo de siempre en lugar de pintarse a medias.
  */
 
-type Objeto = Readonly<Record<string, unknown>>;
+export type Objeto = Readonly<Record<string, unknown>>;
 
-function esObjeto(valor: unknown): valor is Objeto {
+export function esObjeto(valor: unknown): valor is Objeto {
   return typeof valor === 'object' && valor !== null && !Array.isArray(valor);
 }
 
-function esEntero(valor: unknown, minimo: number, maximo: number): valor is number {
+export function esEntero(valor: unknown, minimo: number, maximo: number): valor is number {
   return typeof valor === 'number' && Number.isInteger(valor) && valor >= minimo && valor <= maximo;
 }
 
-function esTexto(valor: unknown): valor is string {
+export function esTexto(valor: unknown): valor is string {
   return typeof valor === 'string' && valor.trim() !== '';
 }
 

@@ -2,6 +2,18 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { SesionDeLaActividad } from '../../../infraestructura/api/progreso.ts';
+import {
+  ANAGRAMA,
+  CALCULO,
+  CESTAS,
+  COMPLETAR,
+  ESCENA,
+  FLUJO,
+  INTRUSO,
+  LISTA,
+  PUNTOS,
+  sesionDeCognicion,
+} from '../../../pruebas/sesionesDeCognicion.ts';
 import { mecanicaDe } from './registro.tsx';
 
 /**
@@ -135,10 +147,53 @@ describe('mecanicaDe', () => {
   });
 
   it('un motor que todavia no tiene pantalla, o ninguno, no tiene mecanica', () => {
-    expect(mecanicaDe(UNA_NUEVA, 'clasificar')).toBeUndefined();
+    expect(mecanicaDe(UNA_NUEVA, 'cuestionario_corto')).toBeUndefined();
     expect(mecanicaDe(UNA_NUEVA, 'motor_que_no_existe')).toBeUndefined();
     expect(mecanicaDe(UNA_NUEVA)).toBeUndefined();
     expect(mecanicaDe('no-es-un-identificador')).toBeUndefined();
+  });
+
+  describe.each([
+    ['tocar_el_objetivo', 'flujo', FLUJO, /Toca solo si es el sol/],
+    ['tocar_el_objetivo', 'puntos', PUNTOS, /Toca los puntos en orden/],
+    ['ver_ocultar_recordar', 'lista', LISTA, /Verás una lista durante unos 10 segundos/],
+    ['ver_ocultar_recordar', 'escena', ESCENA, /Verás unas figuras en una cuadrícula/],
+    ['clasificar', 'intruso', INTRUSO, /En cada ronda hay cuatro palabras/],
+    ['clasificar', 'cestas', CESTAS, /Lleva cada tarjeta a su cesta/],
+    ['palabras', 'completar', COMPLETAR, /Son 3 palabras con letras que faltan/],
+    ['palabras', 'anagrama', ANAGRAMA, /Son 3 palabras con las letras revueltas/],
+    ['calculo', undefined, CALCULO, /Son 3 cuentas cortas/],
+  ] as const)('el motor %s en su modo %s (SCRUM-225)', (motor, modo, parametros, presentacion) => {
+    it('elige la pantalla de su modo por el `modo` de la sesion', () => {
+      pantalla(UNA_NUEVA, motor, sesionDeCognicion(parametros));
+
+      expect(screen.getByText(presentacion)).toBeInTheDocument();
+      expect(screen.queryByText(/necesita la sesión de hoy/)).not.toBeInTheDocument();
+      expect(modo === undefined || parametros.modo === modo).toBe(true);
+    });
+
+    it('sin sesion, lo dice: lo que se juega sale entero de la sesion', () => {
+      pantalla(UNA_NUEVA, motor);
+
+      expect(screen.getByText(/necesita la sesión de hoy/)).toBeInTheDocument();
+    });
+  });
+
+  it('un motor de varios modos, ante un modo que no conoce, dice que necesita la sesion de hoy', () => {
+    pantalla(
+      UNA_NUEVA,
+      'tocar_el_objetivo',
+      sesionDeCognicion({ ...FLUJO, modo: 'otro_modo_del_futuro' }),
+    );
+
+    expect(screen.getByText(/necesita la sesión de hoy/)).toBeInTheDocument();
+  });
+
+  it('el identificador manda sobre el motor tambien con las sesiones nuevas', () => {
+    // «Recuerda los colores» comparte motor `secuencia` con la de casillas y se sigue jugando por su id.
+    pantalla(SECUENCIA_DE_NUMEROS, 'clasificar', sesionDeCognicion(INTRUSO));
+
+    expect(screen.queryByText(/En cada ronda hay cuatro palabras/)).not.toBeInTheDocument();
   });
 
   it('un nombre del prototipo del objeto no es una mecanica, ni como identificador ni como motor', () => {

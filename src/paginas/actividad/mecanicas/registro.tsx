@@ -2,18 +2,26 @@ import type { ReactElement } from 'react';
 
 import type { SesionDeLaActividad } from '../../../infraestructura/api/progreso.ts';
 import type { LoQueProduceLaActividad } from '../useCompletarActividad.ts';
+import { AtencionEnFlujo } from './AtencionEnFlujo.tsx';
 import { ComoDormisteAnoche } from './ComoDormisteAnoche.tsx';
 import { ComoTeSientesHoy } from './ComoTeSientesHoy.tsx';
+import { CompletaLaPalabra } from './CompletaLaPalabra.tsx';
+import { CuentasConCalma } from './CuentasConCalma.tsx';
 import { EncuentraLaDiferencia } from './EncuentraLaDiferencia.tsx';
 import { EscrituraBreve } from './EscrituraBreve.tsx';
 import { GuiaDeRespiracion } from './GuiaDeRespiracion.tsx';
 import { LaCargaDeTuSemana } from './LaCargaDeTuSemana.tsx';
+import { LoQueVi } from './LoQueVi.tsx';
 import { MovimientoDelDia } from './MovimientoDelDia.tsx';
+import { OrdenaPorCategoria } from './OrdenaPorCategoria.tsx';
+import { PalabraQueSobra } from './PalabraQueSobra.tsx';
 import { ParejasDeCartas } from './ParejasDeCartas.tsx';
 import { QueTeEstaPesando } from './QueTeEstaPesando.tsx';
+import { RecuerdaLaLista } from './RecuerdaLaLista.tsx';
 import { SecuenciaDeCasillas } from './SecuenciaDeCasillas.tsx';
 import { SecuenciaDeNumeros } from './SecuenciaDeNumeros.tsx';
 import { UnMomentoBueno } from './UnMomentoBueno.tsx';
+import { UnirLosPuntos } from './UnirLosPuntos.tsx';
 
 /**
  * Que pantalla corresponde a cada actividad.
@@ -101,7 +109,33 @@ const MECANICAS_POR_MOTOR: Readonly<Record<string, Mecanica>> = {
   secuencia: (props) => <SecuenciaDeCasillas {...props} />,
   guia_paso_a_paso: (props) => <GuiaDeRespiracion {...props} />,
   escritura_breve: (props) => <EscrituraBreve {...props} />,
+
+  // Los motores de Cognicion del catalogo (SCRUM-225). Un motor que sirve a varias mecanicas elige por el
+  // `modo` de la sesion; un modo que no conoce cae en la pantalla que dice que necesita la sesion de hoy.
+  tocar_el_objetivo: (props) =>
+    modoDe(props.sesion) === 'puntos' ? (
+      <UnirLosPuntos {...props} />
+    ) : (
+      <AtencionEnFlujo {...props} />
+    ),
+  ver_ocultar_recordar: (props) =>
+    modoDe(props.sesion) === 'escena' ? <LoQueVi {...props} /> : <RecuerdaLaLista {...props} />,
+  clasificar: (props) =>
+    modoDe(props.sesion) === 'cestas' ? (
+      <OrdenaPorCategoria {...props} />
+    ) : (
+      <PalabraQueSobra {...props} />
+    ),
+  palabras: (props) => <CompletaLaPalabra {...props} />,
+  calculo: (props) => <CuentasConCalma {...props} />,
 };
+
+/** El `modo` de una sesion, si lo trae: los motores que sirven a varias mecanicas se parten por el. */
+function modoDe(sesion: SesionDeLaActividad | undefined): unknown {
+  const modo = sesion?.parametros.modo;
+
+  return typeof modo === 'string' ? modo : undefined;
+}
 
 /**
  * La mecanica de esa actividad, o `undefined` si todavia no existe.
