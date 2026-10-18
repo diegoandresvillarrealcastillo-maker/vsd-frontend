@@ -30,10 +30,16 @@
   margin-right: auto;
 }
 
-/* Deja hueco al selector de tema, que va en la esquina de esta misma barra. */
+/* El nombre de la marca nunca se parte en dos lineas (SCRUM-233). */
+.actividad__marca .marca__texto {
+  white-space: nowrap;
+}
+
+/* Deja hueco al selector de tema, que va en la esquina de esta misma barra: sus 66 px, los
+   12 px de su margen y un poco de aire. La salida mide 44 px de alto, como un toque comodo. */
 .actividad__volver {
-  margin-right: 88px;
-  padding: 8px 14px;
+  margin-right: 80px;
+  padding: 12px 14px;
   color: var(--texto-tenue);
   font-size: 0.875rem;
   border-radius: var(--radio-pildora);
@@ -47,6 +53,20 @@
 .actividad__volver:hover {
   color: var(--texto);
   background: var(--fondo-sutil);
+}
+
+/* En un telefono angosto (de 360 px o menos) no caben la marca con su nombre, la salida y el
+   selector de tema: el nombre se partia en dos lineas y la barra se desarmaba (SCRUM-233).
+   Como en el panel (racha.css), la marca queda en el isotipo y su nombre, "VSD-H, inicio",
+   solo para quien usa lector de pantalla. */
+@media (max-width: 22.75rem) {
+  .actividad__marca .marca__texto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
 }
 
 .actividad__contenido {
