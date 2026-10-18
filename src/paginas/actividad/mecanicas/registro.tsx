@@ -9,6 +9,7 @@ import { CompletaLaPalabra } from './CompletaLaPalabra.tsx';
 import { CuentasConCalma } from './CuentasConCalma.tsx';
 import { EncuentraLaDiferencia } from './EncuentraLaDiferencia.tsx';
 import { EscrituraBreve } from './EscrituraBreve.tsx';
+import { GestosDelDia } from './GestosDelDia.tsx';
 import { GuiaDePasos } from './GuiaDePasos.tsx';
 import { GuiaDeRespiracion } from './GuiaDeRespiracion.tsx';
 import { LaCargaDeTuSemana } from './LaCargaDeTuSemana.tsx';
@@ -16,12 +17,15 @@ import { LoQueVi } from './LoQueVi.tsx';
 import { MovimientoDelDia } from './MovimientoDelDia.tsx';
 import { OrdenaPorCategoria } from './OrdenaPorCategoria.tsx';
 import { PalabraQueSobra } from './PalabraQueSobra.tsx';
+import { PreguntasDelDia } from './PreguntasDelDia.tsx';
 import { ParejasDeCartas } from './ParejasDeCartas.tsx';
 import { QueTeEstaPesando } from './QueTeEstaPesando.tsx';
 import { RecuerdaLaLista } from './RecuerdaLaLista.tsx';
+import { RuedaDeEmociones } from './RuedaDeEmociones.tsx';
 import { SecuenciaDeCasillas } from './SecuenciaDeCasillas.tsx';
 import { SecuenciaDeNumeros } from './SecuenciaDeNumeros.tsx';
 import { UnMomentoBueno } from './UnMomentoBueno.tsx';
+import { TarjetaDelDia } from './TarjetaDelDia.tsx';
 import { UnirLosPuntos } from './UnirLosPuntos.tsx';
 
 /**
@@ -116,6 +120,22 @@ const MECANICAS_POR_MOTOR: Readonly<Record<string, Mecanica>> = {
       <GuiaDeRespiracion {...props} />
     ),
   escritura_breve: (props) => <EscrituraBreve {...props} />,
+
+  // El cuestionario corto sin puntaje (SCRUM-227): cada modo es una pantalla. Sin `modo` (el cuestionario con
+  // puntaje de «La carga de tu semana» y «Como te sientes hoy») se juega por identificador, no por aqui; una sesion
+  // sin modo que llegue hasta aqui cae en la pantalla que dice que necesita la sesion de hoy.
+  cuestionario_corto: (props) => {
+    switch (modoDe(props.sesion)) {
+      case 'lista':
+        return <GestosDelDia {...props} />;
+      case 'preguntas':
+        return <PreguntasDelDia {...props} />;
+      case 'rueda':
+        return <RuedaDeEmociones {...props} />;
+      default:
+        return <TarjetaDelDia {...props} />;
+    }
+  },
 
   // Los motores de Cognicion del catalogo (SCRUM-225). Un motor que sirve a varias mecanicas elige por el
   // `modo` de la sesion; un modo que no conoce cae en la pantalla que dice que necesita la sesion de hoy.
