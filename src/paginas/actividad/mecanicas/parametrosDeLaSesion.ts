@@ -17,17 +17,17 @@
  * pida mas de lo que la pantalla sabe hacer cae a lo de siempre en lugar de pintarse a medias.
  */
 
-type Objeto = Readonly<Record<string, unknown>>;
+export type Objeto = Readonly<Record<string, unknown>>;
 
-function esObjeto(valor: unknown): valor is Objeto {
+export function esObjeto(valor: unknown): valor is Objeto {
   return typeof valor === 'object' && valor !== null && !Array.isArray(valor);
 }
 
-function esEntero(valor: unknown, minimo: number, maximo: number): valor is number {
+export function esEntero(valor: unknown, minimo: number, maximo: number): valor is number {
   return typeof valor === 'number' && Number.isInteger(valor) && valor >= minimo && valor <= maximo;
 }
 
-function esTexto(valor: unknown): valor is string {
+export function esTexto(valor: unknown): valor is string {
   return typeof valor === 'string' && valor.trim() !== '';
 }
 
@@ -394,6 +394,14 @@ export interface ParametrosDeEscrituraBreve {
   readonly largoMaximo: number;
   /** Si se ofrece «hoy no me sale ninguno». */
   readonly permiteNingunaHoy: boolean;
+  /** Lo que pide cada campo, uno por campo («Lo que dejo», «Lo que me llevo»). */
+  readonly etiquetas?: readonly string[];
+  /** Lo que dice el boton de «hoy no» cuando no es «Hoy no me sale ninguna». */
+  readonly textoNinguna?: string;
+  /** La carta de EMO-05: lo escrito se guarda tambien en el diario. Solo con un campo. */
+  readonly guardarParaManana?: boolean;
+  /** Lo que dice al terminar: parte del contenido que se revisa. */
+  readonly cierre?: string;
 }
 
 /**
@@ -415,11 +423,23 @@ export function leerEscrituraBreve(parametros: unknown): ParametrosDeEscrituraBr
   const ideasRecibidas = parametros.ideas ?? [];
   const permiteNingunaHoy = parametros.permiteNingunaHoy ?? false;
 
+  const { etiquetas, textoNinguna, guardarParaManana, cierre } = parametros;
+
   if (
     !esEntero(minimo, 1, campos) ||
     !Array.isArray(ideasRecibidas) ||
     !(ideasRecibidas as unknown[]).every(esTexto) ||
-    typeof permiteNingunaHoy !== 'boolean'
+    typeof permiteNingunaHoy !== 'boolean' ||
+    // Una etiqueta por campo, y ninguna repetida: si no, no se sabria cual pide cual.
+    (etiquetas !== undefined &&
+      (!Array.isArray(etiquetas) ||
+        etiquetas.length !== campos ||
+        !(etiquetas as unknown[]).every(esTexto) ||
+        new Set((etiquetas as string[]).map((una) => una.trim().toLowerCase())).size !== campos)) ||
+    (textoNinguna !== undefined && (!esTexto(textoNinguna) || !permiteNingunaHoy)) ||
+    (guardarParaManana !== undefined &&
+      (typeof guardarParaManana !== 'boolean' || (guardarParaManana && campos !== 1))) ||
+    (cierre !== undefined && !esTexto(cierre))
   ) {
     return null;
   }
@@ -431,6 +451,10 @@ export function leerEscrituraBreve(parametros: unknown): ParametrosDeEscrituraBr
     ideas: [...(ideasRecibidas as string[])],
     largoMaximo,
     permiteNingunaHoy,
+    ...(etiquetas === undefined ? {} : { etiquetas: [...(etiquetas as string[])] }),
+    ...(textoNinguna === undefined ? {} : { textoNinguna }),
+    ...(guardarParaManana === true ? { guardarParaManana: true } : {}),
+    ...(cierre === undefined ? {} : { cierre }),
   };
 }
 

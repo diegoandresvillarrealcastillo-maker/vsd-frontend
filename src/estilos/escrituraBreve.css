@@ -14,6 +14,14 @@
   gap: 16px;
 }
 
+/* Lo que pide cada campo cuando la sesion trae `etiquetas` («Lo que dejo», «Lo que me llevo»). */
+.escritura__etiqueta {
+  margin-bottom: -8px;
+  color: var(--texto);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
 /* Varios campos a la vez: cada uno mas bajo que el campo unico, para que quepan en un telefono
    sin que el ultimo quede lejos del boton de terminar. */
 .viva-texto.escritura__texto {

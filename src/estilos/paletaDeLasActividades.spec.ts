@@ -2,9 +2,16 @@ import { describe, expect, it } from 'vitest';
 
 import { estiloDelSimbolo } from '../paginas/actividad/mecanicas/coloresDeSimbolos.ts';
 import type { NombreDeIcono } from '../paginas/panel/Icono.tsx';
+import AMBIENTACIONES from './ambientaciones.css?raw';
 import APLICACION from './aplicacion.css?raw';
+import AVISO_SIEMPRE from './avisoSiempre.css?raw';
+import CUESTIONARIO_SIN_PUNTAJE from './cuestionarioSinPuntaje.css?raw';
 import ESCRITURA_BREVE from './escrituraBreve.css?raw';
+import FIGURAS from './figuras.css?raw';
 import JUEGOS from './juegos.css?raw';
+import JUEGOS_DE_COGNICION from './juegosDeCognicion.css?raw';
+import PASOS from './pasos.css?raw';
+import PICTOGRAMAS from './pictogramas.css?raw';
 import RESPIRACION from './respiracion.css?raw';
 import VIVA from './viva.css?raw';
 
@@ -37,6 +44,13 @@ describe('La paleta de las actividades', () => {
     ['juegos.css', JUEGOS],
     ['respiracion.css', RESPIRACION],
     ['escrituraBreve.css', ESCRITURA_BREVE],
+    ['ambientaciones.css', AMBIENTACIONES],
+    ['pasos.css', PASOS],
+    ['avisoSiempre.css', AVISO_SIEMPRE],
+    ['cuestionarioSinPuntaje.css', CUESTIONARIO_SIN_PUNTAJE],
+    ['figuras.css', FIGURAS],
+    ['juegosDeCognicion.css', JUEGOS_DE_COGNICION],
+    ['pictogramas.css', PICTOGRAMAS],
   ])('%s no inventa colores: solo los de la aplicacion y unos pocos permitidos', (_nombre, css) => {
     const sueltos = coloresFijos(css).filter((color) => !PERMITIDOS.has(color));
 

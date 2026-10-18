@@ -1,8 +1,10 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useId, useMemo, useState, type FormEvent } from 'react';
 
 import '../../../estilos/escrituraBreve.css';
+import { guardarLaCartaEnElDiario } from '../cartaEnElDiario.ts';
 import { BarraDeAccion, BotonPrincipal, BotonSecundario } from '../viva/BarraDeAccion.tsx';
 import { useMascotaDeLaPersona } from '../viva/mascotaDeLaPersona.ts';
+import { useCierre } from '../viva/useCierre.tsx';
 import { VozDeLaMascota } from '../viva/VozDeLaMascota.tsx';
 import { leerEscrituraBreve, type ParametrosDeEscrituraBreve } from './parametrosDeLaSesion.ts';
 import type { PropsDeMecanica } from './registro.tsx';
@@ -27,6 +29,15 @@ import { SinSesion } from './SinSesion.tsx';
  *   que ya mira todo el texto del resultado; la pantalla final ensena las lineas de atencion si
  *   las sugiere, y aqui no se repite esa lista.
  * - **Sin respaldo.** Vive de la sesion de hoy: sin una que entienda, lo dice.
+ *
+ * ## Lo que suma SCRUM-227 (todo opcional: las sesiones de antes siguen valiendo)
+ *
+ * - `etiquetas`: lo que pide cada campo («Lo que dejo», «Lo que me llevo»), a la vista sobre cada uno.
+ * - `textoNinguna`: lo que dice el boton de «hoy no» cuando no es «Hoy no me sale ninguna» (EMO-09).
+ * - `cierre`: lo que dice al terminar, con la mascota, antes de entregar. Sin valorar lo escrito.
+ * - `guardarParaManana` (EMO-05, «Carta a mi de manana»): al terminar, lo escrito se guarda tambien como una
+ *   entrada del diario (`cartaEnElDiario.ts`), por la cola de siempre. Si no se pudo guardar, la carta se
+ *   conserva en la pantalla y se dice, para intentarlo de nuevo.
  */
 
 const INVITACION_A_EMPEZAR = 'Puede ser algo muy pequeño. Aquí cuenta todo.';
@@ -56,13 +67,27 @@ function Escritura({
   reglas,
 }: Omit<PropsDeMecanica, 'sesion'> & { readonly reglas: ParametrosDeEscrituraBreve }) {
   const mascota = useMascotaDeLaPersona();
-  const { invitacion, campos, minimo, ideas, largoMaximo, permiteNingunaHoy } = reglas;
+  const {
+    invitacion,
+    campos,
+    minimo,
+    ideas,
+    largoMaximo,
+    permiteNingunaHoy,
+    etiquetas,
+    textoNinguna,
+    guardarParaManana,
+    cierre,
+  } = reglas;
   const [textos, setTextos] = useState<readonly string[]>(() =>
     Array.from({ length: campos }, () => ''),
   );
   const [falta, setFalta] = useState<string | null>(null);
   // Sube cada vez que se toca una idea: hace saltar a la mascota.
   const [latido, setLatido] = useState(0);
+  const [guardando, setGuardando] = useState(false);
+  const { terminar, pantalla } = useCierre({ cierre, alTerminar, enviando });
+  const idDeLosCampos = useId();
 
   const escritos = textos.map((texto) => texto.trim()).filter((texto) => texto !== '');
   const hayLugar = textos.some(estaVacio);
@@ -83,7 +108,7 @@ function Escritura({
     });
   }
 
-  function enviar(evento: FormEvent) {
+  async function enviar(evento: FormEvent) {
     evento.preventDefault();
 
     if (escritos.length < minimo) {
@@ -91,11 +116,38 @@ function Escritura({
       return;
     }
 
-    alTerminar({ metadata: { encontroUno: true, textos: escritos } });
+    if (guardarParaManana === true) {
+      setGuardando(true);
+
+      try {
+        // Un solo campo: la carta entera, tal como se escribio.
+        await guardarLaCartaEnElDiario(escritos.join('\n'));
+      } catch {
+        // No se pudo dejar en este equipo: lo escrito sigue en la pantalla y se puede intentar de nuevo.
+        setFalta('No pudimos guardarla en tu diario en este equipo. Prueba de nuevo.');
+        setGuardando(false);
+
+        return;
+      }
+
+      setGuardando(false);
+    }
+
+    terminar({ encontroUno: true, textos: escritos });
+  }
+
+  if (pantalla !== null) {
+    return pantalla;
   }
 
   return (
-    <form className="viva" onSubmit={enviar} noValidate>
+    <form
+      className="viva"
+      onSubmit={(evento) => {
+        void enviar(evento);
+      }}
+      noValidate
+    >
       <VozDeLaMascota
         mascota={mascota}
         mensaje={escritos.length === 0 ? INVITACION_A_EMPEZAR : AGRADECIMIENTO}
@@ -125,14 +177,25 @@ function Escritura({
         {textos.map((texto, i) => (
           // El orden de los campos no cambia nunca: el indice es su identidad.
           <div key={i} className="escritura__campo">
+            {etiquetas?.[i] !== undefined && (
+              <label className="escritura__etiqueta" htmlFor={`${idDeLosCampos}-${String(i)}`}>
+                {etiquetas[i]}
+              </label>
+            )}
             <textarea
+              id={`${idDeLosCampos}-${String(i)}`}
               className="viva-texto escritura__texto"
               rows={2}
               maxLength={largoMaximo}
               value={texto}
-              aria-label={
-                campos === 1 ? 'Respuesta' : `Respuesta ${String(i + 1)} de ${String(campos)}`
-              }
+              {...(etiquetas?.[i] === undefined
+                ? {
+                    'aria-label':
+                      campos === 1
+                        ? 'Respuesta'
+                        : `Respuesta ${String(i + 1)} de ${String(campos)}`,
+                  }
+                : {})}
               onChange={(evento) => {
                 escribir(i, evento.target.value);
               }}
@@ -154,17 +217,19 @@ function Escritura({
       {permiteNingunaHoy && (
         <div className="viva-salida">
           <BotonSecundario
-            deshabilitado={enviando}
-            alPulsar={() => alTerminar({ metadata: { encontroUno: false } })}
+            deshabilitado={enviando || guardando}
+            alPulsar={() => {
+              terminar({ encontroUno: false });
+            }}
           >
-            Hoy no me sale ninguna
+            {textoNinguna ?? 'Hoy no me sale ninguna'}
           </BotonSecundario>
         </div>
       )}
 
       <BarraDeAccion>
-        <BotonPrincipal tipo="submit" deshabilitado={enviando}>
-          {enviando ? 'Guardando…' : 'Terminar'}
+        <BotonPrincipal tipo="submit" deshabilitado={enviando || guardando}>
+          {enviando || guardando ? 'Guardando…' : 'Terminar'}
         </BotonPrincipal>
       </BarraDeAccion>
     </form>
