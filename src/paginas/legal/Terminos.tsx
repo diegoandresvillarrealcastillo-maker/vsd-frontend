@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 
 import { RUTAS } from '../../rutas/rutas.ts';
 import { VERSIONES_PUBLICADAS } from './datosLegales.ts';
-import { DatoDelResponsable, PaginaLegal, PorDefinir, type SeccionLegal } from './PaginaLegal.tsx';
+import { DatoDelResponsable, PaginaLegal, type SeccionLegal } from './PaginaLegal.tsx';
 
 /**
  * Los terminos y condiciones de uso.
@@ -11,6 +11,15 @@ import { DatoDelResponsable, PaginaLegal, PorDefinir, type SeccionLegal } from '
  * Health no formula, no diagnostica y no reemplaza a un especialista medico, y
  * es estrictamente para mayores de 18 anos. Si este texto cambia, esas dos
  * frases no se suavizan.
+ *
+ * ## Los limites de responsabilidad (seccion 8)
+ *
+ * Limitan la responsabilidad **solo en lo que la ley permite**, y lo dicen. No
+ * es cortesia: el Estatuto del Consumidor (Ley 1480 de 2011, art. 43) declara
+ * ineficaz la clausula que exime de responsabilidad por lo que la ley no deja
+ * excluir, y una clausula ineficaz no protege de nada. Por eso la seccion remite
+ * a esa ley para la garantia y termina con la salvedad de los derechos que la
+ * ley da. Tampoco puede prometer disponibilidad: la seccion 6 la niega.
  */
 const SECCIONES: readonly SeccionLegal[] = [
   {
@@ -148,13 +157,18 @@ const SECCIONES: readonly SeccionLegal[] = [
     cuerpo: (
       <>
         <p>
-          Hacemos lo posible para que lo que ves sea útil y esté bien cuidado, pero VSD Health se
-          ofrece tal como está. No respondemos por decisiones de salud que tomes basándote
-          únicamente en lo que muestra la aplicación, por eso insistimos en que no sustituye a un
-          profesional.
+          Hacemos lo posible para que lo que ves sea útil y esté bien cuidado. Garantizamos la
+          calidad e idoneidad del software en los términos de la Ley 1480 de 2011 (Estatuto del
+          Consumidor). Sin embargo, dado que VSD Health es estrictamente una herramienta de software
+          de apoyo autónomo y no un servicio médico, psicológico ni terapéutico, nuestra
+          responsabilidad legal se limita exclusivamente al correcto funcionamiento técnico de la
+          plataforma y a la protección de tus datos. No asumimos responsabilidad por las decisiones
+          de salud o de vida que tomes basadas en el contenido de la plataforma, por lo que
+          insistimos en que el uso de la aplicación no sustituye el criterio de un profesional.
         </p>
-        <p className="legal__nota">
-          <PorDefinir que="que la persona revisora redacte la limitación de responsabilidad conforme al Estatuto del Consumidor (Ley 1480 de 2011), que no se puede limitar por contrato" />
+        <p>
+          Nada de lo anterior limita los derechos que la ley te reconoce como consumidor y como
+          titular de datos personales.
         </p>
       </>
     ),
