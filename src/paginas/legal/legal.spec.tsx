@@ -8,10 +8,12 @@ import { RUTAS } from '../../rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import {
   DATOS_DEL_RESPONSABLE,
+  FECHA_DE_ACTUALIZACION,
   POR_DEFINIR,
   TEXTOS_REVISADOS,
   VERSIONES_PUBLICADAS,
 } from './datosLegales.ts';
+import { PorDefinir } from './PaginaLegal.tsx';
 
 /**
  * Se construye el estado a mano, igual que en `App.spec.tsx`: estas pruebas
@@ -119,37 +121,66 @@ describe.each(DOCUMENTOS)('$titulo', ({ ruta, titulo, enlace }) => {
   });
 });
 
-describe('Mientras el texto sea un borrador', () => {
-  it.each(DOCUMENTOS)('$titulo lo dice arriba, donde no se puede pasar por alto', ({ ruta }) => {
-    pintar(ruta);
-
-    expect(TEXTOS_REVISADOS).toBe(false);
-    expect(screen.getByRole('note')).toHaveTextContent(/borrador pendiente de revisión jurídica/i);
+describe('Los textos estan cerrados (SCRUM-235)', () => {
+  it('el equipo los da por completos', () => {
+    expect(TEXTOS_REVISADOS).toBe(true);
   });
 
-  it.each(DOCUMENTOS)(
-    '$titulo no se puede dar por revisado mientras quede algo por definir',
-    ({ ruta }) => {
-      // Es el candado: poner `TEXTOS_REVISADOS` en `true` con datos sin completar
-      // hace fallar esta prueba, que es justo lo que se busca.
+  it.each(DOCUMENTOS)('$titulo ya no se presenta como borrador', ({ ruta }) => {
+    const { container } = pintar(ruta);
+
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
+    expect(container).not.toHaveTextContent(/borrador/i);
+    expect(container.querySelector('.legal__meta')).toHaveTextContent(
+      `Vigente · actualizado el ${FECHA_DE_ACTUALIZACION}`,
+    );
+  });
+
+  it.each(DOCUMENTOS)('$titulo no deja nada por definir', ({ ruta }) => {
+    // Es el candado: un texto dado por cerrado no puede llevar una marca de pendiente.
+    const { container } = pintar(ruta);
+
+    expect(container.textContent).not.toContain(POR_DEFINIR);
+    expect(container.querySelectorAll('mark.legal__pendiente')).toHaveLength(0);
+  });
+
+  it('los datos del responsable estan todos completos', () => {
+    for (const [campo, valor] of Object.entries(DATOS_DEL_RESPONSABLE)) {
+      expect(valor.trim(), campo).not.toBe('');
+      expect(valor, campo).not.toBe(POR_DEFINIR);
+    }
+  });
+
+  it('lo que falte por definir en el futuro se ve distinto del resto del texto', () => {
+    const { container } = render(<PorDefinir que="el plazo" />);
+
+    const marca = container.querySelector('mark.legal__pendiente');
+
+    expect(marca).toHaveTextContent(`${POR_DEFINIR} el plazo`);
+  });
+
+  it.each([RUTAS.PRIVACIDAD, RUTAS.TERMINOS])(
+    '%s da un solo correo, el oficial, en todo el documento',
+    (ruta) => {
       const { container } = pintar(ruta);
 
-      if (container.textContent?.includes(POR_DEFINIR) === true) {
-        expect(TEXTOS_REVISADOS).toBe(false);
+      // `textContent` pega un bloque con el siguiente sin espacio; los nodos de texto, no.
+      const trozos: string[] = [];
+      const recorrido = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+      while (recorrido.nextNode()) {
+        trozos.push(recorrido.currentNode.textContent ?? '');
       }
+      const correos = trozos.join(' ').match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g) ?? [];
+
+      expect(DATOS_DEL_RESPONSABLE.correo).toBe('vsdcompany69@gmail.com');
+      expect(correos.length).toBeGreaterThan(0);
+      expect(new Set(correos)).toEqual(new Set(['vsdcompany69@gmail.com']));
     },
   );
 
-  it('lo que falta por definir se ve distinto del resto del texto', () => {
-    pintar(RUTAS.PRIVACIDAD);
-
-    const pendientes = document.querySelectorAll('mark.legal__pendiente');
-
-    expect(pendientes.length).toBeGreaterThan(0);
-
-    for (const pendiente of pendientes) {
-      expect(pendiente.textContent).toContain(POR_DEFINIR);
-    }
+  it('las versiones publicadas son las mismas que tiene la API como vigentes', () => {
+    // Ver `AvisoDePrivacidad.spec.ts` del backend: se cambian a la vez.
+    expect(VERSIONES_PUBLICADAS).toEqual({ privacidad: '2026-10-3', terminos: '2026-10-3' });
   });
 });
 
@@ -191,18 +222,74 @@ describe('Aviso de privacidad', () => {
     expect(seccion).toHaveTextContent(DATOS_DEL_RESPONSABLE.correo);
   });
 
+  it('no publica un teléfono: el repositorio y la página son públicos y no se retira', () => {
+    pintar(RUTAS.PRIVACIDAD);
+
+    const seccion = screen.getByRole('region', { name: /quién es el responsable/i });
+
+    expect(seccion).not.toHaveTextContent(/tel[eé]fono|\b3\d{2}[\s-]?\d{3}[\s-]?\d{4}\b/i);
+  });
+
+  it('la autorización de datos sensibles y de transferencia se da en la casilla del aviso', () => {
+    pintar(RUTAS.PRIVACIDAD);
+
+    const seccion = screen.getByRole('region', { name: /dónde se guardan/i });
+
+    // El formulario de registro tiene una casilla para el aviso y otra para los términos: el
+    // texto no puede hablar de una «casilla única» que no existe (`CamposDelRegistro.tsx`).
+    expect(seccion).toHaveTextContent(
+      /casilla de aceptación del aviso de privacidad al crear tu cuenta/i,
+    );
+    expect(seccion).not.toHaveTextContent(/casilla única/i);
+    expect(seccion).toHaveTextContent(/autorización expresa e inequívoca/i);
+    expect(seccion).toHaveTextContent(/tratamiento de tus datos sensibles/i);
+    expect(seccion).toHaveTextContent(/transferir tus datos personales/i);
+    expect(seccion).toHaveTextContent(/Estados Unidos de América u otros países/i);
+  });
+
+  it('al borrar la cuenta se conserva una constancia mínima, y dice cuál es y por cuánto', () => {
+    pintar(RUTAS.PRIVACIDAD);
+
+    const seccion = screen.getByRole('region', { name: /cuánto tiempo los conservamos/i });
+
+    // ADR 0026 del backend: «todo o nada» ya no es toda la verdad.
+    expect(seccion).toHaveTextContent(/lo único que conservamos .* es una constancia/i);
+    expect(seccion).toHaveTextContent(/versiones del aviso y de los términos con su fecha/i);
+    expect(seccion).toHaveTextContent(/cuándo creaste y borraste la cuenta/i);
+    expect(seccion).toHaveTextContent(
+      /identificadores internos sin tu nombre, correo ni datos de bienestar/i,
+    );
+    expect(seccion).toHaveTextContent(/La ley nos exige poder demostrar tu autorización/i);
+    expect(seccion).toHaveTextContent(/plazo de 10 años.*tras lo cual se elimina/i);
+  });
+
+  it('las copias de respaldo se conservan como máximo 7 días y no queda un plazo por decidir', () => {
+    pintar(RUTAS.PRIVACIDAD);
+
+    const seccion = screen.getByRole('region', { name: /cuánto tiempo los conservamos/i });
+
+    expect(seccion).toHaveTextContent(
+      'Las copias de respaldo automatizadas de nuestros proveedores pueden conservar datos cifrados por un máximo de 7 días después de que borres tu cuenta, tras lo cual se sobrescriben o eliminan definitivamente.',
+    );
+    expect(seccion).not.toHaveTextContent(/7 a 30 días/);
+  });
+
+  it('borrar la cuenta no promete «todo lo tuyo» sin decir lo de la constancia', () => {
+    pintar(RUTAS.PRIVACIDAD);
+
+    const seccion = screen.getByRole('region', { name: /tus derechos/i });
+
+    expect(seccion).not.toHaveTextContent(/con todo lo tuyo\./i);
+    expect(seccion).toHaveTextContent(/salvo la constancia de lo que aceptaste/i);
+  });
+
   it('no publica un documento de identidad ni una dirección de calle del responsable', () => {
     pintar(RUTAS.PRIVACIDAD);
 
     const seccion = screen.getByRole('region', { name: /quién es el responsable/i });
 
     // La ley no los exige en el aviso y, una vez publicados, no se retiran.
-    expect(Object.keys(DATOS_DEL_RESPONSABLE)).toEqual([
-      'nombre',
-      'domicilio',
-      'correo',
-      'telefono',
-    ]);
+    expect(Object.keys(DATOS_DEL_RESPONSABLE)).toEqual(['nombre', 'domicilio', 'correo']);
     expect(seccion).not.toHaveTextContent(
       /c[eé]dula|documento de identidad|NIT|identificaci[oó]n/i,
     );
@@ -271,6 +358,55 @@ describe('Términos y condiciones', () => {
 
     expect(enlace).toHaveAttribute('href', RUTAS.PRIVACIDAD);
   });
+
+  describe('límites de nuestra responsabilidad', () => {
+    function seccion() {
+      return screen.getByRole('region', { name: /límites de nuestra responsabilidad/i });
+    }
+
+    it('se redacta conforme al Estatuto del Consumidor, no contra él', () => {
+      pintar(RUTAS.TERMINOS);
+
+      expect(seccion()).toHaveTextContent(/Ley 1480 de 2011 \(Estatuto del Consumidor\)/);
+      expect(seccion()).toHaveTextContent(/calidad e idoneidad del software/i);
+    });
+
+    it('limita lo que se puede limitar: el funcionamiento técnico y los datos, no tus decisiones', () => {
+      pintar(RUTAS.TERMINOS);
+
+      expect(seccion()).toHaveTextContent(
+        /herramienta de software de apoyo autónomo y no un servicio médico, psicológico ni terapéutico/i,
+      );
+      expect(seccion()).toHaveTextContent(
+        /se limita exclusivamente al correcto funcionamiento técnico de la plataforma y a la protección de tus datos/i,
+      );
+      expect(seccion()).toHaveTextContent(
+        /No asumimos responsabilidad por las decisiones de salud o de vida que tomes/i,
+      );
+      expect(seccion()).toHaveTextContent(/no sustituye el criterio de un profesional/i);
+    });
+
+    it('no quita los derechos que la ley da y que un contrato no puede quitar', () => {
+      pintar(RUTAS.TERMINOS);
+
+      // Una cláusula que los excluyera sería ineficaz (Ley 1480 de 2011, art. 43) y no protegería
+      // de nada: la salvedad va escrita.
+      expect(seccion()).toHaveTextContent(
+        /Nada de lo anterior limita los derechos que la ley te reconoce como consumidor y como titular de datos personales/i,
+      );
+    });
+
+    it('no promete lo que la sección de disponibilidad niega', () => {
+      pintar(RUTAS.TERMINOS);
+
+      const disponibilidad = screen.getByRole('region', { name: /disponibilidad y cambios/i });
+
+      expect(disponibilidad).toHaveTextContent(
+        /no garantizamos que esté disponible sin interrupciones/i,
+      );
+      expect(seccion()).not.toHaveTextContent(/ininterrump|sin interrupciones|siempre disponible/i);
+    });
+  });
 });
 
 describe('Cookies y almacenamiento local', () => {
@@ -306,6 +442,14 @@ describe('Cookies y almacenamiento local', () => {
     pintar(RUTAS.COOKIES);
 
     expect(screen.queryByText(/Versión \d{4}-/)).not.toBeInTheDocument();
+  });
+
+  it('la fecha de actualización se ve aunque no tenga versión', () => {
+    const { container } = pintar(RUTAS.COOKIES);
+
+    expect(container.querySelector('.legal__meta')).toHaveTextContent(
+      `Vigente · actualizado el ${FECHA_DE_ACTUALIZACION}`,
+    );
   });
 });
 

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAnalitica } from '../../analitica/useAnalitica.ts';
 import '../../estilos/analitica.css';
 import { RUTAS } from '../../rutas/rutas.ts';
-import { PaginaLegal, PorDefinir, type SeccionLegal } from './PaginaLegal.tsx';
+import { PaginaLegal, type SeccionLegal } from './PaginaLegal.tsx';
 import { LO_QUE_NO_SE_CUENTA, LO_QUE_SE_CUENTA } from './TextosDeAnalitica.tsx';
 
 /**
@@ -243,8 +243,7 @@ function seccionesDe(idDeMedicion: string | null): readonly SeccionLegal[] {
                   </li>
                   <li>
                     <strong>Cuánto se conserva:</strong> las cookies duran 90 días, y en Google
-                    Analytics los datos se conservan 2 meses.{' '}
-                    <PorDefinir que="confirmar que la retención en Google Analytics quedó en 2 meses" />
+                    Analytics los datos se conservan 2 meses.
                   </li>
                 </ul>
                 <p>

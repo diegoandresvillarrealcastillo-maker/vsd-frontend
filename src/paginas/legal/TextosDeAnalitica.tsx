@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom';
 
 import { useAnalitica } from '../../analitica/useAnalitica.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
-import { PorDefinir } from './PaginaLegal.tsx';
 
 /**
  * Lo que los documentos legales dicen de la analitica (SCRUM-161), en un solo
@@ -17,6 +16,11 @@ import { PorDefinir } from './PaginaLegal.tsx';
  * Lo que dice debe ser cierto de `ga4.ts`: si algo cambia alla (que se manda, que
  * cookies pone, cuanto duran), cambia aqui, y sube la version del consentimiento
  * (`VERSION_DEL_CONSENTIMIENTO`) para volver a preguntar.
+ *
+ * Precondicion de activarla en un ambiente: la retencion de datos de la
+ * propiedad de Google Analytics tiene que estar en **2 meses**, que es lo que
+ * dicen estos textos y la pagina de cookies. Esa configuracion vive en Google,
+ * no en el codigo, y ninguna prueba la puede comprobar.
  */
 
 /** Lo que se cuenta de una visita. */
@@ -65,10 +69,11 @@ export function DatosDeLaAnalitica() {
         </li>
       </ul>
       <p>
-        Los recibe Google LLC, que puede tratarlos fuera de Colombia. Puedes retirar el permiso
-        cuando quieras desde «Preferencias de analítica», al pie de las pantallas, o desde la página
-        de cookies.{' '}
-        <PorDefinir que="que la persona revisora confirme esta transferencia internacional (Ley 1581, art. 26) y la retención de 2 meses configurada en Google Analytics" />
+        Los recibe Google LLC, que puede tratarlos fuera de Colombia. Al aceptar la analítica
+        autorizas de forma expresa esa transferencia (Ley 1581 de 2012, artículo 26); si no la
+        aceptas, no se envía nada. Los datos se conservan 2 meses en Google Analytics. Puedes
+        retirar el permiso cuando quieras desde «Preferencias de analítica», al pie de las
+        pantallas, o desde la página de cookies.
       </p>
     </>
   );
