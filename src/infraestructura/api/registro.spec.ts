@@ -5,6 +5,7 @@ import { olvidarLaZonaDeLaCuenta } from '../../tiempo/zonaHoraria.ts';
 import { consultarLosTextosVigentes } from './aviso.ts';
 import { ErrorDeLaApi } from './clienteHttp.ts';
 import {
+  aceptarLosTextos,
   completarElRegistro,
   consultarElEstadoDelRegistro,
   esUnRechazoPorEdad,
@@ -251,6 +252,107 @@ describe('completarElRegistro', () => {
     await expect(completarElRegistro(DATOS)).rejects.toMatchObject({
       estado: 409,
       codigo: 'VERSION_DE_LOS_TERMINOS_NO_VIGENTE',
+    });
+  });
+});
+
+describe('los textos que cambiaron (SCRUM-237)', () => {
+  const PENDIENTES = ['aviso_de_privacidad', 'terminos'] as const;
+  const TEXTOS = { aviso: '2026-10-3', terminos: '2026-10-3' };
+
+  describe('consultarElEstadoDelRegistro', () => {
+    it('una cuenta completa con textos pendientes lo dice y no toca lo que necesita los textos al dia', async () => {
+      const cuenta = { ...CUENTA, textosPendientes: [...PENDIENTES] };
+
+      vi.mocked(globalThis.fetch).mockResolvedValue(respuesta(cuenta));
+
+      await expect(consultarElEstadoDelRegistro()).resolves.toEqual({
+        estado: 'textos-pendientes',
+        cuenta,
+        pendientes: PENDIENTES,
+      });
+      // Pedir la foto o la mascota daria 403 mientras haya textos pendientes.
+      expect(sincronizarLosArchivosDeLaPersona).not.toHaveBeenCalled();
+    });
+
+    it('con uno solo pendiente, dice solo ese', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValue(
+        respuesta({ ...CUENTA, textosPendientes: ['terminos'] }),
+      );
+
+      await expect(consultarElEstadoDelRegistro()).resolves.toMatchObject({
+        estado: 'textos-pendientes',
+        pendientes: ['terminos'],
+      });
+    });
+
+    it('sin textos pendientes esta completo', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValue(respuesta({ ...CUENTA, textosPendientes: [] }));
+
+      await expect(consultarElEstadoDelRegistro()).resolves.toMatchObject({ estado: 'completo' });
+      expect(sincronizarLosArchivosDeLaPersona).toHaveBeenCalledTimes(1);
+    });
+
+    it('una API que no informa textosPendientes se entiende al dia', async () => {
+      // Es lo que era para una API anterior a SCRUM-237.
+      await expect(consultarElEstadoDelRegistro()).resolves.toMatchObject({ estado: 'completo' });
+    });
+
+    it('el registro incompleto va primero: sin la fecha no hay nada que volver a aceptar', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValue(
+        respuesta({ ...CUENTA, registroCompleto: false, textosPendientes: [...PENDIENTES] }),
+      );
+
+      await expect(consultarElEstadoDelRegistro()).resolves.toMatchObject({
+        estado: 'incompleto',
+      });
+    });
+  });
+
+  describe('aceptarLosTextos', () => {
+    it('manda las casillas y las versiones de lo pendiente por POST a la ruta de aceptacion', async () => {
+      await aceptarLosTextos({ pendientes: PENDIENTES, textos: TEXTOS });
+
+      const enviada = peticionEnviada();
+
+      expect(enviada.method).toBe('POST');
+      expect(enviada.url).toBe('http://localhost:3000/api/cuenta/aceptacion');
+      expect(await enviada.json()).toEqual({
+        aceptaAviso: true,
+        versionPolitica: '2026-10-3',
+        aceptaTerminos: true,
+        versionTerminos: '2026-10-3',
+      });
+    });
+
+    it('si solo estan pendientes los terminos, manda solo los terminos', async () => {
+      await aceptarLosTextos({ pendientes: ['terminos'], textos: TEXTOS });
+
+      expect(await peticionEnviada().json()).toEqual({
+        aceptaTerminos: true,
+        versionTerminos: '2026-10-3',
+      });
+    });
+
+    it('devuelve la cuenta como quedo y vuelve a pedir lo que se podia con los textos al dia', async () => {
+      const cuenta = { ...CUENTA, textosPendientes: [] };
+
+      vi.mocked(globalThis.fetch).mockResolvedValue(respuesta(cuenta));
+
+      await expect(aceptarLosTextos({ pendientes: PENDIENTES, textos: TEXTOS })).resolves.toEqual(
+        cuenta,
+      );
+      expect(sincronizarLosArchivosDeLaPersona).toHaveBeenCalledTimes(1);
+    });
+
+    it('si la version ya no es la vigente, el error sale con su codigo para que la pantalla lo explique', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValue(
+        respuesta({ codigo: 'VERSION_DEL_AVISO_NO_VIGENTE', mensaje: 'Ya no es la vigente.' }, 409),
+      );
+
+      await expect(
+        aceptarLosTextos({ pendientes: PENDIENTES, textos: TEXTOS }),
+      ).rejects.toMatchObject({ estado: 409, codigo: 'VERSION_DEL_AVISO_NO_VIGENTE' });
     });
   });
 });

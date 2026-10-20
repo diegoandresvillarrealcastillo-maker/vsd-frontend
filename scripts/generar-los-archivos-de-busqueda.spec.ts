@@ -68,6 +68,7 @@ const CLASIFICACION: Readonly<Record<string, 'publica' | 'privada' | 'de-acceso'
   [RUTAS.RECUPERAR]: 'de-acceso',
   [RUTAS.CONTRASENA_NUEVA]: 'privada',
   [RUTAS.COMPLETAR_REGISTRO]: 'privada',
+  [RUTAS.ACTUALIZAMOS_TEXTOS]: 'privada',
   [RUTAS.SOLO_MAYORES]: 'de-acceso',
   [RUTAS.PANEL]: 'privada',
   [RUTAS.PERFIL]: 'privada',
@@ -110,6 +111,7 @@ describe('en produccion', () => {
       '/actividad/',
       '/contrasena-nueva',
       '/completa-tu-registro',
+      '/actualizamos-nuestros-textos',
     ]) {
       expect(robots, ruta).toContain(`Disallow: ${ruta}`);
     }

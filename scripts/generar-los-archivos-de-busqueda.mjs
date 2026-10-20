@@ -55,6 +55,7 @@ export const RUTAS_PRIVADAS = [
   '/actividad/',
   '/contrasena-nueva',
   '/completa-tu-registro',
+  '/actualizamos-nuestros-textos',
 ];
 
 const ENTORNOS = ['development', 'preproduction', 'production'];

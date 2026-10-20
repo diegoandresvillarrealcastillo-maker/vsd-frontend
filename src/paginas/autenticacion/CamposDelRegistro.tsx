@@ -22,7 +22,7 @@ interface Props {
 }
 
 /** El enlace a un documento: en otra pestana, para no perder lo que se lleva escrito. */
-function EnlaceAlDocumento({ ruta, children }: { ruta: string; children: string }) {
+export function EnlaceAlDocumento({ ruta, children }: { ruta: string; children: string }) {
   return (
     <a
       className="acceso__enlace"

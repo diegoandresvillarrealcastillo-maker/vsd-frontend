@@ -14,6 +14,9 @@ import { ErrorDeLaApi } from '../infraestructura/api/clienteHttp.ts';
  *   detiene a las demas.
  * - **`sesion`**: la sesion no vale (401). Se detiene todo y se pide entrar de
  *   nuevo, **sin descartar nada**: lo guardado sigue ahi.
+ * - **`textos`**: el aviso de privacidad o los terminos cambiaron y la persona todavia no los acepto
+ *   (403 `TEXTOS_PENDIENTES_DE_ACEPTAR`, SCRUM-237). No es un rechazo de la operacion: se detiene todo,
+ *   igual que con la sesion, **sin descartar nada ni gastar un intento**, y se envia cuando acepte.
  * - **`conflicto`**: otro dispositivo cambio lo mismo (ADR 0009). No se pisa nada.
  * - **`permanente`**: la API la rechazo y reintentar no va a cambiar la respuesta
  *   (datos invalidos, ya no existe). Se marca para atencion y no detiene a las
@@ -28,6 +31,7 @@ export type ClaseDeFallo =
       readonly reintentarEnSegundos?: number;
     }
   | { readonly clase: 'sesion' }
+  | { readonly clase: 'textos' }
   | { readonly clase: 'conflicto'; readonly codigo: string; readonly estado: number }
   | { readonly clase: 'permanente'; readonly codigo: string; readonly estado?: number };
 
@@ -54,6 +58,12 @@ export function clasificarFallo(error: unknown): ClaseDeFallo {
 
     if (estado === 401) {
       return { clase: 'sesion' };
+    }
+
+    // Lo que hizo la persona sin conexion es suyo y la API lo va a aceptar en cuanto acepte los textos
+    // nuevos: marcarlo como rechazado para siempre seria perderlo.
+    if (estado === 403 && error.codigo === 'TEXTOS_PENDIENTES_DE_ACEPTAR') {
+      return { clase: 'textos' };
     }
 
     if (CODIGOS_DE_CONFLICTO.has(error.codigo ?? '')) {

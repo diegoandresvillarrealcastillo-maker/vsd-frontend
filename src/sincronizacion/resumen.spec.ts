@@ -585,6 +585,29 @@ describe('construirAviso: uno por tanda, no uno por cambio', () => {
     });
   });
 
+  describe('faltan por aceptar el aviso o los terminos (SCRUM-237)', () => {
+    it('dice que falta aceptar y que lo guardado sigue ahi, sin pedir entrar de nuevo', () => {
+      expect(aviso(resultado('textos_pendientes', { pendientes: 3 }), 'manual')).toMatchObject({
+        texto:
+          'Falta aceptar el aviso de privacidad o los términos actualizados para enviar 3 cambios guardados en este equipo.',
+        tono: 'atencion',
+        pedirEntrar: false,
+        verLista: false,
+      });
+    });
+
+    it('en singular', () => {
+      expect(aviso(resultado('textos_pendientes', { pendientes: 1 }))?.texto).toBe(
+        'Falta aceptar el aviso de privacidad o los términos actualizados para enviar 1 cambio guardado en este equipo.',
+      );
+    });
+
+    it('sin nada guardado no hay nada que decir: la pantalla de aceptar ya lo explica', () => {
+      expect(aviso(resultado('textos_pendientes'))).toBeNull();
+      expect(aviso(resultado('textos_pendientes', { enviadas: 2 }))).toBeNull();
+    });
+  });
+
   describe('lo que no se avisa', () => {
     it.each(['ocupada', 'sin_sesion', 'persona_distinta'] as const)(
       '%s: el indicador o la pantalla ya lo dicen',

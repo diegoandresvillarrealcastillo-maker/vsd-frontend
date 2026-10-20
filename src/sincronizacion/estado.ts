@@ -309,7 +309,11 @@ export function iniciarLaSincronizacionAutomatica(
     if (resultado.estado === 'sin_conexion') {
       huboSinConexion = true;
       cambiar({ conexion: 'sin_conexion', sincronizando: false });
-    } else if (resultado.estado === 'terminada' || resultado.estado === 'sesion_vencida') {
+    } else if (
+      resultado.estado === 'terminada' ||
+      resultado.estado === 'sesion_vencida' ||
+      resultado.estado === 'textos_pendientes'
+    ) {
       huboSinConexion = false;
       cambiar({ conexion: 'con_conexion', sincronizando: false });
     } else if (resultado.estado === 'nada_que_hacer') {
