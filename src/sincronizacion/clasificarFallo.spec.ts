@@ -13,6 +13,20 @@ describe('clasificarFallo: la API respondio', () => {
     expect(clasificarFallo(api(401))).toEqual({ clase: 'sesion' });
   });
 
+  it('un 403 de textos pendientes se detiene como la sesion, sin descartar nada (SCRUM-237)', () => {
+    // No es un rechazo de la operacion: falta que la persona acepte el aviso o los terminos nuevos.
+    // Marcarla como rechazada para siempre seria perder lo que hizo sin conexion.
+    expect(clasificarFallo(api(403, 'TEXTOS_PENDIENTES_DE_ACEPTAR'))).toEqual({ clase: 'textos' });
+  });
+
+  it('cualquier otro 403 sigue siendo permanente', () => {
+    expect(clasificarFallo(api(403, 'REGISTRO_INCOMPLETO'))).toEqual({
+      clase: 'permanente',
+      codigo: 'REGISTRO_INCOMPLETO',
+      estado: 403,
+    });
+  });
+
   it.each([
     ['VERSION_DESACTUALIZADA', 409],
     ['EDICION_FUERA_DE_PLAZO', 409],

@@ -71,6 +71,9 @@ export interface MascotaPropiaDeLaCuenta {
  * los resultados. El del proveedor no sale por la API, porque es un detalle de
  * como se autentica la persona y no le sirve a quien consume la API.
  */
+/** Un texto legal que la persona tiene que volver a aceptar porque cambio (SCRUM-237). */
+export type TextoPendiente = 'aviso_de_privacidad' | 'terminos';
+
 export interface Cuenta {
   readonly id: string;
   readonly correo: string;
@@ -90,6 +93,13 @@ export interface Cuenta {
    * completa.
    */
   readonly registroCompleto?: boolean;
+  /**
+   * Los textos que hay que volver a aceptar porque cambiaron desde la ultima vez (SCRUM-237). Con
+   * alguno, la API responde 403 `TEXTOS_PENDIENTES_DE_ACEPTAR` a todo menos a ver, exportar y borrar
+   * la cuenta. Opcional por lo mismo que `registroCompleto`: una API anterior no lo manda y se
+   * entiende que esta al dia.
+   */
+  readonly textosPendientes?: readonly TextoPendiente[];
   readonly registradoEn: string;
   /** Vacio mientras la persona no ha elegido con que modulos empezar. */
   readonly modulosActivos: readonly Modulo[];

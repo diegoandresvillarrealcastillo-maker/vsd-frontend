@@ -242,6 +242,12 @@ async function pedir(ruta: string, opciones: Opciones, acepta: string): Promise<
   if (!respuesta.ok) {
     const { codigo, mensaje } = await explicacionDe(respuesta);
 
+    // No es un fallo de sesion (la persona sigue siendo ella, y no se cierra nada): falta aceptar
+    // un texto. El error sigue saliendo, y ademas se avisa a quien lleve a la persona a aceptarlo.
+    if (respuesta.status === 403 && codigo === 'TEXTOS_PENDIENTES_DE_ACEPTAR') {
+      avisarQueHayTextosPendientes();
+    }
+
     // Se prefiere el mensaje de la API cuando lo hay: esta escrito para que lo
     // lea una persona y sabe de que error habla. Quien pinte una pantalla puede
     // ignorarlo y redactar el suyo mirando `codigo`, que suele quedar mejor
@@ -256,6 +262,33 @@ async function pedir(ruta: string, opciones: Opciones, acepta: string): Promise<
   }
 
   return respuesta;
+}
+
+/**
+ * Quien quiere enterarse de que faltan por aceptar el aviso de privacidad o los terminos
+ * (SCRUM-237).
+ *
+ * La API responde 403 `TEXTOS_PENDIENTES_DE_ACEPTAR` a todo lo que no sea ver, exportar o borrar la
+ * cuenta. Puede pasar en cualquier pantalla, sin recargar: se publica una version nueva con la
+ * sesion abierta. En vez de que cada pantalla lo entienda, el cliente avisa aqui y la ruta
+ * protegida lleva a la persona a aceptar.
+ */
+const oyentesDeTextosPendientes = new Set<() => void>();
+
+/** Pide que se avise cuando la API diga que faltan textos por aceptar. Devuelve como dejar de escuchar. */
+export function suscribirseALosTextosPendientes(oyente: () => void): () => void {
+  oyentesDeTextosPendientes.add(oyente);
+
+  return () => {
+    oyentesDeTextosPendientes.delete(oyente);
+  };
+}
+
+/** Lo llama el cliente al ver el 403. Aparte para que se pueda comprobar sin montar una pantalla. */
+export function avisarQueHayTextosPendientes(): void {
+  for (const oyente of [...oyentesDeTextosPendientes]) {
+    oyente();
+  }
 }
 
 export async function llamarALaApi<T>(ruta: string, opciones: Opciones = {}): Promise<T> {

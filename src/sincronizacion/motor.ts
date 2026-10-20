@@ -57,6 +57,11 @@ export type EstadoDeLaSincronizacion =
   | 'sin_conexion'
   /** La sesion no vale. Se detuvo el envio y la cola sigue ahi. */
   | 'sesion_vencida'
+  /**
+   * Faltan por aceptar el aviso de privacidad o los terminos (SCRUM-237). Se detuvo el envio, la cola
+   * sigue ahi y no se gasto ningun intento: se envia cuando la persona acepte.
+   */
+  | 'textos_pendientes'
   /** No hay sesion: no se manda nada. */
   | 'sin_sesion'
   /** La sesion es de otra persona que la de este almacen: no se manda nada. */
@@ -292,7 +297,8 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
     const intentadas = new Set<string>();
     let requierenAtencion = 0;
     let conflictos = 0;
-    let corte: 'sin_conexion' | 'sesion_vencida' | 'persona_distinta' | null = null;
+    let corte: 'sin_conexion' | 'sesion_vencida' | 'textos_pendientes' | 'persona_distinta' | null =
+      null;
 
     const contexto: ContextoDeEjecucion = {
       reciboDe: (operationId) => {
@@ -400,6 +406,13 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
             // La sesion no vale. Se detiene y NO se descarta nada.
             await guardar({ ...siguiente, estado: 'pendiente' });
             corte = 'sesion_vencida';
+            break;
+
+          case 'textos':
+            // Faltan por aceptar los textos nuevos. Igual que con la sesion: se detiene todo, vuelve
+            // a su sitio sin gastar un intento y no se le anota ningun error (SCRUM-237).
+            await guardar({ ...siguiente, estado: 'pendiente' });
+            corte = 'textos_pendientes';
             break;
 
           case 'temporal': {

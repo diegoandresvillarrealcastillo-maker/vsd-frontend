@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { suscribirseALosTextosPendientes } from '../infraestructura/api/clienteHttp.ts';
 import { consultarElEstadoDelRegistro } from '../infraestructura/api/registro.ts';
 
 /**
@@ -11,11 +12,15 @@ import { consultarElEstadoDelRegistro } from '../infraestructura/api/registro.ts
  * - `pendiente`: hay que llevarla a completar el registro. Es una persona que
  *   entro con Google, que confirmo su correo, o una cuenta anterior a que se
  *   pidiera.
+ * - `textos-pendientes`: tiene el registro completo, pero el aviso o los terminos que acepto ya no
+ *   son los vigentes (SCRUM-237). Hay que llevarla a volver a aceptarlos. Puede aparecer en cualquier
+ *   momento, aunque antes estuviera `completo`: la API avisa con un 403 en cualquier llamada.
  * - `sin-comprobar`: no se pudo preguntar (sin conexion, el servidor dormido).
  *   **No bloquea**: la aplicacion se puede usar sin conexion, y la API es la que
  *   de verdad manda: a una cuenta incompleta le responde 403 en todo lo demas.
  */
-export type ComprobacionDelRegistro = 'comprobando' | 'completo' | 'pendiente' | 'sin-comprobar';
+export type ComprobacionDelRegistro =
+  'comprobando' | 'completo' | 'pendiente' | 'textos-pendientes' | 'sin-comprobar';
 
 /**
  * La persona de la que ya se sabe que esta completa.
@@ -73,7 +78,12 @@ export function useRegistroCompleto(
 
         setRespuesta({
           persona,
-          resultado: estado.estado === 'completo' ? 'completo' : 'pendiente',
+          resultado:
+            estado.estado === 'completo'
+              ? 'completo'
+              : estado.estado === 'textos-pendientes'
+                ? 'textos-pendientes'
+                : 'pendiente',
         });
       })
       .catch(() => {
@@ -83,6 +93,23 @@ export function useRegistroCompleto(
       });
 
     return () => control.abort();
+  }, [persona, activo]);
+
+  // Una version nueva con la sesion abierta: la API responde 403 de textos pendientes en cualquier
+  // pantalla (SCRUM-237). Lo de «el registro solo avanza» deja de valer para esto, asi que se olvida
+  // que estaba completo y se manda a la persona a aceptar.
+  useEffect(() => {
+    if (!activo || persona === null) {
+      return undefined;
+    }
+
+    return suscribirseALosTextosPendientes(() => {
+      if (completaPara === persona) {
+        completaPara = null;
+      }
+
+      setRespuesta({ persona, resultado: 'textos-pendientes' });
+    });
   }, [persona, activo]);
 
   if (persona !== null && completaPara === persona) {

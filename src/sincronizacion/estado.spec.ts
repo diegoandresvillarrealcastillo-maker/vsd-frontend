@@ -967,6 +967,19 @@ describe('el motor trabaja', () => {
       t.apagar();
     });
 
+    it('si faltan por aceptar los textos, la API respondio: hay conexion (SCRUM-237)', async () => {
+      const t = armar({ hayRed: () => false });
+      const c = crearCiclo();
+
+      await abrir(c);
+      c.emitir({ tipo: 'inicio', motivo: 'manual' });
+      c.emitir({ tipo: 'fin', resultado: resultado('textos_pendientes', { pendientes: 1 }) });
+
+      expect(obtenerElEstado().conexion).toBe('con_conexion');
+
+      t.apagar();
+    });
+
     it('si la sesion vencio, la API respondio: hay conexion', async () => {
       const t = armar({ hayRed: () => false });
       const c = crearCiclo();

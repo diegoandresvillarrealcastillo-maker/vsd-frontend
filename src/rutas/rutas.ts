@@ -32,6 +32,12 @@ export const RUTAS = {
   COMPLETAR_REGISTRO: '/completa-tu-registro',
 
   /**
+   * Volver a aceptar el aviso de privacidad o los terminos cuando cambiaron (SCRUM-237): para quien
+   * tiene sesion y su registro completo, pero acepto una version que ya no es la vigente.
+   */
+  ACTUALIZAMOS_TEXTOS: '/actualizamos-nuestros-textos',
+
+  /**
    * Lo que ve quien resulta menor de 18 anos. Publica: se llega a ella despues de
    * cerrar la sesion, y no guarda ni pide nada.
    */

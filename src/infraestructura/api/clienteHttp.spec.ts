@@ -6,6 +6,7 @@ import {
   llamarALaApi,
   pedirBytesALaApi,
   segundosDeEspera,
+  suscribirseALosTextosPendientes,
 } from './clienteHttp.ts';
 
 /**
@@ -532,5 +533,65 @@ describe('leerSiCambio: una lectura que pregunta si lo que se tiene sigue valien
     await llamarALaApi('/api/cuenta');
 
     expect(cabecerasDeLaPeticion().has('If-None-Match')).toBe(false);
+  });
+});
+
+describe('los textos pendientes de aceptar (SCRUM-237)', () => {
+  const TEXTOS_PENDIENTES = {
+    codigo: 'TEXTOS_PENDIENTES_DE_ACEPTAR',
+    mensaje: 'Actualizamos el aviso de privacidad o los términos.',
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('avisa a quien escuche cuando la API responde 403 de textos pendientes, y el error sigue saliendo', async () => {
+    const avisar = vi.fn();
+    const dejarDeEscuchar = suscribirseALosTextosPendientes(avisar);
+
+    cuandoLaApiResponde(respuesta(TEXTOS_PENDIENTES, 403));
+
+    await expect(llamarALaApi('/api/diario')).rejects.toMatchObject({
+      estado: 403,
+      codigo: 'TEXTOS_PENDIENTES_DE_ACEPTAR',
+    });
+    expect(avisar).toHaveBeenCalledTimes(1);
+
+    dejarDeEscuchar();
+  });
+
+  it('no cierra la sesion: es la misma persona, solo le falta aceptar', async () => {
+    signOut.mockClear();
+    const dejarDeEscuchar = suscribirseALosTextosPendientes(vi.fn());
+
+    cuandoLaApiResponde(respuesta(TEXTOS_PENDIENTES, 403));
+    await expect(llamarALaApi('/api/diario')).rejects.toBeInstanceOf(ErrorDeLaApi);
+
+    expect(signOut).not.toHaveBeenCalled();
+
+    dejarDeEscuchar();
+  });
+
+  it('un 403 de otra cosa no avisa', async () => {
+    const avisar = vi.fn();
+    const dejarDeEscuchar = suscribirseALosTextosPendientes(avisar);
+
+    cuandoLaApiResponde(respuesta({ codigo: 'REGISTRO_INCOMPLETO', mensaje: 'Falta.' }, 403));
+    await expect(llamarALaApi('/api/diario')).rejects.toBeInstanceOf(ErrorDeLaApi);
+
+    expect(avisar).not.toHaveBeenCalled();
+
+    dejarDeEscuchar();
+  });
+
+  it('quien dejo de escuchar ya no recibe nada', async () => {
+    const avisar = vi.fn();
+
+    suscribirseALosTextosPendientes(avisar)();
+    cuandoLaApiResponde(respuesta(TEXTOS_PENDIENTES, 403));
+    await expect(llamarALaApi('/api/diario')).rejects.toBeInstanceOf(ErrorDeLaApi);
+
+    expect(avisar).not.toHaveBeenCalled();
   });
 });

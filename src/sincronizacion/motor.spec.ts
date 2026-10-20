@@ -1522,3 +1522,53 @@ describe('con lo que trae de fabrica', () => {
     expect((await motor.sincronizar('manual')).estado).toBe('terminada');
   });
 });
+
+describe('faltan por aceptar el aviso o los terminos (SCRUM-237)', () => {
+  it('se detiene, NO descarta nada de la cola y no gasta intentos', async () => {
+    const banco = armar();
+
+    await banco.encolar('a');
+    await banco.encolar('b');
+    await banco.encolar('c');
+    banco.ejecutores['pendiente.crear'].mockImplementation((operacion: Operacion) => {
+      banco.llamadas.push(operacion.operationId);
+
+      return operacion.operationId === 'b'
+        ? Promise.reject(api(403, 'TEXTOS_PENDIENTES_DE_ACEPTAR'))
+        : Promise.resolve(banco.servidor.atender(operacion));
+    });
+
+    const resultado = await banco.motor.sincronizar('manual');
+
+    expect(resultado.estado).toBe('textos_pendientes');
+    expect(banco.llamadas).toEqual(['a', 'b']);
+    expect(await banco.almacen.operaciones()).toHaveLength(3);
+    expect(await banco.estado('a')).toMatchObject({ estado: 'hecha' });
+    // No es un rechazo: la que recibio el 403 vuelve a esperar sin gastar un intento y sin error.
+    expect(await banco.estado('b')).toMatchObject({
+      estado: 'pendiente',
+      intentos: 0,
+      error: null,
+    });
+    expect(await banco.estado('c')).toMatchObject({ estado: 'pendiente', intentos: 0 });
+    expect(await banco.almacen.leerMeta(META_ULTIMA_SINCRONIZACION)).toBeNull();
+  });
+
+  it('cuando la persona acepta, se envia lo que quedo', async () => {
+    const banco = armar();
+    let aceptados = false;
+
+    banco.ejecutores['pendiente.crear'].mockImplementation((operacion: Operacion) =>
+      aceptados
+        ? Promise.resolve(banco.servidor.atender(operacion))
+        : Promise.reject(api(403, 'TEXTOS_PENDIENTES_DE_ACEPTAR')),
+    );
+    await banco.encolar('a');
+    await banco.motor.sincronizar('manual');
+
+    aceptados = true;
+
+    expect((await banco.motor.sincronizar('manual')).estado).toBe('terminada');
+    expect(await banco.estado('a')).toMatchObject({ estado: 'hecha' });
+  });
+});
