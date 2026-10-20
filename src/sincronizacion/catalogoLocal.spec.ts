@@ -9,6 +9,7 @@ import {
   traerElCatalogoConCopia,
 } from './catalogoLocal.ts';
 import { alCambiarLaSesion, cicloActual, reiniciarElCicloParaLasPruebas } from './ciclo.ts';
+import { ESPERA_CON_COPIA_EN_MS } from './lecturas.ts';
 
 // El resto del cliente (el tipo de error que reconoce `clasificarFallo`) es el de verdad.
 vi.mock('../infraestructura/api/clienteHttp.ts', async (original) => ({
@@ -130,6 +131,102 @@ describe('buscarActividadConCopia', () => {
     leer.mockRejectedValue(SIN_RED);
 
     await expect(buscarActividadConCopia('a1')).rejects.toBe(SIN_RED);
+  });
+});
+
+describe('buscarActividadConCopia con una copia vieja (SCRUM-232)', () => {
+  // El catalogo de despues de publicar algo: la copia guardada es la de antes.
+  const CATALOGO_NUEVO: readonly CategoriaDelCatalogo[] = [
+    CATALOGO[0]!,
+    {
+      id: 'c2',
+      nombre: 'Cognicion',
+      actividades: [
+        ...CATALOGO[1]!.actividades,
+        { id: 'a9', nombre: 'La palabra que sobra', produceNivel: true },
+      ],
+    },
+  ];
+
+  async function guardarLaCopiaVieja(): Promise<void> {
+    leer.mockResolvedValueOnce({ estado: 'nuevo', valor: CATALOGO, etag: 'W/"1"' });
+    await traerElCatalogoConCopia();
+    leer.mockReset();
+  }
+
+  /** Una API que tarda en contestar: mas que lo que `leerConCopia` espera con una copia. */
+  function unaApiLenta(contestacion: Awaited<ReturnType<typeof leerSiCambio>>, ms: number): void {
+    leer.mockImplementation(
+      () =>
+        new Promise((resolver) => {
+          setTimeout(() => {
+            resolver(contestacion);
+          }, ms);
+        }),
+    );
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('una actividad que la copia no tiene NO es "no existe": espera a la API aunque tarde', async () => {
+    await guardarLaCopiaVieja();
+    vi.useFakeTimers();
+    unaApiLenta(
+      { estado: 'nuevo', valor: CATALOGO_NUEVO, etag: 'W/"2"' },
+      ESPERA_CON_COPIA_EN_MS + 1500,
+    );
+
+    const busqueda = buscarActividadConCopia('a9');
+
+    await vi.advanceTimersByTimeAsync(3 * ESPERA_CON_COPIA_EN_MS);
+
+    expect((await busqueda)?.actividad.nombre).toBe('La palabra que sobra');
+  });
+
+  it('lo que trae la API se guarda: la proxima vez la copia ya la tiene', async () => {
+    await guardarLaCopiaVieja();
+    vi.useFakeTimers();
+    unaApiLenta(
+      { estado: 'nuevo', valor: CATALOGO_NUEVO, etag: 'W/"2"' },
+      ESPERA_CON_COPIA_EN_MS + 1500,
+    );
+
+    const busqueda = buscarActividadConCopia('a9');
+
+    await vi.advanceTimersByTimeAsync(3 * ESPERA_CON_COPIA_EN_MS);
+    await busqueda;
+
+    expect(await nombreDeLaActividad('a9')).toBe('La palabra que sobra');
+  });
+
+  it('sin conexion y sin la actividad en la copia, sale el fallo: no se dice "no existe"', async () => {
+    await guardarLaCopiaVieja();
+    leer.mockRejectedValue(SIN_RED);
+
+    await expect(buscarActividadConCopia('a9')).rejects.toBe(SIN_RED);
+  });
+
+  it('si la API confirma que no cambio y no la tiene, no existe, sin insistir', async () => {
+    await guardarLaCopiaVieja();
+    leer.mockResolvedValue({ estado: 'sin_cambios' });
+
+    expect(await buscarActividadConCopia('a9')).toBeNull();
+    expect(leer).toHaveBeenCalledTimes(1);
+  });
+
+  it('una que SI esta en la copia abre sin esperar a la API y sin preguntar dos veces', async () => {
+    await guardarLaCopiaVieja();
+    vi.useFakeTimers();
+    unaApiLenta({ estado: 'sin_cambios' }, 60_000);
+
+    const busqueda = buscarActividadConCopia('a1');
+
+    await vi.advanceTimersByTimeAsync(ESPERA_CON_COPIA_EN_MS + 1);
+
+    expect((await busqueda)?.actividad.nombre).toBe('Como dormiste anoche');
+    expect(leer).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -144,6 +144,17 @@ function seCancelo(error: unknown, senal: AbortSignal | undefined): boolean {
   return senal?.aborted === true || (error instanceof DOMException && error.name === 'AbortError');
 }
 
+export interface OpcionesDeLaLectura {
+  /**
+   * Preguntar de verdad (SCRUM-232): esperar a la API sin el limite de tiempo de la copia y, si
+   * no se puede llegar a ella, fallar en lugar de entregar la copia.
+   *
+   * Es para quien necesita saber si algo **no esta**. Una copia vieja puede no tenerlo solo
+   * porque es de antes de que se publicara, asi que no prueba nada.
+   */
+  readonly verificar?: boolean;
+}
+
 /**
  * Lee `clave` de la API, o de la copia si no se puede. Ver arriba.
  *
@@ -153,15 +164,17 @@ export async function leerConCopia<T>(
   clave: string,
   traer: (etag: string | null) => Promise<RespuestaCondicional<T>>,
   senal?: AbortSignal,
+  opciones?: OpcionesDeLaLectura,
 ): Promise<LecturaConCopia<T>> {
   const guardada = await leerLaCopia<T>(clave);
+  const verificar = opciones?.verificar === true;
 
   try {
     const pedida = traer(guardada?.copia.etag ?? null);
     let respuesta: RespuestaCondicional<T>;
 
-    if (guardada === null) {
-      // Sin copia no hay otra cosa que hacer que esperar.
+    if (guardada === null || verificar) {
+      // Sin copia no hay otra cosa que hacer que esperar, y si se pidio la verdad, tampoco.
       respuesta = await pedida;
     } else {
       // Con copia, no se hace esperar a la persona: pasado el tiempo se usa la copia, y
@@ -197,8 +210,9 @@ export async function leerConCopia<T>(
 
     const clase = clasificarFallo(error).clase;
 
-    // Solo cuando no se pudo llegar a la API. Lo demas es una respuesta, y se respeta.
-    if (guardada !== null && (clase === 'red' || clase === 'temporal')) {
+    // Solo cuando no se pudo llegar a la API. Lo demas es una respuesta, y se respeta. Quien pidio
+    // verificar no se conforma con la copia: prefiere el fallo.
+    if (!verificar && guardada !== null && (clase === 'red' || clase === 'temporal')) {
       return { valor: guardada.copia.valor, deLaCopia: true, guardadoEn: guardada.guardadoEn };
     }
 
