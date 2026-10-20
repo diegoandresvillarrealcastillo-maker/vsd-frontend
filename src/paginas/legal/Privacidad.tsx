@@ -18,8 +18,10 @@ import { DatosDeLaAnalitica, ProveedorGoogleAnalytics } from './TextosDeAnalitic
  * sin cambiarla:
  *
  * - Conservacion: la baja de la cuenta borra todo **salvo la constancia** de lo
- *   que se acepto, que se guarda 10 anos (ADR 0026 del backend). El purgado por
- *   plazo todavia no existe: tiene que estar hecho antes de octubre de 2036.
+ *   que se acepto, que se guarda 10 anos (ADR 0026 del backend). Cumplirlo es el
+ *   comando `npm run mantenimiento:constancias` del backend (SCRUM-236), que lo
+ *   ejecuta una persona: no corre solo, y no hay nada que borrar hasta octubre de
+ *   2036. Si el plazo cambia, cambia el comando, este texto y su version.
  * - Respaldos: el maximo de 7 dias es el de los proveedores; hay que
  *   comprobarlo al montar cada ambiente.
  * - Autorizacion: la seccion «Donde se guardan» dice en que casilla se da. Es la
