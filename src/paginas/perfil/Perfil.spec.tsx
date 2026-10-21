@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
-import { act, configure, render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -1599,14 +1599,10 @@ describe('sin conexion (SCRUM-142)', () => {
     const HAY_COPIA = /Datos de hace/;
 
     beforeEach(async () => {
-      // Estas pruebas esperan lecturas del almacen y dos vueltas a la API: con la suite completa
-      // en marcha, el segundo por omision se queda corto y flaquean sin que nada este mal.
-      configure({ asyncUtilTimeout: 3000 });
       await abrirUnAlmacenDePrueba();
     });
 
     afterEach(() => {
-      configure({ asyncUtilTimeout: 1000 });
       cerrarElAlmacenDePrueba();
     });
 

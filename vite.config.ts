@@ -105,6 +105,9 @@ export default defineConfig(({ mode }) => ({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/pruebas/preparacion.ts'],
+    // Mayor que la espera de las busquedas asincronas (`preparacion.ts`, 5 s): si una busqueda no encuentra
+    // lo que espera, el error que sale es el suyo («Unable to find...») y no «Test timed out».
+    testTimeout: 15_000,
     // Las de `scripts/` prueban los guardias que corren al compilar (cabeceras de
     // seguridad, SCRUM-152; los guiones que deciden algo, SCRUM-155). Usan las
     // APIs de Node (procesos, archivos), que tambien existen bajo jsdom.
