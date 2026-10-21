@@ -1003,6 +1003,19 @@ describe('Completa la palabra (completar)', () => {
     expect(screen.getByText(/No hay tiempo/)).toBeInTheDocument();
   });
 
+  it('el teclado del telefono no corrige, no completa ni pone mayusculas en lo que se escribe (SCRUM-239)', async () => {
+    // En un iPhone el corrector cambia una letra suelta por otra palabra y las mayusculas automaticas
+    // estropean la comparacion: en un juego de palabras, lo escrito tiene que ser lo que se tecleo.
+    await empezar();
+
+    for (const campo of screen.getAllByRole('textbox')) {
+      expect(campo).toHaveAttribute('autocorrect', 'off');
+      expect(campo).toHaveAttribute('autocapitalize', 'none');
+      expect(campo).toHaveAttribute('autocomplete', 'off');
+      expect(campo).toHaveAttribute('spellcheck', 'false');
+    }
+  });
+
   it('muestra la pista, las letras que hay y un campo en cada lugar que falta, con el foco en el primero', async () => {
     await empezar();
 
@@ -1091,6 +1104,17 @@ describe('Completa la palabra (anagrama)', () => {
     pintar(CompletaLaPalabra, ANAGRAMA);
     await pulsar(/Empezar/);
   }
+
+  it('el teclado del telefono no corrige, no completa ni pone mayusculas en la palabra (SCRUM-239)', async () => {
+    await empezar();
+
+    const campo = screen.getByRole('textbox', { name: 'Escribe la palabra' });
+
+    expect(campo).toHaveAttribute('autocorrect', 'off');
+    expect(campo).toHaveAttribute('autocapitalize', 'none');
+    expect(campo).toHaveAttribute('autocomplete', 'off');
+    expect(campo).toHaveAttribute('spellcheck', 'false');
+  });
 
   it('muestra las letras revueltas, y las anuncia una a una', async () => {
     await empezar();

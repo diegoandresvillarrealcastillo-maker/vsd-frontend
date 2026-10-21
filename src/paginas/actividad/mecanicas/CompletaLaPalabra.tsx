@@ -247,6 +247,7 @@ function UnaPalabra({
                 inputMode="text"
                 autoComplete="off"
                 autoCapitalize="none"
+                autoCorrect="off"
                 spellCheck={false}
                 disabled={revisada !== null}
                 aria-label={`Letra ${String(posicion + 1)} de ${String(letras.length)}`}
@@ -288,6 +289,7 @@ function UnaPalabra({
               maxLength={letras.length + 2}
               autoComplete="off"
               autoCapitalize="none"
+              autoCorrect="off"
               spellCheck={false}
               disabled={revisada !== null}
               onChange={(evento) => {

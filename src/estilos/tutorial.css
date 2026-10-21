@@ -123,9 +123,11 @@
   text-underline-offset: 0.2em;
 }
 
-.tutorial__boton:hover,
-.tutorial__omitir:hover {
-  background: var(--app-superficie-alta);
+@media (hover: hover) and (pointer: fine) {
+  .tutorial__boton:hover,
+  .tutorial__omitir:hover {
+    background: var(--app-superficie-alta);
+  }
 }
 
 .tutorial__boton:active {
@@ -138,8 +140,10 @@
   color: var(--app-sobre-primario);
 }
 
-.tutorial__boton--principal:hover {
-  background: var(--app-salvia);
+@media (hover: hover) and (pointer: fine) {
+  .tutorial__boton--principal:hover {
+    background: var(--app-salvia);
+  }
 }
 
 .tutorial__omitir:focus-visible,

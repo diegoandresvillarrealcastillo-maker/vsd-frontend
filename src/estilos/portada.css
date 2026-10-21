@@ -146,9 +146,11 @@
   font-weight: var(--peso-titulo);
 }
 
-.navegacion__enlace:hover,
-.navegacion__accion:hover {
-  color: var(--nav-texto);
+@media (hover: hover) and (pointer: fine) {
+  .navegacion__enlace:hover,
+  .navegacion__accion:hover {
+    color: var(--nav-texto);
+  }
 }
 
 /* Mientras la burbuja no esta aqui, el boton se sostiene con un contorno: sin
@@ -196,8 +198,10 @@
   transition: background var(--rapido) var(--curva);
 }
 
-.navegacion__sesion:hover {
-  background: rgb(255 255 255 / 8%);
+@media (hover: hover) and (pointer: fine) {
+  .navegacion__sesion:hover {
+    background: rgb(255 255 255 / 8%);
+  }
 }
 
 /* El verde de "salud en positivo", usado aqui como senal de que algo esta
@@ -442,9 +446,11 @@
 /* El desplazamiento y la escala los lleva Framer Motion; aqui solo el borde y
    el fondo. Sin fondo propio, la tarjeta levantada dejaria ver el halo del
    lienzo por debajo y el borde flotaria sobre nada. */
-.paso:hover {
-  background: var(--fondo-elevado);
-  border-color: var(--acento);
+@media (hover: hover) and (pointer: fine) {
+  .paso:hover {
+    background: var(--fondo-elevado);
+    border-color: var(--acento);
+  }
 }
 
 .paso__numero {
@@ -733,7 +739,9 @@
     background var(--rapido) var(--curva);
 }
 
-.invitacion__cerrar:hover {
-  color: var(--texto);
-  background: var(--fondo-sutil);
+@media (hover: hover) and (pointer: fine) {
+  .invitacion__cerrar:hover {
+    color: var(--texto);
+    background: var(--fondo-sutil);
+  }
 }

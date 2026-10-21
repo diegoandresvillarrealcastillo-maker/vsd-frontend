@@ -46,9 +46,11 @@
     background var(--rapido) var(--curva);
 }
 
-.acceso__volver:hover {
-  color: var(--texto);
-  background: var(--fondo-sutil);
+@media (hover: hover) and (pointer: fine) {
+  .acceso__volver:hover {
+    color: var(--texto);
+    background: var(--fondo-sutil);
+  }
 }
 
 /* ---------- El fondo que respira ----------
@@ -160,9 +162,14 @@
   transition: transform var(--medio) var(--curva);
 }
 
-.acceso__enlace:hover::after,
 .acceso__enlace:focus-visible::after {
   transform: scaleX(1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .acceso__enlace:hover::after {
+    transform: scaleX(1);
+  }
 }
 
 /* ---------- Campos ---------- */
@@ -225,9 +232,11 @@
     background var(--rapido) var(--curva);
 }
 
-.ojo:hover:not(:disabled) {
-  color: var(--acento);
-  background: var(--acento-suave);
+@media (hover: hover) and (pointer: fine) {
+  .ojo:hover:not(:disabled) {
+    color: var(--acento);
+    background: var(--acento-suave);
+  }
 }
 
 .ojo:disabled {
@@ -242,8 +251,10 @@
   box-shadow: 0 0 0 3px var(--acento-suave);
 }
 
-.campo__entrada:hover:not(:focus):not(:disabled) {
-  border-color: var(--acento);
+@media (hover: hover) and (pointer: fine) {
+  .campo__entrada:hover:not(:focus):not(:disabled) {
+    border-color: var(--acento);
+  }
 }
 
 /* El error vira el borde de color. Nada de sacudidas: el temblor es
@@ -379,9 +390,11 @@
     box-shadow var(--medio) var(--curva);
 }
 
-.envio:hover:not([aria-disabled='true']) {
-  filter: brightness(1.06);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--acento) 32%, transparent);
+@media (hover: hover) and (pointer: fine) {
+  .envio:hover:not([aria-disabled='true']) {
+    filter: brightness(1.06);
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--acento) 32%, transparent);
+  }
 }
 
 .envio__texto {
@@ -405,8 +418,10 @@
   transition: transform 600ms var(--curva);
 }
 
-.envio:hover:not([aria-disabled='true']) .envio__brillo {
-  transform: translateX(100%);
+@media (hover: hover) and (pointer: fine) {
+  .envio:hover:not([aria-disabled='true']) .envio__brillo {
+    transform: translateX(100%);
+  }
 }
 
 .envio[aria-disabled='true'] {
@@ -456,10 +471,12 @@
     box-shadow var(--medio) var(--curva);
 }
 
-.google:hover:not(:disabled) {
-  background: var(--fondo-sutil);
-  border-color: var(--texto-tenue);
-  box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
+@media (hover: hover) and (pointer: fine) {
+  .google:hover:not(:disabled) {
+    background: var(--fondo-sutil);
+    border-color: var(--texto-tenue);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
+  }
 }
 
 .separador {
@@ -532,8 +549,10 @@
     transition: none;
   }
 
-  .acceso__enlace:hover::after {
-    transform: scaleX(1);
+  @media (hover: hover) and (pointer: fine) {
+    .acceso__enlace:hover::after {
+      transform: scaleX(1);
+    }
   }
 }
 
@@ -680,8 +699,10 @@
   cursor: pointer;
 }
 
-.acceso__peligro:hover:not(:disabled) {
-  background: var(--error-suave);
+@media (hover: hover) and (pointer: fine) {
+  .acceso__peligro:hover:not(:disabled) {
+    background: var(--error-suave);
+  }
 }
 
 .acceso__peligro:disabled {

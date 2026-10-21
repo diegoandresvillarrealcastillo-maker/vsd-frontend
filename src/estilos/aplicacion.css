@@ -163,10 +163,16 @@
     background 0.18s;
 }
 
-.app__enlace:hover,
 .app__enlace--activo {
   background: var(--app-superficie-alta);
   color: var(--app-salvia);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .app__enlace:hover {
+    background: var(--app-superficie-alta);
+    color: var(--app-salvia);
+  }
 }
 
 /* El tema y la cuenta, juntos a la derecha de la barra. */
@@ -202,9 +208,14 @@
   color: var(--app-tenue);
 }
 
-.tema--barra .tema__opcion[aria-pressed='true'],
-.tema--barra .tema__opcion:hover {
+.tema--barra .tema__opcion[aria-pressed='true'] {
   color: var(--app-tinta);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tema--barra .tema__opcion:hover {
+    color: var(--app-tinta);
+  }
 }
 
 .tema--barra .tema__pastilla {
@@ -287,8 +298,10 @@
   cursor: pointer;
 }
 
-.app__menu-opcion:hover {
-  background: var(--app-superficie-alta);
+@media (hover: hover) and (pointer: fine) {
+  .app__menu-opcion:hover {
+    background: var(--app-superficie-alta);
+  }
 }
 
 /* ---------- Contenido ---------- */
@@ -347,8 +360,10 @@
   transition: background 0.18s;
 }
 
-.app__boton:hover:not(:disabled) {
-  background: var(--app-bienestar-acento);
+@media (hover: hover) and (pointer: fine) {
+  .app__boton:hover:not(:disabled) {
+    background: var(--app-bienestar-acento);
+  }
 }
 
 .app__boton:disabled {
@@ -511,18 +526,22 @@
     border-color 0.2s;
 }
 
-.tarjeta-modulo:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 18px 40px rgb(0 0 0 / 0.2);
+@media (hover: hover) and (pointer: fine) {
+  .tarjeta-modulo:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 18px 40px rgb(0 0 0 / 0.2);
+  }
 }
 
 .tarjeta-modulo--por-activar {
   cursor: default;
 }
 
-.tarjeta-modulo--por-activar:hover {
-  transform: none;
-  box-shadow: none;
+@media (hover: hover) and (pointer: fine) {
+  .tarjeta-modulo--por-activar:hover {
+    transform: none;
+    box-shadow: none;
+  }
 }
 
 .tarjeta-modulo__arriba {
@@ -658,8 +677,10 @@
     opacity 0.18s;
 }
 
-.fila-actividad:hover {
-  background: var(--app-superficie-alta);
+@media (hover: hover) and (pointer: fine) {
+  .fila-actividad:hover {
+    background: var(--app-superficie-alta);
+  }
 }
 
 .fila-actividad--hecha {
@@ -711,8 +732,10 @@
   transition: border-color 0.18s;
 }
 
-.fila-actividad__estado:hover {
-  border-color: var(--app-salvia);
+@media (hover: hover) and (pointer: fine) {
+  .fila-actividad__estado:hover {
+    border-color: var(--app-salvia);
+  }
 }
 
 .fila-actividad__estado--hecha {
@@ -744,8 +767,10 @@
   text-decoration: none;
 }
 
-.fila-actividad__otra-vez:hover {
-  border-color: var(--app-salvia);
+@media (hover: hover) and (pointer: fine) {
+  .fila-actividad__otra-vez:hover {
+    border-color: var(--app-salvia);
+  }
 }
 
 .app__recomendado {
@@ -918,7 +943,7 @@
   background: var(--app-lienzo);
   color: var(--app-tinta);
   font: inherit;
-  font-size: 0.9375rem;
+  font-size: 1rem;
 }
 
 .bienvenida__entrada::placeholder {
@@ -958,9 +983,11 @@
   cursor: pointer;
 }
 
-.bienvenida__caja .ojo:hover:not(:disabled) {
-  color: var(--app-primario);
-  background: var(--app-hundido);
+@media (hover: hover) and (pointer: fine) {
+  .bienvenida__caja .ojo:hover:not(:disabled) {
+    color: var(--app-primario);
+    background: var(--app-hundido);
+  }
 }
 
 .bienvenida__modulos {
@@ -1086,8 +1113,10 @@
   text-decoration: none;
 }
 
-.perfil__volver:hover {
-  color: var(--app-salvia);
+@media (hover: hover) and (pointer: fine) {
+  .perfil__volver:hover {
+    color: var(--app-salvia);
+  }
 }
 
 .perfil__volver-flecha {
@@ -1567,8 +1596,10 @@
   cursor: pointer;
 }
 
-.perfil__peligro:hover:not(:disabled) {
-  background: var(--app-emociones);
+@media (hover: hover) and (pointer: fine) {
+  .perfil__peligro:hover:not(:disabled) {
+    background: var(--app-emociones);
+  }
 }
 
 .perfil__peligro:disabled,
@@ -1607,8 +1638,10 @@
     border-color 0.18s;
 }
 
-.perfil__personaje:hover {
-  border-color: var(--app-tenue);
+@media (hover: hover) and (pointer: fine) {
+  .perfil__personaje:hover {
+    border-color: var(--app-tenue);
+  }
 }
 
 .perfil__personaje--elegido {
@@ -2305,8 +2338,10 @@
   cursor: pointer;
 }
 
-.mascota__cerrar:hover {
-  color: var(--app-tinta);
+@media (hover: hover) and (pointer: fine) {
+  .mascota__cerrar:hover {
+    color: var(--app-tinta);
+  }
 }
 
 .mascota__hablar {
@@ -2471,8 +2506,10 @@
     transition: none !important;
   }
 
-  .tarjeta-modulo:hover {
-    transform: none;
+  @media (hover: hover) and (pointer: fine) {
+    .tarjeta-modulo:hover {
+      transform: none;
+    }
   }
 
   .sendero__punto--respira::after {

@@ -11,8 +11,21 @@
 .actividad {
   display: grid;
   grid-template-rows: auto 1fr;
+  min-height: 100vh;
   min-height: 100dvh;
   background: var(--fondo);
+  /* La pagina llega hasta el borde (`viewport-fit=cover`). Con el telefono de lado, sin esto el texto de
+     la izquierda queda tapado por la muesca o la isla, y el ultimo boton por la barra de gestos. Con el
+     telefono de pie estos valores son 0 y no cambia nada (SCRUM-239). */
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Recargar a mitad de una actividad pierde lo que se llevaba hecho. Mientras hay una abierta, arrastrar
+   hacia abajo desde arriba ya no dispara «tirar para recargar»; el rebote propio del sistema se queda. */
+html:has(.actividad) {
+  overscroll-behavior-y: contain;
 }
 
 .actividad__barra {
@@ -50,9 +63,11 @@
     background var(--rapido) var(--curva);
 }
 
-.actividad__volver:hover {
-  color: var(--texto);
-  background: var(--fondo-sutil);
+@media (hover: hover) and (pointer: fine) {
+  .actividad__volver:hover {
+    color: var(--texto);
+    background: var(--fondo-sutil);
+  }
 }
 
 /* En un telefono angosto (de 360 px o menos) no caben la marca con su nombre, la salida y el
@@ -190,8 +205,10 @@
     background var(--rapido) var(--curva);
 }
 
-.actividad__opcion:hover {
-  border-color: var(--texto-tenue);
+@media (hover: hover) and (pointer: fine) {
+  .actividad__opcion:hover {
+    border-color: var(--texto-tenue);
+  }
 }
 
 .actividad__opcion--elegida {
@@ -338,8 +355,10 @@
   box-shadow: var(--resplandor-accion);
 }
 
-.actividad .pildora:not(.pildora--fantasma):hover:not(:disabled) {
-  background: var(--acento-claro);
+@media (hover: hover) and (pointer: fine) {
+  .actividad .pildora:not(.pildora--fantasma):hover:not(:disabled) {
+    background: var(--acento-claro);
+  }
 }
 
 /* Mientras guarda: se nota que no responde, sin perder el color. */
