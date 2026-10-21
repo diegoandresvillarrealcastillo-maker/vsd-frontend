@@ -10,6 +10,11 @@ import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
 import type { ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { abrirUnAlmacenDePrueba, cerrarElAlmacenDePrueba } from '../../pruebas/almacenDePrueba.ts';
 import { cuantosH1, fallosDeAccesibilidad } from '../../pruebas/axe.ts';
+import { rachaDePrueba } from '../../pruebas/rachaDePrueba.ts';
+import { fraseDeLaRacha } from '../../racha/frasesDeLaRacha.ts';
+import { olvidarLaRacha, recordarLaRacha } from '../../racha/memoriaDeLaRacha.ts';
+import { olvidarElAvisoDeLaTarde } from '../../racha/useAvisoDeLaTarde.ts';
+import { fijarLaZonaDeLaCuenta } from '../../tiempo/zonaHoraria.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { olvidarQueYaSePregunto } from '../../notificaciones/memoriaDelPermiso.ts';
 import { encolar } from '../../sincronizacion/ciclo.ts';
@@ -999,5 +1004,60 @@ describe('Dashboard sin conexion (SCRUM-140)', () => {
     await screen.findByText(/Datos de hace/);
 
     expect(screen.queryByText(/se contará cuando se envíe/)).toBeNull();
+  });
+});
+
+describe('La racha por la tarde (SCRUM-243)', () => {
+  const DE_TARDE = new Date('2026-10-22T01:30:00Z'); // 20:30 en Bogota
+  const DE_MANANA = new Date('2026-10-21T15:00:00Z'); // 10:00 en Bogota
+
+  function pintarConCuenta() {
+    return pintar({
+      sesion: { user: { id: CUENTA.id, email: CUENTA.correo } } as Session,
+    });
+  }
+
+  beforeEach(() => {
+    fijarLaZonaDeLaCuenta('America/Bogota');
+    localStorage.clear();
+    olvidarElAvisoDeLaTarde();
+    olvidarLaRacha();
+    recordarLaRacha(CUENTA.id, rachaDePrueba({ dias: 12, hechoHoy: false }));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    olvidarLaRacha();
+    olvidarElAvisoDeLaTarde();
+  });
+
+  it('de tarde, con hoy sin hacer, la mascota lo dice sola, con congelamientos disponibles', async () => {
+    vi.useFakeTimers({ now: DE_TARDE, toFake: ['Date'], shouldAdvanceTime: true });
+
+    pintarConCuenta();
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    expect(
+      await screen.findByText(fraseDeLaRacha('riesgoConCongelamientos', { dias: 12 })),
+    ).toBeInTheDocument();
+  });
+
+  it('por la manana no dice nada de la racha', async () => {
+    vi.useFakeTimers({ now: DE_MANANA, toFake: ['Date'], shouldAdvanceTime: true });
+
+    pintarConCuenta();
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    expect(document.querySelector('.mascota__frase')).toBeNull();
+  });
+
+  it('si hoy ya sumo, tampoco', async () => {
+    vi.useFakeTimers({ now: DE_TARDE, toFake: ['Date'], shouldAdvanceTime: true });
+    recordarLaRacha(CUENTA.id, rachaDePrueba({ dias: 12, hechoHoy: true }));
+
+    pintarConCuenta();
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    expect(document.querySelector('.mascota__frase')).toBeNull();
   });
 });

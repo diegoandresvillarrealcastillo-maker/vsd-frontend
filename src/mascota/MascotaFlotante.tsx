@@ -245,6 +245,7 @@ export function MascotaFlotante({
   celebrar = false,
   momento,
   invitacion,
+  fraseDeLaPantalla,
 }: {
   mascota: Mascota | null;
   /** La pantalla pide celebrar: plan del dia completo, modulo desbloqueado. */
@@ -257,6 +258,12 @@ export function MascotaFlotante({
   momento?: Momento;
   /** Una invitacion que la pantalla quiere que la mascota diga y no se pierda (SCRUM-194). */
   invitacion?: InvitacionDeLaMascota;
+  /**
+   * Una frase que la pantalla quiere que la mascota diga **sola**, una vez (SCRUM-243): la racha por
+   * la tarde. Sale en un globo como las demas, que se cierra y se va a los 8 s. La misma frase no
+   * vuelve a salir; una distinta si. Una invitacion tiene prioridad.
+   */
+  fraseDeLaPantalla?: string;
 }) {
   const { personaje, nombre, propia } = mascotaParaMostrar(mascota);
   const dibujoPropio = useMascotaPropia();
@@ -276,6 +283,16 @@ export function MascotaFlotante({
   const [posicion, setPosicion] = useState<Posicion>(leerPosicion);
   const [arrastre, setArrastre] = useState<Punto | null>(null);
   const [frase, setFrase] = useState<string | null>(null);
+  // La ultima frase de la pantalla que ya se dijo: la misma no vuelve a salir.
+  const [fraseDeLaPantallaDicha, setFraseDeLaPantallaDicha] = useState<string | undefined>(
+    undefined,
+  );
+
+  if (fraseDeLaPantalla !== undefined && fraseDeLaPantalla !== fraseDeLaPantallaDicha) {
+    setFraseDeLaPantallaDicha(fraseDeLaPantalla);
+    setFrase(fraseDeLaPantalla);
+  }
+
   const gesto = useRef<{ id: number; inicio: Punto; origen: Punto; movido: boolean } | null>(null);
   const ignorarClic = useRef(false);
   const pulsacionLarga = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
