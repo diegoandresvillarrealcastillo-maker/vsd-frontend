@@ -1,0 +1,298 @@
+/* ============================================================
+   El panel de la racha (SCRUM-243): la semana, la barra de progreso hacia el proximo hito, los
+   congelamientos y la escalera de hitos.
+
+   Todo lee los tokens `--app-*` del panel y `--llama-*` de `racha.css`, en claro y en oscuro: aqui
+   no hay ni un color propio. «Nada castiga»: el unico rojo-naranja es el de la llama, y lo que no se
+   hizo no se pinta de alarma, solo se apaga.
+   ============================================================ */
+
+/* ---------- La semana ---------- */
+
+.racha-semana {
+  --retraso: 0s;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.racha-semana__dia {
+  position: relative;
+  display: grid;
+  grid-template-rows: 1rem 2rem;
+  justify-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0;
+  animation: racha-semana-aparece 0.45s var(--curva) both;
+  animation-delay: calc(var(--retraso) + var(--i, 0) * 90ms);
+}
+
+.racha-semana__letra {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1rem;
+  color: var(--app-tenue);
+}
+
+.racha-semana__marca {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 2px solid var(--app-borde);
+  border-radius: 9999px;
+  background-color: var(--app-superficie);
+  color: var(--app-tenue);
+}
+
+/* Hecho: la llama. El visto se dibuja despues de que el circulo aparece. */
+.racha-semana__dia--hecho .racha-semana__marca {
+  border-color: transparent;
+  background-image: linear-gradient(160deg, var(--llama-punta), var(--llama-base));
+  color: var(--app-sobre-primario);
+  box-shadow: 0 2px 8px -2px var(--llama-brillo);
+}
+
+.racha-semana__visto {
+  stroke-dasharray: 22;
+  stroke-dashoffset: 0;
+  animation: racha-semana-visto 0.4s var(--curva) both;
+  animation-delay: calc(var(--retraso) + var(--i, 0) * 90ms + 180ms);
+}
+
+/* Cubierto por un congelamiento: azul claro de Cognicion, un copo. */
+.racha-semana__dia--cubierto .racha-semana__marca {
+  border-color: var(--app-cognicion-acento);
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--app-cognicion-acento) 22%, transparent),
+    color-mix(in srgb, var(--app-cognicion-acento) 22%, transparent)
+  );
+  color: var(--app-cognicion-acento);
+}
+
+/* Hoy, todavia sin hacer: un aro de la llama que respira. Invita, no reclama. */
+.racha-semana__dia--hoy .racha-semana__marca {
+  border-color: var(--llama-base);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--llama-base) 20%, transparent);
+  animation: racha-semana-respira 2.4s ease-in-out infinite;
+}
+
+.racha-semana__dia--hoy .racha-semana__letra {
+  color: var(--app-tinta);
+}
+
+/* Lo que paso sin actividad solo se apaga: trazo discontinuo, nada de alarma. */
+.racha-semana__dia--sinActividad .racha-semana__marca {
+  border-style: dashed;
+  opacity: 0.7;
+}
+
+.racha-semana__dia--futuro .racha-semana__marca {
+  opacity: 0.45;
+}
+
+/* La cadena: una barra entre el centro de un dia y el del siguiente cuando los dos suman. */
+.racha-semana__dia--une::after {
+  content: '';
+  position: absolute;
+  top: 2.5rem;
+  left: 50%;
+  width: 100%;
+  height: 0.25rem;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, var(--llama-base), var(--llama-punta));
+  translate: 0 -50%;
+  transform-origin: left center;
+  animation: racha-semana-une 0.4s var(--curva) both;
+  animation-delay: calc(var(--retraso) + var(--i, 0) * 90ms + 240ms);
+}
+
+/* Los hitos de una semana o mas: la cadena brilla. */
+.racha-semana--intensa .racha-semana__dia--une::after {
+  box-shadow: 0 0 10px var(--llama-brillo);
+}
+
+.racha-semana--intensa .racha-semana__dia--hecho .racha-semana__marca {
+  box-shadow: 0 0 12px var(--llama-brillo);
+}
+
+@keyframes racha-semana-aparece {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.85);
+  }
+}
+
+@keyframes racha-semana-visto {
+  from {
+    stroke-dashoffset: 22;
+  }
+}
+
+@keyframes racha-semana-une {
+  from {
+    scale: 0 1;
+  }
+}
+
+@keyframes racha-semana-respira {
+  0%,
+  100% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--llama-base) 20%, transparent);
+  }
+
+  50% {
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--llama-base) 8%, transparent);
+  }
+}
+
+/* ---------- La barra de progreso ---------- */
+
+.racha-progreso {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.racha-progreso__texto {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.racha-progreso__faltan {
+  color: var(--app-tenue);
+  font-weight: 600;
+}
+
+.racha-progreso__carril {
+  position: relative;
+  height: 0.75rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--app-carril);
+}
+
+.racha-progreso__relleno {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--llama-base), var(--llama-punta));
+  box-shadow: 0 0 12px var(--llama-brillo);
+  transform-origin: left center;
+  animation: racha-progreso-llena 0.9s var(--curva) 0.15s both;
+}
+
+/* Un destello que recorre el relleno de vez en cuando: la llama esta viva. */
+.racha-progreso__relleno::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.35), transparent);
+  translate: -100% 0;
+  animation: racha-progreso-destello 3.2s ease-in-out 1.2s infinite;
+}
+
+@keyframes racha-progreso-llena {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes racha-progreso-destello {
+  0%,
+  60% {
+    translate: -100% 0;
+  }
+
+  100% {
+    translate: 100% 0;
+  }
+}
+
+/* ---------- La escalera de hitos ---------- */
+
+.racha-escalera {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.racha-escalera__hito {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.125rem 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 0.875rem;
+}
+
+.racha-escalera__marca {
+  display: grid;
+  grid-row: span 2;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background: var(--app-hundido);
+  color: var(--app-tenue);
+}
+
+.racha-escalera__hito--logrado {
+  border-color: color-mix(in srgb, var(--llama-base) 55%, var(--app-borde));
+  background: color-mix(in srgb, var(--llama-punta) 12%, transparent);
+}
+
+.racha-escalera__hito--logrado .racha-escalera__marca {
+  background-image: linear-gradient(160deg, var(--llama-punta), var(--llama-base));
+  color: var(--app-sobre-primario);
+}
+
+.racha-escalera__hito--por-lograr {
+  opacity: 0.85;
+}
+
+.racha-escalera__nombre {
+  font-size: 0.9375rem;
+  font-weight: 800;
+}
+
+.racha-escalera__dias {
+  color: var(--app-tenue);
+  font-weight: 600;
+}
+
+.racha-escalera__texto {
+  color: var(--app-tenue);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+/* ---------- Con movimiento reducido, todo aparece ya puesto ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .racha-semana__dia,
+  .racha-semana__visto,
+  .racha-semana__dia--hoy .racha-semana__marca,
+  .racha-semana__dia--une::after,
+  .racha-progreso__relleno,
+  .racha-progreso__relleno::after {
+    animation: none;
+  }
+
+  .racha-progreso__relleno::after {
+    display: none;
+  }
+}
