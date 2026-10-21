@@ -10,8 +10,30 @@ import type { Racha } from '../infraestructura/api/racha.ts';
  */
 let ultima: { readonly cuenta: string; readonly racha: Racha } | null = null;
 
+type Oyente = (cuenta: string, racha: Racha) => void;
+
+/** Quien quiere enterarse cuando cambia (SCRUM-243): la llama de la barra, por ejemplo. */
+const oyentes = new Set<Oyente>();
+
+/** Avisa cada vez que se recuerda una racha. Devuelve como dejar de escuchar. */
+export function alCambiarLaRacha(avisar: Oyente): () => void {
+  oyentes.add(avisar);
+
+  return () => {
+    oyentes.delete(avisar);
+  };
+}
+
 export function recordarLaRacha(cuenta: string, racha: Racha): void {
   ultima = { cuenta, racha };
+
+  for (const avisar of [...oyentes]) {
+    try {
+      avisar(cuenta, racha);
+    } catch {
+      // Un oyente que falla no impide que los demas se enteren: la llama no debe romper nada.
+    }
+  }
 }
 
 /** Lo ultimo que se supo de esa cuenta, o `null` si no se sabe nada o era de otra persona. */

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { NivelDeLaLlama, Racha } from '../infraestructura/api/racha.ts';
+import { rachaDePrueba } from '../pruebas/rachaDePrueba.ts';
 import { SesionContexto, type EstadoDeSesion } from '../sesion/SesionContexto.ts';
 import { LlamaDeLaBarra, LlamaDeRacha } from './LlamaDeRacha.tsx';
 import { olvidarLaRacha } from './memoriaDeLaRacha.ts';
@@ -20,16 +21,7 @@ const { consultarLaRacha } = vi.hoisted(() => ({ consultarLaRacha: vi.fn() }));
 vi.mock('../infraestructura/api/racha.ts', () => ({ consultarLaRacha }));
 
 function racha(cambios: Partial<Racha> = {}): Racha {
-  return {
-    dias: 12,
-    nivel: 1,
-    hechoHoy: true,
-    enDescanso: false,
-    congelamientosUsados: 0,
-    congelamientosPorMes: 3,
-    diasCubiertos: [],
-    ...cambios,
-  };
+  return rachaDePrueba(cambios);
 }
 
 const usuario = userEvent.setup({ delay: null });
