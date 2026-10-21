@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { PERSONAJES } from '../mascota/personajes.ts';
 import {
   avisoDesde,
   esOrdenDeActualizar,
   esPantallaDeLaApp,
+  FORMAS_CON_ICONO,
+  ICONO_POR_OMISION,
+  iconoDelAviso,
   RUTA_POR_OMISION,
   rutaPropia,
 } from './reglasDelServiceWorker.ts';
@@ -69,6 +73,7 @@ describe('avisoDesde', () => {
       cuerpo: 'Tienes 2 por hacer',
       etiqueta: 'semaforo',
       ruta: '/diario',
+      icono: '/icono-192.png',
     });
   });
 
@@ -78,6 +83,7 @@ describe('avisoDesde', () => {
       cuerpo: '',
       etiqueta: 'vsd-health',
       ruta: '/panel',
+      icono: '/icono-192.png',
     });
   });
 
@@ -93,6 +99,7 @@ describe('avisoDesde', () => {
       cuerpo: '',
       etiqueta: 'vsd-health',
       ruta: '/panel',
+      icono: '/icono-192.png',
     });
   });
 
@@ -102,12 +109,68 @@ describe('avisoDesde', () => {
       cuerpo: 'Sigue',
       etiqueta: 'vsd-health',
       ruta: '/panel',
+      icono: '/icono-192.png',
     });
   });
 
   it('una ruta de otro sitio no sobrevive al aviso', () => {
     expect(avisoDesde({ ruta: 'https://evil.example' }).ruta).toBe('/panel');
     expect(avisoDesde({ ruta: '/\\evil.example' }).ruta).toBe('/panel');
+  });
+});
+
+describe('iconoDelAviso (SCRUM-243)', () => {
+  it('el icono de siempre es el de la aplicacion', () => {
+    expect(ICONO_POR_OMISION).toBe('/icono-192.png');
+  });
+
+  it.each(FORMAS_CON_ICONO)('la forma «%s» tiene su icono', (forma) => {
+    expect(iconoDelAviso(forma)).toBe(`/mascotas/${forma}.webp`);
+  });
+
+  it.each([
+    ['la mascota propia, cuyo dibujo es privado', 'propia'],
+    ['una forma que no se conoce', 'dragon'],
+    ['un intento de salirse de la carpeta', '../icono-192'],
+    ['una ruta', '/mascotas/gato.webp'],
+    ['con mayusculas', 'Gato'],
+    ['con espacios', ' gato'],
+    ['vacia', ''],
+    ['un numero', 42],
+    ['nula', null],
+    ['indefinida', undefined],
+    ['un objeto', { forma: 'gato' }],
+    ['un arreglo', ['gato']],
+  ])('%s usa el icono de la aplicacion', (_nombre, forma) => {
+    expect(iconoDelAviso(forma)).toBe('/icono-192.png');
+  });
+
+  it('el aviso toma el icono de la mascota que manda el servidor', () => {
+    expect(avisoDesde({ titulo: 'Tu racha de 12 días', mascota: 'ori' }).icono).toBe(
+      '/mascotas/ori.webp',
+    );
+  });
+
+  it('sin mascota, o con una que no es de la lista, queda el de siempre', () => {
+    expect(avisoDesde({ titulo: 'x' }).icono).toBe('/icono-192.png');
+    expect(avisoDesde({ titulo: 'x', mascota: 'propia' }).icono).toBe('/icono-192.png');
+    expect(avisoDesde({ titulo: 'x', mascota: 7 }).icono).toBe('/icono-192.png');
+  });
+
+  it('la lista es la de los personajes de la aplicacion: si se agrega uno, esto avisa', () => {
+    // El service worker no puede importar `personajes.ts` (no tiene `window` ni `import.meta.glob`),
+    // asi que la lista vive aqui y esta prueba la vigila.
+    expect([...FORMAS_CON_ICONO].sort()).toEqual(Object.keys(PERSONAJES).sort());
+  });
+
+  it('cada forma tiene su archivo en public/mascotas', () => {
+    const archivos = Object.keys(
+      import.meta.glob('/public/mascotas/*.webp', { query: '?url', import: 'default' }),
+    );
+
+    expect(archivos.map((archivo) => archivo.replace('/public/mascotas/', '')).sort()).toEqual(
+      FORMAS_CON_ICONO.map((forma) => `${forma}.webp`).sort(),
+    );
   });
 });
 
