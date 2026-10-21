@@ -86,13 +86,50 @@ describe('PanelDeLaRacha', () => {
       ).toHaveLength(7);
     });
 
-    it('muestra la escalera con lo logrado y lo que viene', () => {
+    it('lo que viene va primero: los tres proximos hitos, con lo que cambia en cada uno', () => {
       pintar(rachaDePrueba({ dias: 12 }));
 
-      const escalera = screen.getByRole('list', { name: 'Hitos de tu racha' });
+      const proximos = screen.getByRole('list', { name: 'Próximos hitos' });
 
-      expect(within(escalera).getAllByRole('listitem')).toHaveLength(5);
-      expect(within(escalera).getByText(/Dos semanas/)).toBeInTheDocument();
+      expect(within(proximos).getAllByRole('listitem')).toHaveLength(3);
+      expect(within(proximos).getByText(/Dos semanas/)).toBeInTheDocument();
+      expect(within(proximos).getByText(/Dos barras que se unen/)).toBeInTheDocument();
+    });
+
+    it('los ya logrados se recogen en un desplegable que dice cuantos son', () => {
+      const { container } = pintar(rachaDePrueba({ dias: 12 }));
+
+      const desplegable = container.querySelector('details.racha-panel__logrados');
+
+      expect(desplegable).not.toBeNull();
+      expect(desplegable).not.toHaveAttribute('open');
+      expect(
+        within(desplegable as HTMLElement).getByText('Ya llegaste a 2 hitos'),
+      ).toBeInTheDocument();
+      expect(
+        within(desplegable as HTMLElement).getAllByRole('listitem', { hidden: true }),
+      ).toHaveLength(2);
+    });
+
+    it('con un solo hito logrado lo dice en singular', () => {
+      pintar(rachaDePrueba({ dias: 3 }));
+
+      expect(screen.getByText('Ya llegaste a 1 hito')).toBeInTheDocument();
+    });
+
+    it('sin ningun hito logrado no hay desplegable', () => {
+      const { container } = pintar(rachaDePrueba({ dias: 1, nivel: 0 }));
+
+      expect(container.querySelector('details')).toBeNull();
+    });
+
+    it('lo que viene va antes que los congelamientos', () => {
+      const { container } = pintar(rachaDePrueba({ dias: 12 }));
+
+      const texto = container.textContent ?? '';
+
+      expect(texto.indexOf('Lo que viene')).toBeGreaterThan(-1);
+      expect(texto.indexOf('Lo que viene')).toBeLessThan(texto.indexOf('Congelamientos'));
     });
   });
 
@@ -145,7 +182,8 @@ describe('PanelDeLaRacha', () => {
       expect(screen.getByText(/hasta 3 días/i)).toBeInTheDocument();
       expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
       expect(screen.queryByRole('list', { name: 'Tu semana' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('list', { name: 'Hitos de tu racha' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('list', { name: 'Próximos hitos' })).not.toBeInTheDocument();
+      expect(document.querySelector('details')).toBeNull();
     });
   });
 

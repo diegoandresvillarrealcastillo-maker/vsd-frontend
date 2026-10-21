@@ -18,8 +18,8 @@ import { diasSeguidos, NOMBRE_DEL_NIVEL, textoDeLosCongelamientos } from './text
  * El panel de la llama (SCRUM-243): lo que se abre al tocar la llama de la barra.
  *
  * De arriba abajo: la llama y cuanto lleva, la barra hacia el proximo hito, la semana, la mascota de la
- * cuenta con una frase, los congelamientos del mes y la escalera de hitos —lo que ya se logro y lo que
- * viene, con lo que cambia en cada uno—.
+ * cuenta con una frase, **lo que viene** (los proximos hitos, con lo que cambia en cada uno), lo ya
+ * logrado en un desplegable, y los congelamientos del mes.
  *
  * Con un servidor que todavia no manda la semana, la escalera ni el proximo hito, esas partes no se
  * pintan y el panel queda como era: la llama, si hoy sumo y los congelamientos.
@@ -58,6 +58,8 @@ export function PanelDeLaRacha({ id, racha, hora }: { id: string; racha: Racha; 
   const [horaDeAhora] = useState(() => hora ?? horaLocal(new Date()));
   const imagen = useImagenDeLaMascota(mascota, racha.hechoHoy ? 'feliz' : 'normal');
 
+  const porLograr = racha.escalera.filter((hito) => !hito.logrado);
+  const logrados = racha.escalera.filter((hito) => hito.logrado);
   const situacion = situacionDeLaRacha(racha, horaDeAhora);
   const frase = fraseDeLaRacha(situacion, {
     dias: racha.dias,
@@ -105,6 +107,20 @@ export function PanelDeLaRacha({ id, racha, hora }: { id: string; racha: Racha; 
         </p>
       </div>
 
+      {porLograr.length > 0 && (
+        <div className="racha-panel__seccion">
+          <p className="racha-panel__subtitulo">Lo que viene</p>
+          <EscaleraDeHitos escalera={porLograr} nombre="Próximos hitos" />
+        </div>
+      )}
+
+      {logrados.length > 0 && (
+        <details className="racha-panel__logrados">
+          <summary>{`Ya llegaste a ${String(logrados.length)} ${logrados.length === 1 ? 'hito' : 'hitos'}`}</summary>
+          <EscaleraDeHitos escalera={logrados} nombre="Hitos logrados" />
+        </details>
+      )}
+
       <div className="racha-panel__seccion">
         <p className="racha-panel__subtitulo">Congelamientos</p>
 
@@ -128,13 +144,6 @@ export function PanelDeLaRacha({ id, racha, hora }: { id: string; racha: Racha; 
 
         <p className="llama__texto llama__texto--tenue">{textoDeLosCongelamientos(racha)}</p>
       </div>
-
-      {racha.escalera.length > 0 && (
-        <div className="racha-panel__seccion">
-          <p className="racha-panel__subtitulo">Lo que viene</p>
-          <EscaleraDeHitos escalera={racha.escalera} />
-        </div>
-      )}
     </div>
   );
 }

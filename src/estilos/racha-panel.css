@@ -433,6 +433,46 @@
   opacity: 0.6;
 }
 
+/* Lo ya logrado, recogido: la lista crece con los anos y lo que viene es lo que se quiere ver. */
+.racha-panel__logrados > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0 0.25rem;
+  color: var(--app-tenue);
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+  touch-action: manipulation;
+}
+
+.racha-panel__logrados > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* El chevron: un angulo que gira al abrir. */
+.racha-panel__logrados > summary::after {
+  content: '';
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid currentcolor;
+  border-bottom: 2px solid currentcolor;
+  rotate: 45deg;
+  transition: rotate 0.2s var(--curva);
+}
+
+.racha-panel__logrados[open] > summary::after {
+  rotate: 225deg;
+}
+
+.racha-panel__logrados[open] > summary {
+  margin-bottom: 0.25rem;
+}
+
 /* ---------- En un telefono: una hoja que sube desde abajo ---------- */
 
 .llama__velo {
@@ -492,5 +532,9 @@
 
   .racha-progreso__relleno::after {
     display: none;
+  }
+
+  .racha-panel__logrados > summary::after {
+    transition: none;
   }
 }

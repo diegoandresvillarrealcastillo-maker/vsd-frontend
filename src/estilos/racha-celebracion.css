@@ -67,6 +67,12 @@
   text-align: center;
 }
 
+/* La tarjeta centra lo que lleva; la semana, en cambio, ocupa todo el ancho para que sus siete dias
+   queden repartidos y entre cada dos que suman se vea la cadena. */
+.racha-celebracion__tarjeta > .racha-semana {
+  justify-self: stretch;
+}
+
 /* ---------- La etiqueta ---------- */
 
 .racha-celebracion__etiqueta {
@@ -476,6 +482,19 @@
   -webkit-text-fill-color: transparent;
 }
 
+/* En claro el fondo es crema con un resplandor calido: la llama sola no da el 3:1 que pide un texto
+   grande, asi que el degradado se mezcla con la tinta, que ahi es oscura. En oscuro no hace falta. */
+:root[data-tema='claro'] .racha-celebracion__cifra > span {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--llama-base) 62%, var(--app-tinta)),
+    color-mix(in srgb, var(--llama-base) 44%, var(--app-tinta))
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: color-mix(in srgb, var(--llama-base) 50%, var(--app-tinta));
+}
+
 .racha-celebracion__cifra-vieja {
   animation: racha-cifra-sale 0.5s var(--curva) 0.75s forwards;
 }
@@ -499,7 +518,7 @@
 }
 
 .racha-celebracion__unidad {
-  color: var(--app-tenue);
+  color: var(--app-tinta-suave);
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -570,13 +589,65 @@
 
 /* ---------- Pantallas bajitas (un telefono acostado) ---------- */
 
-@media (max-height: 30rem) {
+@media (max-height: 34rem) {
   .racha-celebracion__tarjeta {
     gap: 0.5rem;
   }
 
   .racha-celebracion__llama {
     height: 7rem;
+  }
+
+  /* Si no cabe todo, el contenido se desplaza y el boton se queda a la vista, pegado abajo. */
+  .racha-celebracion__seguir {
+    position: sticky;
+    bottom: 0;
+    box-shadow: 0 0 0 0.5rem color-mix(in srgb, var(--app-lienzo) 70%, transparent);
+  }
+}
+
+/* Un telefono acostado: la llama y los dias a la izquierda, la semana y la mascota a la derecha, y el
+   boton debajo. Asi todo cabe sin desplazarse en 375 px de alto. */
+@media (max-height: 34rem) and (min-width: 36rem) and (orientation: landscape) {
+  .racha-celebracion__tarjeta {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    align-items: center;
+    gap: 0.5rem 1.5rem;
+    width: min(46rem, 100%);
+  }
+
+  .racha-celebracion__etiqueta {
+    grid-row: 1;
+    grid-column: 1;
+  }
+
+  .racha-celebracion__llama {
+    grid-row: 2;
+    grid-column: 1;
+  }
+
+  .racha-celebracion__titulo {
+    grid-row: 3;
+    grid-column: 1;
+  }
+
+  .racha-celebracion__tarjeta > .racha-semana {
+    grid-row: 1 / span 2;
+    grid-column: 2;
+    align-self: end;
+  }
+
+  .racha-celebracion__voz {
+    grid-row: 3;
+    grid-column: 2;
+  }
+
+  .racha-celebracion__seguir {
+    position: static;
+    grid-row: 4;
+    grid-column: 1 / -1;
+    justify-self: center;
+    box-shadow: none;
   }
 }
 

@@ -116,7 +116,8 @@ export function CelebracionDeLaRacha({
     const anterior = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const desbordeAnterior = document.body.style.overflow;
 
-    boton.current?.focus();
+    // Sin desplazar: en un telefono acostado la celebracion empieza por arriba, y el boton queda pegado abajo.
+    boton.current?.focus({ preventScroll: true });
     document.body.style.overflow = 'hidden';
 
     return () => {
@@ -170,7 +171,7 @@ export function CelebracionDeLaRacha({
       {nivelDeLaEscena >= 6 && !sinMovimiento && <FuegosArtificiales />}
       {nivelDeLaEscena >= 7 && !sinMovimiento && <LluviaDeChispas />}
 
-      <div className="racha-celebracion__tarjeta">
+      <div className={`racha-celebracion__tarjeta llama--nivel-${String(nivelDeLaLlama)}`}>
         <p className="racha-celebracion__etiqueta">
           {momento.tipo === 'hito' ? nombreDelHito(momento.hito) : 'Racha del día'}
         </p>

@@ -58,6 +58,32 @@ describe('EscaleraDeHitos', () => {
     expect(screen.getAllByRole('listitem')[2]?.textContent).toContain('14 días');
   });
 
+  it('la lista puede llevar otro nombre, para cuando hay dos en la misma pantalla', () => {
+    render(<EscaleraDeHitos escalera={ESCALERA} nombre="Próximos hitos" />);
+
+    expect(screen.getByRole('list', { name: 'Próximos hitos' })).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Hitos de tu racha' })).not.toBeInTheDocument();
+  });
+
+  it('un nombre que ya dice los dias no los repite: «Cien días», no «Cien días · 100 días»', () => {
+    render(
+      <EscaleraDeHitos
+        escalera={[
+          { dias: 50, logrado: false },
+          { dias: 100, logrado: false },
+          { dias: 200, logrado: false },
+        ]}
+      />,
+    );
+
+    const hitos = screen.getAllByRole('listitem');
+
+    expect(hitos[0]?.textContent).toContain('Cincuenta días');
+    expect(hitos[0]?.textContent).not.toContain('50 días');
+    expect(hitos[1]?.textContent).not.toContain('100 días');
+    expect(hitos[2]?.textContent).not.toContain('200 días');
+  });
+
   it('sin escalera (un servidor viejo) no se pinta', () => {
     const { container } = render(<EscaleraDeHitos escalera={[]} />);
 
