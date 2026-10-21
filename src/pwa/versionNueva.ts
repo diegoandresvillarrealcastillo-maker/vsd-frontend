@@ -28,7 +28,17 @@ type Aplicar = () => Promise<void>;
 /** Lo que la pantalla tiene que ofrecer ahora. */
 export type OfertaDeVersion = 'ninguna' | 'actualizar' | 'recargar';
 
+/**
+ * Cuanto tiene que pasar desde que la persona dijo «Despues» para que, al volver a la aplicacion, se le
+ * ofrezca otra vez. Volver enseguida no es una visita nueva: ofrecerla de nuevo seria un reclamo.
+ */
+const ESPERA_PARA_VOLVER_A_OFRECER_EN_MS = 15 * 60_000;
+
 let oferta: OfertaDeVersion = 'ninguna';
+/** Hay una version nueva esperando, se haya ofrecido o se haya dejado para despues. */
+let versionEsperando = false;
+/** Cuando se dijo «Despues» por ultima vez. */
+let ultimoDespuesEn: number | null = null;
 let aplicarLaVersion: Aplicar | null = null;
 let recargarLaPagina: (() => void) | null = null;
 /** La persona pulso "Actualizar" en ESTA pestana: la recarga la pidio ella. */
@@ -45,6 +55,7 @@ function cambiar(nueva: OfertaDeVersion): void {
 /** El registro avisa: hay una version nueva, y esto es lo que la activa. */
 export function avisarVersionNueva(aplicar: Aplicar): void {
   aplicarLaVersion = aplicar;
+  versionEsperando = true;
   cambiar('actualizar');
 }
 
@@ -56,9 +67,31 @@ export function avisarVersionNueva(aplicar: Aplicar): void {
  * Solo vale para la oferta de actualizar. La de recargar no se puede dejar para
  * despues: esta pagina ya esta desincronizada de lo guardado.
  */
-export function dejarLaVersionParaDespues(): void {
+export function dejarLaVersionParaDespues(ahora: number = Date.now()): void {
   if (oferta === 'actualizar') {
+    ultimoDespuesEn = ahora;
     cambiar('ninguna');
+  }
+}
+
+/**
+ * La persona volvio a la aplicacion (SCRUM-234): si hay una version esperando que dejo para despues y ya paso un
+ * rato, se ofrece otra vez.
+ *
+ * Una aplicacion instalada en un telefono casi nunca «se abre»: se queda en segundo plano y se retoma, asi que
+ * esperar a una apertura nueva podia dejar semanas con la version vieja, sin que nada lo dijera. La tarjeta llega,
+ * se anuncia y **no roba el foco ni recarga nada**: quien escribia en su diario sigue escribiendo.
+ *
+ * No toca la oferta de recargar, que ya esta puesta y no se puede dejar para despues.
+ */
+export function volverAOfrecerLaVersion(ahora: number = Date.now()): void {
+  if (
+    versionEsperando &&
+    oferta === 'ninguna' &&
+    ultimoDespuesEn !== null &&
+    ahora - ultimoDespuesEn >= ESPERA_PARA_VOLVER_A_OFRECER_EN_MS
+  ) {
+    cambiar('actualizar');
   }
 }
 
@@ -123,6 +156,8 @@ export function useVersionNueva(): OfertaDeVersion {
 
 /** Solo para las pruebas: deja el almacen como al abrir la aplicacion. */
 export function olvidarLaVersionNuevaParaLasPruebas(): void {
+  versionEsperando = false;
+  ultimoDespuesEn = null;
   aplicarLaVersion = null;
   recargarLaPagina = null;
   activacionPedidaAqui = false;

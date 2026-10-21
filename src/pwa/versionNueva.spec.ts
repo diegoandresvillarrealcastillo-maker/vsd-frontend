@@ -9,6 +9,7 @@ import {
   olvidarLaVersionNuevaParaLasPruebas,
   recargarAhora,
   useVersionNueva,
+  volverAOfrecerLaVersion,
 } from './versionNueva.ts';
 
 afterEach(() => {
@@ -190,5 +191,83 @@ describe('la version nueva (SCRUM-135)', () => {
 
       expect(recargar).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('volver a ofrecer la version que se dejo para despues (SCRUM-234)', () => {
+  const MINUTO = 60_000;
+
+  function conUnaVersionEsperando(ahora: number) {
+    const hook = renderHook(() => useVersionNueva());
+
+    act(() => {
+      avisarVersionNueva(() => Promise.resolve());
+    });
+    act(() => {
+      dejarLaVersionParaDespues(ahora);
+    });
+
+    return hook;
+  }
+
+  it('si no hay ninguna esperando, no ofrece nada', () => {
+    const { result } = renderHook(() => useVersionNueva());
+
+    act(() => {
+      volverAOfrecerLaVersion(Date.now());
+    });
+
+    expect(result.current).toBe('ninguna');
+  });
+
+  it('«despues» la esconde y, al volver a la aplicacion pasado un rato, se ofrece otra vez', () => {
+    const { result } = conUnaVersionEsperando(0);
+
+    expect(result.current).toBe('ninguna');
+
+    act(() => {
+      volverAOfrecerLaVersion(20 * MINUTO);
+    });
+
+    expect(result.current).toBe('actualizar');
+  });
+
+  it('si la persona vuelve enseguida no se insiste: no es un reclamo', () => {
+    const { result } = conUnaVersionEsperando(0);
+
+    act(() => {
+      volverAOfrecerLaVersion(2 * MINUTO);
+    });
+
+    expect(result.current).toBe('ninguna');
+  });
+
+  it('el rato se cuenta desde el ultimo «despues», no desde la primera vez', () => {
+    const { result } = conUnaVersionEsperando(0);
+
+    act(() => {
+      volverAOfrecerLaVersion(20 * MINUTO);
+    });
+    act(() => {
+      dejarLaVersionParaDespues(20 * MINUTO);
+    });
+    act(() => {
+      volverAOfrecerLaVersion(25 * MINUTO);
+    });
+
+    expect(result.current).toBe('ninguna');
+  });
+
+  it('no pisa la oferta de recargar: esa ya esta puesta y no se puede dejar para despues', () => {
+    const { result } = renderHook(() => useVersionNueva());
+
+    act(() => {
+      laVersionNuevaTomoElControl(() => undefined);
+    });
+    act(() => {
+      volverAOfrecerLaVersion(60 * MINUTO);
+    });
+
+    expect(result.current).toBe('recargar');
   });
 });
