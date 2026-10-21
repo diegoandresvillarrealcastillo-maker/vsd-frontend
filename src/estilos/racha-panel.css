@@ -280,6 +280,201 @@
   line-height: 1.35;
 }
 
+/* ---------- El panel de la llama ---------- */
+
+/* `.llama__panel` (racha.css) pone la caja flotante; aqui se hace mas ancha, con su propio desplazamiento
+   si no cabe, y se acomoda al contenido nuevo. */
+.llama__panel.racha-panel {
+  gap: 1rem;
+  width: min(24rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 76px - 1.5rem - env(safe-area-inset-top, 0px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.racha-panel__cabecera {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+:where(.racha-panel__llama) {
+  --llama-media: color-mix(in srgb, var(--llama-base) 50%, var(--llama-punta));
+}
+
+.racha-panel__llama {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 3.5rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--llama-punta) 30%, transparent),
+    transparent 70%
+  );
+}
+
+.racha-panel__titulos {
+  display: grid;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.racha-panel__mascota {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 1rem;
+  background: var(--app-hundido);
+}
+
+.racha-panel__mascota img {
+  display: block;
+  flex: none;
+  width: 4rem;
+  height: 4rem;
+  filter: drop-shadow(0 4px 6px color-mix(in srgb, var(--app-tinta) 22%, transparent));
+  image-rendering: pixelated;
+  object-fit: contain;
+  transform-origin: 50% 100%;
+  animation:
+    racha-panel-hola 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both,
+    racha-panel-respira 3.4s ease-in-out 0.8s infinite;
+}
+
+.racha-panel__frase {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.875rem 0.875rem 0.875rem 0.25rem;
+  background: var(--app-superficie-alta);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* La colita del globo, hacia la mascota. */
+.racha-panel__frase::before {
+  content: '';
+  position: absolute;
+  bottom: 0.4rem;
+  left: -0.3125rem;
+  width: 0.625rem;
+  height: 0.625rem;
+  background: inherit;
+  transform: rotate(45deg);
+}
+
+@keyframes racha-panel-hola {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.7) rotate(-8deg);
+  }
+}
+
+@keyframes racha-panel-respira {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+
+  50% {
+    transform: scale(1.04, 0.97);
+  }
+}
+
+.racha-panel__seccion {
+  display: grid;
+  gap: 0.625rem;
+}
+
+.racha-panel__subtitulo {
+  margin: 0;
+  color: var(--app-tenue);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.racha-panel__casillas {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.racha-panel__casilla {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  height: 2.5rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 0.75rem;
+}
+
+.racha-panel__casilla--disponible {
+  border-color: var(--app-cognicion-acento);
+  background: color-mix(in srgb, var(--app-cognicion-acento) 16%, transparent);
+  color: var(--app-cognicion-acento);
+}
+
+/* Un congelamiento usado se apaga: borde discontinuo y sin color. */
+.racha-panel__casilla--usada {
+  border-style: dashed;
+  color: var(--app-tenue);
+  opacity: 0.6;
+}
+
+/* ---------- En un telefono: una hoja que sube desde abajo ---------- */
+
+.llama__velo {
+  display: none;
+}
+
+@media (max-width: 40rem) {
+  .llama__velo {
+    position: fixed;
+    inset: 0;
+    z-index: 44;
+    display: block;
+    background: color-mix(in srgb, var(--app-lienzo) 55%, transparent);
+    animation: racha-velo-entra 0.25s var(--curva) both;
+  }
+
+  .llama__panel.racha-panel {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    max-height: min(88dvh, 40rem);
+    padding: 1.25rem max(1rem, env(safe-area-inset-right, 0px))
+      calc(1.25rem + env(safe-area-inset-bottom, 0px)) max(1rem, env(safe-area-inset-left, 0px));
+    border-radius: 1.5rem 1.5rem 0 0;
+    animation: racha-hoja-sube 0.35s var(--curva) both;
+  }
+}
+
+@keyframes racha-velo-entra {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes racha-hoja-sube {
+  from {
+    transform: translateY(100%);
+  }
+}
+
 /* ---------- Con movimiento reducido, todo aparece ya puesto ---------- */
 
 @media (prefers-reduced-motion: reduce) {
@@ -288,7 +483,10 @@
   .racha-semana__dia--hoy .racha-semana__marca,
   .racha-semana__dia--une::after,
   .racha-progreso__relleno,
-  .racha-progreso__relleno::after {
+  .racha-progreso__relleno::after,
+  .racha-panel__mascota img,
+  .llama__velo,
+  .llama__panel.racha-panel {
     animation: none;
   }
 

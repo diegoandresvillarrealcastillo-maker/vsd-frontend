@@ -1,8 +1,10 @@
 import { useEffect, useId, useRef, useState } from 'react';
 
 import '../estilos/racha.css';
-import type { NivelDeLaLlama, Racha } from '../infraestructura/api/racha.ts';
+import type { Racha } from '../infraestructura/api/racha.ts';
 import { DibujoDeLaLlama } from './DibujoDeLaLlama.tsx';
+import { PanelDeLaRacha } from './PanelDeLaRacha.tsx';
+import { diasSeguidos } from './textosDeLaRacha.ts';
 import { useRacha } from './useRacha.ts';
 
 /**
@@ -14,43 +16,17 @@ import { useRacha } from './useRacha.ts';
  * de reclamo, y lo vigila una prueba.
  *
  * El dibujo es decorativo (`aria-hidden`): lo que anuncia un lector de pantalla es el boton, que
- * dice cuantos dias lleva o que la llama descansa. El panel explica los congelamientos con la
- * misma calma, y se abre con un toque (en el movil no hay "pasar el raton").
+ * dice cuantos dias lleva o que la llama descansa. El panel (`PanelDeLaRacha`, SCRUM-243) muestra el
+ * progreso hacia el proximo hito, la semana, los congelamientos y la escalera de hitos con la misma
+ * calma, y se abre con un toque (en el movil no hay "pasar el raton"): ahi sube como una hoja desde
+ * abajo.
  *
  * La animacion es un parpadeo suave de la llama; con `prefers-reduced-motion` queda quieta, y en
  * descanso nunca se anima.
  */
 
-/** El nombre de cada nivel, para quien lo lee en el panel. */
-const NOMBRE_DEL_NIVEL: Record<NivelDeLaLlama, string> = {
-  0: 'Ascua',
-  1: 'Llama',
-  2: 'Llama firme',
-  3: 'Hoguera',
-  4: 'Estrella',
-};
-
-function diasSeguidos(dias: number): string {
-  return `${String(dias)} ${dias === 1 ? 'día seguido' : 'días seguidos'}`;
-}
-
-/** El texto de los congelamientos del mes. */
-function textoDeLosCongelamientos(racha: Racha): string {
-  const { congelamientosUsados: usados, congelamientosPorMes: porMes } = racha;
-
-  if (usados === 0) {
-    return `Cada mes te cubrimos hasta ${String(porMes)} días sin actividad para que tu llama no se corte.`;
-  }
-
-  if (usados >= porMes) {
-    return `Este mes te cubrimos ${String(usados)} de ${String(porMes)} días sin actividad. El mes que viene vuelven a estar.`;
-  }
-
-  return `Este mes te cubrimos ${String(usados)} de ${String(porMes)} días sin actividad. Quedan ${String(porMes - usados)}.`;
-}
-
 /** La llama de una racha ya conocida. */
-export function LlamaDeRacha({ racha }: { racha: Racha }) {
+export function LlamaDeRacha({ racha, hora }: { racha: Racha; hora?: number }) {
   const [abierta, setAbierta] = useState(false);
   const idDelPanel = useId();
   const contenedor = useRef<HTMLDivElement>(null);
@@ -108,21 +84,17 @@ export function LlamaDeRacha({ racha }: { racha: Racha }) {
       </button>
 
       {abierta && (
-        <div id={idDelPanel} className="llama__panel" role="status">
-          <p className="llama__titulo">
-            {racha.enDescanso
-              ? 'Tu llama descansa'
-              : `${NOMBRE_DEL_NIVEL[racha.nivel]} · ${diasSeguidos(racha.dias)}`}
-          </p>
-          <p className="llama__texto">
-            {racha.enDescanso
-              ? 'Con tu próxima actividad vuelve a encenderse, con un día.'
-              : racha.hechoHoy
-                ? 'Hoy ya sumaste.'
-                : 'Una actividad hoy mantiene tu llama.'}
-          </p>
-          <p className="llama__texto llama__texto--tenue">{textoDeLosCongelamientos(racha)}</p>
-        </div>
+        <>
+          {/* En un telefono el panel es una hoja desde abajo y esto la oscurece de fondo; tocarlo la cierra. */}
+          <div
+            className="llama__velo"
+            aria-hidden="true"
+            onClick={() => {
+              setAbierta(false);
+            }}
+          />
+          <PanelDeLaRacha id={idDelPanel} racha={racha} {...(hora === undefined ? {} : { hora })} />
+        </>
       )}
     </div>
   );

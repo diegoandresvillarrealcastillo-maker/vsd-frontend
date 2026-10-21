@@ -19,6 +19,10 @@ import { olvidarLaRacha } from './memoriaDeLaRacha.ts';
 const { consultarLaRacha } = vi.hoisted(() => ({ consultarLaRacha: vi.fn() }));
 
 vi.mock('../infraestructura/api/racha.ts', () => ({ consultarLaRacha }));
+// La mascota del panel viene de la cuenta: aqui no importa cual es.
+vi.mock('../paginas/actividad/viva/useCargarLaMascota.ts', () => ({
+  useCargarLaMascota: () => null,
+}));
 
 function racha(cambios: Partial<Racha> = {}): Racha {
   return rachaDePrueba(cambios);
@@ -99,12 +103,12 @@ describe('LlamaDeRacha', () => {
       const boton = screen.getByRole('button');
 
       expect(boton).toHaveAttribute('aria-expanded', 'false');
-      expect(screen.queryByRole('status')).toBeNull();
+      expect(screen.queryByRole('region', { name: 'Tu racha' })).toBeNull();
 
       await usuario.click(boton);
 
       expect(boton).toHaveAttribute('aria-expanded', 'true');
-      expect(screen.getByRole('status')).toBeInTheDocument();
+      expect(screen.getByRole('region', { name: 'Tu racha' })).toBeInTheDocument();
     });
 
     it('explica los congelamientos del mes, con cuantos quedan', async () => {
@@ -112,7 +116,7 @@ describe('LlamaDeRacha', () => {
 
       await usuario.click(screen.getByRole('button'));
 
-      const panel = screen.getByRole('status');
+      const panel = screen.getByRole('region', { name: 'Tu racha' });
 
       expect(within(panel).getByText(/1 de 3/)).toBeInTheDocument();
       expect(within(panel).getByText(/quedan 2/i)).toBeInTheDocument();
@@ -123,19 +127,23 @@ describe('LlamaDeRacha', () => {
 
       await usuario.click(screen.getByRole('button'));
 
-      expect(within(screen.getByRole('status')).getByText(/hasta 3 días/i)).toBeInTheDocument();
+      expect(
+        within(screen.getByRole('region', { name: 'Tu racha' })).getByText(/hasta 3 días/i),
+      ).toBeInTheDocument();
     });
 
     it('si hoy ya sumo, lo dice; si no, invita sin reclamar', async () => {
-      const { rerender } = render(<LlamaDeRacha racha={racha({ hechoHoy: true })} />);
+      const { rerender } = render(<LlamaDeRacha racha={racha({ hechoHoy: true })} hora={10} />);
 
       await usuario.click(screen.getByRole('button'));
-      expect(within(screen.getByRole('status')).getByText(/hoy ya sumaste/i)).toBeInTheDocument();
+      expect(
+        within(screen.getByRole('region', { name: 'Tu racha' })).getByText(/hoy ya sumaste/i),
+      ).toBeInTheDocument();
 
-      rerender(<LlamaDeRacha racha={racha({ hechoHoy: false })} />);
+      rerender(<LlamaDeRacha racha={racha({ hechoHoy: false })} hora={10} />);
 
       expect(
-        within(screen.getByRole('status')).getByText(/una actividad hoy/i),
+        within(screen.getByRole('region', { name: 'Tu racha' })).getByText(/una actividad hoy/i),
       ).toBeInTheDocument();
     });
 
