@@ -10,6 +10,7 @@ import '../../estilos/viva.css';
 import type { ActividadConSuCategoria } from '../../infraestructura/api/catalogo.ts';
 import type { SesionDeLaActividad } from '../../infraestructura/api/progreso.ts';
 import type { ResultadoRegistrado } from '../../infraestructura/api/resultados.ts';
+import { RachaDelDia } from '../../racha/RachaDelDia.tsx';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
 import { LineasDeAtencion } from './LineasDeAtencion.tsx';
@@ -249,6 +250,9 @@ function Terminada({
   return (
     <>
       <LogroDeLaActividad celebrar={celebrar} />
+
+      {/* La racha (SCRUM-243): una fiesta si el resultado se celebra; si pide acompanar, solo una linea. */}
+      <RachaDelDia celebrar={celebrar} />
 
       {resultado.nivelOrientativo === undefined ? (
         <p className="actividad__texto">
