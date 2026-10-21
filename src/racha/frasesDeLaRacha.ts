@@ -75,16 +75,19 @@ export const BANCOS_DE_LA_RACHA: Readonly<Record<SituacionDeLaRacha, readonly st
     'Se viene algo bonito: {faltan} más y son {hito} días.',
   ],
 
-  /** La primera actividad despues de un descanso de la llama. */
+  /**
+   * La llama descansa (el panel). Quien nunca ha tenido una racha tambien ve la llama en descanso,
+   * asi que ninguna frase supone que la persona ya estuvo aqui antes.
+   */
   regreso: [
-    'Qué bueno verte de nuevo. Hoy empieza una racha nueva.',
-    'Tu llama vuelve a encenderse. Aquí seguimos.',
-    'Volver siempre cuenta. Hoy se enciende otra vez.',
+    'Qué bueno tenerte aquí. Hoy empieza una racha nueva.',
+    'Tu llama espera. Con una actividad se enciende.',
+    'Siempre se puede empezar: hoy se enciende la llama.',
     'Hoy tu llama despierta con un día nuevo.',
-    'Sin cuentas ni reproches: hoy es un buen día para volver.',
-    'Tu llama descansó y hoy vuelve con ganas.',
-    'Un día basta para retomar el camino.',
-    'Qué gusto tenerte de vuelta. Una actividad y la llama despierta.',
+    'Sin cuentas ni reproches: hoy es un buen día para empezar.',
+    'Tu llama descansa y hoy puede despertar.',
+    'Un día basta para encender el camino.',
+    'Qué gusto verte. Una actividad y la llama despierta.',
   ],
 
   /** Hoy no hubo actividad y todavia quedan congelamientos: no hay nada que perder, y se dice asi. */
