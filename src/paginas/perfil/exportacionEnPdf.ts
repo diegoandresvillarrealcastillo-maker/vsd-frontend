@@ -367,6 +367,7 @@ export function generarLaExportacionEnPdf(
     titulo: 'VSD Health',
     subtitulo: 'Tus datos',
     fondo: MARCA,
+    logo: true,
   });
   documento.texto(
     [{ texto: `Generado el ${instante(exportacion.generadoEn)} (${nombreDeLaZona}).` }],
