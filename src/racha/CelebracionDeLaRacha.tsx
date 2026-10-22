@@ -13,9 +13,16 @@ import {
   LluviaDeChispas,
   OrbitaDeChispas,
 } from './AdornosDeLaCelebracion.tsx';
+import { BarraDeProgresoDeLaRacha } from './BarraDeProgresoDeLaRacha.tsx';
 import { DibujoDeLaLlama } from './DibujoDeLaLlama.tsx';
 import { fraseDeLaRacha, fraseDelHito } from './frasesDeLaRacha.ts';
-import { escenaDelHito, nombreDelHito, type EscenaDelHito } from './hitos.ts';
+import {
+  escenaDelHito,
+  hitoAnteriorDe,
+  nombreDelHito,
+  queCambiaEn,
+  type EscenaDelHito,
+} from './hitos.ts';
 import type { MomentoDeLaRacha } from './momentoDeLaRacha.ts';
 import { SemanaDeLaRacha } from './SemanaDeLaRacha.tsx';
 
@@ -214,6 +221,24 @@ export function CelebracionDeLaRacha({
         </h2>
 
         <SemanaDeLaRacha semana={racha.semana} intensa={nivelDeLaEscena >= 2} retraso={1} />
+
+        {/* Lo que viene: el proximo hito, cuanto falta y que cambia. Sin el dato (un servidor viejo) no se pinta. */}
+        {racha.proximoHito > racha.dias && (
+          <div className="racha-celebracion__proximo" role="group" aria-label="Lo que viene">
+            <p className="racha-celebracion__proximo-nombre">
+              <span className="racha-celebracion__proximo-etiqueta">Lo que viene</span>
+              {nombreDelHito(racha.proximoHito)}
+            </p>
+
+            <BarraDeProgresoDeLaRacha
+              dias={racha.dias}
+              hitoAnterior={hitoAnteriorDe(racha.escalera)}
+              proximoHito={racha.proximoHito}
+            />
+
+            <p className="racha-celebracion__proximo-cambia">{queCambiaEn(racha.proximoHito)}</p>
+          </div>
+        )}
 
         <div className="racha-celebracion__voz">
           {nivelDeLaEscena >= 5 && <span className="racha-celebracion__halo" aria-hidden="true" />}
