@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { cuantosDependenDe } from '../sincronizacion/acciones.ts';
 import { leerLoEscritoDe } from '../sincronizacion/loGuardadoEnEsteEquipo.ts';
@@ -95,6 +95,15 @@ const RECHAZADA_DE_UN_PENDIENTE = {
   payload: { texto: 'Llamar a la EPS' },
 };
 
+/** Lo que dice el navegador de la red; `useEnLinea` lo lee. */
+function elNavegadorDiceQueHayRed(hay: boolean): void {
+  vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(hay);
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 beforeEach(() => {
   vi.mocked(sincronizarAhora).mockClear();
   vi.mocked(reintentar).mockClear();
@@ -123,6 +132,7 @@ describe('PanelDeSincronizacion: el estado', () => {
   });
 
   it('sin conexion, dice que se guarda aqui y se envia cuando vuelva', () => {
+    elNavegadorDiceQueHayRed(false);
     armar([], { conexion: 'sin_conexion' });
     pintar();
 
@@ -169,6 +179,7 @@ describe('PanelDeSincronizacion: Sincronizar ahora', () => {
   });
 
   it('sin conexion no se puede, pero el boton sigue ahi y dice por que', async () => {
+    elNavegadorDiceQueHayRed(false);
     armar([], { conexion: 'sin_conexion' });
     pintar();
 
@@ -184,6 +195,34 @@ describe('PanelDeSincronizacion: Sincronizar ahora', () => {
     await userEvent.setup().click(boton);
 
     expect(sincronizarAhora).not.toHaveBeenCalled();
+  });
+
+  it('con red pero sin respuesta del servidor, se puede reintentar a mano', async () => {
+    // El servidor del plan gratuito se duerme: la comprobacion no lo alcanzo, pero la red esta bien.
+    elNavegadorDiceQueHayRed(true);
+    armar([], { conexion: 'sin_conexion' });
+    pintar();
+
+    const boton = screen.getByRole('button', { name: 'Sincronizar ahora' });
+
+    expect(boton).toHaveAttribute('aria-disabled', 'false');
+
+    await userEvent.setup().click(boton);
+
+    expect(sincronizarAhora).toHaveBeenCalledTimes(1);
+  });
+
+  it('con red pero sin respuesta del servidor, dice que es el servidor y no la red', () => {
+    elNavegadorDiceQueHayRed(true);
+    armar([], { conexion: 'sin_conexion' });
+    pintar();
+
+    expect(
+      screen.getByText(
+        /El servidor no respondió\. Lo que hagas se guarda aquí y se envía solo cuando responda\./,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Sin conexión no se puede/)).toBeNull();
   });
 
   it('con conexion no hay explicacion que dar', () => {

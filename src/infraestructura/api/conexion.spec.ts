@@ -90,8 +90,34 @@ describe('hayConexionConLaApi (SCRUM-136)', () => {
     expect(await respuesta).toBe(false);
   });
 
-  it('el limite es de 15 segundos', () => {
-    expect(ESPERA_MAXIMA_DE_LA_COMPROBACION_EN_MS).toBe(15_000);
+  it('el limite es de 60 segundos: lo que tarda en despertar el servidor del plan gratuito', () => {
+    expect(ESPERA_MAXIMA_DE_LA_COMPROBACION_EN_MS).toBe(60_000);
+  });
+
+  it('un servidor dormido que tarda 40 segundos en despertar si cuenta como conexion', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_direccion: string, opciones: RequestInit) =>
+          new Promise<Response>((resolver, rechazar) => {
+            const despierta = setTimeout(() => {
+              resolver(new Response('ok', { status: 200 }));
+            }, 40_000);
+
+            opciones.signal?.addEventListener('abort', () => {
+              clearTimeout(despierta);
+              rechazar(new DOMException('cancelada', 'AbortError'));
+            });
+          }),
+      ),
+    );
+
+    const respuesta = hayConexionConLaApi();
+
+    await vi.advanceTimersByTimeAsync(40_000);
+
+    expect(await respuesta).toBe(true);
   });
 
   it('si responde a tiempo, no queda ningun temporizador vivo', async () => {

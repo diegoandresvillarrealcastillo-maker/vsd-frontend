@@ -10,11 +10,13 @@ import { entorno } from '../entorno.ts';
  * con `GET /health`, que responde sin tocar la base de datos.
  *
  * Tiene un limite de tiempo: un servidor que no contesta no es una conexion. En el
- * plan gratuito el servidor se duerme y despertarlo tarda cerca de un minuto; este
- * limite es mas corto, y esta bien: cuenta como "todavia no", y esta misma peticion
- * ya lo esta despertando para el siguiente intento.
+ * plan gratuito el servidor se duerme y despertarlo tarda entre 40 segundos y un minuto
+ * (medido en PRE: 38 s). Con un limite de 15 s, la primera sincronizacion tras un rato sin
+ * uso decia "sin conexion" y bloqueaba el boton aunque la red estuviera bien; el limite
+ * cubre el despertar. Un fallo rapido (sin red, direccion que no responde) sigue siendo
+ * rapido: esto solo alarga la espera de un servidor que no contesta.
  */
-export const ESPERA_MAXIMA_DE_LA_COMPROBACION_EN_MS = 15_000;
+export const ESPERA_MAXIMA_DE_LA_COMPROBACION_EN_MS = 60_000;
 
 export async function hayConexionConLaApi(): Promise<boolean> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
