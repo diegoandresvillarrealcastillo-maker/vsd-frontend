@@ -67,6 +67,7 @@ export function TutorialDeFungito({
 
   const caja = useDialogo<HTMLDivElement>(cerrar, principal);
   const nombreDelAncla = PASOS_DEL_TUTORIAL[indice]?.ancla;
+  const nombreAlternativo = PASOS_DEL_TUTORIAL[indice]?.anclaSiNoSeVe;
 
   // Lo medido guarda de que paso es: al cambiar de paso, lo del anterior deja de valer sin tener
   // que borrarlo, y el paso nuevo se ve centrado hasta que se mide (antes de pintar).
@@ -85,9 +86,13 @@ export function TutorialDeFungito({
     }
 
     const ancla = nombreDelAncla;
+    // El que se ve primero: el diario, en el dock (movil) o en el boton de la cuenta (escritorio).
+    const encontrar = () =>
+      buscarAncla(ancla) ??
+      (nombreAlternativo === undefined ? null : buscarAncla(nombreAlternativo));
 
     function medir() {
-      const elemento = buscarAncla(ancla);
+      const elemento = encontrar();
 
       if (elemento === null) {
         setMedido({ ancla, spotlight: null });
@@ -108,7 +113,7 @@ export function TutorialDeFungito({
 
     // `instant`: con `scroll-behavior: smooth` en la hoja, medir justo despues cogeria el
     // elemento a medio camino.
-    buscarAncla(ancla)?.scrollIntoView({ block: 'center', behavior: 'instant' });
+    encontrar()?.scrollIntoView({ block: 'center', behavior: 'instant' });
     medir();
 
     window.addEventListener('resize', medir);
@@ -118,7 +123,7 @@ export function TutorialDeFungito({
       window.removeEventListener('resize', medir);
       window.removeEventListener('scroll', medir, true);
     };
-  }, [abierto, nombreDelAncla]);
+  }, [abierto, nombreDelAncla, nombreAlternativo]);
 
   if (!abierto) {
     return null;
@@ -196,15 +201,15 @@ export function TutorialDeFungito({
           </button>
 
           <div className="tutorial__navegacion">
-            {indice > 0 && (
-              <button
-                type="button"
-                className="tutorial__boton"
-                onClick={() => setIndice(indice - 1)}
-              >
-                Atrás
-              </button>
-            )}
+            {/* Siempre esta, para que los botones no cambien de sitio; apagado en el primer paso. */}
+            <button
+              type="button"
+              className="tutorial__boton"
+              disabled={indice === 0}
+              onClick={() => setIndice(indice - 1)}
+            >
+              Atrás
+            </button>
             <button
               ref={principal}
               type="button"

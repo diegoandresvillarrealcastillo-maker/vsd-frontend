@@ -7,7 +7,7 @@ import type { Expresion } from '../mascota/personajes.ts';
  * se ve (sin conexion, otra pantalla, un tamano en el que no existe), el paso se ve centrado,
  * como antes: el recorrido nunca depende de que el elemento este.
  */
-export type AnclaDelTutorial = 'ruta' | 'llama' | 'semaforo' | 'diario' | 'asistente';
+export type AnclaDelTutorial = 'ruta' | 'llama' | 'semaforo' | 'diario' | 'asistente' | 'cuenta';
 
 /**
  * Los pasos del tutorial de bienvenida (SCRUM-187).
@@ -24,6 +24,11 @@ export interface PasoDelTutorial {
   readonly expresion: Expresion;
   /** El elemento que ilumina este paso (SCRUM-201). Sin el, el paso va centrado. */
   readonly ancla?: AnclaDelTutorial;
+  /**
+   * Donde mirar si `ancla` no se ve (SCRUM-246). El diario esta en el dock del movil y, en escritorio,
+   * detras del boton de la cuenta: sin esto el paso salia centrado y sin decir donde esta.
+   */
+  readonly anclaSiNoSeVe?: AnclaDelTutorial;
 }
 
 export const PASOS_DEL_TUTORIAL: readonly PasoDelTutorial[] = [
@@ -31,14 +36,14 @@ export const PASOS_DEL_TUTORIAL: readonly PasoDelTutorial[] = [
     id: 'hola',
     titulo: '¡Hola! Soy Fungito',
     texto:
-      'Voy a acompañarte por VSD Health. Te cuento en un momento cómo funciona todo, y puedes saltarte esto cuando quieras.',
+      'Soy tu guía en VSD Health. En menos de un minuto te muestro dónde está cada cosa y para qué sirve. Puedes saltarte este recorrido cuando quieras.',
     expresion: 'feliz',
   },
   {
     id: 'ruta',
     titulo: 'Tu ruta de hoy',
     texto:
-      'Cada día te preparo una ruta con actividades cortas de memoria, bienestar y emociones. Haz las que quieras, en el orden que quieras: no hay una cantidad que cumplir.',
+      'Cada día te preparo actividades cortas de memoria, bienestar y emociones. Elige la que quieras y en el orden que quieras: sin metas ni presión. Así vas viendo cómo te sientes.',
     expresion: 'normal',
     ancla: 'ruta',
   },
@@ -46,7 +51,7 @@ export const PASOS_DEL_TUTORIAL: readonly PasoDelTutorial[] = [
     id: 'llama',
     titulo: 'Tu llama',
     texto:
-      'Esta llama cuenta los días en que haces algo. Si un día no puedes, ella descansa y vuelve contigo cuando quieras.',
+      'Cuenta los días en que haces algo en la aplicación. Tócala para ver tu avance. Si un día no puedes, descansa y vuelve a encenderse cuando regreses.',
     expresion: 'feliz',
     ancla: 'llama',
   },
@@ -54,7 +59,7 @@ export const PASOS_DEL_TUTORIAL: readonly PasoDelTutorial[] = [
     id: 'semaforo',
     titulo: 'Tu semáforo',
     texto:
-      'Anota lo que tienes pendiente y ponle un color: urgente, prioridad o aplazable. Es para ordenar la cabeza, no para exigirte.',
+      'Anota lo que tienes pendiente y márcalo como urgente, prioridad o aplazable. Así ordenas la cabeza y eliges por dónde empezar, sin exigirte.',
     expresion: 'feliz',
     ancla: 'semaforo',
   },
@@ -62,15 +67,16 @@ export const PASOS_DEL_TUTORIAL: readonly PasoDelTutorial[] = [
     id: 'diario',
     titulo: 'Tu diario',
     texto:
-      'Un espacio para escribir lo que quieras. Es tuyo: solo se usa para recomendarte algo si tú lo permites en tu perfil.',
+      'Escribe lo que quieras, a tu ritmo. Es solo tuyo: solo se usa para recomendarte algo si tú lo permites. Lo abres en «Mi diario»: abajo en el celular, o en el menú de tu cuenta (arriba a la derecha) en el computador.',
     expresion: 'normal',
     ancla: 'diario',
+    anclaSiNoSeVe: 'cuenta',
   },
   {
     id: 'asistente',
     titulo: 'VSD IA, para conversar',
     texto:
-      'Si quieres hablar, el asistente te escucha y te orienta. No sustituye a un profesional: no diagnostica ni receta nada.',
+      'Si quieres hablar o no sabes por dónde empezar, el asistente te escucha y te orienta con calma. No sustituye a un profesional: no diagnostica ni receta nada.',
     expresion: 'feliz',
     ancla: 'asistente',
   },
@@ -78,7 +84,7 @@ export const PASOS_DEL_TUTORIAL: readonly PasoDelTutorial[] = [
     id: 'aqui-estoy',
     titulo: 'Aquí estoy',
     texto:
-      'Tócame para leer una frase y muéveme por la pantalla. Cuando quieras repetir este recorrido, lo encuentras en tu perfil.',
+      'Tócame para leer una frase y muéveme por la pantalla si te estorbo. Cuando quieras repetir este recorrido, lo encuentras en tu perfil.',
     expresion: 'celebrando',
   },
 ];
