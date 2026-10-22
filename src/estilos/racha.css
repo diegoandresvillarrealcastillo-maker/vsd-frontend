@@ -72,9 +72,11 @@
     border-color 0.15s;
 }
 
-.llama__boton:hover {
-  border-color: var(--llama-base);
-  transform: translateY(-1px);
+@media (hover: hover) and (pointer: fine) {
+  .llama__boton:hover {
+    border-color: var(--llama-base);
+    transform: translateY(-1px);
+  }
 }
 
 .llama__boton:active {
@@ -326,9 +328,14 @@
     transition: none;
   }
 
-  .llama__boton:hover,
   .llama__boton:active {
     transform: none;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .llama__boton:hover {
+      transform: none;
+    }
   }
 
   .llama__chispa {

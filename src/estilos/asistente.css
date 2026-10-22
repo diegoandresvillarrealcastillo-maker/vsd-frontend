@@ -131,8 +131,10 @@
   cursor: pointer;
 }
 
-.asistente__sugerencia:hover {
-  background: var(--app-superficie-alta);
+@media (hover: hover) and (pointer: fine) {
+  .asistente__sugerencia:hover {
+    background: var(--app-superficie-alta);
+  }
 }
 
 .asistente__mensajes {

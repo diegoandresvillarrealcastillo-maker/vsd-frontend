@@ -183,8 +183,10 @@ a.ruta__nodo {
   cursor: pointer;
 }
 
-a.ruta__nodo:hover {
-  transform: translateY(-2px);
+@media (hover: hover) and (pointer: fine) {
+  a.ruta__nodo:hover {
+    transform: translateY(-2px);
+  }
 }
 
 a.ruta__nodo:active {

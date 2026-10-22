@@ -37,8 +37,10 @@
   cursor: pointer;
 }
 
-.conexion__boton:hover {
-  background: var(--app-superficie-alta);
+@media (hover: hover) and (pointer: fine) {
+  .conexion__boton:hover {
+    background: var(--app-superficie-alta);
+  }
 }
 
 /* Con todo enviado: solo el icono, sin contorno. Lo normal no pide atencion. */
@@ -177,9 +179,11 @@
   cursor: pointer;
 }
 
-.conexion__cerrar:hover,
-.conexion__accion:hover {
-  background: var(--app-superficie-alta);
+@media (hover: hover) and (pointer: fine) {
+  .conexion__cerrar:hover,
+  .conexion__accion:hover {
+    background: var(--app-superficie-alta);
+  }
 }
 
 .conexion__accion--peligro {
@@ -367,8 +371,10 @@
   color: var(--acento-contraste);
 }
 
-.aviso-sincronizacion__boton:hover {
-  filter: brightness(1.06);
+@media (hover: hover) and (pointer: fine) {
+  .aviso-sincronizacion__boton:hover {
+    filter: brightness(1.06);
+  }
 }
 
 .aviso-sincronizacion__boton:focus-visible {

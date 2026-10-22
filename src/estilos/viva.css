@@ -829,9 +829,14 @@
   color: var(--viva-sobre);
 }
 
-.viva-opcion--marcada,
-.viva-opcion--marcada:hover {
+.viva-opcion--marcada {
   animation: viva-pop 0.45s var(--viva-curva-rebote);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .viva-opcion--marcada:hover {
+    animation: viva-pop 0.45s var(--viva-curva-rebote);
+  }
 }
 
 @keyframes viva-pop {
@@ -1120,8 +1125,10 @@
   opacity: 0.5;
 }
 
-.viva-boton:hover:not(:disabled) {
-  transform: translateY(-2px);
+@media (hover: hover) and (pointer: fine) {
+  .viva-boton:hover:not(:disabled) {
+    transform: translateY(-2px);
+  }
 }
 
 .viva-boton:active:not(:disabled) {
@@ -1268,8 +1275,10 @@
     box-shadow 120ms ease;
 }
 
-.viva-contador__boton:hover:not(:disabled) {
-  transform: translateY(-2px);
+@media (hover: hover) and (pointer: fine) {
+  .viva-contador__boton:hover:not(:disabled) {
+    transform: translateY(-2px);
+  }
 }
 
 .viva-contador__boton:active:not(:disabled) {
@@ -1392,9 +1401,11 @@
     border-color var(--rapido) var(--curva);
 }
 
-.viva-atajo:hover {
-  border-color: var(--viva-1);
-  transform: translateY(-1px);
+@media (hover: hover) and (pointer: fine) {
+  .viva-atajo:hover {
+    border-color: var(--viva-1);
+    transform: translateY(-1px);
+  }
 }
 
 .viva-atajo:active {
