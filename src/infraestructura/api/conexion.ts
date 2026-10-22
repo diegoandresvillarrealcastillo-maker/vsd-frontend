@@ -35,7 +35,9 @@ export async function hayConexionConLaApi(): Promise<boolean> {
       signal: control.signal,
     });
 
-    return respuesta.ok;
+    // Un 429 («espera un momento») tambien es la API contestando: hay conexion, y el envio
+    // respetara su `Retry-After` (SCRUM-244).
+    return respuesta.ok || respuesta.status === 429;
   } catch {
     return false;
   } finally {

@@ -57,6 +57,7 @@ function estado(
   return {
     hayAlmacen: true,
     conexion,
+    detalleDelFallo: null,
     sincronizando,
     contadores,
     cambios: [],

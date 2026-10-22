@@ -66,6 +66,7 @@ function armar(
   mundo.estado = {
     hayAlmacen: true,
     conexion,
+    detalleDelFallo: null,
     sincronizando,
     contadores,
     cambios: cambiosParaMostrar(operaciones, new Date()),
@@ -223,6 +224,27 @@ describe('PanelDeSincronizacion: Sincronizar ahora', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Sin conexión no se puede/)).toBeNull();
+  });
+
+  it('sin conexion, ensena el detalle tecnico del fallo para poder diagnosticarlo (SCRUM-244)', () => {
+    elNavegadorDiceQueHayRed(true);
+    armar([], {
+      conexion: 'sin_conexion',
+      detalleDelFallo: 'resultado.registrar: TypeError: Failed to fetch',
+    });
+    pintar();
+
+    expect(
+      screen.getByText('Detalle técnico: resultado.registrar: TypeError: Failed to fetch'),
+    ).toBeInTheDocument();
+  });
+
+  it('sin detalle que dar, no inventa uno', () => {
+    elNavegadorDiceQueHayRed(true);
+    armar([], { conexion: 'sin_conexion' });
+    pintar();
+
+    expect(screen.queryByText(/Detalle técnico/)).toBeNull();
   });
 
   it('con conexion no hay explicacion que dar', () => {

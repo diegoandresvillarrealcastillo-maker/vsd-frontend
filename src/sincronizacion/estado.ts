@@ -67,6 +67,11 @@ export interface EstadoDeLaSincronizacion {
   /** Si hay un almacen abierto: sin el no hay nada que mostrar ni enviar. */
   readonly hayAlmacen: boolean;
   readonly conexion: EstadoDeLaConexion;
+  /**
+   * Por que el motor dijo `sin_conexion` (SCRUM-244): `null` si no hay un fallo que explicar.
+   * El panel lo ensena, para que una captura de pantalla alcance para saber que paso.
+   */
+  readonly detalleDelFallo: string | null;
   readonly sincronizando: boolean;
   readonly contadores: ContadoresDeCambios;
   readonly cambios: readonly CambioGuardado[];
@@ -92,6 +97,7 @@ function estadoInicial(conexion: EstadoDeLaConexion): EstadoDeLaSincronizacion {
   return {
     hayAlmacen: false,
     conexion,
+    detalleDelFallo: null,
     sincronizando: false,
     contadores: SIN_CAMBIOS,
     cambios: [],
@@ -308,14 +314,18 @@ export function iniciarLaSincronizacionAutomatica(
     // Lo que dice el motor al intentar es mas fiable que lo que dice el navegador.
     if (resultado.estado === 'sin_conexion') {
       huboSinConexion = true;
-      cambiar({ conexion: 'sin_conexion', sincronizando: false });
+      cambiar({
+        conexion: 'sin_conexion',
+        detalleDelFallo: resultado.detalle ?? null,
+        sincronizando: false,
+      });
     } else if (
       resultado.estado === 'terminada' ||
       resultado.estado === 'sesion_vencida' ||
       resultado.estado === 'textos_pendientes'
     ) {
       huboSinConexion = false;
-      cambiar({ conexion: 'con_conexion', sincronizando: false });
+      cambiar({ conexion: 'con_conexion', detalleDelFallo: null, sincronizando: false });
     } else if (resultado.estado === 'nada_que_hacer') {
       huboSinConexion = false;
       cambiar({ sincronizando: false });
@@ -432,6 +442,7 @@ export function iniciarLaSincronizacionAutomatica(
     huboSinConexion = true;
     cambiar({
       conexion: 'sin_conexion',
+      detalleDelFallo: null,
       ...(estado.hayAlmacen ? { aviso: { ...avisoDeSinConexion(), id: ++contadorDeAvisos } } : {}),
     });
   }
@@ -441,6 +452,7 @@ export function iniciarLaSincronizacionAutomatica(
     // se avisaba de la falta de conexion ya no vale.
     cambiar({
       conexion: 'con_conexion',
+      detalleDelFallo: null,
       ...(estado.aviso?.tono === 'info' ? { aviso: null } : {}),
     });
 
