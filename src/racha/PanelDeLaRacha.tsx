@@ -116,7 +116,7 @@ export function PanelDeLaRacha({ id, racha, hora }: { id: string; racha: Racha; 
       {porLograr.length > 0 && (
         <div className="racha-panel__seccion">
           <p className="racha-panel__subtitulo">Lo que viene</p>
-          <EscaleraDeHitos escalera={porLograr} nombre="Próximos hitos" />
+          <EscaleraDeHitos escalera={porLograr} nombre="Próximos hitos" destacarElPrimero />
         </div>
       )}
 

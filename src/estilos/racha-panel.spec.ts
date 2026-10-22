@@ -49,6 +49,16 @@ describe('racha-panel.css', () => {
     expect(CSS).not.toMatch(/transition:[^;]*\bwidth\b/);
   });
 
+  it('las secciones del panel entran una tras otra, solo con opacidad y desplazamiento', () => {
+    const entrada = /@keyframes racha-panel-sube\s*\{([\s\S]*?)\n\}/.exec(CSS)?.[1] ?? '';
+
+    expect(CSS).toMatch(/\.llama__panel\.racha-panel > \*\s*\{[^}]*animation:\s*racha-panel-sube/);
+    expect(entrada).toContain('opacity');
+    expect(entrada).toContain('translate');
+    // Nada que obligue al navegador a recalcular la caja mientras entran.
+    expect(entrada).not.toMatch(/\b(?:height|width|margin|top|left)\b/);
+  });
+
   describe('con movimiento reducido', () => {
     const reducido = media('(prefers-reduced-motion: reduce)');
 
@@ -58,6 +68,8 @@ describe('racha-panel.css', () => {
       '.racha-semana__dia--hoy .racha-semana__marca',
       '.racha-semana__dia--une::after',
       '.racha-progreso__relleno',
+      '.llama__panel.racha-panel > *',
+      '.racha-escalera__hito--siguiente .racha-escalera__marca',
     ])('%s no se anima', (selector) => {
       expect(reducido).toContain(selector);
       expect(reducido).toMatch(/animation:\s*none/);
