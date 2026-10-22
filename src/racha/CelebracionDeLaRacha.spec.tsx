@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -37,6 +37,35 @@ function pintar(
 }
 
 describe('CelebracionDeLaRacha', () => {
+  describe('lo que viene', () => {
+    it('un dia normal muestra el proximo hito: como se llama, cuanto falta y que cambia', () => {
+      pintar({ tipo: 'dia' }, rachaDePrueba({ dias: 12 }));
+
+      const bloque = screen.getByRole('group', { name: 'Lo que viene' });
+
+      expect(bloque).toHaveTextContent('Dos semanas');
+      expect(bloque).toHaveTextContent('Dos barras que se unen y chispas que giran');
+      expect(within(bloque).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '12');
+      expect(bloque).toHaveTextContent('Faltan 2 días');
+    });
+
+    it('al llegar a un hito, lo que viene es el siguiente, no el que se acaba de lograr', () => {
+      pintar({ tipo: 'hito', hito: 14 }, rachaDePrueba({ dias: 14 }));
+
+      const bloque = screen.getByRole('group', { name: 'Lo que viene' });
+
+      expect(bloque).toHaveTextContent('Un mes');
+      expect(bloque).not.toHaveTextContent('Dos semanas');
+    });
+
+    it('con un servidor que no dice el proximo hito, no se pinta (la fiesta queda como era)', () => {
+      pintar({ tipo: 'dia' }, rachaDePrueba({ dias: 12, proximoHito: 0, escalera: [] }));
+
+      expect(screen.queryByRole('group', { name: 'Lo que viene' })).not.toBeInTheDocument();
+      expect(screen.getByRole('dialog', { name: '¡12 días seguidos!' })).toBeInTheDocument();
+    });
+  });
+
   describe('es un dialogo', () => {
     it('tiene rol de dialogo, es modal y su nombre dice los dias seguidos', () => {
       pintar({ tipo: 'dia' }, rachaDePrueba({ dias: 12 }));
