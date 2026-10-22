@@ -57,9 +57,11 @@
     background var(--rapido) var(--curva);
 }
 
-.legal__volver:hover {
-  color: var(--texto);
-  background: var(--fondo-sutil);
+@media (hover: hover) and (pointer: fine) {
+  .legal__volver:hover {
+    color: var(--texto);
+    background: var(--fondo-sutil);
+  }
 }
 
 .legal__principal {
@@ -289,9 +291,14 @@
   outline-offset: 2px;
 }
 
-.enlaces-legales__enlace:hover,
 .enlaces-legales__enlace[aria-current='page'] {
   color: var(--texto);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .enlaces-legales__enlace:hover {
+    color: var(--texto);
+  }
 }
 
 .enlaces-legales__enlace[aria-current='page'] {

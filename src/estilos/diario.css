@@ -110,7 +110,7 @@
   border: 1px solid var(--app-borde);
   border-radius: 10px;
   font: inherit;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   color-scheme: dark;
 }
 
@@ -153,8 +153,10 @@
   cursor: pointer;
 }
 
-.lienzo__boton:hover {
-  background: var(--app-superficie-alta);
+@media (hover: hover) and (pointer: fine) {
+  .lienzo__boton:hover {
+    background: var(--app-superficie-alta);
+  }
 }
 
 .lienzo__boton[aria-pressed='true'] {

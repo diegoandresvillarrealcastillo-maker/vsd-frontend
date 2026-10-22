@@ -10,6 +10,11 @@ import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
 import type { ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { abrirUnAlmacenDePrueba, cerrarElAlmacenDePrueba } from '../../pruebas/almacenDePrueba.ts';
 import { cuantosH1, fallosDeAccesibilidad } from '../../pruebas/axe.ts';
+import { rachaDePrueba } from '../../pruebas/rachaDePrueba.ts';
+import { fraseDeLaRacha } from '../../racha/frasesDeLaRacha.ts';
+import { olvidarLaRacha } from '../../racha/memoriaDeLaRacha.ts';
+import { olvidarElAvisoDeLaTarde } from '../../racha/useAvisoDeLaTarde.ts';
+import { fijarLaZonaDeLaCuenta } from '../../tiempo/zonaHoraria.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { olvidarQueYaSePregunto } from '../../notificaciones/memoriaDelPermiso.ts';
 import { encolar } from '../../sincronizacion/ciclo.ts';
@@ -43,6 +48,12 @@ vi.mock('../../infraestructura/api/pendientes.ts', () => ({
 vi.mock('../../infraestructura/api/aviso.ts', () => ({ consultarLaVersionDelAviso }));
 vi.mock('../../infraestructura/api/cuenta.ts', () => ({ darDeAltaLaCuenta, cambiarPreferencias }));
 vi.mock('../../infraestructura/api/progreso.ts', () => ({ consultarElProgreso }));
+
+// La llama de la barra pide la racha (SCRUM-186) y la mascota de la tarde (SCRUM-243) habla con lo que
+// llega: aqui se controla lo que dice el servidor.
+const { consultarLaRacha } = vi.hoisted(() => ({ consultarLaRacha: vi.fn() }));
+
+vi.mock('../../infraestructura/api/racha.ts', () => ({ consultarLaRacha }));
 
 // El dato curioso del dia (SCRUM-185) lo pide el mini-panel del dashboard.
 const { consultarElDatoDeHoy } = vi.hoisted(() => ({ consultarElDatoDeHoy: vi.fn() }));
@@ -140,6 +151,7 @@ function tarjeta(nombre: RegExp) {
 }
 
 beforeEach(() => {
+  consultarLaRacha.mockResolvedValue(rachaDePrueba());
   consultarElDatoDeHoy.mockResolvedValue({
     dia: '2026-10-13',
     dato: {
@@ -999,5 +1011,61 @@ describe('Dashboard sin conexion (SCRUM-140)', () => {
     await screen.findByText(/Datos de hace/);
 
     expect(screen.queryByText(/se contará cuando se envíe/)).toBeNull();
+  });
+});
+
+describe('La racha por la tarde (SCRUM-243)', () => {
+  const DE_TARDE = new Date('2026-10-22T01:30:00Z'); // 20:30 en Bogota
+  const DE_MANANA = new Date('2026-10-21T15:00:00Z'); // 10:00 en Bogota
+
+  function pintarConCuenta() {
+    return pintar({
+      sesion: { user: { id: CUENTA.id, email: CUENTA.correo } } as Session,
+    });
+  }
+
+  beforeEach(() => {
+    fijarLaZonaDeLaCuenta('America/Bogota');
+    localStorage.clear();
+    olvidarElAvisoDeLaTarde();
+    olvidarLaRacha();
+    // La respuesta del servidor llega por la llama de la barra, y la mascota habla con ella.
+    consultarLaRacha.mockResolvedValue(rachaDePrueba({ dias: 12, hechoHoy: false }));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    olvidarLaRacha();
+    olvidarElAvisoDeLaTarde();
+  });
+
+  it('de tarde, con hoy sin hacer, la mascota lo dice sola, con congelamientos disponibles', async () => {
+    vi.useFakeTimers({ now: DE_TARDE, toFake: ['Date'], shouldAdvanceTime: true });
+
+    pintarConCuenta();
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    expect(
+      await screen.findByText(fraseDeLaRacha('riesgoConCongelamientos', { dias: 12 })),
+    ).toBeInTheDocument();
+  });
+
+  it('por la manana no dice nada de la racha', async () => {
+    vi.useFakeTimers({ now: DE_MANANA, toFake: ['Date'], shouldAdvanceTime: true });
+
+    pintarConCuenta();
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    expect(document.querySelector('.mascota__frase')).toBeNull();
+  });
+
+  it('si hoy ya sumo, tampoco', async () => {
+    vi.useFakeTimers({ now: DE_TARDE, toFake: ['Date'], shouldAdvanceTime: true });
+    consultarLaRacha.mockResolvedValue(rachaDePrueba({ dias: 12, hechoHoy: true }));
+
+    pintarConCuenta();
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    expect(document.querySelector('.mascota__frase')).toBeNull();
   });
 });

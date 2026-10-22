@@ -75,8 +75,10 @@
   color: var(--acento-contraste);
 }
 
-.version-nueva__boton:hover:not(:disabled) {
-  filter: brightness(1.06);
+@media (hover: hover) and (pointer: fine) {
+  .version-nueva__boton:hover:not(:disabled) {
+    filter: brightness(1.06);
+  }
 }
 
 .version-nueva__boton:focus-visible {

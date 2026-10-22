@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach, beforeEach } from 'vitest';
 
 import { fijarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
@@ -11,6 +11,16 @@ import { fijarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
 afterEach(() => {
   cleanup();
 });
+
+/**
+ * Cuanto esperan `findBy*` y `waitFor` antes de rendirse (SCRUM-241).
+ *
+ * El segundo por omision se queda corto cuando se corre toda la suite en paralelo: pruebas como las del
+ * panel fallaban a veces con «Unable to find role...» y pasaban solas, sin que nada estuviera mal. Una
+ * prueba que de verdad falla sigue fallando; solo tarda mas en rendirse. Se fija una vez, aqui, y no prueba
+ * por prueba.
+ */
+configure({ asyncUtilTimeout: 5000 });
 
 /**
  * Las pruebas cuentan el dia en la zona de Colombia, cualquiera que sea la del

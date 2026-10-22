@@ -1,8 +1,9 @@
 import type { Session } from '@supabase/supabase-js';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { avisarQueHayTextosPendientes } from '../infraestructura/api/clienteHttp.ts';
 import { olvidarElRegistro } from '../sesion/useRegistroCompleto.ts';
 import { SesionContexto, type EstadoDeSesion } from '../sesion/SesionContexto.ts';
 import { RutaProtegida } from './RutaProtegida.tsx';
@@ -58,6 +59,14 @@ function PantallaDeRegistro() {
   return <p>Completa tu registro. Venia de: {estadoDeRuta?.volverA ?? 'ningun sitio'}</p>;
 }
 
+/** Lo mismo con la de volver a aceptar los textos. */
+function PantallaDeTextos() {
+  const ubicacion = useLocation();
+  const estadoDeRuta = ubicacion.state as { volverA?: string } | null;
+
+  return <p>Actualizamos nuestros textos. Venia de: {estadoDeRuta?.volverA ?? 'ningun sitio'}</p>;
+}
+
 function pintar(valor: EstadoDeSesion, rutaInicial: string = RUTAS.PANEL) {
   return render(
     <SesionContexto.Provider value={valor}>
@@ -65,6 +74,7 @@ function pintar(valor: EstadoDeSesion, rutaInicial: string = RUTAS.PANEL) {
         <Routes>
           <Route path={RUTAS.ACCESO} element={<PantallaDeAcceso />} />
           <Route path={RUTAS.COMPLETAR_REGISTRO} element={<PantallaDeRegistro />} />
+          <Route path={RUTAS.ACTUALIZAMOS_TEXTOS} element={<PantallaDeTextos />} />
           <Route
             path={RUTAS.PANEL}
             element={
@@ -203,5 +213,50 @@ describe('RutaProtegida y el registro (T-03 de la auditoria 360)', () => {
     pintar(estado({ sesion: null }));
 
     expect(consultarElEstadoDelRegistro).not.toHaveBeenCalled();
+  });
+});
+
+describe('RutaProtegida y los textos que cambian (SCRUM-237)', () => {
+  it('lleva a «Actualizamos nuestros textos» a quien tiene que volver a aceptar', async () => {
+    consultarElEstadoDelRegistro.mockResolvedValue({
+      estado: 'textos-pendientes',
+      cuenta: {},
+      pendientes: ['terminos'],
+    });
+
+    pintar(estado({ sesion: SESION_CUALQUIERA }));
+
+    expect(
+      await screen.findByText(`Actualizamos nuestros textos. Venia de: ${RUTAS.PANEL}`),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Contenido reservado')).not.toBeInTheDocument();
+  });
+
+  it('si la API avisa de textos pendientes mientras se usa la aplicacion, la lleva alli aunque ya estuviera comprobada', async () => {
+    pintar(estado({ sesion: SESION_CUALQUIERA }));
+
+    expect(await screen.findByText('Contenido reservado')).toBeInTheDocument();
+
+    // Pasa cuando se publica una version nueva con la sesion abierta: la pantalla que ya estaba
+    // pintada recibe un 403 de la API, y no hay que esperar a recargar para enterarse.
+    act(() => {
+      avisarQueHayTextosPendientes();
+    });
+
+    expect(
+      await screen.findByText(`Actualizamos nuestros textos. Venia de: ${RUTAS.PANEL}`),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Contenido reservado')).not.toBeInTheDocument();
+  });
+
+  it('en las rutas que no exigen el registro no la lleva a ninguna parte', () => {
+    // Es la propia pantalla de aceptar, o el perfil: llevarla de nuevo seria un bucle.
+    pintar(estado({ sesion: SESION_CUALQUIERA }), RUTAS.PERFIL);
+
+    act(() => {
+      avisarQueHayTextosPendientes();
+    });
+
+    expect(screen.getByText('Contenido sin registro')).toBeInTheDocument();
   });
 });

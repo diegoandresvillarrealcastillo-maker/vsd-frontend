@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { registrarElServiceWorker, type RegistrarSW } from './registrarElServiceWorker.ts';
 import {
   aplicarLaVersionNueva,
+  dejarLaVersionParaDespues,
   olvidarLaVersionNuevaParaLasPruebas,
   useVersionNueva,
 } from './versionNueva.ts';
@@ -153,5 +154,133 @@ describe('registrarElServiceWorker (SCRUM-135)', () => {
       falso.opciones().onRegisterError?.(causa);
     }).not.toThrow();
     expect(aviso).toHaveBeenCalledWith(expect.stringContaining('service worker'), causa);
+  });
+});
+
+describe('buscar versiones nuevas al volver a la aplicacion (SCRUM-234)', () => {
+  /** Un documento falso: guarda lo que se le pide escuchar y deja decidir si esta visible. */
+  function documentoFalso() {
+    const oyentes: (() => void)[] = [];
+    const documento = {
+      visibilityState: 'hidden' as DocumentVisibilityState,
+      addEventListener: (_tipo: string, oyente: () => void) => {
+        oyentes.push(oyente);
+      },
+    };
+
+    return {
+      documento,
+      volverAPrimerPlano: () => {
+        documento.visibilityState = 'visible';
+        oyentes.forEach((oyente) => {
+          oyente();
+        });
+      },
+      irASegundoPlano: () => {
+        documento.visibilityState = 'hidden';
+        oyentes.forEach((oyente) => {
+          oyente();
+        });
+      },
+    };
+  }
+
+  function registroFalso(update: () => Promise<void> = () => Promise.resolve()) {
+    return { update: vi.fn(update) } as unknown as ServiceWorkerRegistration & {
+      update: ReturnType<typeof vi.fn>;
+    };
+  }
+
+  it('al quedar registrado pregunta si hay una version nueva cada vez que la app vuelve a primer plano', () => {
+    const falso = registradorFalso();
+    const pagina = documentoFalso();
+    const registro = registroFalso();
+
+    registrarElServiceWorker(falso.registrar, () => undefined, pagina.documento);
+    falso.opciones().onRegisteredSW?.('/sw.js', registro);
+
+    expect(registro.update).not.toHaveBeenCalled();
+
+    pagina.volverAPrimerPlano();
+    pagina.irASegundoPlano();
+    pagina.volverAPrimerPlano();
+
+    // Dos regresos, dos preguntas; irse a segundo plano no pregunta nada.
+    expect(registro.update).toHaveBeenCalledTimes(2);
+  });
+
+  it('ademas pregunta cada hora, para quien deja la aplicacion abierta', () => {
+    vi.useFakeTimers();
+
+    try {
+      const falso = registradorFalso();
+      const registro = registroFalso();
+
+      registrarElServiceWorker(falso.registrar, () => undefined, documentoFalso().documento);
+      falso.opciones().onRegisteredSW?.('/sw.js', registro);
+
+      vi.advanceTimersByTime(59 * 60_000);
+      expect(registro.update).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(2 * 60_000);
+      expect(registro.update).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('si el navegador no entrega el registro, no hay nada que preguntar y nada se rompe', () => {
+    const falso = registradorFalso();
+    const pagina = documentoFalso();
+
+    registrarElServiceWorker(falso.registrar, () => undefined, pagina.documento);
+
+    expect(() => {
+      falso.opciones().onRegisteredSW?.('/sw.js', undefined);
+      pagina.volverAPrimerPlano();
+    }).not.toThrow();
+  });
+
+  it('una pregunta que falla (sin conexion) no deja un error suelto', async () => {
+    const falso = registradorFalso();
+    const pagina = documentoFalso();
+    const registro = registroFalso(() => Promise.reject(new TypeError('Failed to fetch')));
+
+    registrarElServiceWorker(falso.registrar, () => undefined, pagina.documento);
+    falso.opciones().onRegisteredSW?.('/sw.js', registro);
+
+    pagina.volverAPrimerPlano();
+    await Promise.resolve();
+
+    expect(registro.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('al volver a la aplicacion, la version que se dejo para despues se ofrece de nuevo', () => {
+    vi.useFakeTimers();
+
+    try {
+      const falso = registradorFalso();
+      const pagina = documentoFalso();
+      const { result } = renderHook(() => useVersionNueva());
+
+      registrarElServiceWorker(falso.registrar, () => undefined, pagina.documento);
+      falso.opciones().onRegisteredSW?.('/sw.js', registroFalso());
+      act(() => {
+        falso.opciones().onNeedRefresh?.();
+      });
+      act(() => {
+        dejarLaVersionParaDespues();
+      });
+      expect(result.current).toBe('ninguna');
+
+      vi.advanceTimersByTime(20 * 60_000);
+      act(() => {
+        pagina.volverAPrimerPlano();
+      });
+
+      expect(result.current).toBe('actualizar');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

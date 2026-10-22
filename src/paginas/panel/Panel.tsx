@@ -13,6 +13,7 @@ import '../../estilos/aplicacion.css';
 import type { Cuenta, Modulo } from '../../infraestructura/api/cuenta.ts';
 import type { ActividadDeHoy, ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { MascotaFlotante } from '../../mascota/MascotaFlotante.tsx';
+import { useAvisoDeLaTarde } from '../../racha/useAvisoDeLaTarde.ts';
 import { rutaDeActividad, rutaDeModulo } from '../../rutas/rutas.ts';
 import { Semaforo } from '../../semaforo/Semaforo.tsx';
 import { formatoEn, zonaActual } from '../../tiempo/zonaHoraria.ts';
@@ -158,6 +159,8 @@ function Dashboard({
   const porModulo = new Map(progreso.map((uno) => [uno.modulo, uno]));
   const ruta = useMemo(() => construirLaRuta(progreso), [progreso]);
   const { nuevas } = useAvanceCelebrable(ruta.idsHechos);
+  // La racha por la tarde (SCRUM-243): una vez al dia, y solo si de verdad esta en juego algo.
+  const avisoDeLaRacha = useAvisoDeLaTarde();
 
   // Llegar desde otra pagina con un ancla (el dock de Mi diario, SCRUM-182): el
   // contenido se pinta despues de la carga, cuando el navegador ya no busca el
@@ -233,6 +236,7 @@ function Dashboard({
       <MascotaFlotante
         mascota={cuenta.mascota}
         celebrar={ruta.planCompleto || celebracion !== null}
+        {...(avisoDeLaRacha === null ? {} : { fraseDeLaPantalla: avisoDeLaRacha })}
       />
       <Semaforo />
     </>

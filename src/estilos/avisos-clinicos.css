@@ -34,6 +34,13 @@
   margin: 0;
 }
 
+/* La version de la aplicacion (SCRUM-234): una linea pequena y tranquila, que se puede seleccionar y copiar. */
+.pie-de-la-app__version {
+  margin: 0;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .pie-de-la-app__enlaces .enlaces-legales__lista {
   gap: 2px 16px;
 }
@@ -42,9 +49,14 @@
   color: inherit;
 }
 
-.pie-de-la-app__enlaces .enlaces-legales__enlace:hover,
 .pie-de-la-app__enlaces .enlaces-legales__enlace[aria-current='page'] {
   color: var(--app-tinta, inherit);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pie-de-la-app__enlaces .enlaces-legales__enlace:hover {
+    color: var(--app-tinta, inherit);
+  }
 }
 
 /* En el resultado de una actividad va debajo del nivel, con el mismo margen que

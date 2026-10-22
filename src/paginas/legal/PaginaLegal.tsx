@@ -8,7 +8,7 @@ import { RUTAS, type Ruta } from '../../rutas/rutas.ts';
 import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
 import {
   DATOS_DEL_RESPONSABLE,
-  FECHA_DEL_BORRADOR,
+  FECHA_DE_ACTUALIZACION,
   POR_DEFINIR,
   TEXTOS_REVISADOS,
 } from './datosLegales.ts';
@@ -53,7 +53,6 @@ const ETIQUETA_DEL_DATO: Record<keyof typeof DATOS_DEL_RESPONSABLE, string> = {
   nombre: 'nombre o razón social del responsable',
   domicilio: 'dirección y ciudad',
   correo: 'correo de contacto',
-  telefono: 'teléfono de contacto',
 };
 
 /**
@@ -75,11 +74,11 @@ export function DatoDelResponsable({ campo }: { campo: keyof typeof DATOS_DEL_RE
  * secciones con su encabezado y la misma navegacion al final. Se pueden leer
  * sin sesion, porque se tienen que poder leer **antes** de aceptarlas.
  *
- * ## Mientras el texto sea un borrador
+ * ## Si un texto vuelve a ser un borrador
  *
- * Un aviso arriba lo dice (`TEXTOS_REVISADOS`). No es un adorno: es lo que
- * evita que un borrador pase por documento vigente sin que nadie lo haya
- * decidido.
+ * Con `TEXTOS_REVISADOS` en `false`, un aviso arriba lo dice. No es un adorno:
+ * es lo que evita que un borrador pase por documento vigente sin que nadie lo
+ * haya decidido. Hoy los textos estan cerrados y el aviso no sale.
  */
 export function PaginaLegal({ ruta, titulo, entradilla, version, secciones }: Props) {
   const idDelIndice = useId();
@@ -123,7 +122,9 @@ export function PaginaLegal({ ruta, titulo, entradilla, version, secciones }: Pr
           <p className="legal__entradilla">{entradilla}</p>
           <p className="legal__meta">
             {version === undefined ? '' : `Versión ${version} · `}
-            {TEXTOS_REVISADOS ? 'Vigente' : `Borrador del ${FECHA_DEL_BORRADOR}`}
+            {TEXTOS_REVISADOS
+              ? `Vigente · actualizado el ${FECHA_DE_ACTUALIZACION}`
+              : `Borrador del ${FECHA_DE_ACTUALIZACION}`}
           </p>
 
           {!TEXTOS_REVISADOS && (

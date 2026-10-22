@@ -2,19 +2,33 @@ import { Link } from 'react-router-dom';
 
 import { RUTAS } from '../../rutas/rutas.ts';
 import { VERSIONES_PUBLICADAS } from './datosLegales.ts';
-import { DatoDelResponsable, PaginaLegal, PorDefinir, type SeccionLegal } from './PaginaLegal.tsx';
+import { DatoDelResponsable, PaginaLegal, type SeccionLegal } from './PaginaLegal.tsx';
 import { DatosDeLaAnalitica, ProveedorGoogleAnalytics } from './TextosDeAnalitica.tsx';
 
 /**
  * El aviso de privacidad y la politica de tratamiento de datos personales.
  *
  * Cada afirmacion de aqui es algo que la aplicacion hace de verdad (o que deja
- * de hacer). Lo que depende de una decision del equipo esta marcado con
- * `PorDefinir`. Cuando la aplicacion cambie lo que hace con los datos, este
- * texto cambia con ella y la version sube: ver `VERSIONES_PUBLICADAS`.
+ * de hacer): si la aplicacion cambia lo que hace con los datos, este texto
+ * cambia con ella y la version sube (`VERSIONES_PUBLICADAS`, y la del backend a
+ * la vez). Lo que todavia no se haya decidido se marca con `PorDefinir` y la
+ * bandera `TEXTOS_REVISADOS` vuelve a `false`.
  *
- * Marco: Ley 1581 de 2012 (proteccion de datos personales) y su decreto
- * reglamentario.
+ * Tres afirmaciones dependen de otra parte del sistema y no se pueden suavizar
+ * sin cambiarla:
+ *
+ * - Conservacion: la baja de la cuenta borra todo **salvo la constancia** de lo
+ *   que se acepto, que se guarda 10 anos (ADR 0026 del backend). Cumplirlo es el
+ *   comando `npm run mantenimiento:constancias` del backend (SCRUM-236), que lo
+ *   ejecuta una persona: no corre solo, y no hay nada que borrar hasta octubre de
+ *   2036. Si el plazo cambia, cambia el comando, este texto y su version.
+ * - Respaldos: el maximo de 7 dias es el de los proveedores; hay que
+ *   comprobarlo al montar cada ambiente.
+ * - Autorizacion: la seccion «Donde se guardan» dice en que casilla se da. Es la
+ *   del aviso en `CamposDelRegistro.tsx` (hay otra aparte para los terminos): si
+ *   el formulario cambia, cambia esta frase.
+ *
+ * Marco: Ley 1581 de 2012 (proteccion de datos personales) y su reglamentacion.
  */
 const SECCIONES: readonly SeccionLegal[] = [
   {
@@ -35,9 +49,6 @@ const SECCIONES: readonly SeccionLegal[] = [
           </li>
           <li>
             Correo para ejercer tus derechos: <DatoDelResponsable campo="correo" />
-          </li>
-          <li>
-            Teléfono: <DatoDelResponsable campo="telefono" />
           </li>
         </ul>
       </>
@@ -223,12 +234,13 @@ const SECCIONES: readonly SeccionLegal[] = [
       <>
         <p>
           Nuestros proveedores operan servidores dentro y fuera de Colombia, principalmente en
-          Estados Unidos. Al aceptar este aviso autorizas que tus datos se transmitan y se almacenen
-          allí para prestarte el servicio. Esos proveedores tratan los datos bajo sus propias
-          medidas de seguridad y sus propios términos.
-        </p>
-        <p className="legal__nota">
-          <PorDefinir que="que la persona revisora confirme las condiciones de la transferencia internacional (Ley 1581, art. 26)" />
+          Estados Unidos. Al marcar la casilla de aceptación del aviso de privacidad al crear tu
+          cuenta, nos otorgas tu <strong>autorización expresa e inequívoca</strong> tanto para el
+          tratamiento de tus datos sensibles como para transferir tus datos personales a servidores
+          ubicados en Estados Unidos de América u otros países. Esta transferencia se realiza
+          exclusivamente para las finalidades aquí descritas y bajo la infraestructura técnica de
+          nuestros proveedores, quienes tratan los datos bajo sus propias medidas de seguridad y
+          términos.
         </p>
       </>
     ),
@@ -244,8 +256,17 @@ const SECCIONES: readonly SeccionLegal[] = [
           acceso. Es todo o nada: si algo falla, no se borra nada y puedes reintentar.
         </p>
         <p>
-          Las copias de respaldo de los proveedores pueden conservar datos por un tiempo limitado
-          después de borrarlos: <PorDefinir que="plazo de las copias de respaldo" />.
+          <strong>Lo único que conservamos al borrar tu cuenta es una constancia</strong> de lo que
+          aceptaste: las versiones del aviso y de los términos con su fecha, cuándo creaste y
+          borraste la cuenta, y identificadores internos sin tu nombre, correo ni datos de
+          bienestar. La ley nos exige poder demostrar tu autorización. La conservamos por un plazo
+          de 10 años para cumplir con nuestras obligaciones de demostración legal, tras lo cual se
+          elimina.
+        </p>
+        <p>
+          Las copias de respaldo automatizadas de nuestros proveedores pueden conservar datos
+          cifrados por un máximo de 7 días después de que borres tu cuenta, tras lo cual se
+          sobrescriben o eliminan definitivamente.
         </p>
       </>
     ),
@@ -277,7 +298,8 @@ const SECCIONES: readonly SeccionLegal[] = [
             guardamos de ti.
           </li>
           <li>
-            <strong>Borrar tu cuenta</strong> en tu perfil, con todo lo tuyo.
+            <strong>Borrar tu cuenta</strong> en tu perfil: se elimina todo lo tuyo, salvo la
+            constancia de lo que aceptaste, que se explica en «Cuánto tiempo los conservamos».
           </li>
           <li>Cambiar tu nombre y tus preferencias.</li>
         </ul>

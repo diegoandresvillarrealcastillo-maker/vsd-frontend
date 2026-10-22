@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { abrirUnAlmacenDePrueba, cerrarElAlmacenDePrueba } from '../../pruebas/almacenDePrueba.ts';
+import { rachaDePrueba } from '../../pruebas/rachaDePrueba.ts';
 import { cicloActual, encolar } from '../../sincronizacion/ciclo.ts';
 import type { EstadoDeOperacion } from '../../sincronizacion/cola.ts';
 
@@ -25,15 +26,7 @@ const { consultarLaRacha } = vi.hoisted(() => ({ consultarLaRacha: vi.fn() }));
 vi.mock('../../infraestructura/api/racha.ts', () => ({ consultarLaRacha }));
 
 beforeEach(() => {
-  consultarLaRacha.mockResolvedValue({
-    dias: 5,
-    nivel: 0,
-    hechoHoy: true,
-    enDescanso: false,
-    congelamientosUsados: 0,
-    congelamientosPorMes: 3,
-    diasCubiertos: [],
-  });
+  consultarLaRacha.mockResolvedValue(rachaDePrueba({ dias: 5, nivel: 0 }));
 });
 
 const salir = vi.fn().mockResolvedValue(undefined);

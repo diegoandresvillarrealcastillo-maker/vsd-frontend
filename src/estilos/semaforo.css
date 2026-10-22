@@ -142,8 +142,10 @@
     visibility 0.2s;
 }
 
-.semaforo__boton:hover {
-  transform: translateY(-2px);
+@media (hover: hover) and (pointer: fine) {
+  .semaforo__boton:hover {
+    transform: translateY(-2px);
+  }
 }
 
 /* Al pulsar se hunde un poco: responde antes de que se abra la ventana. */
@@ -322,8 +324,10 @@
     box-shadow 0.18s;
 }
 
-.semaforo__accion:hover:not(:disabled) {
-  background: var(--app-superficie-alta);
+@media (hover: hover) and (pointer: fine) {
+  .semaforo__accion:hover:not(:disabled) {
+    background: var(--app-superficie-alta);
+  }
 }
 
 /* Al pulsar se hunde un poco: el boton "responde" antes de que llegue el resultado. */
@@ -347,8 +351,10 @@
   color: var(--app-sobre-primario);
 }
 
-.semaforo__accion--principal:hover:not(:disabled) {
-  background: var(--app-salvia);
+@media (hover: hover) and (pointer: fine) {
+  .semaforo__accion--principal:hover:not(:disabled) {
+    background: var(--app-salvia);
+  }
 }
 
 .semaforo__accion--peligro {
@@ -565,10 +571,16 @@
 }
 
 /* Al pasar el raton o al entrar con el teclado se levanta un poco. */
-.semaforo-tarea:hover,
 .semaforo-tarea:focus-within {
   transform: translateY(-1px);
   box-shadow: 0 10px 20px -12px rgb(0 0 0 / 0.5);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .semaforo-tarea:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px -12px rgb(0 0 0 / 0.5);
+  }
 }
 
 .semaforo-tarea--urgente {
@@ -962,11 +974,16 @@
   }
 
   /* Sin movimiento tampoco hay desplazamiento al pasar el raton o al pulsar. */
-  .semaforo__boton:hover,
   .semaforo__boton:active,
-  .semaforo-tarea:hover,
   .semaforo-tarea:focus-within,
   .semaforo__accion:active:not(:disabled) {
     transform: none;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .semaforo__boton:hover,
+    .semaforo-tarea:hover {
+      transform: none;
+    }
   }
 }

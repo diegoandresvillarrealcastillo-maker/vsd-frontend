@@ -10,6 +10,7 @@ import { Panel } from './paginas/panel/Panel.tsx';
 import { Perfil } from './paginas/perfil/Perfil.tsx';
 import { Sendero } from './paginas/sendero/Sendero.tsx';
 import { Acceso } from './paginas/autenticacion/Acceso.tsx';
+import { ActualizamosNuestrosTextos } from './paginas/autenticacion/ActualizamosNuestrosTextos.tsx';
 import { CompletarRegistro } from './paginas/autenticacion/CompletarRegistro.tsx';
 import { ContrasenaNueva } from './paginas/autenticacion/ContrasenaNueva.tsx';
 import { Recuperar } from './paginas/autenticacion/Recuperar.tsx';
@@ -130,6 +131,17 @@ export function App() {
               element={
                 <RutaProtegida sinRegistro>
                   <CompletarRegistro />
+                </RutaProtegida>
+              }
+            />
+
+            {/* Pide sesion pero no el registro completo: es donde se vuelve a aceptar el aviso o los
+              terminos cuando cambian (SCRUM-237), asi que no puede exigir estar al dia. */}
+            <Route
+              path={RUTAS.ACTUALIZAMOS_TEXTOS}
+              element={
+                <RutaProtegida sinRegistro>
+                  <ActualizamosNuestrosTextos />
                 </RutaProtegida>
               }
             />

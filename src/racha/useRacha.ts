@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 
-import { consultarLaRacha, type Racha } from '../infraestructura/api/racha.ts';
+import type { Racha } from '../infraestructura/api/racha.ts';
 import { useSesion } from '../sesion/useSesion.ts';
-import { rachaRecordadaDe, recordarLaRacha } from './memoriaDeLaRacha.ts';
+import { alCambiarLaRacha, rachaRecordadaDe } from './memoriaDeLaRacha.ts';
+import { refrescarLaRacha } from './refrescarLaRacha.ts';
 
 /**
  * La racha de la cuenta de ahora, o `null` si todavia no se sabe (SCRUM-186).
@@ -12,6 +13,9 @@ import { rachaRecordadaDe, recordarLaRacha } from './memoriaDeLaRacha.ts';
  * se supo, o nada. La llama es un acompanamiento, no una pantalla que pueda fallar.
  *
  * El dia lo cuenta el servidor, en la zona de la persona: aqui no se cuenta nada.
+ *
+ * Tambien cambia cuando otra pantalla refresca la racha de la misma cuenta (SCRUM-243), por
+ * ejemplo al terminar una actividad: la llama de la barra crece sin recargar.
  */
 export function useRacha(): Racha | null {
   const { sesion } = useSesion();
@@ -27,18 +31,21 @@ export function useRacha(): Racha | null {
 
     let vigente = true;
     const controlador = new AbortController();
+    const dejarDeEscuchar = alCambiarLaRacha((deQuien, nueva) => {
+      if (vigente && deQuien === cuenta) {
+        setRacha(nueva);
+      }
+    });
 
     function pedir() {
-      consultarLaRacha(controlador.signal)
-        .then((nueva) => {
-          if (vigente && cuenta !== null) {
-            recordarLaRacha(cuenta, nueva);
-            setRacha(nueva);
-          }
-        })
-        .catch(() => {
-          // Sin conexion o sin cuenta todavia: se queda lo que habia.
-        });
+      if (cuenta === null) {
+        return;
+      }
+
+      // Lo que llegue se recuerda y llega aqui por el oyente de arriba.
+      refrescarLaRacha(cuenta, controlador.signal).catch(() => {
+        // Sin conexion o sin cuenta todavia: se queda lo que habia.
+      });
     }
 
     pedir();
@@ -47,6 +54,7 @@ export function useRacha(): Racha | null {
     return () => {
       vigente = false;
       controlador.abort();
+      dejarDeEscuchar();
       window.removeEventListener('online', pedir);
     };
   }, [cuenta]);

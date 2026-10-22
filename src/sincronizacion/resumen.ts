@@ -504,6 +504,20 @@ export function construirAviso(entrada: EntradaDelAviso): Aviso | null {
     copias: 0,
   };
 
+  // Faltan por aceptar el aviso o los terminos (SCRUM-237). La pantalla de aceptar ya lo explica, asi
+  // que aqui solo se dice que lo guardado esta esperando; sin nada guardado no hay nada que decir.
+  if (resultado.estado === 'textos_pendientes') {
+    const sinEnviar = resumen.pendientes;
+
+    return sinEnviar === 0
+      ? null
+      : {
+          ...base,
+          tono: 'atencion',
+          texto: `Falta aceptar el aviso de privacidad o los términos actualizados para enviar ${cambiosGuardados(sinEnviar)} en este equipo.`,
+        };
+  }
+
   if (resultado.estado === 'sesion_vencida') {
     const sinEnviar = resumen.pendientes;
 

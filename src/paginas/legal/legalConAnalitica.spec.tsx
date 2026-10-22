@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProveedorDeAnalitica } from '../../analitica/ProveedorDeAnalitica.tsx';
 import { olvidarLaAnalitica } from '../../pruebas/analitica.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
-import { TEXTOS_REVISADOS } from './datosLegales.ts';
+import { POR_DEFINIR, TEXTOS_REVISADOS } from './datosLegales.ts';
 import { Cookies } from './Cookies.tsx';
 import { Privacidad } from './Privacidad.tsx';
 
@@ -66,14 +66,12 @@ describe('Cookies, con analitica', () => {
     expect(seccion).toHaveTextContent(/2 meses/i);
   });
 
-  it('lo que falta confirmar queda marcado como por definir, no escrito como si ya fuera cierto', () => {
-    pintar(<Cookies />, ID);
+  it('con analítica los textos también están cerrados: nada por definir', () => {
+    const { container } = pintar(<Cookies />, ID);
 
-    const seccion = screen.getByRole('region', { name: /analítica \(opcional\)/i });
-    const pendientes = seccion.querySelectorAll('mark.legal__pendiente');
-
-    expect(pendientes.length).toBeGreaterThan(0);
-    expect(TEXTOS_REVISADOS).toBe(false);
+    expect(TEXTOS_REVISADOS).toBe(true);
+    expect(container.textContent).not.toContain(POR_DEFINIR);
+    expect(container.querySelectorAll('mark.legal__pendiente')).toHaveLength(0);
   });
 
   it('el indice lleva a la seccion', () => {
@@ -175,6 +173,14 @@ describe('Aviso de privacidad', () => {
     expect(
       screen.getByRole('heading', { level: 3, name: 'Los de la analítica' }),
     ).toBeInTheDocument();
+  });
+
+  it('con analitica, aceptarla autoriza de forma expresa que Google la trate fuera de Colombia', () => {
+    const { container } = pintar(<Privacidad />, ID, RUTAS.PRIVACIDAD);
+
+    expect(container).toHaveTextContent(/Google LLC, que puede tratarlos fuera de Colombia/i);
+    expect(container).toHaveTextContent(/al aceptar la analítica autorizas.*transferencia/i);
+    expect(container.textContent).not.toContain(POR_DEFINIR);
   });
 
   it('sin analitica no menciona una herramienta que no existe', () => {

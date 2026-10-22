@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fallosDeAccesibilidad } from '../../pruebas/axe.ts';
 import { abrirUnAlmacenDePrueba, cerrarElAlmacenDePrueba } from '../../pruebas/almacenDePrueba.ts';
+import { rachaDePrueba } from '../../pruebas/rachaDePrueba.ts';
+import { olvidarLaRacha, recordarLaRacha } from '../../racha/memoriaDeLaRacha.ts';
 import { sprite } from '../../mascota/sprites.ts';
 import { rutaDeActividad, RUTAS } from '../../rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
@@ -16,13 +18,19 @@ import { Actividad } from './Actividad.tsx';
  * cabecera y, sobre todo, que la mascota que acompana sea la que la persona tiene elegida en su
  * cuenta, tanto mientras hace la actividad como al terminarla.
  */
-const { buscarActividad, registrarResultado, hayConexionConLaApi, consultarLaCuentaPropia } =
-  vi.hoisted(() => ({
-    buscarActividad: vi.fn(),
-    registrarResultado: vi.fn(),
-    hayConexionConLaApi: vi.fn(),
-    consultarLaCuentaPropia: vi.fn(),
-  }));
+const {
+  buscarActividad,
+  registrarResultado,
+  hayConexionConLaApi,
+  consultarLaCuentaPropia,
+  consultarLaRacha,
+} = vi.hoisted(() => ({
+  buscarActividad: vi.fn(),
+  registrarResultado: vi.fn(),
+  hayConexionConLaApi: vi.fn(),
+  consultarLaCuentaPropia: vi.fn(),
+  consultarLaRacha: vi.fn(),
+}));
 
 vi.mock('../../sincronizacion/catalogoLocal.ts', () => ({
   buscarActividadConCopia: buscarActividad,
@@ -30,6 +38,7 @@ vi.mock('../../sincronizacion/catalogoLocal.ts', () => ({
 }));
 vi.mock('../../infraestructura/api/conexion.ts', () => ({ hayConexionConLaApi }));
 vi.mock('../../infraestructura/api/resultados.ts', () => ({ registrarResultado }));
+vi.mock('../../infraestructura/api/racha.ts', () => ({ consultarLaRacha }));
 vi.mock('../../infraestructura/api/cuenta.ts', async (importarOriginal) => ({
   ...(await importarOriginal<typeof import('../../infraestructura/api/cuenta.ts')>()),
   consultarLaCuentaPropia,
@@ -53,11 +62,15 @@ function ficha(categoria: string) {
   };
 }
 
-function sesion(): EstadoDeSesion {
+const ANA = '11111111-1111-4111-8111-111111111111';
+
+function sesion(id?: string): EstadoDeSesion {
   const vacio = vi.fn();
 
   return {
-    sesion: { user: { email: 'alguien@ejemplo.test' } } as Session,
+    sesion: {
+      user: { ...(id === undefined ? {} : { id }), email: 'alguien@ejemplo.test' },
+    } as Session,
     cargando: false,
     correo: 'alguien@ejemplo.test',
     registrarse: vacio,
@@ -71,9 +84,9 @@ function sesion(): EstadoDeSesion {
   };
 }
 
-function pintar() {
+function pintar(cuenta?: string) {
   return render(
-    <SesionContexto.Provider value={sesion()}>
+    <SesionContexto.Provider value={sesion(cuenta)}>
       <MemoryRouter initialEntries={[rutaDeActividad(SUENO)]}>
         <Routes>
           <Route path={RUTAS.ACTIVIDAD} element={<Actividad />} />
@@ -89,6 +102,8 @@ const carasDeLaMascota = (): (string | null)[] =>
   );
 
 beforeEach(async () => {
+  olvidarLaRacha();
+  consultarLaRacha.mockResolvedValue(rachaDePrueba());
   hayConexionConLaApi.mockResolvedValue(true);
   buscarActividad.mockResolvedValue(ficha('Bienestar'));
   consultarLaCuentaPropia.mockResolvedValue({ mascota: { forma: 'gato', nombre: 'Michi' } });
@@ -210,5 +225,128 @@ describe('La mascota de la actividad es la de la cuenta', () => {
     await screen.findByRole('heading', { level: 1 });
 
     expect(carasDeLaMascota()).toContain(sprite('fungito', 'normal'));
+  });
+});
+
+describe('La racha al terminar una actividad (SCRUM-243)', () => {
+  beforeEach(() => {
+    // Ayer iba en 11 y hoy todavia no habia hecho nada. Al empezar la actividad el servidor dice eso
+    // mismo; al terminarla, que hoy ya sumo.
+    recordarLaRacha(ANA, rachaDePrueba({ dias: 11, hechoHoy: false }));
+    consultarLaRacha
+      .mockResolvedValueOnce(rachaDePrueba({ dias: 11, hechoHoy: false }))
+      .mockResolvedValue(rachaDePrueba({ dias: 12, hechoHoy: true }));
+  });
+
+  it('una memoria vieja no impide celebrar: al empezar la actividad se pide la racha otra vez (revision final)', async () => {
+    // Una PWA que se reanuda sin volver a montarse recuerda el dia de ayer como «ya hecho hoy».
+    recordarLaRacha(ANA, rachaDePrueba({ dias: 12, hechoHoy: true }));
+    consultarLaRacha.mockReset();
+    consultarLaRacha
+      .mockResolvedValueOnce(rachaDePrueba({ dias: 11, hechoHoy: false }))
+      .mockResolvedValue(rachaDePrueba({ dias: 12, hechoHoy: true }));
+
+    pintar(ANA);
+
+    await usuario.click(await screen.findByRole('button', { name: 'Terminar' }));
+    await screen.findByRole('heading', { level: 1, name: 'Listo' });
+
+    expect(
+      await screen.findByRole('dialog', { name: '¡12 días seguidos!' }, { timeout: 4_000 }),
+    ).toBeInTheDocument();
+  });
+
+  it('con un resultado normal, la primera actividad del dia celebra la racha con la mascota', async () => {
+    pintar(ANA);
+
+    await usuario.click(await screen.findByRole('button', { name: 'Terminar' }));
+    await screen.findByRole('heading', { level: 1, name: 'Listo' });
+
+    // Sale a los 1,2 s de ver el resultado: mas que la espera por omision de la busqueda.
+    const celebracion = await screen.findByRole(
+      'dialog',
+      { name: '¡12 días seguidos!' },
+      { timeout: 4_000 },
+    );
+
+    expect(celebracion).toHaveAttribute('data-escena', 'dia');
+    // La mascota del dialogo es la de la cuenta, con su cara de celebracion.
+    await waitFor(() =>
+      expect(celebracion.querySelector('.viva-voz__cara img')?.getAttribute('src')).toBe(
+        sprite('gato', 'celebrando'),
+      ),
+    );
+  });
+
+  it('cuando el resultado pide acompanar no hay celebracion ni confeti, y las lineas siguen a la vista', async () => {
+    registrarResultado.mockResolvedValue({
+      id: 'r-2',
+      activityId: SUENO,
+      nivelOrientativo: 'requiere_atencion',
+      sugiereAcompanamiento: true,
+      lineasDeAtencion: [
+        {
+          id: 'linea-1',
+          titulo: 'Línea de prueba',
+          descripcion: 'Una línea para hablar con alguien.',
+          cobertura: 'nacional',
+        },
+      ],
+      metadata: {},
+      completedAt: '2026-10-12T15:00:00.000Z',
+    });
+
+    pintar(ANA);
+
+    await usuario.click(await screen.findByRole('button', { name: 'Terminar' }));
+    await screen.findByRole('heading', { level: 1, name: 'Listo' });
+
+    // Primero llega la linea tranquila con los dias: eso es que ya se pidio la racha...
+    expect(await screen.findByText('Racha: 12 días')).toBeInTheDocument();
+
+    // ...y la celebracion, que de otra forma saldria a los 1,2 segundos, no sale.
+    await new Promise((resolver) => setTimeout(resolver, 1_600));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(document.querySelector('.confeti')).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Si te sirve hablarlo con alguien' })).toBeVisible();
+    expect(screen.getByText('Línea de prueba')).toBeVisible();
+  });
+
+  it('la segunda actividad del dia termina como siempre, sin celebrar otra vez', async () => {
+    // El servidor dice lo mismo al empezar y al terminar: hoy ya habia sumado.
+    recordarLaRacha(ANA, rachaDePrueba({ dias: 12, hechoHoy: true }));
+    consultarLaRacha.mockReset();
+    consultarLaRacha.mockResolvedValue(rachaDePrueba({ dias: 12, hechoHoy: true }));
+
+    pintar(ANA);
+
+    await usuario.click(await screen.findByRole('button', { name: 'Terminar' }));
+    await screen.findByRole('heading', { level: 1, name: 'Listo' });
+    await waitFor(() => expect(consultarLaRacha).toHaveBeenCalledTimes(2));
+    await new Promise((resolver) => setTimeout(resolver, 1_600));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('sin cuenta (sin id de usuario) la actividad termina igual y no se pide la racha', async () => {
+    pintar();
+
+    await usuario.click(await screen.findByRole('button', { name: 'Terminar' }));
+    await screen.findByRole('heading', { level: 1, name: 'Listo' });
+
+    expect(consultarLaRacha).not.toHaveBeenCalled();
+  });
+
+  it('si la racha no se puede pedir, el resultado se ve completo y sin errores', async () => {
+    consultarLaRacha.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    pintar(ANA);
+
+    await usuario.click(await screen.findByRole('button', { name: 'Terminar' }));
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Listo' })).toBeInTheDocument();
+    await waitFor(() => expect(consultarLaRacha).toHaveBeenCalled());
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

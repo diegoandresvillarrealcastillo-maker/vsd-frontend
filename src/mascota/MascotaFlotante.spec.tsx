@@ -890,3 +890,85 @@ describe('MascotaFlotante: la mascota propia (SCRUM-122)', () => {
     });
   });
 });
+
+describe('MascotaFlotante, lo que pide la pantalla (SCRUM-243)', () => {
+  const frase = (): string => document.querySelector('.mascota__frase')?.textContent ?? '';
+
+  it('dice la frase que la pantalla le da, sin que nadie la toque', () => {
+    render(
+      <MascotaFlotante mascota={SPARKY} fraseDeLaPantalla="Una actividad hoy y sigue igual." />,
+    );
+
+    expect(frase()).toBe('Una actividad hoy y sigue igual.');
+    expect(screen.getByText('Chispita te acompaña')).toBeInTheDocument();
+  });
+
+  it('sin frase de la pantalla no dice nada hasta que la toquen', () => {
+    render(<MascotaFlotante mascota={SPARKY} />);
+
+    expect(document.querySelector('.mascota__globo')).toBeNull();
+  });
+
+  it('el globo se va solo, como cualquier otra frase', () => {
+    render(
+      <MascotaFlotante mascota={SPARKY} fraseDeLaPantalla="Una actividad hoy y sigue igual." />,
+    );
+
+    adelantar(8_000);
+
+    expect(document.querySelector('.mascota__globo')).toBeNull();
+  });
+
+  it('se puede cerrar, y la misma frase no vuelve a salir sola', () => {
+    const { rerender } = render(
+      <MascotaFlotante mascota={SPARKY} fraseDeLaPantalla="Una actividad hoy y sigue igual." />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar la frase' }));
+    rerender(
+      <MascotaFlotante mascota={SPARKY} fraseDeLaPantalla="Una actividad hoy y sigue igual." />,
+    );
+
+    expect(document.querySelector('.mascota__globo')).toBeNull();
+  });
+
+  it('una frase distinta si sale', () => {
+    const { rerender } = render(
+      <MascotaFlotante mascota={SPARKY} fraseDeLaPantalla="Una actividad hoy y sigue igual." />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar la frase' }));
+    rerender(<MascotaFlotante mascota={SPARKY} fraseDeLaPantalla="Otra frase de la pantalla." />);
+
+    expect(frase()).toBe('Otra frase de la pantalla.');
+  });
+
+  it('despues de la frase de la pantalla, un toque trae las de siempre', () => {
+    render(
+      <MascotaFlotante mascota={SPARKY} fraseDeLaPantalla="Una actividad hoy y sigue igual." />,
+    );
+
+    fireEvent.click(mascota());
+
+    expect(frasesDelMomento('manana')).toContain(frase());
+  });
+
+  it('una invitacion de la pantalla no se tapa con la frase', () => {
+    render(
+      <MascotaFlotante
+        mascota={SPARKY}
+        fraseDeLaPantalla="Una actividad hoy y sigue igual."
+        invitacion={{
+          texto: '¿Quieres hablar de cómo te fue?',
+          aceptar: 'Sí',
+          rechazar: 'Ahora no',
+          pregunta: 'Cuéntame',
+          alResponder: vi.fn(),
+        }}
+      />,
+    );
+
+    expect(screen.getByText('¿Quieres hablar de cómo te fue?')).toBeInTheDocument();
+    expect(screen.queryByText('Una actividad hoy y sigue igual.')).not.toBeInTheDocument();
+  });
+});

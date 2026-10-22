@@ -258,6 +258,14 @@ body,
    abajo, lo desactiva para quien lo pidio. */
 html {
   scroll-behavior: smooth;
+  /* Lo basico de un telefono (SCRUM-239), una vez y para todo.
+     - Sin el destello gris que el navegador pinta al tocar: cada control tiene su propio :active.
+     - `manipulation` quita el zoom por doble toque (los juegos se tocan varias veces seguidas) y deja el
+       de pellizco, que es accesibilidad. Nunca `user-scalable=no`.
+     - Girar el telefono no agranda la letra. */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -273,6 +281,16 @@ body {
   color: var(--texto);
   background: var(--fondo);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Lo que es un control no se selecciona al dejar el dedo puesto (iOS marcaria el texto del boton o
+   abriria el menu de copiar). El texto de la pagina, si: ahi la gente copia direcciones y mensajes. */
+button,
+[role='button'],
+summary {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 h1,
@@ -438,8 +456,10 @@ textarea:focus-visible,
   color: var(--acento);
 }
 
-.tema__opcion:hover {
-  color: var(--texto);
+@media (hover: hover) and (pointer: fine) {
+  .tema__opcion:hover {
+    color: var(--texto);
+  }
 }
 
 /* La pastilla que se desliza entre los dos. Va debajo del icono. En reposo es
@@ -572,8 +592,10 @@ textarea:focus-visible,
   box-shadow: var(--resplandor-accion);
 }
 
-.pildora--fuerte:hover {
-  background: var(--acento-claro);
+@media (hover: hover) and (pointer: fine) {
+  .pildora--fuerte:hover {
+    background: var(--acento-claro);
+  }
 }
 
 .pildora--fantasma {
@@ -582,9 +604,11 @@ textarea:focus-visible,
   border-color: var(--borde-fuerte);
 }
 
-.pildora--fantasma:hover {
-  background: var(--fondo-sutil);
-  border-color: var(--texto-tenue);
+@media (hover: hover) and (pointer: fine) {
+  .pildora--fantasma:hover {
+    background: var(--fondo-sutil);
+    border-color: var(--texto-tenue);
+  }
 }
 
 .pildora--grande {

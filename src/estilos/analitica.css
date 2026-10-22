@@ -95,8 +95,10 @@
   text-underline-offset: 0.15em;
 }
 
-.analitica__enlace:hover {
-  text-decoration-thickness: 2px;
+@media (hover: hover) and (pointer: fine) {
+  .analitica__enlace:hover {
+    text-decoration-thickness: 2px;
+  }
 }
 
 .analitica__enlace:focus-visible,
@@ -127,8 +129,10 @@
   cursor: pointer;
 }
 
-.analitica__boton:hover {
-  filter: brightness(1.06);
+@media (hover: hover) and (pointer: fine) {
+  .analitica__boton:hover {
+    filter: brightness(1.06);
+  }
 }
 
 /* «Cerrar» no es una tercera opcion sobre los datos: solo guarda el banner. */

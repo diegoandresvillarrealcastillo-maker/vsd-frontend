@@ -2,6 +2,13 @@
 /// <reference types="vite-plugin-pwa/client" />
 
 /**
+ * Lo que Vite incrusta al compilar (`vite.config.ts`): cuando se compilo y que commit era (SCRUM-234). No existe
+ * fuera de una compilacion; `src/version.ts` lo lee con cuidado.
+ */
+declare const __VSD_VERSION__:
+  { readonly compiladaEl: string | null; readonly commit: string | null } | undefined;
+
+/**
  * Las variables de entorno que el frontend conoce.
  *
  * Declararlas aqui hace que `import.meta.env.VITE_ALGO_MAL_ESCRITO` sea un

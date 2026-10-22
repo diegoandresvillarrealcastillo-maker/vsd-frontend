@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { fileURLToPath, URL } from 'node:url';
 
 import react from '@vitejs/plugin-react';
@@ -36,7 +37,33 @@ function noIndexarFueraDeProduccion(mode: string): Plugin {
   };
 }
 
+/**
+ * Cuando se compilo y que commit era (SCRUM-234): lo que la aplicacion dice de si misma en su pie, para poder
+ * contestar «¿esta es la version nueva?». Sin datos de nadie.
+ *
+ * El commit sale de Vercel (`VERCEL_GIT_COMMIT_SHA`) y, fuera de el, de `git`. Si no hay ninguno de los dos, se
+ * queda sin commit en lugar de inventarlo.
+ */
+function laVersionDeLaApp(): { compiladaEl: string; commit: string | null } {
+  const deVercel = process.env.VERCEL_GIT_COMMIT_SHA?.trim();
+  let commit: string | null = deVercel ? deVercel.slice(0, 7) : null;
+
+  if (commit === null) {
+    try {
+      commit =
+        execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+          .toString()
+          .trim() || null;
+    } catch {
+      commit = null;
+    }
+  }
+
+  return { compiladaEl: new Date().toISOString(), commit };
+}
+
 export default defineConfig(({ mode }) => ({
+  define: { __VSD_VERSION__: JSON.stringify(laVersionDeLaApp()) },
   plugins: [
     react(),
     noIndexarFueraDeProduccion(mode),
@@ -105,6 +132,9 @@ export default defineConfig(({ mode }) => ({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/pruebas/preparacion.ts'],
+    // Mayor que la espera de las busquedas asincronas (`preparacion.ts`, 5 s): si una busqueda no encuentra
+    // lo que espera, el error que sale es el suyo («Unable to find...») y no «Test timed out».
+    testTimeout: 15_000,
     // Las de `scripts/` prueban los guardias que corren al compilar (cabeceras de
     // seguridad, SCRUM-152; los guiones que deciden algo, SCRUM-155). Usan las
     // APIs de Node (procesos, archivos), que tambien existen bajo jsdom.

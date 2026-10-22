@@ -1,6 +1,6 @@
 import { sincronizarLosArchivosDeLaPersona } from '../../foto/archivosDeLaPersona.ts';
 import { fijarLaZonaDeLaCuenta, zonaDelDispositivo } from '../../tiempo/zonaHoraria.ts';
-import type { Cuenta } from './cuenta.ts';
+import type { Cuenta, TextoPendiente } from './cuenta.ts';
 import { ErrorDeLaApi, llamarALaApi } from './clienteHttp.ts';
 import type { TextosVigentes } from './aviso.ts';
 
@@ -24,6 +24,15 @@ export type EstadoDelRegistro =
   | { readonly estado: 'completo'; readonly cuenta: Cuenta }
   /** La cuenta existe pero es anterior a que se pidiera la fecha y las casillas. */
   | { readonly estado: 'incompleto'; readonly cuenta: Cuenta }
+  /**
+   * La cuenta esta completa, pero el aviso o los terminos que acepto ya no son los vigentes
+   * (SCRUM-237): hay que volver a aceptarlos antes de usar nada.
+   */
+  | {
+      readonly estado: 'textos-pendientes';
+      readonly cuenta: Cuenta;
+      readonly pendientes: readonly TextoPendiente[];
+    }
   /** Hay identidad y todavia no hay cuenta: se registro (o entro con Google) y falta el alta. */
   | { readonly estado: 'sin-cuenta' };
 
@@ -63,6 +72,15 @@ export async function consultarElEstadoDelRegistro(
 
   if (cuenta.registroCompleto === false) {
     return { estado: 'incompleto', cuenta };
+  }
+
+  // Una API anterior no manda `textosPendientes`: se entiende que esta al dia, que es lo que era para
+  // ella. No se piden la foto ni la mascota: la API las negaria mientras haya textos pendientes, y se
+  // piden al aceptar.
+  const pendientes = cuenta.textosPendientes ?? [];
+
+  if (pendientes.length > 0) {
+    return { estado: 'textos-pendientes', cuenta, pendientes };
   }
 
   fijarLaZonaDeLaCuenta(cuenta.zonaHoraria);
@@ -121,6 +139,52 @@ export async function completarElRegistro(
 
     cuenta = await llamarALaApi<Cuenta>(RUTA, opciones({}));
   }
+
+  fijarLaZonaDeLaCuenta(cuenta.zonaHoraria);
+  sincronizarLosArchivosDeLaPersona(cuenta);
+
+  return cuenta;
+}
+
+/** Lo que se necesita para volver a aceptar los textos que cambiaron. */
+export interface AceptacionDeTextos {
+  /** Cuales hay que aceptar: los que dijo la API en `textosPendientes`. */
+  readonly pendientes: readonly TextoPendiente[];
+  /** Las versiones que la persona vio al aceptar: las que la API tiene como vigentes. */
+  readonly textos: TextosVigentes;
+}
+
+/**
+ * Vuelve a aceptar el aviso de privacidad o los terminos cuando cambiaron (SCRUM-237).
+ *
+ * Manda la casilla y la version de **lo que esta pendiente**, como el registro: la API exige las
+ * casillas en `true` y la version vigente, y la fecha la pone ella. Las casillas viajan en `true`
+ * porque quien llega aqui las marco: esta funcion no se llama sin ellas.
+ *
+ * Si los textos cambiaron otra vez mientras tanto, la API responde 409 con el codigo del texto; quien
+ * llama vuelve a pedir las versiones y reintenta.
+ *
+ * Devuelve la cuenta como quedo, y entonces si se piden la foto y la mascota que no se pudieron pedir
+ * con los textos pendientes.
+ */
+export async function aceptarLosTextos(
+  datos: AceptacionDeTextos,
+  senal?: AbortSignal,
+): Promise<Cuenta> {
+  const cuerpo = {
+    ...(datos.pendientes.includes('aviso_de_privacidad')
+      ? { aceptaAviso: true, versionPolitica: datos.textos.aviso }
+      : {}),
+    ...(datos.pendientes.includes('terminos')
+      ? { aceptaTerminos: true, versionTerminos: datos.textos.terminos }
+      : {}),
+  };
+
+  const cuenta = await llamarALaApi<Cuenta>(`${RUTA}/aceptacion`, {
+    metodo: 'POST',
+    cuerpo,
+    ...(senal ? { senal } : {}),
+  });
 
   fijarLaZonaDeLaCuenta(cuenta.zonaHoraria);
   sincronizarLosArchivosDeLaPersona(cuenta);

@@ -41,6 +41,32 @@ export function rutaPropia(ruta: unknown): string {
   return ruta;
 }
 
+/** El icono de la aplicacion: el de todo aviso que no trae el de una mascota. */
+export const ICONO_POR_OMISION = '/icono-192.png';
+
+/**
+ * Las formas de mascota que tienen icono en `public/mascotas/` (SCRUM-243).
+ *
+ * El servidor manda la forma elegida en la cuenta (`mascota`) y el aviso muestra su cara. La lista vive
+ * aqui y no se importa de `personajes.ts` porque el service worker no tiene `window` ni
+ * `import.meta.glob`; una prueba comprueba que sea la misma que la de los personajes y que cada forma
+ * tenga su archivo. La mascota propia no esta: su dibujo es privado y no se puede pedir desde una
+ * notificacion, asi que lleva el icono de la aplicacion.
+ */
+export const FORMAS_CON_ICONO = ['fungito', 'sparky', 'ori', 'gato', 'obsidian'] as const;
+
+/**
+ * El icono de un aviso: el de la mascota si es de la lista, y si no el de la aplicacion.
+ *
+ * Viene del servidor pero no se fia: la forma se compara con la lista, y nada que no este en ella
+ * —una ruta, una forma desconocida, un intento de salirse de la carpeta— llega a la direccion.
+ */
+export function iconoDelAviso(mascota: unknown): string {
+  const forma = FORMAS_CON_ICONO.find((una) => una === mascota);
+
+  return forma === undefined ? ICONO_POR_OMISION : `/mascotas/${forma}.webp`;
+}
+
 /** Lo que muestra un aviso, ya saneado. */
 export interface AvisoParaMostrar {
   readonly titulo: string;
@@ -48,6 +74,8 @@ export interface AvisoParaMostrar {
   /** Uno nuevo del mismo tipo reemplaza al anterior en vez de apilarse. */
   readonly etiqueta: string;
   readonly ruta: string;
+  /** El icono: la cara de la mascota de la cuenta, o el de la aplicacion. */
+  readonly icono: string;
 }
 
 /**
@@ -65,6 +93,7 @@ export function avisoDesde(datos: unknown): AvisoParaMostrar {
     cuerpo: typeof objeto.cuerpo === 'string' ? objeto.cuerpo : '',
     etiqueta: typeof objeto.tipo === 'string' ? objeto.tipo : 'vsd-health',
     ruta: rutaPropia(objeto.ruta),
+    icono: iconoDelAviso(objeto.mascota),
   };
 }
 
@@ -74,6 +103,7 @@ interface DatosDelAviso {
   readonly cuerpo?: unknown;
   readonly tipo?: unknown;
   readonly ruta?: unknown;
+  readonly mascota?: unknown;
 }
 
 /**

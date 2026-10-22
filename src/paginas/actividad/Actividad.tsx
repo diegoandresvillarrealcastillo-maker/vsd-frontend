@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { AvisoOrientativo } from '../../componentes/AvisoOrientativo.tsx';
@@ -10,6 +10,8 @@ import '../../estilos/viva.css';
 import type { ActividadConSuCategoria } from '../../infraestructura/api/catalogo.ts';
 import type { SesionDeLaActividad } from '../../infraestructura/api/progreso.ts';
 import type { ResultadoRegistrado } from '../../infraestructura/api/resultados.ts';
+import { RachaDelDia } from '../../racha/RachaDelDia.tsx';
+import { useRachaAlEntrar } from '../../racha/useRachaAlEntrar.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
 import { LineasDeAtencion } from './LineasDeAtencion.tsx';
@@ -33,6 +35,22 @@ import { ProveedorDeLaMascota } from './viva/ProveedorDeLaMascota.tsx';
 export function Actividad() {
   const { id } = useParams<{ id: string }>();
   const { estado, sesion, completar, reintentar, empezarDeNuevo } = useCompletarActividad(id);
+
+  // La racha se pide al empezar (SCRUM-243): lo que se recordaba puede ser de ayer, y la celebracion
+  // compara contra lo recordado.
+  useRachaAlEntrar();
+
+  // Si el resultado paso por la cola (se guardo sin conexion y salio despues), la racha se pone al dia
+  // en silencio: ajustar el estado al pintar evita una pintura de mas.
+  const [salioDeLaCola, setSalioDeLaCola] = useState(false);
+
+  if (estado.fase === 'guardada' && !salioDeLaCola) {
+    setSalioDeLaCola(true);
+  }
+
+  if (estado.fase === 'lista' && salioDeLaCola) {
+    setSalioDeLaCola(false);
+  }
 
   // Se llega desde el panel, que casi siempre esta desplazado hacia abajo: la actividad empieza
   // por su cabecera y no a media pantalla.
@@ -113,7 +131,11 @@ export function Actividad() {
             )}
 
             {estado.fase === 'hecha' && (
-              <Terminada resultado={estado.resultado} alRepetir={empezarDeNuevo} />
+              <Terminada
+                resultado={estado.resultado}
+                alRepetir={empezarDeNuevo}
+                salioDeLaCola={salioDeLaCola}
+              />
             )}
 
             {/* `role="alert"` interrumpe, y aqui corresponde: si algo fallo al
@@ -232,9 +254,11 @@ function GuardadaEnEsteEquipo({
 function Terminada({
   resultado,
   alRepetir,
+  salioDeLaCola,
 }: {
   resultado: ResultadoRegistrado;
   alRepetir: () => void;
+  salioDeLaCola: boolean;
 }) {
   // Se celebra con confeti solo si el resultado no pide acompanar: ver LogroDeLaActividad.
   const celebrar =
@@ -277,6 +301,10 @@ function Terminada({
       {/* Lo decide el servidor, por el nivel o por una senal en el texto
           libre. Aqui solo se ensena lo que dice. */}
       {resultado.sugiereAcompanamiento && <LineasDeAtencion lineas={resultado.lineasDeAtencion} />}
+
+      {/* La racha (SCRUM-243), debajo del resultado: una fiesta si se celebra; si pide acompanar, solo una
+          linea que no empuja ni tapa lo que se esta leyendo; y nada si el resultado salio de la cola. */}
+      <RachaDelDia celebrar={celebrar} silenciosa={salioDeLaCola} />
 
       <div className="actividad__acciones">
         <button type="button" className="pildora pildora--fantasma" onClick={alRepetir}>

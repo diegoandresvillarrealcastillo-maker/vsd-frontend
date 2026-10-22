@@ -25,6 +25,12 @@ interface Props {
  * mismo vale para el registro: a una cuenta incompleta la API le responde 403 en
  * todo lo demas, haya pasado por aqui o no.
  *
+ * ## Los textos que cambian (SCRUM-237)
+ *
+ * Quien tiene el registro completo pero acepto una version del aviso o de los terminos que ya no es la
+ * vigente se lleva a «Actualizamos nuestros textos». Se entera de dos maneras: al comprobar el
+ * registro, y por un 403 de la API en cualquier llamada (una version nueva con la sesion abierta).
+ *
  * ## El registro
  *
  * Quien tiene identidad pero no ha declarado su fecha de nacimiento ni marcado
@@ -70,6 +76,14 @@ export function RutaProtegida({ children, sinRegistro = false }: Props) {
     if (registro === 'pendiente') {
       return (
         <Navigate to={RUTAS.COMPLETAR_REGISTRO} replace state={{ volverA: ubicacion.pathname }} />
+      );
+    }
+
+    // Tiene el registro completo, pero el aviso o los terminos cambiaron desde que los acepto
+    // (SCRUM-237). La API le responde 403 en todo lo demas, haya pasado por aqui o no.
+    if (registro === 'textos-pendientes') {
+      return (
+        <Navigate to={RUTAS.ACTUALIZAMOS_TEXTOS} replace state={{ volverA: ubicacion.pathname }} />
       );
     }
   }
