@@ -51,6 +51,64 @@ describe('DocumentoPdf, la banda de marca', () => {
     expect(pdf).toMatch(/BT 1 1 1 rg \/F2 [\d.]+ Tf 1 0 0 1 56 [\d.]+ Tm \(VSD Health\) Tj ET/);
   });
 
+  // El isotipo de la marca (SCRUM-247): el mismo dibujo de `Isotipo.tsx` y del favicon, en vector, sin
+  // imagenes ni dependencias. Sobre el verde de la banda va en negativo: baldosa blanca y pulso verde.
+  describe('con el logo', () => {
+    const conLogo = () => {
+      const documento = nuevo();
+
+      documento.banda({
+        titulo: 'VSD Health',
+        subtitulo: 'Tus datos',
+        fondo: [0.24, 0.48, 0.42],
+        logo: true,
+      });
+
+      return documento.generar();
+    };
+
+    it('dibuja el isotipo dentro de la banda: la baldosa redondeada y el pulso', () => {
+      const pdf = conLogo();
+
+      // La baldosa: blanca, de 48 pt, con las esquinas redondeadas (cuatro curvas) y rellena.
+      expect(pdf).toMatch(/1 1 1 rg 68 769\.89 m [^f]*?(?:c [^f]*?){4}h f/);
+      // El pulso: verde de la banda, trazo redondeado, cuatro curvas.
+      expect(pdf).toMatch(
+        /0\.24 0\.48 0\.42 RG 1 J 1 j [\d.]+ w [\d.]+ [\d.]+ m (?:[\d. ]+ c ){4}S/,
+      );
+    });
+
+    it('queda dentro de la banda, centrado en vertical', () => {
+      const pdf = conLogo();
+      const [, y, alto] = /rg 0 (\d+(?:\.\d+)?) 595\.28 (\d+(?:\.\d+)?) re f/.exec(pdf) ?? [];
+      const abajoDelLogo = Number(/1 1 1 rg [\d.]+ ([\d.]+) m/.exec(pdf)?.[1]);
+
+      // La baldosa mide 48: su centro es el centro de la banda.
+      expect(abajoDelLogo + 24).toBeCloseTo(Number(y) + Number(alto) / 2, 1);
+    });
+
+    it('el titulo y el subtitulo se corren a la derecha del logo, sin pisarlo', () => {
+      const textos = textosDe(conLogo());
+      const titulo = textos.find((t) => t.texto === 'VSD Health' && t.fuente === 'F2');
+      const subtitulo = textos.find((t) => t.texto === 'Tus datos');
+
+      // 56 de margen + 48 del logo + 16 de aire.
+      expect(titulo?.x).toBe(120);
+      expect(subtitulo?.x).toBe(120);
+    });
+  });
+
+  it('sin el logo, la banda no dibuja nada mas (la guia no cambia)', () => {
+    const documento = nuevo();
+
+    documento.banda({ titulo: 'VSD Health', subtitulo: 'Tus datos', fondo: [0.24, 0.48, 0.42] });
+
+    const pdf = documento.generar();
+
+    expect(pdf).not.toContain('1 J 1 j');
+    expect(textosDe(pdf).find((t) => t.texto === 'VSD Health')?.x).toBe(56);
+  });
+
   it('lo que se escribe despues queda por debajo de la banda', () => {
     const documento = nuevo();
 
