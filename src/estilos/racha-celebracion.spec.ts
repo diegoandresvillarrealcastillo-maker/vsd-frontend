@@ -133,6 +133,7 @@ describe('racha-celebracion.css', () => {
       '.racha-celebracion__aura',
       '.racha-celebracion__rayos',
       '.racha-celebracion__cifra-nueva',
+      '.racha-celebracion__proximo',
       '.racha-celebracion__voz',
       '.racha-celebracion__seguir',
     ])('%s no se anima', (selector) => {

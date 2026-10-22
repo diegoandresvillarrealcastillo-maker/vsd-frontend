@@ -38,6 +38,27 @@ describe('EscaleraDeHitos', () => {
     expect(logrados[1]?.textContent).toContain('Primera semana');
   });
 
+  it('con destacarElPrimero, solo el primero por lograr se marca como el siguiente, y se anuncia', () => {
+    render(<EscaleraDeHitos escalera={ESCALERA} destacarElPrimero />);
+
+    const siguientes = screen
+      .getAllByRole('listitem')
+      .filter((hito) => hito.classList.contains('racha-escalera__hito--siguiente'));
+
+    expect(siguientes).toHaveLength(1);
+    expect(siguientes[0]?.textContent).toContain('Dos semanas');
+    expect(siguientes[0]?.textContent).toContain('Es el siguiente.');
+    // Ningun otro lo dice: el resto sigue siendo «por llegar».
+    expect(screen.getAllByText(/Es el siguiente\./)).toHaveLength(1);
+  });
+
+  it('sin pedirlo, ninguno se destaca (lo logrado no tiene siguiente)', () => {
+    render(<EscaleraDeHitos escalera={ESCALERA} />);
+
+    expect(document.querySelector('.racha-escalera__hito--siguiente')).toBeNull();
+    expect(screen.queryByText(/Es el siguiente\./)).not.toBeInTheDocument();
+  });
+
   it('los que siguen dicen que cambia y se anuncian como por llegar', () => {
     render(<EscaleraDeHitos escalera={ESCALERA} />);
 

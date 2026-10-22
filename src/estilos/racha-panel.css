@@ -264,6 +264,30 @@
   opacity: 0.85;
 }
 
+/* El siguiente hito es el que se ve: borde y fondo de la llama, y su marca late en lugar del candado. */
+.racha-escalera__hito--siguiente {
+  border-color: color-mix(in srgb, var(--llama-base) 70%, var(--app-borde));
+  background: color-mix(in srgb, var(--llama-punta) 8%, transparent);
+  opacity: 1;
+}
+
+.racha-escalera__hito--siguiente .racha-escalera__marca {
+  background: color-mix(in srgb, var(--llama-punta) 22%, var(--app-hundido));
+  color: var(--llama-base);
+  animation: racha-escalera-late 2.6s ease-in-out infinite;
+}
+
+@keyframes racha-escalera-late {
+  0%,
+  100% {
+    scale: 1;
+  }
+
+  50% {
+    scale: 1.1;
+  }
+}
+
 .racha-escalera__nombre {
   font-size: 0.9375rem;
   font-weight: 800;
@@ -394,6 +418,44 @@
 
   50% {
     transform: scale(1.04, 0.97);
+  }
+}
+
+/* Las secciones entran una tras otra al abrir el panel: sube un poco y se aclara, sin mover la caja. */
+.llama__panel.racha-panel > * {
+  animation: racha-panel-sube 0.4s var(--curva) both;
+  animation-delay: calc(var(--paso, 0) * 60ms);
+}
+
+.llama__panel.racha-panel > :nth-child(2) {
+  --paso: 1;
+}
+
+.llama__panel.racha-panel > :nth-child(3) {
+  --paso: 2;
+}
+
+.llama__panel.racha-panel > :nth-child(4) {
+  --paso: 3;
+}
+
+.llama__panel.racha-panel > :nth-child(5) {
+  --paso: 4;
+}
+
+.llama__panel.racha-panel > :nth-child(n + 6) {
+  --paso: 5;
+}
+
+@keyframes racha-panel-sube {
+  from {
+    opacity: 0;
+    translate: 0 0.5rem;
+  }
+
+  to {
+    opacity: 1;
+    translate: 0 0;
   }
 }
 
@@ -535,7 +597,9 @@
   .racha-progreso__relleno::after,
   .racha-panel__mascota img,
   .llama__velo,
-  .llama__panel.racha-panel {
+  .llama__panel.racha-panel,
+  .llama__panel.racha-panel > *,
+  .racha-escalera__hito--siguiente .racha-escalera__marca {
     animation: none;
   }
 
