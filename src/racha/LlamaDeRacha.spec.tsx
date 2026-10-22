@@ -147,6 +147,81 @@ describe('LlamaDeRacha', () => {
       ).toBeInTheDocument();
     });
 
+    describe('en el cuerpo de la pagina (revision final)', () => {
+      // La barra de arriba lleva `backdrop-filter`, y un ancestro con filtro se vuelve el contenedor de
+      // sus hijos `position: fixed`: la hoja del telefono (`bottom: 0`) y su velo (`inset: 0`) se
+      // medirian contra la barra de 76 px y quedarian fuera de la pantalla. Por eso el panel sale del
+      // arbol de la barra y se pinta en el cuerpo, con la paleta de la aplicacion.
+      it('el panel no cuelga de la barra: se pinta en el cuerpo, con la paleta', async () => {
+        const { container } = render(<LlamaDeRacha racha={racha()} />);
+
+        await usuario.click(screen.getByRole('button'));
+
+        const panel = screen.getByRole('region', { name: 'Tu racha' });
+
+        expect(container.contains(panel)).toBe(false);
+        expect(document.body.contains(panel)).toBe(true);
+        expect(panel.closest('.app')).not.toBeNull();
+      });
+
+      it('el boton sigue apuntando al panel', async () => {
+        render(<LlamaDeRacha racha={racha()} />);
+
+        const boton = screen.getByRole('button');
+
+        await usuario.click(boton);
+
+        expect(document.getElementById(boton.getAttribute('aria-controls') ?? '')).toBe(
+          screen.getByRole('region', { name: 'Tu racha' }),
+        );
+      });
+
+      it('al abrir, el foco pasa al panel, y Escape lo devuelve al boton', async () => {
+        render(<LlamaDeRacha racha={racha()} />);
+
+        const boton = screen.getByRole('button');
+
+        await usuario.click(boton);
+
+        expect(screen.getByRole('region', { name: 'Tu racha' })).toHaveFocus();
+
+        await usuario.keyboard('{Escape}');
+
+        expect(boton).toHaveFocus();
+      });
+
+      it('tocar dentro del panel no lo cierra', async () => {
+        render(<LlamaDeRacha racha={racha()} />);
+
+        await usuario.click(screen.getByRole('button'));
+        await usuario.click(screen.getByText('Congelamientos'));
+
+        expect(screen.getByRole('button')).toHaveAttribute('aria-expanded', 'true');
+        expect(screen.getByRole('region', { name: 'Tu racha' })).toBeInTheDocument();
+      });
+
+      it('tocar el velo lo cierra', async () => {
+        render(<LlamaDeRacha racha={racha()} />);
+
+        await usuario.click(screen.getByRole('button'));
+        await usuario.click(document.querySelector('.llama__velo')!);
+
+        expect(screen.getByRole('button')).toHaveAttribute('aria-expanded', 'false');
+      });
+
+      it('al cerrar, el panel y el velo salen del cuerpo', async () => {
+        render(<LlamaDeRacha racha={racha()} />);
+
+        const boton = screen.getByRole('button');
+
+        await usuario.click(boton);
+        await usuario.click(boton);
+
+        expect(document.querySelector('.racha-portal')).toBeNull();
+        expect(document.querySelector('.llama__velo')).toBeNull();
+      });
+    });
+
     it('se cierra con Escape y devuelve el foco al boton', async () => {
       render(<LlamaDeRacha racha={racha()} />);
 

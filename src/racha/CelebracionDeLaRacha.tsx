@@ -123,8 +123,19 @@ export function CelebracionDeLaRacha({
     return () => {
       document.body.style.overflow = desbordeAnterior;
 
-      if (anterior !== null && document.contains(anterior)) {
+      if (anterior !== null && anterior !== document.body && document.contains(anterior)) {
         anterior.focus();
+
+        return;
+      }
+
+      // Lo que tenia el foco ya no existe (el boton «Terminar» se desmonta al terminar): el foco va al
+      // titulo de la pantalla, para que no se pierda en el cuerpo de la pagina.
+      const titulo = document.querySelector<HTMLElement>('h1');
+
+      if (titulo !== null) {
+        titulo.tabIndex = -1;
+        titulo.focus({ preventScroll: true });
       }
     };
   }, []);

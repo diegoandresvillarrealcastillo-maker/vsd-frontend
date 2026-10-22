@@ -7,7 +7,7 @@ import { rachaDePrueba } from '../pruebas/rachaDePrueba.ts';
 import { SesionContexto, type EstadoDeSesion } from '../sesion/SesionContexto.ts';
 import { fijarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
 import { fraseDeLaRacha } from './frasesDeLaRacha.ts';
-import { olvidarLaRacha, recordarLaRacha } from './memoriaDeLaRacha.ts';
+import { olvidarLaRacha, rachaRecordadaDe, recordarLaRacha } from './memoriaDeLaRacha.ts';
 import { olvidarElAvisoDeLaTarde, useAvisoDeLaTarde } from './useAvisoDeLaTarde.ts';
 
 /**
@@ -37,8 +37,27 @@ function conSesion(id: string) {
   };
 }
 
-function usar(cuenta = ANA) {
+/** Monta el hook y todavia no llega nada del servidor. */
+function montarSinRespuesta(cuenta = ANA) {
   return renderHook(() => useAvisoDeLaTarde(), { wrapper: conSesion(cuenta) });
+}
+
+/**
+ * Monta el hook y hace llegar lo recordado, como cuando la llama de la barra recibe la respuesta del
+ * servidor en esta visita: el hook solo habla con lo que llega, no con lo que se recordaba de antes.
+ */
+function usar(cuenta = ANA) {
+  const resultado = montarSinRespuesta(cuenta);
+
+  act(() => {
+    const recordada = rachaRecordadaDe(cuenta);
+
+    if (recordada !== null) {
+      recordarLaRacha(cuenta, recordada);
+    }
+  });
+
+  return resultado;
 }
 
 beforeEach(() => {
@@ -84,6 +103,50 @@ describe('useAvisoDeLaTarde', () => {
       const { result } = usar();
 
       expect(result.current).toBeNull();
+
+      act(() => {
+        recordarLaRacha(ANA, rachaDePrueba({ dias: 12, hechoHoy: false }));
+      });
+
+      expect(result.current).toBe(fraseDeLaRacha('riesgoConCongelamientos', { dias: 12 }));
+    });
+  });
+
+  describe('solo habla con lo que llega en esta visita (revision final)', () => {
+    // Lo recordado puede ser de hace horas —una PWA reanudada— o de otro equipo: decir «en juego» con un
+    // dato viejo seria decir algo que quiza no es verdad, y queda marcado como dicho ese dia.
+    it('lo que se recordaba de hace rato no basta: puede ser de ayer', () => {
+      recordarLaRacha(ANA, rachaDePrueba({ dias: 12, hechoHoy: false }));
+      vi.setSystemTime(new Date(DE_TARDE.getTime() + 10 * 60_000));
+
+      expect(montarSinRespuesta().result.current).toBeNull();
+    });
+
+    it('lo que llego hace un momento, en esta misma visita, si cuenta', () => {
+      // La llama de la barra suele recibir la respuesta antes de que el panel termine de cargar.
+      recordarLaRacha(ANA, rachaDePrueba({ dias: 12, hechoHoy: false }));
+      vi.setSystemTime(new Date(DE_TARDE.getTime() + 60_000));
+
+      expect(montarSinRespuesta().result.current).toBe(
+        fraseDeLaRacha('riesgoConCongelamientos', { dias: 12 }),
+      );
+    });
+
+    it('y si despues llega que hoy ya sumo, se calla', () => {
+      recordarLaRacha(ANA, rachaDePrueba({ dias: 12, hechoHoy: false }));
+      vi.setSystemTime(new Date(DE_TARDE.getTime() + 10 * 60_000));
+
+      const { result } = montarSinRespuesta();
+
+      act(() => {
+        recordarLaRacha(ANA, rachaDePrueba({ dias: 13, hechoHoy: true }));
+      });
+
+      expect(result.current).toBeNull();
+    });
+
+    it('en cambio, lo que llega despues de entrar si cuenta', () => {
+      const { result } = montarSinRespuesta();
 
       act(() => {
         recordarLaRacha(ANA, rachaDePrueba({ dias: 12, hechoHoy: false }));

@@ -68,7 +68,13 @@ export function PanelDeLaRacha({ id, racha, hora }: { id: string; racha: Racha; 
   });
 
   return (
-    <div id={id} className="llama__panel racha-panel" role="region" aria-label="Tu racha">
+    <div
+      id={id}
+      className="llama__panel racha-panel"
+      role="region"
+      aria-label="Tu racha"
+      tabIndex={-1}
+    >
       <div className="racha-panel__cabecera">
         <span
           className={`racha-panel__llama llama--nivel-${String(racha.nivel)}${racha.enDescanso ? ' llama--descanso' : ''}`}

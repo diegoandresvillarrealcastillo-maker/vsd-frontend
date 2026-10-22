@@ -287,9 +287,17 @@
 .llama__panel.racha-panel {
   gap: 1rem;
   width: min(24rem, calc(100vw - 2rem));
+  /* El primero es el respaldo de un navegador sin `dvh`: el panel sigue desplazandose, no se sale. */
+  max-height: 36rem;
   max-height: calc(100dvh - 76px - 1.5rem - env(safe-area-inset-top, 0px));
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+/* El panel recibe el foco al abrirse (para el lector de pantalla), pero no es un control: sin aro. */
+.llama__panel.racha-panel:focus,
+.llama__panel.racha-panel:focus-visible {
+  outline: none;
 }
 
 .racha-panel__cabecera {
@@ -495,6 +503,7 @@
     bottom: 0;
     left: 0;
     width: auto;
+    max-height: 40rem;
     max-height: min(88dvh, 40rem);
     padding: 1.25rem max(1rem, env(safe-area-inset-right, 0px))
       calc(1.25rem + env(safe-area-inset-bottom, 0px)) max(1rem, env(safe-area-inset-left, 0px));

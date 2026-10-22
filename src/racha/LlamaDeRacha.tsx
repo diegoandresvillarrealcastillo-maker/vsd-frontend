@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import '../estilos/racha.css';
 import type { Racha } from '../infraestructura/api/racha.ts';
 import { DibujoDeLaLlama } from './DibujoDeLaLlama.tsx';
+import { EnElCuerpo } from './EnElCuerpo.tsx';
 import { PanelDeLaRacha } from './PanelDeLaRacha.tsx';
 import { diasSeguidos } from './textosDeLaRacha.ts';
 import { useRacha } from './useRacha.ts';
@@ -30,6 +31,8 @@ export function LlamaDeRacha({ racha, hora }: { racha: Racha; hora?: number }) {
   const [abierta, setAbierta] = useState(false);
   const idDelPanel = useId();
   const contenedor = useRef<HTMLDivElement>(null);
+  // El envoltorio del cuerpo de la pagina, con el velo y el panel: ya no cuelgan de `contenedor`.
+  const enElCuerpo = useRef<HTMLDivElement>(null);
   const boton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -38,7 +41,10 @@ export function LlamaDeRacha({ racha, hora }: { racha: Racha; hora?: number }) {
     }
 
     function alPulsarFuera(evento: MouseEvent) {
-      if (!contenedor.current?.contains(evento.target as Node)) {
+      const objetivo = evento.target as Node;
+
+      // Dentro es el boton o el panel (que vive en el cuerpo de la pagina, no dentro del boton).
+      if (!contenedor.current?.contains(objetivo) && !enElCuerpo.current?.contains(objetivo)) {
         setAbierta(false);
       }
     }
@@ -53,6 +59,12 @@ export function LlamaDeRacha({ racha, hora }: { racha: Racha; hora?: number }) {
 
     document.addEventListener('mousedown', alPulsarFuera);
     document.addEventListener('keydown', alPulsarTecla);
+
+    // El panel esta lejos del boton en el documento: el foco entra a el para que un lector de pantalla
+    // lo lea desde el principio, y Escape lo devuelve al boton.
+    enElCuerpo.current
+      ?.querySelector<HTMLElement>('[role="region"]')
+      ?.focus({ preventScroll: true });
 
     return () => {
       document.removeEventListener('mousedown', alPulsarFuera);
@@ -84,7 +96,7 @@ export function LlamaDeRacha({ racha, hora }: { racha: Racha; hora?: number }) {
       </button>
 
       {abierta && (
-        <>
+        <EnElCuerpo ref={enElCuerpo} paleta="app">
           {/* En un telefono el panel es una hoja desde abajo y esto la oscurece de fondo; tocarlo la cierra. */}
           <div
             className="llama__velo"
@@ -94,7 +106,7 @@ export function LlamaDeRacha({ racha, hora }: { racha: Racha; hora?: number }) {
             }}
           />
           <PanelDeLaRacha id={idDelPanel} racha={racha} {...(hora === undefined ? {} : { hora })} />
-        </>
+        </EnElCuerpo>
       )}
     </div>
   );

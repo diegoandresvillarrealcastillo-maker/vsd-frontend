@@ -12,7 +12,7 @@ import { abrirUnAlmacenDePrueba, cerrarElAlmacenDePrueba } from '../../pruebas/a
 import { cuantosH1, fallosDeAccesibilidad } from '../../pruebas/axe.ts';
 import { rachaDePrueba } from '../../pruebas/rachaDePrueba.ts';
 import { fraseDeLaRacha } from '../../racha/frasesDeLaRacha.ts';
-import { olvidarLaRacha, recordarLaRacha } from '../../racha/memoriaDeLaRacha.ts';
+import { olvidarLaRacha } from '../../racha/memoriaDeLaRacha.ts';
 import { olvidarElAvisoDeLaTarde } from '../../racha/useAvisoDeLaTarde.ts';
 import { fijarLaZonaDeLaCuenta } from '../../tiempo/zonaHoraria.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
@@ -48,6 +48,12 @@ vi.mock('../../infraestructura/api/pendientes.ts', () => ({
 vi.mock('../../infraestructura/api/aviso.ts', () => ({ consultarLaVersionDelAviso }));
 vi.mock('../../infraestructura/api/cuenta.ts', () => ({ darDeAltaLaCuenta, cambiarPreferencias }));
 vi.mock('../../infraestructura/api/progreso.ts', () => ({ consultarElProgreso }));
+
+// La llama de la barra pide la racha (SCRUM-186) y la mascota de la tarde (SCRUM-243) habla con lo que
+// llega: aqui se controla lo que dice el servidor.
+const { consultarLaRacha } = vi.hoisted(() => ({ consultarLaRacha: vi.fn() }));
+
+vi.mock('../../infraestructura/api/racha.ts', () => ({ consultarLaRacha }));
 
 // El dato curioso del dia (SCRUM-185) lo pide el mini-panel del dashboard.
 const { consultarElDatoDeHoy } = vi.hoisted(() => ({ consultarElDatoDeHoy: vi.fn() }));
@@ -145,6 +151,7 @@ function tarjeta(nombre: RegExp) {
 }
 
 beforeEach(() => {
+  consultarLaRacha.mockResolvedValue(rachaDePrueba());
   consultarElDatoDeHoy.mockResolvedValue({
     dia: '2026-10-13',
     dato: {
@@ -1022,7 +1029,8 @@ describe('La racha por la tarde (SCRUM-243)', () => {
     localStorage.clear();
     olvidarElAvisoDeLaTarde();
     olvidarLaRacha();
-    recordarLaRacha(CUENTA.id, rachaDePrueba({ dias: 12, hechoHoy: false }));
+    // La respuesta del servidor llega por la llama de la barra, y la mascota habla con ella.
+    consultarLaRacha.mockResolvedValue(rachaDePrueba({ dias: 12, hechoHoy: false }));
   });
 
   afterEach(() => {
@@ -1053,7 +1061,7 @@ describe('La racha por la tarde (SCRUM-243)', () => {
 
   it('si hoy ya sumo, tampoco', async () => {
     vi.useFakeTimers({ now: DE_TARDE, toFake: ['Date'], shouldAdvanceTime: true });
-    recordarLaRacha(CUENTA.id, rachaDePrueba({ dias: 12, hechoHoy: true }));
+    consultarLaRacha.mockResolvedValue(rachaDePrueba({ dias: 12, hechoHoy: true }));
 
     pintarConCuenta();
     await screen.findByRole('heading', { name: /Hola, Marina/ });

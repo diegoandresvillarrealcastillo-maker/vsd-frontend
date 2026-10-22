@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { rachaDePrueba } from '../pruebas/rachaDePrueba.ts';
 import {
   alCambiarLaRacha,
+  edadDeLaRachaRecordada,
   olvidarLaRacha,
   rachaRecordadaDe,
   recordarLaRacha,
@@ -25,6 +26,38 @@ describe('memoriaDeLaRacha', () => {
 
     expect(rachaRecordadaDe(ANA)?.dias).toBe(5);
     expect(rachaRecordadaDe(BETO)).toBeNull();
+  });
+
+  describe('hace cuanto se supo (revision final)', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('dice cuantos milisegundos han pasado desde que se recordo', () => {
+      vi.useFakeTimers({ now: new Date('2026-10-21T20:00:00Z'), toFake: ['Date'] });
+      recordarLaRacha(ANA, rachaDePrueba());
+
+      vi.setSystemTime(new Date('2026-10-21T20:03:00Z'));
+
+      expect(edadDeLaRachaRecordada(ANA)).toBe(3 * 60_000);
+    });
+
+    it('si se vuelve a recordar, la edad vuelve a empezar', () => {
+      vi.useFakeTimers({ now: new Date('2026-10-21T20:00:00Z'), toFake: ['Date'] });
+      recordarLaRacha(ANA, rachaDePrueba());
+      vi.setSystemTime(new Date('2026-10-21T21:00:00Z'));
+      recordarLaRacha(ANA, rachaDePrueba({ dias: 13 }));
+
+      expect(edadDeLaRachaRecordada(ANA)).toBe(0);
+    });
+
+    it('de otra cuenta, o sin nada recordado, no hay edad', () => {
+      expect(edadDeLaRachaRecordada(ANA)).toBeNull();
+
+      recordarLaRacha(ANA, rachaDePrueba());
+
+      expect(edadDeLaRachaRecordada(BETO)).toBeNull();
+    });
   });
 
   it('al cerrar sesion se olvida', () => {

@@ -104,6 +104,72 @@ describe('CelebracionDeLaRacha', () => {
     });
   });
 
+  describe('al cerrar (revision final)', () => {
+    function conTitulo(abierta: boolean) {
+      return (
+        <div className="actividad">
+          <h1>Listo</h1>
+          {abierta && (
+            <CelebracionDeLaRacha
+              momento={{ tipo: 'dia' }}
+              racha={rachaDePrueba()}
+              mascota={GATO}
+              alCerrar={vi.fn()}
+            />
+          )}
+        </div>
+      );
+    }
+
+    it('si nada tenia el foco antes (el boton que lo tenia ya no existe), el foco va al titulo de la pantalla', () => {
+      const { rerender } = render(conTitulo(true));
+
+      expect(screen.getByRole('button', { name: 'Seguir' })).toHaveFocus();
+
+      rerender(conTitulo(false));
+
+      expect(screen.getByRole('heading', { name: 'Listo' })).toHaveFocus();
+    });
+
+    it('si algo tenia el foco antes, vuelve a ese algo, no al titulo', () => {
+      const { rerender } = render(
+        <>
+          <button type="button">Hacerla otra vez</button>
+          {conTitulo(false)}
+        </>,
+      );
+
+      screen.getByRole('button', { name: 'Hacerla otra vez' }).focus();
+      rerender(
+        <>
+          <button type="button">Hacerla otra vez</button>
+          {conTitulo(true)}
+        </>,
+      );
+      rerender(
+        <>
+          <button type="button">Hacerla otra vez</button>
+          {conTitulo(false)}
+        </>,
+      );
+
+      expect(screen.getByRole('button', { name: 'Hacerla otra vez' })).toHaveFocus();
+    });
+
+    it('mientras esta abierta la pagina de atras no se desplaza, y al cerrar se restaura', () => {
+      document.body.style.overflow = 'scroll';
+
+      const { rerender } = render(conTitulo(true));
+
+      expect(document.body.style.overflow).toBe('hidden');
+
+      rerender(conTitulo(false));
+
+      expect(document.body.style.overflow).toBe('scroll');
+      document.body.style.overflow = '';
+    });
+  });
+
   describe('dice la verdad', () => {
     it('el contador va de un dia menos a los dias de ahora', () => {
       const { container } = pintar({ tipo: 'dia' }, rachaDePrueba({ dias: 12 }));

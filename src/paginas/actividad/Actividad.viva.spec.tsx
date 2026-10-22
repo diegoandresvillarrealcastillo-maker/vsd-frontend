@@ -230,9 +230,30 @@ describe('La mascota de la actividad es la de la cuenta', () => {
 
 describe('La racha al terminar una actividad (SCRUM-243)', () => {
   beforeEach(() => {
-    // Ayer iba en 11 y hoy todavia no habia hecho nada; el servidor dira que hoy ya sumo.
+    // Ayer iba en 11 y hoy todavia no habia hecho nada. Al empezar la actividad el servidor dice eso
+    // mismo; al terminarla, que hoy ya sumo.
     recordarLaRacha(ANA, rachaDePrueba({ dias: 11, hechoHoy: false }));
-    consultarLaRacha.mockResolvedValue(rachaDePrueba({ dias: 12, hechoHoy: true }));
+    consultarLaRacha
+      .mockResolvedValueOnce(rachaDePrueba({ dias: 11, hechoHoy: false }))
+      .mockResolvedValue(rachaDePrueba({ dias: 12, hechoHoy: true }));
+  });
+
+  it('una memoria vieja no impide celebrar: al empezar la actividad se pide la racha otra vez (revision final)', async () => {
+    // Una PWA que se reanuda sin volver a montarse recuerda el dia de ayer como «ya hecho hoy».
+    recordarLaRacha(ANA, rachaDePrueba({ dias: 12, hechoHoy: true }));
+    consultarLaRacha.mockReset();
+    consultarLaRacha
+      .mockResolvedValueOnce(rachaDePrueba({ dias: 11, hechoHoy: false }))
+      .mockResolvedValue(rachaDePrueba({ dias: 12, hechoHoy: true }));
+
+    pintar(ANA);
+
+    await usuario.click(await screen.findByRole('button', { name: 'Terminar' }));
+    await screen.findByRole('heading', { level: 1, name: 'Listo' });
+
+    expect(
+      await screen.findByRole('dialog', { name: '¡12 días seguidos!' }, { timeout: 4_000 }),
+    ).toBeInTheDocument();
   });
 
   it('con un resultado normal, la primera actividad del dia celebra la racha con la mascota', async () => {
@@ -293,13 +314,16 @@ describe('La racha al terminar una actividad (SCRUM-243)', () => {
   });
 
   it('la segunda actividad del dia termina como siempre, sin celebrar otra vez', async () => {
+    // El servidor dice lo mismo al empezar y al terminar: hoy ya habia sumado.
     recordarLaRacha(ANA, rachaDePrueba({ dias: 12, hechoHoy: true }));
+    consultarLaRacha.mockReset();
+    consultarLaRacha.mockResolvedValue(rachaDePrueba({ dias: 12, hechoHoy: true }));
 
     pintar(ANA);
 
     await usuario.click(await screen.findByRole('button', { name: 'Terminar' }));
     await screen.findByRole('heading', { level: 1, name: 'Listo' });
-    await waitFor(() => expect(consultarLaRacha).toHaveBeenCalled());
+    await waitFor(() => expect(consultarLaRacha).toHaveBeenCalledTimes(2));
     await new Promise((resolver) => setTimeout(resolver, 1_600));
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();

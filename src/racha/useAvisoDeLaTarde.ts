@@ -4,7 +4,7 @@ import type { Racha } from '../infraestructura/api/racha.ts';
 import { SesionContexto } from '../sesion/SesionContexto.ts';
 import { diaEnLaZona, horaLocal } from '../tiempo/zonaHoraria.ts';
 import { fraseDeLaRacha } from './frasesDeLaRacha.ts';
-import { alCambiarLaRacha, rachaRecordadaDe } from './memoriaDeLaRacha.ts';
+import { alCambiarLaRacha, edadDeLaRachaRecordada, rachaRecordadaDe } from './memoriaDeLaRacha.ts';
 import { situacionDeLaRacha } from './situacionDeLaRacha.ts';
 
 /**
@@ -15,8 +15,9 @@ import { situacionDeLaRacha } from './situacionDeLaRacha.ts';
  * o mas, y dice la verdad segun los congelamientos (`situacionDeLaRacha`): con ellos, que una actividad
  * evita gastar uno; sin ellos, que la racha esta en juego. En cualquier otro momento se calla.
  *
- * No pide la racha: lee la que ya recordo la llama de la barra y se entera cuando cambia, asi que no
- * suma ninguna peticion. Devuelve `null` mientras no hay nada que decir.
+ * No pide la racha: se entera de la que recibe la llama de la barra en esta visita (`alCambiarLaRacha`, o lo
+ * recordado hace menos de cinco minutos), asi que no suma ninguna peticion, y no habla con un dato viejo.
+ * Devuelve `null` mientras no hay nada que decir.
  *
  * ## Una vez al dia
  *
@@ -25,6 +26,9 @@ import { situacionDeLaRacha } from './situacionDeLaRacha.ts';
  * misma pantalla la frase se mantiene aunque la racha cambie.
  */
 const CLAVE_DE_LA_ULTIMA = 'vsd-h:racha-tarde';
+
+/** Cuanto puede tener lo recordado para considerarlo de esta visita: cinco minutos. */
+const EDAD_MAXIMA_DE_LO_RECORDADO_MS = 5 * 60_000;
 
 /** Lo ultimo que se dijo, por si el navegador no deja guardarlo. */
 let ultimaEnMemoria: string | null = null;
@@ -61,9 +65,17 @@ export function olvidarElAvisoDeLaTarde(): void {
 export function useAvisoDeLaTarde(): string | null {
   const sesion = useContext(SesionContexto);
   const cuenta = sesion?.sesion?.user.id ?? null;
-  const [racha, setRacha] = useState<Racha | null>(() =>
-    cuenta === null ? null : rachaRecordadaDe(cuenta),
-  );
+  // Solo cuenta lo de esta visita: lo que llega (la respuesta que recibe la llama de la barra) y lo que llego
+  // hace un momento, porque esa respuesta suele llegar antes de que el panel termine de cargar. Lo que se
+  // recordaba de hace rato no: puede ser de ayer o de otro equipo, y decir «en juego» con un dato viejo
+  // seria decir algo que quiza no es verdad; ademas queda marcado como dicho ese dia.
+  const [racha, setRacha] = useState<Racha | null>(() => {
+    const edad = cuenta === null ? null : edadDeLaRachaRecordada(cuenta);
+
+    return cuenta !== null && edad !== null && edad <= EDAD_MAXIMA_DE_LO_RECORDADO_MS
+      ? rachaRecordadaDe(cuenta)
+      : null;
+  });
   const [dicha, setDicha] = useState<string | null>(null);
 
   useEffect(() => {

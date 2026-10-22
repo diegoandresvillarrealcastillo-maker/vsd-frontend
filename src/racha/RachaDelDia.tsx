@@ -6,6 +6,7 @@ import { useMascotaDeLaPersona } from '../paginas/actividad/viva/mascotaDeLaPers
 import { SesionContexto } from '../sesion/SesionContexto.ts';
 import { CelebracionDeLaRacha } from './CelebracionDeLaRacha.tsx';
 import { DibujoDeLaLlama } from './DibujoDeLaLlama.tsx';
+import { EnElCuerpo } from './EnElCuerpo.tsx';
 import { momentoDeLaRacha, type MomentoDeLaRacha } from './momentoDeLaRacha.ts';
 import { refrescarLaRacha } from './refrescarLaRacha.ts';
 
@@ -33,7 +34,18 @@ const RETRASO_DE_LA_CELEBRACION_MS = 1_200;
  * antes (no hay forma de saber si hoy ya habia sumado), no se pinta nada: la pantalla del resultado
  * sigue como siempre. La llama de la barra se actualiza sola con lo que llega (`refrescarLaRacha`).
  */
-export function RachaDelDia({ celebrar }: { celebrar: boolean }) {
+export function RachaDelDia({
+  celebrar,
+  silenciosa = false,
+}: {
+  celebrar: boolean;
+  /**
+   * El resultado salio de la cola (se guardo sin conexion y se envio despues): ni celebracion ni linea.
+   * La persona puede estar leyendo otra cosa —o el aviso de sincronizacion, con una orientacion—, y la
+   * llama de la barra se pone al dia sola con lo que llega.
+   */
+  silenciosa?: boolean;
+}) {
   const sesion = useContext(SesionContexto);
   const cuenta = sesion?.sesion?.user.id ?? null;
   const mascota = useMascotaDeLaPersona();
@@ -55,7 +67,7 @@ export function RachaDelDia({ celebrar }: { celebrar: boolean }) {
       .then(({ antes, ahora }) => {
         const momento = momentoDeLaRacha(antes, ahora);
 
-        if (!vigente || momento === null) {
+        if (!vigente || momento === null || silenciosa) {
           return;
         }
 
@@ -76,22 +88,26 @@ export function RachaDelDia({ celebrar }: { celebrar: boolean }) {
       control.abort();
       clearTimeout(temporizador);
     };
-  }, [cuenta, celebrarAlMontar]);
+  }, [cuenta, celebrarAlMontar, silenciosa]);
 
   if (hoy === null) {
     return null;
   }
 
   if (abierta) {
+    // En el cuerpo de la pagina y no dentro del contenido de la actividad, que apila lo suyo y dejaba la
+    // celebracion por debajo de los avisos de sincronizacion, de version nueva y de analitica.
     return (
-      <CelebracionDeLaRacha
-        momento={hoy.momento}
-        racha={hoy.racha}
-        mascota={mascota}
-        alCerrar={() => {
-          setAbierta(false);
-        }}
-      />
+      <EnElCuerpo paleta="actividad">
+        <CelebracionDeLaRacha
+          momento={hoy.momento}
+          racha={hoy.racha}
+          mascota={mascota}
+          alCerrar={() => {
+            setAbierta(false);
+          }}
+        />
+      </EnElCuerpo>
     );
   }
 
