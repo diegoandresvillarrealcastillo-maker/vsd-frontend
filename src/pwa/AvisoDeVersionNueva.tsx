@@ -99,7 +99,9 @@ export function AvisoDeVersionNueva() {
               type="button"
               className="version-nueva__boton"
               disabled={aplicando}
-              onClick={dejarLaVersionParaDespues}
+              onClick={() => {
+                dejarLaVersionParaDespues();
+              }}
             >
               Después
             </button>

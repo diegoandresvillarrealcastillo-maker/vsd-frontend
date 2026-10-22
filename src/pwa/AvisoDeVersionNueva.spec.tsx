@@ -7,6 +7,7 @@ import {
   avisarVersionNueva,
   laVersionNuevaTomoElControl,
   olvidarLaVersionNuevaParaLasPruebas,
+  volverAOfrecerLaVersion,
 } from './versionNueva.ts';
 
 afterEach(() => {
@@ -291,5 +292,52 @@ describe('AvisoDeVersionNueva: recargar (SCRUM-135)', () => {
 
     expect(document.activeElement).toBe(antes);
     expect(screen.getByRole('button', { name: 'Recargar' })).not.toHaveFocus();
+  });
+});
+
+describe('AvisoDeVersionNueva: no se pasa por alto (SCRUM-234)', () => {
+  it('«Despues» la esconde, y al volver a la aplicacion pasado un rato la tarjeta vuelve, sin robar el foco', async () => {
+    const usuario = userEvent.setup();
+
+    render(
+      <>
+        <label>
+          Mi diario
+          <textarea />
+        </label>
+        <AvisoDeVersionNueva />
+      </>,
+    );
+    ofrecer();
+    await usuario.click(screen.getByRole('button', { name: 'Después' }));
+    expect(screen.queryByRole('button', { name: 'Actualizar' })).not.toBeInTheDocument();
+
+    // La persona escribe algo en su diario mientras tanto.
+    const diario = screen.getByRole('textbox', { name: 'Mi diario' });
+
+    diario.focus();
+
+    act(() => {
+      volverAOfrecerLaVersion(Date.now() + 30 * 60_000);
+    });
+
+    expect(screen.getByRole('button', { name: 'Actualizar' })).toBeInTheDocument();
+    // Llega, se anuncia y no interrumpe: lo que escribia sigue teniendo el foco.
+    expect(diario).toHaveFocus();
+  });
+
+  it('no lleva ningun texto de reclamo: dice lo mismo que la primera vez', async () => {
+    const usuario = userEvent.setup();
+
+    render(<AvisoDeVersionNueva />);
+    ofrecer();
+    await usuario.click(screen.getByRole('button', { name: 'Después' }));
+
+    act(() => {
+      volverAOfrecerLaVersion(Date.now() + 30 * 60_000);
+    });
+
+    expect(screen.getByRole('status')).toHaveTextContent('Hay una versión nueva de VSD Health.');
+    expect(screen.getByRole('status')).not.toHaveTextContent(/otra vez|de nuevo|todavía|recuerda/i);
   });
 });

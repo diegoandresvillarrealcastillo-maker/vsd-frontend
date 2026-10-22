@@ -1,5 +1,6 @@
 import '../estilos/avisos-clinicos.css';
 import { EnlacesLegales } from '../paginas/legal/EnlacesLegales.tsx';
+import { describirLaVersion, VERSION_DE_LA_APP } from '../version.ts';
 
 /**
  * El pie breve de las pantallas de la aplicacion (L-03 de la auditoria 360).
@@ -20,6 +21,9 @@ export function PieDeLaApp() {
       </p>
 
       <EnlacesLegales className="pie-de-la-app__enlaces" />
+
+      {/* Para saber que version se esta usando (SCRUM-234): sin esto, «no veo lo nuevo» no tiene respuesta. */}
+      <p className="pie-de-la-app__version">{describirLaVersion(VERSION_DE_LA_APP)}</p>
     </footer>
   );
 }
