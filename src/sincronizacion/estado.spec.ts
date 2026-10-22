@@ -922,6 +922,32 @@ describe('el motor trabaja', () => {
       t.apagar();
     });
 
+    it('guarda por que fallo la conexion y lo borra cuando el envio sale bien (SCRUM-244)', async () => {
+      const t = armar();
+      const c = crearCiclo();
+
+      await abrir(c);
+      c.emitir({ tipo: 'inicio', motivo: 'manual' });
+      c.emitir({
+        tipo: 'fin',
+        resultado: {
+          ...resultado('sin_conexion', { pendientes: 1 }),
+          detalle: 'resultado.registrar: TypeError: Failed to fetch',
+        },
+      });
+
+      expect(obtenerElEstado().detalleDelFallo).toBe(
+        'resultado.registrar: TypeError: Failed to fetch',
+      );
+
+      c.emitir({ tipo: 'inicio', motivo: 'manual' });
+      c.emitir({ tipo: 'fin', resultado: resultado('terminada', { enviadas: 1 }) });
+
+      expect(obtenerElEstado().detalleDelFallo).toBeNull();
+
+      t.apagar();
+    });
+
     it('por su cuenta no avisa: el indicador ya lo dice', async () => {
       const t = armar();
       const c = crearCiclo();

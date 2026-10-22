@@ -153,6 +153,14 @@ describe('generarLaExportacionEnPdf', () => {
       expect(textoDe(pdf)).toContain('VSD Health Tus datos');
     });
 
+    it('la portada lleva el logo de VSD Health, junto al nombre (SCRUM-247)', () => {
+      const pdf = generarLaExportacionEnPdf(exportacion());
+
+      // El pulso del isotipo (trazo redondeado) y el nombre, corrido a la derecha del logo.
+      expect(pdf).toContain('1 J 1 j');
+      expect(pdf).toMatch(/1 0 0 1 120 [\d.]+ Tm \(VSD Health\) Tj/);
+    });
+
     it('lo que sale es ASCII puro, aunque lo escrito no lo sea', () => {
       const pdf = generarLaExportacionEnPdf(exportacion());
 

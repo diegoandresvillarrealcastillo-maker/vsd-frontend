@@ -52,6 +52,14 @@ describe('hayConexionConLaApi (SCRUM-136)', () => {
     expect(await hayConexionConLaApi()).toBe(false);
   });
 
+  // «Demasiadas peticiones» es la API contestando: hay conexion, y lo que toca es esperar. Leerlo como
+  // «sin conexión» bloqueaba el envio de lo guardado mientras el servidor estaba sano (SCRUM-244).
+  it('un 429 es el servidor pidiendo esperar: si hay conexion', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('x', { status: 429 })));
+
+    expect(await hayConexionConLaApi()).toBe(true);
+  });
+
   it.each([500, 502, 503, 404])('un %i del servidor no es una conexion', async (estado) => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('x', { status: estado })));
 

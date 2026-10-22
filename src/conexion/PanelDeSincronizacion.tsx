@@ -50,7 +50,13 @@ export function PanelDeSincronizacion({
    */
   enfocar?: boolean;
 }) {
-  const { conexion, sincronizando, cambios: lista, ultimaSincronizacion } = useSincronizacion();
+  const {
+    conexion,
+    detalleDelFallo,
+    sincronizando,
+    cambios: lista,
+    ultimaSincronizacion,
+  } = useSincronizacion();
   const idDelTitulo = useId();
   const idDeLaAyuda = useId();
   const idDeLaPregunta = useId();
@@ -154,6 +160,9 @@ export function PanelDeSincronizacion({
         {ultimaSincronizacion !== null &&
           ` Última vez que se envió: ${cuandoFue(ultimaSincronizacion, ahora)}.`}
       </p>
+      {sinConexion && detalleDelFallo !== null && (
+        <p className="conexion__ayuda">Detalle técnico: {detalleDelFallo}</p>
+      )}
 
       <button
         type="button"

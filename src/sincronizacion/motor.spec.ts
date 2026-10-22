@@ -408,6 +408,36 @@ describe('sin conexion', () => {
     expect(await banco.estado('a')).toMatchObject({ estado: 'pendiente', intentos: 0 });
   });
 
+  it('dice por que no hubo conexion: la comprobacion de /health fallo', async () => {
+    const banco = armar();
+
+    banco.conexion.hay = false;
+    await banco.encolar('a');
+
+    const resultado = await banco.motor.sincronizar('manual');
+
+    expect(resultado.detalle).toBe('La comprobación de conexión con el servidor (/health) falló.');
+  });
+
+  it('dice por que no hubo conexion: que operacion y que error cortaron el envio', async () => {
+    const banco = armar();
+
+    banco.ejecutores['pendiente.crear'].mockRejectedValue(sinRed());
+    await banco.encolar('a');
+
+    const resultado = await banco.motor.sincronizar('manual');
+
+    expect(resultado.detalle).toBe('pendiente.crear: TypeError: Failed to fetch');
+  });
+
+  it('un envio que sale bien no lleva detalle', async () => {
+    const banco = armar();
+
+    await banco.encolar('a');
+
+    expect((await banco.motor.sincronizar('manual')).detalle).toBeUndefined();
+  });
+
   it('la pagina de un portal cautivo (200 con HTML) cuenta como no tener red', async () => {
     const banco = armar();
 

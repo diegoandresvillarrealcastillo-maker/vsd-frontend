@@ -235,6 +235,50 @@ function colorDe(color: Color): string {
   return color.map(numero).join(' ');
 }
 
+/** El lado del isotipo en la banda, en puntos, y el aire entre el y el nombre. */
+const LADO_DEL_LOGO = 48;
+const AIRE_DEL_LOGO = 16;
+
+/**
+ * El isotipo de VSD Health (el mismo dibujo de `Isotipo.tsx` y del favicon, SCRUM-247) como
+ * operaciones de PDF: una baldosa de esquinas redondeadas y el pulso encima. Es vector, sin imagen
+ * ni dependencias, asi que el archivo sigue siendo ASCII y identico byte a byte.
+ *
+ * `x` e `y` son la esquina de abajo a la izquierda. El dibujo se escribio con el `y` hacia abajo
+ * (SVG, 32 x 32): `py` lo da vuelta, porque en PDF el `y` crece hacia arriba.
+ */
+function operacionesDelIsotipo(
+  x: number,
+  y: number,
+  lado: number,
+  baldosa: Color,
+  pulso: Color,
+): string[] {
+  const k = lado / 32;
+  const px = (valor: number) => numero(x + valor * k);
+  const py = (valor: number) => numero(y + (32 - valor) * k);
+  const punto = (cx: number, cy: number) => `${px(cx)} ${py(cy)}`;
+  const curva = (a: [number, number], b: [number, number], fin: [number, number]) =>
+    `${punto(...a)} ${punto(...b)} ${punto(...fin)} c`;
+  // El radio de las esquinas (rx = 8) y la constante que aproxima un cuarto de circulo con una curva.
+  const r = 8;
+  const c = r * 0.5523;
+
+  return [
+    `${colorDe(baldosa)} rg ${punto(r, 32)} m ${punto(32 - r, 32)} l ` +
+      `${curva([32 - r + c, 32], [32, 32 - r + c], [32, 32 - r])} ${punto(32, r)} l ` +
+      `${curva([32, r - c], [32 - r + c, 0], [32 - r, 0])} ${punto(r, 0)} l ` +
+      `${curva([r - c, 0], [0, r - c], [0, r])} ${punto(0, 32 - r)} l ` +
+      `${curva([0, 32 - r + c], [r - c, 32], [r, 32])} h f`,
+    // El pulso: `M8 17.5 c… s…` del SVG, con las curvas suaves ya escritas por entero.
+    `${colorDe(pulso)} RG 1 J 1 j ${numero(2.2 * k)} w ${punto(8, 17.5)} m ` +
+      `${curva([10.5, 17.5], [11, 13.5], [13, 13.5])} ` +
+      `${curva([15, 13.5], [15.5, 19.5], [17.5, 19.5])} ` +
+      `${curva([19.5, 19.5], [20, 14.5], [21.5, 14.5])} ` +
+      `${curva([23, 14.5], [23, 17.5], [24, 17.5])} S`,
+  ];
+}
+
 // ---------------------------------------------------------------------------
 // El texto partido en lineas
 // ---------------------------------------------------------------------------
@@ -431,6 +475,11 @@ export class DocumentoPdf {
     readonly subtitulo?: string;
     readonly fondo: Color;
     readonly alto?: number;
+    /**
+     * Pone el logo de la marca a la izquierda, en negativo (baldosa blanca y pulso del color del
+     * fondo, porque la baldosa verde se perderia sobre el verde), y corre el texto a su derecha.
+     */
+    readonly logo?: boolean;
   }): void {
     if (this.cursor > MARGEN_SUPERIOR) {
       this.nuevaPagina();
@@ -443,13 +492,30 @@ export class DocumentoPdf {
       `${colorDe(opciones.fondo)} rg 0 ${numero(ALTO_DE_LA_PAGINA - alto)} ` +
         `${numero(ANCHO_DE_LA_PAGINA)} ${numero(alto)} re f`,
     );
+    const xDelTexto =
+      opciones.logo === true ? MARGEN_LATERAL + LADO_DEL_LOGO + AIRE_DEL_LOGO : MARGEN_LATERAL;
+
+    if (opciones.logo === true) {
+      const yDelLogo = ALTO_DE_LA_PAGINA - alto / 2 - LADO_DEL_LOGO / 2;
+
+      for (const operacion of operacionesDelIsotipo(
+        MARGEN_LATERAL,
+        yDelLogo,
+        LADO_DEL_LOGO,
+        blanco,
+        opciones.fondo,
+      )) {
+        this.poner(operacion);
+      }
+    }
+
     this.poner(
       this.operacionDeTexto(
         this.limpio(opciones.titulo),
         'negrita',
         26,
         blanco,
-        MARGEN_LATERAL,
+        xDelTexto,
         ALTO_DE_LA_PAGINA - (opciones.subtitulo === undefined ? alto / 2 + 9 : 50),
       ),
     );
@@ -461,7 +527,7 @@ export class DocumentoPdf {
           'normal',
           11.5,
           blanco,
-          MARGEN_LATERAL,
+          xDelTexto,
           ALTO_DE_LA_PAGINA - 72,
         ),
       );

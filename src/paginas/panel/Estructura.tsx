@@ -177,6 +177,8 @@ function MenuDeCuenta() {
         aria-expanded={abierto}
         aria-controls={idDelMenu}
         onClick={() => setAbierto((antes) => !antes)}
+        // En escritorio el diario esta en este menu: el tutorial senala el boton (SCRUM-246).
+        data-tutorial="cuenta"
       >
         {foto === null ? (
           <Icono nombre="user" />
@@ -386,7 +388,7 @@ export function NavegacionInferior({ enDiario = false }: { enDiario?: boolean })
         to={RUTAS.DIARIO}
         aria-current={enDiario ? 'page' : undefined}
         // El tutorial senala el diario donde se ve: en el movil, en el dock (SCRUM-201). En
-        // escritorio no se ve, y el paso va centrado.
+        // escritorio no se ve, y el paso senala el boton de la cuenta, que es donde esta (SCRUM-246).
         data-tutorial="diario"
       >
         {enDiario && pastilla}

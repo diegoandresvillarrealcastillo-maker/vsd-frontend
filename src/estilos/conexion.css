@@ -24,7 +24,9 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  max-width: 24rem;
+  /* 28 rem: «Sin conexión · 10 cambios guardados en este equipo» mide unos 330 px y con 24 rem se
+     cortaba con puntos suspensivos (SCRUM-245). */
+  max-width: 28rem;
   min-height: 2.5rem;
   padding: 0 0.875rem;
   border: 1px solid var(--app-borde);
@@ -87,9 +89,11 @@
   color: var(--app-emociones);
 }
 
-/* En el movil, solo el icono y el numero: el texto completo es el nombre del
-   boton y el titulo del panel. */
-@media (max-width: 639px) {
+/* En el movil y hasta los 1279 px (un portatil pequeno, una tablet), solo el icono y el numero: la
+   barra lleva ademas la marca, la navegacion, la llama, el tema y la cuenta, y con la frase entera
+   desbordaba (medido: 212 px a 768 y el nombre partido en dos lineas a 1024). El texto completo
+   sigue siendo el nombre del boton y el titulo del panel (SCRUM-245). */
+@media (max-width: 1279px) {
   .conexion__texto {
     display: none;
   }
