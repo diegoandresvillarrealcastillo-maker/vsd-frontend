@@ -278,6 +278,32 @@ describe('La racha al terminar una actividad (SCRUM-243)', () => {
     );
   });
 
+  it('un resultado bajo y aislado tambien celebra la racha: son los dias que viniste, no el puntaje (SCRUM-200)', async () => {
+    // Un juego que no salio, o que se dejo a medias, queda en «requiere atencion» sin que el servidor
+    // sugiera acompanar. La racha cuenta dias con actividad (ADR 0024): ese dia suma igual.
+    registrarResultado.mockResolvedValue({
+      id: 'r-aislado',
+      activityId: SUENO,
+      nivelOrientativo: 'requiere_atencion',
+      sugiereAcompanamiento: false,
+      lineasDeAtencion: [],
+      metadata: {},
+      completedAt: '2026-10-12T15:00:00.000Z',
+    });
+
+    pintar(ANA);
+
+    await usuario.click(await screen.findByRole('button', { name: 'Terminar' }));
+    // El resultado sigue siendo neutro, sin la fiesta del resultado...
+    expect(await screen.findByText('Quedó registrado. Un día es solo un día.')).toBeInTheDocument();
+    expect(screen.queryByText('¡Lo hiciste!')).not.toBeInTheDocument();
+
+    // ...y la racha si se celebra.
+    expect(
+      await screen.findByRole('dialog', { name: '¡12 días seguidos!' }, { timeout: 4_000 }),
+    ).toBeInTheDocument();
+  });
+
   it('cuando el resultado pide acompanar no hay celebracion ni confeti, y las lineas siguen a la vista', async () => {
     registrarResultado.mockResolvedValue({
       id: 'r-2',

@@ -302,9 +302,11 @@ function Terminada({
           libre. Aqui solo se ensena lo que dice. */}
       {resultado.sugiereAcompanamiento && <LineasDeAtencion lineas={resultado.lineasDeAtencion} />}
 
-      {/* La racha (SCRUM-243), debajo del resultado: una fiesta si se celebra; si pide acompanar, solo una
-          linea que no empuja ni tapa lo que se esta leyendo; y nada si el resultado salio de la cola. */}
-      <RachaDelDia celebrar={celebrar} silenciosa={salioDeLaCola} />
+      {/* La racha (SCRUM-243), debajo del resultado: una fiesta; si el servidor sugiere acompanar, solo una
+          linea que no empuja ni tapa lo que se esta leyendo; y nada si el resultado salio de la cola. La
+          racha cuenta dias con actividad, no el puntaje: un resultado bajo y aislado (SCRUM-200) tambien
+          la celebra, aunque el resultado en si no lleve confeti. */}
+      <RachaDelDia celebrar={!resultado.sugiereAcompanamiento} silenciosa={salioDeLaCola} />
 
       <div className="actividad__acciones">
         <button type="button" className="pildora pildora--fantasma" onClick={alRepetir}>
