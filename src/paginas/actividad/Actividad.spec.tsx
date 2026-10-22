@@ -10,6 +10,8 @@ import { cuantosH1, fallosDeAccesibilidad } from '../../pruebas/axe.ts';
 import { rutaDeActividad, RUTAS } from '../../rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { fijarLaZonaDeLaCuenta } from '../../tiempo/zonaHoraria.ts';
+import { rachaDePrueba } from '../../pruebas/rachaDePrueba.ts';
+import { olvidarLaRacha, rachaRecordadaDe, recordarLaRacha } from '../../racha/memoriaDeLaRacha.ts';
 import { cicloActual } from '../../sincronizacion/ciclo.ts';
 import { Actividad } from './Actividad.tsx';
 import { abrirUnAlmacenDePrueba, cerrarElAlmacenDePrueba } from '../../pruebas/almacenDePrueba.ts';
@@ -21,11 +23,14 @@ import { abrirUnAlmacenDePrueba, cerrarElAlmacenDePrueba } from '../../pruebas/a
  * lo que puede fallar de verdad —cargar, completar, enviar, reintentar— en vez
  * de comprobar que un doble devuelve lo que se le dijo.
  */
-const { buscarActividad, registrarResultado, hayConexionConLaApi } = vi.hoisted(() => ({
-  buscarActividad: vi.fn(),
-  registrarResultado: vi.fn(),
-  hayConexionConLaApi: vi.fn(),
-}));
+const { buscarActividad, registrarResultado, hayConexionConLaApi, consultarLaRacha } = vi.hoisted(
+  () => ({
+    buscarActividad: vi.fn(),
+    registrarResultado: vi.fn(),
+    hayConexionConLaApi: vi.fn(),
+    consultarLaRacha: vi.fn(),
+  }),
+);
 
 // El catalogo sale de la copia local cuando no hay conexion (SCRUM-138); aqui es un doble.
 vi.mock('../../sincronizacion/catalogoLocal.ts', () => ({
@@ -35,6 +40,8 @@ vi.mock('../../sincronizacion/catalogoLocal.ts', () => ({
 // Lo que se termina entra a la cola y la envia el motor de verdad: solo se simula la red.
 vi.mock('../../infraestructura/api/conexion.ts', () => ({ hayConexionConLaApi }));
 vi.mock('../../infraestructura/api/resultados.ts', () => ({ registrarResultado }));
+// La racha (SCRUM-243) se pide al empezar y al terminar; aqui solo importa lo que se hace con ella.
+vi.mock('../../infraestructura/api/racha.ts', () => ({ consultarLaRacha }));
 
 /** "Como dormiste anoche": una bitacora que si puntua. */
 const SUENO = '0acd0000-0000-4000-8000-000000000004';
@@ -49,11 +56,18 @@ function fichaDe(id: string, nombre: string, tipo = 'bitacora') {
   };
 }
 
-function estadoDeSesion(): EstadoDeSesion {
+const ANA = '11111111-1111-4111-8111-111111111111';
+
+function estadoDeSesion(cuenta?: string): EstadoDeSesion {
   const vacio = vi.fn();
 
   return {
-    sesion: { user: { email: 'alguien@ucundinamarca.edu.co' } } as Session,
+    sesion: {
+      user: {
+        ...(cuenta === undefined ? {} : { id: cuenta }),
+        email: 'alguien@ucundinamarca.edu.co',
+      },
+    } as Session,
     cargando: false,
     correo: 'alguien@ucundinamarca.edu.co',
     registrarse: vacio,
@@ -67,9 +81,9 @@ function estadoDeSesion(): EstadoDeSesion {
   };
 }
 
-function pintar(id: string) {
+function pintar(id: string, cuenta?: string) {
   return render(
-    <SesionContexto.Provider value={estadoDeSesion()}>
+    <SesionContexto.Provider value={estadoDeSesion(cuenta)}>
       <MemoryRouter initialEntries={[rutaDeActividad(id)]}>
         <Routes>
           <Route path={RUTAS.ACTIVIDAD} element={<Actividad />} />
@@ -98,6 +112,8 @@ beforeEach(() => {
 });
 
 beforeEach(async () => {
+  olvidarLaRacha();
+  consultarLaRacha.mockResolvedValue(rachaDePrueba());
   hayConexionConLaApi.mockResolvedValue(true);
   await abrirUnAlmacenDePrueba();
 });
@@ -325,6 +341,25 @@ describe('Actividad, sin conexion (SCRUM-138)', () => {
     expect(screen.queryByText(/Guardado en este equipo/)).toBeNull();
     expect(registrarResultado).toHaveBeenCalledTimes(1);
     expect((await laCola())[0]).toMatchObject({ estado: 'hecha' });
+  });
+
+  it('lo que sale de la cola no celebra la racha ni pinta su linea: la llama se pone al dia en silencio (revision final)', async () => {
+    recordarLaRacha(ANA, rachaDePrueba({ dias: 11, hechoHoy: false }));
+    consultarLaRacha.mockResolvedValue(rachaDePrueba({ dias: 12, hechoHoy: true }));
+
+    pintar(SUENO, ANA);
+    await terminarLaActividad();
+    await screen.findByText(/Guardado en este equipo/);
+    await volverLaConexion();
+    await screen.findByText('Vas bien. Sigue así.');
+
+    // Con tiempo de sobra para que, si fuera a salir, ya hubiera salido (a los 1,2 s).
+    await new Promise((resolver) => setTimeout(resolver, 1_600));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Racha: /)).not.toBeInTheDocument();
+    // La llama de la barra si se entero: lo recordado ya es lo de ahora.
+    expect(rachaRecordadaDe(ANA)?.hechoHoy).toBe(true);
   });
 
   it('con lo que sugiere el acompanamiento, al volver la conexion tambien salen las lineas', async () => {

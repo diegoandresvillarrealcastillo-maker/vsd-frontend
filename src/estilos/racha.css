@@ -9,7 +9,10 @@
    se mueve despacio y, en descanso, es solo un contorno quieto.
    ============================================================ */
 
-.app {
+/* Los tokens tambien los lee la celebracion de la racha (SCRUM-243), que se pinta dentro de la pantalla
+   de una actividad (`.actividad`), no de `.app`. */
+.app,
+.actividad {
   --llama-base: #e07a3f;
   --llama-punta: #f6c35d;
   --llama-corazon: #fff0c2;
@@ -25,7 +28,8 @@
   --llama-ascua-punta: #c9a46a;
 }
 
-:root[data-tema='claro'] .app {
+:root[data-tema='claro'] .app,
+:root[data-tema='claro'] .actividad {
   --llama-base: #d2602a;
   --llama-punta: #eba33a;
   --llama-corazon: #ffe6a8;

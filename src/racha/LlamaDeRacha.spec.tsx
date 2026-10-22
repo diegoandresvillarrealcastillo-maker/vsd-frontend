@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { NivelDeLaLlama, Racha } from '../infraestructura/api/racha.ts';
+import { rachaDePrueba } from '../pruebas/rachaDePrueba.ts';
 import { SesionContexto, type EstadoDeSesion } from '../sesion/SesionContexto.ts';
 import { LlamaDeLaBarra, LlamaDeRacha } from './LlamaDeRacha.tsx';
 import { olvidarLaRacha } from './memoriaDeLaRacha.ts';
@@ -18,18 +19,13 @@ import { olvidarLaRacha } from './memoriaDeLaRacha.ts';
 const { consultarLaRacha } = vi.hoisted(() => ({ consultarLaRacha: vi.fn() }));
 
 vi.mock('../infraestructura/api/racha.ts', () => ({ consultarLaRacha }));
+// La mascota del panel viene de la cuenta: aqui no importa cual es.
+vi.mock('../paginas/actividad/viva/useCargarLaMascota.ts', () => ({
+  useCargarLaMascota: () => null,
+}));
 
 function racha(cambios: Partial<Racha> = {}): Racha {
-  return {
-    dias: 12,
-    nivel: 1,
-    hechoHoy: true,
-    enDescanso: false,
-    congelamientosUsados: 0,
-    congelamientosPorMes: 3,
-    diasCubiertos: [],
-    ...cambios,
-  };
+  return rachaDePrueba(cambios);
 }
 
 const usuario = userEvent.setup({ delay: null });
@@ -107,12 +103,12 @@ describe('LlamaDeRacha', () => {
       const boton = screen.getByRole('button');
 
       expect(boton).toHaveAttribute('aria-expanded', 'false');
-      expect(screen.queryByRole('status')).toBeNull();
+      expect(screen.queryByRole('region', { name: 'Tu racha' })).toBeNull();
 
       await usuario.click(boton);
 
       expect(boton).toHaveAttribute('aria-expanded', 'true');
-      expect(screen.getByRole('status')).toBeInTheDocument();
+      expect(screen.getByRole('region', { name: 'Tu racha' })).toBeInTheDocument();
     });
 
     it('explica los congelamientos del mes, con cuantos quedan', async () => {
@@ -120,7 +116,7 @@ describe('LlamaDeRacha', () => {
 
       await usuario.click(screen.getByRole('button'));
 
-      const panel = screen.getByRole('status');
+      const panel = screen.getByRole('region', { name: 'Tu racha' });
 
       expect(within(panel).getByText(/1 de 3/)).toBeInTheDocument();
       expect(within(panel).getByText(/quedan 2/i)).toBeInTheDocument();
@@ -131,20 +127,99 @@ describe('LlamaDeRacha', () => {
 
       await usuario.click(screen.getByRole('button'));
 
-      expect(within(screen.getByRole('status')).getByText(/hasta 3 días/i)).toBeInTheDocument();
+      expect(
+        within(screen.getByRole('region', { name: 'Tu racha' })).getByText(/hasta 3 días/i),
+      ).toBeInTheDocument();
     });
 
     it('si hoy ya sumo, lo dice; si no, invita sin reclamar', async () => {
-      const { rerender } = render(<LlamaDeRacha racha={racha({ hechoHoy: true })} />);
+      const { rerender } = render(<LlamaDeRacha racha={racha({ hechoHoy: true })} hora={10} />);
 
       await usuario.click(screen.getByRole('button'));
-      expect(within(screen.getByRole('status')).getByText(/hoy ya sumaste/i)).toBeInTheDocument();
+      expect(
+        within(screen.getByRole('region', { name: 'Tu racha' })).getByText(/hoy ya sumaste/i),
+      ).toBeInTheDocument();
 
-      rerender(<LlamaDeRacha racha={racha({ hechoHoy: false })} />);
+      rerender(<LlamaDeRacha racha={racha({ hechoHoy: false })} hora={10} />);
 
       expect(
-        within(screen.getByRole('status')).getByText(/una actividad hoy/i),
+        within(screen.getByRole('region', { name: 'Tu racha' })).getByText(/una actividad hoy/i),
       ).toBeInTheDocument();
+    });
+
+    describe('en el cuerpo de la pagina (revision final)', () => {
+      // La barra de arriba lleva `backdrop-filter`, y un ancestro con filtro se vuelve el contenedor de
+      // sus hijos `position: fixed`: la hoja del telefono (`bottom: 0`) y su velo (`inset: 0`) se
+      // medirian contra la barra de 76 px y quedarian fuera de la pantalla. Por eso el panel sale del
+      // arbol de la barra y se pinta en el cuerpo, con la paleta de la aplicacion.
+      it('el panel no cuelga de la barra: se pinta en el cuerpo, con la paleta', async () => {
+        const { container } = render(<LlamaDeRacha racha={racha()} />);
+
+        await usuario.click(screen.getByRole('button'));
+
+        const panel = screen.getByRole('region', { name: 'Tu racha' });
+
+        expect(container.contains(panel)).toBe(false);
+        expect(document.body.contains(panel)).toBe(true);
+        expect(panel.closest('.app')).not.toBeNull();
+      });
+
+      it('el boton sigue apuntando al panel', async () => {
+        render(<LlamaDeRacha racha={racha()} />);
+
+        const boton = screen.getByRole('button');
+
+        await usuario.click(boton);
+
+        expect(document.getElementById(boton.getAttribute('aria-controls') ?? '')).toBe(
+          screen.getByRole('region', { name: 'Tu racha' }),
+        );
+      });
+
+      it('al abrir, el foco pasa al panel, y Escape lo devuelve al boton', async () => {
+        render(<LlamaDeRacha racha={racha()} />);
+
+        const boton = screen.getByRole('button');
+
+        await usuario.click(boton);
+
+        expect(screen.getByRole('region', { name: 'Tu racha' })).toHaveFocus();
+
+        await usuario.keyboard('{Escape}');
+
+        expect(boton).toHaveFocus();
+      });
+
+      it('tocar dentro del panel no lo cierra', async () => {
+        render(<LlamaDeRacha racha={racha()} />);
+
+        await usuario.click(screen.getByRole('button'));
+        await usuario.click(screen.getByText('Congelamientos'));
+
+        expect(screen.getByRole('button')).toHaveAttribute('aria-expanded', 'true');
+        expect(screen.getByRole('region', { name: 'Tu racha' })).toBeInTheDocument();
+      });
+
+      it('tocar el velo lo cierra', async () => {
+        render(<LlamaDeRacha racha={racha()} />);
+
+        await usuario.click(screen.getByRole('button'));
+        await usuario.click(document.querySelector('.llama__velo')!);
+
+        expect(screen.getByRole('button')).toHaveAttribute('aria-expanded', 'false');
+      });
+
+      it('al cerrar, el panel y el velo salen del cuerpo', async () => {
+        render(<LlamaDeRacha racha={racha()} />);
+
+        const boton = screen.getByRole('button');
+
+        await usuario.click(boton);
+        await usuario.click(boton);
+
+        expect(document.querySelector('.racha-portal')).toBeNull();
+        expect(document.querySelector('.llama__velo')).toBeNull();
+      });
     });
 
     it('se cierra con Escape y devuelve el foco al boton', async () => {

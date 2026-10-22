@@ -42,6 +42,7 @@ import {
   avisoDesde,
   esOrdenDeActualizar,
   esPantallaDeLaApp,
+  ICONO_POR_OMISION,
   rutaPropia,
 } from './pwa/reglasDelServiceWorker.ts';
 
@@ -111,8 +112,8 @@ self.addEventListener('push', (evento) => {
   evento.waitUntil(
     self.registration.showNotification(aviso.titulo, {
       body: aviso.cuerpo,
-      icon: '/icono-192.png',
-      badge: '/icono-192.png',
+      icon: aviso.icono,
+      badge: ICONO_POR_OMISION,
       lang: 'es-CO',
       tag: aviso.etiqueta,
       data: { ruta: aviso.ruta },

@@ -102,7 +102,7 @@ describe('Los cuatro niveles se distinguen (SCRUM-202)', () => {
   });
 
   it('cada nivel nuevo trae sus colores como tokens, y los dos temas tienen los mismos', () => {
-    const oscuro = /(?:^|\n)\.app\s*\{([^}]*)\}/.exec(CSS)?.[1] ?? '';
+    const oscuro = /(?:^|\n)\.app,\s*\.actividad\s*\{([^}]*)\}/.exec(CSS)?.[1] ?? '';
 
     for (const token of [
       '--llama-ambar-base',
@@ -138,7 +138,7 @@ describe('Los cuatro niveles se distinguen (SCRUM-202)', () => {
 describe('Los colores viven en los tokens', () => {
   it('no hay colores en hexadecimal fuera de los dos bloques de tokens', () => {
     const fuera = CSS.replace(
-      /(?:^|\n)(?:\.app|:root\[data-tema='claro'\] \.app)\s*\{[^}]*\}/g,
+      /(?:^|\n)(?:\.app,\s*\.actividad|:root\[data-tema='claro'\] \.app,\s*:root\[data-tema='claro'\] \.actividad)\s*\{[^}]*\}/g,
       '',
     );
 
@@ -148,8 +148,11 @@ describe('Los colores viven en los tokens', () => {
   it('hay los mismos tokens en claro y en oscuro', () => {
     const nombres = (cuerpo: string) =>
       [...cuerpo.matchAll(/(--llama-[a-z-]+):/g)].map((m) => m[1]);
-    const oscuro = /(?:^|\n)\.app\s*\{([^}]*)\}/.exec(CSS)?.[1] ?? '';
-    const claro = /:root\[data-tema='claro'\] \.app\s*\{([^}]*)\}/.exec(CSS)?.[1] ?? '';
+    const oscuro = /(?:^|\n)\.app,\s*\.actividad\s*\{([^}]*)\}/.exec(CSS)?.[1] ?? '';
+    const claro =
+      /:root\[data-tema='claro'\] \.app,\s*:root\[data-tema='claro'\] \.actividad\s*\{([^}]*)\}/.exec(
+        CSS,
+      )?.[1] ?? '';
 
     expect(nombres(oscuro).length).toBeGreaterThan(0);
     expect(nombres(claro)).toEqual(nombres(oscuro));

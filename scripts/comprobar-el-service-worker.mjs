@@ -369,6 +369,25 @@ comprobar(
 );
 
 llamadas.avisos.length = 0;
+await disparar(
+  'push',
+  aviso({ titulo: 'Tu racha de 12 días', cuerpo: 'Sparky: ...', tipo: 'racha', mascota: 'gato' }),
+);
+comprobar(
+  'un aviso con la mascota de la cuenta lleva su icono',
+  llamadas.avisos.length === 1 && llamadas.avisos[0].opciones.icon === '/mascotas/gato.webp',
+);
+
+for (const forma of ['propia', 'dragon', '../icono-192', 7, null]) {
+  llamadas.avisos.length = 0;
+  await disparar('push', aviso({ titulo: 'x', mascota: forma }));
+  comprobar(
+    `un aviso con la mascota ${JSON.stringify(forma)} lleva el icono de la aplicacion`,
+    llamadas.avisos.length === 1 && llamadas.avisos[0].opciones.icon === '/icono-192.png',
+  );
+}
+
+llamadas.avisos.length = 0;
 await disparar('push', aviso(new Error('no es JSON')));
 comprobar(
   'un aviso con un cuerpo que no es JSON se muestra con lo de siempre',
