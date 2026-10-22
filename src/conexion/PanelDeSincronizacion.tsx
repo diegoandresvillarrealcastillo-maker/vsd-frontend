@@ -9,6 +9,7 @@ import {
 } from '../sincronizacion/estado.ts';
 import { leerLoEscritoDe } from '../sincronizacion/loGuardadoEnEsteEquipo.ts';
 import { cambios, cuandoFue, type CambioGuardado } from '../sincronizacion/resumen.ts';
+import { useEnLinea } from './useEnLinea.ts';
 
 /**
  * El panel que abre el indicador (SCRUM-137): el estado de la sincronizacion, el
@@ -21,8 +22,9 @@ import { cambios, cuandoFue, type CambioGuardado } from '../sincronizacion/resum
  *
  * ## Lo que se puede hacer
  *
- * - **Sincronizar ahora.** No espera los reintentos programados. Sin conexion no
- *   se puede, y el boton lo dice en vez de desaparecer o quedarse mudo.
+ * - **Sincronizar ahora.** No espera los reintentos programados. Sin red no se puede, y
+ *   el boton lo dice en vez de desaparecer o quedarse mudo. Con red pero sin respuesta del
+ *   servidor (dormido, caido) si se puede: reintentar a mano es lo que hay que poder hacer.
  * - **Reintentar** lo que se rechazo: vuelve a la cola de una vez.
  * - **Descartar** lo que se rechazo o chocó con otro dispositivo. **Pregunta
  *   primero**: tirar un cambio es perderlo, y con el van los que dependian de el.
@@ -62,8 +64,13 @@ export function PanelDeSincronizacion({
     escrito: { texto: string; conDiagramas: boolean } | null;
   } | null>(null);
   const [anuncio, setAnuncio] = useState('');
+  const hayRed = useEnLinea();
   const sinConexion = conexion === 'sin_conexion';
-  const noSePuedeSincronizar = sinConexion || sincronizando;
+  // Sin red del navegador no hay nada que intentar. Con red y "sin conexion", lo que no respondio fue
+  // el servidor (dormido, caido): reintentar a mano es justo lo que hay que poder hacer.
+  const sinRed = sinConexion && !hayRed;
+  const sinRespuesta = sinConexion && hayRed;
+  const noSePuedeSincronizar = sinRed || sincronizando;
   const ahora = new Date();
 
   useEffect(() => {
@@ -140,9 +147,10 @@ export function PanelDeSincronizacion({
       </div>
 
       <p className="conexion__estado">
-        {sinConexion
-          ? 'Sin conexión. Lo que hagas se guarda aquí y se envía solo cuando vuelva.'
-          : 'Con conexión. Lo que hagas se envía solo.'}
+        {sinRed && 'Sin conexión. Lo que hagas se guarda aquí y se envía solo cuando vuelva.'}
+        {sinRespuesta &&
+          'El servidor no respondió. Lo que hagas se guarda aquí y se envía solo cuando responda.'}
+        {!sinConexion && 'Con conexión. Lo que hagas se envía solo.'}
         {ultimaSincronizacion !== null &&
           ` Última vez que se envió: ${cuandoFue(ultimaSincronizacion, ahora)}.`}
       </p>
@@ -151,14 +159,14 @@ export function PanelDeSincronizacion({
         type="button"
         className="conexion__sincronizar"
         aria-disabled={noSePuedeSincronizar}
-        aria-describedby={sinConexion ? idDeLaAyuda : undefined}
+        aria-describedby={sinRed ? idDeLaAyuda : undefined}
         onClick={() => {
           void alSincronizar();
         }}
       >
         {sincronizando ? 'Sincronizando…' : 'Sincronizar ahora'}
       </button>
-      {sinConexion && (
+      {sinRed && (
         <p id={idDeLaAyuda} className="conexion__ayuda">
           Sin conexión no se puede. Se enviará solo cuando vuelva.
         </p>
