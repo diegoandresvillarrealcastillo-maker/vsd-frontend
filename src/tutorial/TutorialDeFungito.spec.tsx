@@ -2,6 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import HOJA from '../estilos/tutorial.css?raw';
 import { PASOS_DEL_TUTORIAL } from './pasos.ts';
 import {
   marcarElTutorialComoVisto,
@@ -62,6 +63,20 @@ describe('los pasos', () => {
     const todo = PASOS_DEL_TUTORIAL.map((paso) => `${paso.titulo} ${paso.texto}`).join(' ');
 
     expect(todo).not.toMatch(/debes|tienes que|obligatori|no olvides|perd|castig|falla/i);
+  });
+
+  it('el diario dice donde esta en el celular y en el computador', () => {
+    const diario = PASOS_DEL_TUTORIAL.find((paso) => paso.id === 'diario');
+
+    expect(diario?.texto).toMatch(/celular/);
+    expect(diario?.texto).toMatch(/computador/);
+    expect(diario?.texto).toMatch(/menú de tu cuenta/);
+  });
+
+  it('cada paso es breve: cabe en una lectura de unos segundos', () => {
+    for (const paso of PASOS_DEL_TUTORIAL) {
+      expect(paso.texto.split(/\s+/).length, paso.id).toBeLessThanOrEqual(45);
+    }
   });
 
   it('no promete lo que la app no hace: el asistente no diagnostica', () => {
@@ -280,6 +295,37 @@ describe('el spotlight (SCRUM-201)', () => {
     expect(dialogo).toHaveAccessibleName('Tu semáforo');
   });
 
+  // En escritorio el diario no esta en el dock (no se ve): se llega por el menu de la cuenta, y es
+  // ahi donde el paso tiene que mirar (SCRUM-246). Sin esto el paso salia centrado y sin explicar donde.
+  it('en escritorio, el diario se senala en el boton de la cuenta', async () => {
+    anclar('cuenta', { left: 1000, top: 18, width: 40, height: 40 });
+    const { container } = render(<TutorialDeFungito cuenta={CUENTA} />);
+
+    await irAlPaso('diario');
+
+    expect(container.querySelector('.tutorial--spotlight')).not.toBeNull();
+    expect(hueco(container)).toHaveStyle({ left: '992px', top: '10px' });
+  });
+
+  it('en el movil, el diario se senala en el dock y no en la cuenta', async () => {
+    anclar('diario', { left: 280, top: 700, width: 70, height: 56 });
+    anclar('cuenta', { left: 300, top: 10, width: 40, height: 40 });
+    const { container } = render(<TutorialDeFungito cuenta={CUENTA} />);
+
+    await irAlPaso('diario');
+
+    expect(hueco(container)).toHaveStyle({ left: '272px', top: '692px' });
+  });
+
+  it('un diario que no se ve en ningun sitio deja el paso centrado', async () => {
+    anclar('diario', { left: 0, top: 0, width: 0, height: 0 });
+    const { container } = render(<TutorialDeFungito cuenta={CUENTA} />);
+
+    await irAlPaso('diario');
+
+    expect(hueco(container)).toBeNull();
+  });
+
   it('las anclas que usan los pasos existen en el codigo de la app', () => {
     const FUENTES = import.meta.glob<string>(['../**/*.tsx', '!../**/*.spec.tsx'], {
       query: '?raw',
@@ -289,10 +335,12 @@ describe('el spotlight (SCRUM-201)', () => {
     const todo = Object.values(FUENTES).join('\n');
 
     for (const paso of PASOS_DEL_TUTORIAL) {
-      if (paso.ancla !== undefined) {
-        expect(todo, `nadie marca data-tutorial="${paso.ancla}"`).toMatch(
-          new RegExp(`data-tutorial=["']${paso.ancla}["']`),
-        );
+      for (const ancla of [paso.ancla, paso.anclaSiNoSeVe]) {
+        if (ancla !== undefined) {
+          expect(todo, `nadie marca data-tutorial="${ancla}"`).toMatch(
+            new RegExp(`data-tutorial=["']${ancla}["']`),
+          );
+        }
       }
     }
   });
@@ -318,9 +366,12 @@ describe('TutorialDeFungito', () => {
   it('avanza y retrocede paso a paso', async () => {
     render(<TutorialDeFungito cuenta={CUENTA} />);
 
-    expect(screen.queryByRole('button', { name: 'Atrás' })).toBeNull();
+    // Siempre esta, para que los botones no cambien de sitio, y apagado donde no hay a donde volver.
+    expect(screen.getByRole('button', { name: 'Atrás' })).toBeDisabled();
 
     await usuario.click(screen.getByRole('button', { name: 'Siguiente' }));
+
+    expect(screen.getByRole('button', { name: 'Atrás' })).toBeEnabled();
 
     expect(screen.getByRole('dialog')).toHaveAccessibleName(PASOS_DEL_TUTORIAL[1]?.titulo ?? '');
     expect(screen.getByText(/Paso 2 de/)).toBeInTheDocument();
@@ -397,5 +448,32 @@ describe('TutorialDeFungito', () => {
     const imagen = container.querySelector('img');
 
     expect(imagen).toHaveAttribute('alt', '');
+  });
+});
+
+/**
+ * Los botones del tutorial (SCRUM-246). jsdom no pinta, asi que lo que se vigila son las reglas de
+ * cada estado: que no se quiten sin darse cuenta. Los contrastes se midieron en un navegador, en
+ * claro y en oscuro, y estan en la descripcion del PR.
+ */
+describe('los botones del tutorial tienen todos sus estados', () => {
+  const sinNotas = HOJA.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  it.each([
+    ['apagado', '.tutorial__boton:disabled', /cursor:\s*not-allowed/],
+    ['apagado: no solo cambia el color', '.tutorial__boton:disabled', /border-style:\s*dashed/],
+    ['pulsado', '.tutorial__boton:active:not(:disabled)', /transform:\s*scale\(/],
+    ['foco visible', '.tutorial__boton:focus-visible', /outline:\s*3px solid/],
+  ])('%s', (_estado, selector, declaracion) => {
+    const escapado = selector.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+    const bloque = new RegExp(String.raw`${escapado}[^{]*\{([^}]*)\}`).exec(sinNotas)?.[1];
+
+    expect(bloque, selector).toMatch(declaracion);
+  });
+
+  it('el hover solo se aplica donde hay raton, y no sobre un boton apagado', () => {
+    expect(sinNotas).toMatch(
+      /@media \(hover: hover\) and \(pointer: fine\)\s*\{[^@]*\.tutorial__boton:hover:not\(:disabled\)/,
+    );
   });
 });
