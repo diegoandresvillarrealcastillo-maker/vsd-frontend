@@ -2,7 +2,10 @@
    Sin ningun valor que dependa del tema: el isotipo lleva sus colores fijos y
    el texto hereda el de la pantalla donde esta. */
 
+/* `flex: none`: en una barra apretada el nombre nunca se parte en «VSD-» y «H» (SCRUM-245);
+   lo que cede es lo demas (el indicador de la conexion). */
 .marca {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -20,4 +23,5 @@
   font-size: 25px;
   font-weight: 600;
   letter-spacing: -0.03em;
+  white-space: nowrap;
 }

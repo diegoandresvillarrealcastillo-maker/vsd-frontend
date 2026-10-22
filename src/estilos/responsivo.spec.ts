@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import APLICACION from './aplicacion.css?raw';
 import CONEXION from './conexion.css?raw';
 import LEGAL from './legal.css?raw';
+import MARCA from './marca.css?raw';
 
 /**
  * Lo que mide una auditoria a 320, 375 y 430 px y no se debe romper (SCRUM-179).
@@ -100,5 +101,27 @@ describe('Ninguna altura depende de 100vh a secas', () => {
     ['conexion.css', CONEXION],
   ])('%s: cada 100vh trae su 100dvh', (_nombre, hoja) => {
     expect(sinRespaldo(hoja)).toEqual([]);
+  });
+});
+
+describe('La barra de escritorio no se desborda (SCRUM-245)', () => {
+  // Con «Sin conexión · 10 cambios guardados en este equipo» la barra desbordaba 212 px a 768 y
+  // partia el nombre en «VSD-» y «H» a 1024; la frase tambien se cortaba con puntos suspensivos.
+  it('la marca no se encoge ni parte su nombre', () => {
+    expect(regla(MARCA, '.marca')).toContain('flex: none');
+    expect(regla(MARCA, '.marca__texto')).toContain('white-space: nowrap');
+  });
+
+  it('hasta 1279 px el indicador deja solo el icono y el numero', () => {
+    const sinNotas = sinComentarios(CONEXION);
+    const bloque = new RegExp(
+      String.raw`@media \(max-width: 1279px\)\s*\{[^@]*?\.conexion__texto\s*\{([^}]*)\}`,
+    ).exec(sinNotas)?.[1];
+
+    expect(bloque).toContain('display: none');
+  });
+
+  it('con sitio, la frase cabe entera: el boton llega a 28 rem', () => {
+    expect(regla(CONEXION, '.conexion__boton')).toContain('max-width: 28rem');
   });
 });
