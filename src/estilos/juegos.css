@@ -462,6 +462,24 @@
   gap: 4px;
 }
 
+/* En un telefono las casillas ya son chicas (en 360 px: ~42 px en 3×3 y ~24 px en 5×5). Los tableros siguen
+   lado a lado, pero salen un poco hacia el margen de la pagina y pierden relleno: 3×3 llega a 44 px y 5×5 a 25 px. */
+@media (max-width: 30rem) {
+  .juego__tableros {
+    gap: 8px;
+    margin-inline: -8px;
+  }
+
+  .juego__tablero-caja {
+    padding: 6px;
+    border-radius: 18px;
+  }
+
+  .juego__tablero {
+    gap: 3px;
+  }
+}
+
 .juego__casilla {
   position: relative;
   display: grid;
