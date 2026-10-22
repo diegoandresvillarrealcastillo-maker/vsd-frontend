@@ -100,6 +100,12 @@ export interface ResumenDeSincronizacion {
 export interface ResultadoDeSincronizacion {
   readonly estado: EstadoDeLaSincronizacion;
   readonly resumen: ResumenDeSincronizacion;
+  /**
+   * Por que se dijo `sin_conexion`, en una frase tecnica sin datos de la persona. "Sin
+   * conexion" es lo que se ve; esto es lo que permite saber si fue la comprobacion de
+   * `/health`, un `TypeError` de `fetch` o un error del propio codigo (SCRUM-244).
+   */
+  readonly detalle?: string;
 }
 
 export type EventoDelMotor =
@@ -194,6 +200,13 @@ export const META_ULTIMA_SINCRONIZACION = 'ultimaSincronizacion';
 
 /** Un instante que ninguna espera de reintento alcanza: todo lo que espere ya "toca". */
 const FIN_DE_LOS_TIEMPOS = new Date(8.64e15);
+
+/** `TypeError: Failed to fetch`: el nombre y el mensaje, que no llevan nada de la persona. */
+function describirElError(error: unknown): string {
+  return error instanceof Error
+    ? `${error.name}: ${error.message}`.slice(0, 160)
+    : 'error desconocido';
+}
 
 export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincronizacion {
   const {
@@ -290,6 +303,7 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
       return {
         estado: 'sin_conexion',
         resumen: { ...SIN_NADA, pendientes: pendientesAlEmpezar.length },
+        detalle: 'La comprobación de conexión con el servidor (/health) falló.',
       };
     }
 
@@ -299,6 +313,7 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
     let conflictos = 0;
     let corte: 'sin_conexion' | 'sesion_vencida' | 'textos_pendientes' | 'persona_distinta' | null =
       null;
+    let detalle: string | undefined;
 
     const contexto: ContextoDeEjecucion = {
       reciboDe: (operationId) => {
@@ -400,6 +415,7 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
             // un intento y se detiene todo: la siguiente fallaria igual.
             await guardar({ ...siguiente, estado: 'pendiente' });
             corte = 'sin_conexion';
+            detalle = `${siguiente.tipo}: ${describirElError(error)}`;
             break;
 
           case 'sesion':
@@ -484,7 +500,7 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
     };
 
     if (corte !== null) {
-      return { estado: corte, resumen };
+      return { estado: corte, resumen, ...(detalle === undefined ? {} : { detalle }) };
     }
 
     await almacen.guardarMeta(META_ULTIMA_SINCRONIZACION, reloj().toISOString());
