@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 
+import { EstadoDeCarga } from '../componentes/EstadoDeCarga.tsx';
 import { useRegistroCompleto } from '../sesion/useRegistroCompleto.ts';
 import { useSesion } from '../sesion/useSesion.ts';
 import { RUTAS } from './rutas.ts';
@@ -50,11 +51,7 @@ export function RutaProtegida({ children, sinRegistro = false }: Props) {
   if (cargando) {
     // Todavia no se sabe si hay sesion. Redirigir ahora expulsaria a quien si
     // la tiene, cada vez que recarga la pagina.
-    return (
-      <p role="status" aria-live="polite" className="solo-lectores">
-        Comprobando la sesión
-      </p>
-    );
+    return <EstadoDeCarga mensaje="Comprobando la sesión" tarjetas={1} tardio />;
   }
 
   if (!sesion) {
@@ -66,11 +63,7 @@ export function RutaProtegida({ children, sinRegistro = false }: Props) {
 
   if (!sinRegistro) {
     if (registro === 'comprobando') {
-      return (
-        <p role="status" aria-live="polite" className="solo-lectores">
-          Comprobando tu registro
-        </p>
-      );
+      return <EstadoDeCarga mensaje="Comprobando tu registro" tarjetas={1} tardio />;
     }
 
     if (registro === 'pendiente') {
