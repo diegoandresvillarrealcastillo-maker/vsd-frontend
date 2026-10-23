@@ -1,10 +1,10 @@
 import type { Session } from '@supabase/supabase-js';
 import { act, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { avisarQueHayTextosPendientes } from '../infraestructura/api/clienteHttp.ts';
-import { olvidarElRegistro } from '../sesion/useRegistroCompleto.ts';
+import { ESPERA_DEL_REGISTRO_EN_MS, olvidarElRegistro } from '../sesion/useRegistroCompleto.ts';
 import { SesionContexto, type EstadoDeSesion } from '../sesion/SesionContexto.ts';
 import { RutaProtegida } from './RutaProtegida.tsx';
 import { RUTAS } from './rutas.ts';
@@ -97,6 +97,10 @@ function pintar(valor: EstadoDeSesion, rutaInicial: string = RUTAS.PANEL) {
   );
 }
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 beforeEach(() => {
   olvidarElRegistro();
   consultarElEstadoDelRegistro.mockReset();
@@ -164,6 +168,25 @@ describe('RutaProtegida y el registro (T-03 de la auditoria 360)', () => {
     expect(await screen.findByText(/^Completa tu registro\./)).toBeInTheDocument();
   });
 
+  it('mientras comprueba, el mensaje se ve: no es solo para lectores de pantalla', () => {
+    consultarElEstadoDelRegistro.mockReturnValue(new Promise(() => undefined));
+
+    pintar(estado({ sesion: SESION_CUALQUIERA }));
+
+    const mensaje = screen.getByText('Comprobando tu registro');
+
+    expect(mensaje.closest('.estado-de-carga--tardio')).not.toBeNull();
+    expect(mensaje.closest('.solo-lectores')).toBeNull();
+  });
+
+  it('mientras comprueba la sesion, tambien se ve', () => {
+    pintar(estado({ sesion: null, cargando: true }));
+
+    expect(
+      screen.getByText('Comprobando la sesión').closest('.estado-de-carga--tardio'),
+    ).not.toBeNull();
+  });
+
   it('no bloquea si no se pudo preguntar: la aplicacion se usa sin conexion', async () => {
     // La API es la que de verdad manda: a una cuenta incompleta le responde 403
     // en todo lo demas. Aqui lo unico que se evita es dejar a alguien sin poder
@@ -173,6 +196,55 @@ describe('RutaProtegida y el registro (T-03 de la auditoria 360)', () => {
     pintar(estado({ sesion: SESION_CUALQUIERA }));
 
     expect(await screen.findByText('Contenido reservado')).toBeInTheDocument();
+  });
+
+  // Un servidor que no contesta (dormido, o una conexion que no avanza) dejaba la pantalla en blanco el
+  // tiempo que durara la espera: el unico texto era para lectores de pantalla (SCRUM-248).
+  it('no deja la pantalla esperando para siempre: si el servidor no contesta, pasa tras unos segundos', async () => {
+    vi.useFakeTimers();
+    consultarElEstadoDelRegistro.mockReturnValue(new Promise(() => undefined));
+
+    pintar(estado({ sesion: SESION_CUALQUIERA }));
+
+    expect(screen.queryByText('Contenido reservado')).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ESPERA_DEL_REGISTRO_EN_MS - 1);
+    });
+
+    expect(screen.queryByText('Contenido reservado')).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+
+    expect(screen.getByText('Contenido reservado')).toBeInTheDocument();
+  });
+
+  it('si la respuesta llega despues del plazo y dice que falta el registro, la lleva a completarlo', async () => {
+    vi.useFakeTimers();
+    let responder: (valor: unknown) => void = () => undefined;
+
+    consultarElEstadoDelRegistro.mockReturnValue(
+      new Promise((resolver) => {
+        responder = resolver;
+      }),
+    );
+
+    pintar(estado({ sesion: SESION_CUALQUIERA }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ESPERA_DEL_REGISTRO_EN_MS);
+    });
+
+    expect(screen.getByText('Contenido reservado')).toBeInTheDocument();
+
+    await act(async () => {
+      responder({ estado: 'sin-cuenta' });
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText(/^Completa tu registro\./)).toBeInTheDocument();
   });
 
   it('en las rutas que no exigen el registro no pregunta nada', () => {

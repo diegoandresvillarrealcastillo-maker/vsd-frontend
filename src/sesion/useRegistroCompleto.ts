@@ -23,6 +23,16 @@ export type ComprobacionDelRegistro =
   'comprobando' | 'completo' | 'pendiente' | 'textos-pendientes' | 'sin-comprobar';
 
 /**
+ * Cuanto se espera la respuesta de la API antes de dejar pasar como `sin-comprobar` (SCRUM-248).
+ *
+ * Sin limite, un servidor dormido (en el plan gratuito despertarlo tarda cerca de un minuto) o una
+ * conexion que no avanza dejaban la pantalla esperando todo ese tiempo, con la cuenta sin mostrar. Pasado
+ * el plazo se entra igual, como cuando la pregunta falla: la API sigue mandando, y la respuesta que llegue
+ * despues todavia cuenta (si dice que falta el registro, se lleva a completarlo).
+ */
+export const ESPERA_DEL_REGISTRO_EN_MS = 8_000;
+
+/**
  * La persona de la que ya se sabe que esta completa.
  *
  * Sin esto, cada cambio de pantalla preguntaria otra vez a la API algo que no
@@ -65,9 +75,14 @@ export function useRegistroCompleto(
     }
 
     const control = new AbortController();
+    const plazo = setTimeout(() => {
+      setRespuesta({ persona, resultado: 'sin-comprobar' });
+    }, ESPERA_DEL_REGISTRO_EN_MS);
 
     consultarElEstadoDelRegistro(control.signal)
       .then((estado) => {
+        clearTimeout(plazo);
+
         if (control.signal.aborted) {
           return;
         }
@@ -87,12 +102,17 @@ export function useRegistroCompleto(
         });
       })
       .catch(() => {
+        clearTimeout(plazo);
+
         if (!control.signal.aborted) {
           setRespuesta({ persona, resultado: 'sin-comprobar' });
         }
       });
 
-    return () => control.abort();
+    return () => {
+      clearTimeout(plazo);
+      control.abort();
+    };
   }, [persona, activo]);
 
   // Una version nueva con la sesion abierta: la API responde 403 de textos pendientes en cualquier

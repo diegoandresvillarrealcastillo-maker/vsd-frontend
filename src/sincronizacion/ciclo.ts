@@ -1,6 +1,7 @@
 import { deleteDB } from 'idb';
 
 import { hayConexionConLaApi } from '../infraestructura/api/conexion.ts';
+import { motivoDelUltimoFallo } from '../infraestructura/api/motivoDelFallo.ts';
 import {
   abrirAlmacenEnIndexedDB,
   crearAlmacenEnMemoria,
@@ -69,6 +70,8 @@ export interface FabricasDelCiclo {
   readonly crearEnMemoria: (persona: string) => AlmacenLocal;
   readonly borrarBase: (persona: string) => Promise<void>;
   readonly confirmarConexion: () => Promise<boolean>;
+  /** Por que fallo la ultima comprobacion (SCRUM-244). Sin esto el detalle no trae el motivo. */
+  readonly motivoDelFallo?: () => string | null;
   readonly pedirPersistencia: () => void;
   /** `null` donde el navegador no tiene `BroadcastChannel`: entonces cada pestana va por su lado. */
   readonly crearCanalDeLaCola: () => CanalDeLaCola | null;
@@ -81,6 +84,7 @@ const FABRICAS_REALES: FabricasDelCiclo = {
   crearEnMemoria: crearAlmacenEnMemoria,
   borrarBase: (persona) => deleteDB(nombreDeLaBase(persona)),
   confirmarConexion: hayConexionConLaApi,
+  motivoDelFallo: motivoDelUltimoFallo,
   pedirPersistencia: () => {
     // Le pide al navegador que no borre esto por falta de espacio. Es una
     // peticion: Safari, por ejemplo, la contesta como quiera. Si falla, no pasa
@@ -328,6 +332,9 @@ export function alCambiarLaSesion(
         almacen,
         personaDeLaSesion: () => personaDeLaSesion,
         confirmarConexion: fabricas.confirmarConexion,
+        ...(fabricas.motivoDelFallo === undefined
+          ? {}
+          : { motivoDelFallo: fabricas.motivoDelFallo }),
       }),
     };
     llaveroDelAbierto = llavero;

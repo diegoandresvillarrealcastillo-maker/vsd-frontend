@@ -174,6 +174,8 @@ export interface DependenciasDelMotor {
   readonly personaDeLaSesion: () => string | null;
   /** Si de verdad hay conexion con la API (no basta con lo que diga el navegador). */
   readonly confirmarConexion: () => Promise<boolean>;
+  /** Por que la ultima comprobacion fallo, para decirlo en el detalle (SCRUM-244). */
+  readonly motivoDelFallo?: () => string | null;
   readonly reloj?: () => Date;
   /** Un numero en [0, 1): el azar de la espera. Se recibe para poder probarlo. */
   readonly azar?: () => number;
@@ -213,6 +215,7 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
     almacen,
     personaDeLaSesion,
     confirmarConexion,
+    motivoDelFallo = () => null,
     ejecutores = EJECUTORES,
     reloj = () => new Date(),
     azar = Math.random,
@@ -300,10 +303,14 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
     }
 
     if (!(await confirmarConexion())) {
+      const motivo = motivoDelFallo();
+
       return {
         estado: 'sin_conexion',
         resumen: { ...SIN_NADA, pendientes: pendientesAlEmpezar.length },
-        detalle: 'La comprobación de conexión con el servidor (/health) falló.',
+        detalle: `La comprobación de conexión con el servidor (/health) falló${
+          motivo === null ? '' : `: ${motivo}`
+        }.`,
       };
     }
 

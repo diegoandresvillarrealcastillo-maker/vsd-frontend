@@ -35,3 +35,12 @@ describe('El esqueleto', () => {
     expect(reglaBase).not.toMatch(/#[0-9a-f]{3,8}\b|rgb\(/i);
   });
 });
+
+describe('El estado de carga tardio (SCRUM-248)', () => {
+  it('no aparece de golpe: espera un rato para no parpadear en las cargas que duran un instante', () => {
+    expect(SIN_COMENTARIOS).toMatch(/@keyframes\s+estado-de-carga-aparece/);
+    expect(SIN_COMENTARIOS).toMatch(
+      /\.estado-de-carga--tardio\s*\{[^}]*opacity:\s*0[^}]*animation:[^;]*estado-de-carga-aparece/,
+    );
+  });
+});
