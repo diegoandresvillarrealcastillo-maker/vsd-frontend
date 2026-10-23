@@ -32,6 +32,38 @@ function direcciones(): string {
   return `desde ${desde} hacia ${hacia}`;
 }
 
+/** Una ruta publica y barata de la API, para cuando `/health` no se puede pedir. */
+const RUTA_DE_RESPALDO = '/api/aviso';
+const ESPERA_DE_LA_RUTA_DE_RESPALDO_EN_MS = 10_000;
+
+/**
+ * Lo que contesta la API por la ruta de respaldo: el estado HTTP, o `null` si no llego.
+ *
+ * Solo se pide cuando `/health` fallo de golpe, sin que el servidor llegara a contestar. Un bloqueador de
+ * contenido del navegador (`net::ERR_BLOCKED_BY_CLIENT`) puede cortar solo esa direccion y dejar pasar el
+ * resto de la API; sin esto, la comprobacion decia «sin conexion» y el envio de lo guardado se quedaba parado
+ * con el servidor sano (SCRUM-244).
+ */
+async function estadoPorLaRutaDeRespaldo(): Promise<number | null> {
+  const control = new AbortController();
+  const limite = setTimeout(() => {
+    control.abort();
+  }, ESPERA_DE_LA_RUTA_DE_RESPALDO_EN_MS);
+
+  try {
+    const respuesta = await fetch(`${entorno.urlDeLaApi}${RUTA_DE_RESPALDO}`, {
+      cache: 'no-store',
+      signal: control.signal,
+    });
+
+    return respuesta.status;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(limite);
+  }
+}
+
 export async function hayConexionConLaApi(): Promise<boolean> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     recordarElMotivo(`el navegador dice que no hay red (${direcciones()})`);
@@ -66,11 +98,26 @@ export async function hayConexionConLaApi(): Promise<boolean> {
       );
     } else {
       const que = error instanceof Error ? `${error.name}: ${error.message}` : 'error desconocido';
+      const duracion = Date.now() - inicio;
+      const porRespaldo = await estadoPorLaRutaDeRespaldo();
+
+      if (
+        porRespaldo !== null &&
+        ((porRespaldo >= 200 && porRespaldo < 300) || porRespaldo === 429)
+      ) {
+        recordarElMotivo(null);
+
+        return true;
+      }
 
       // Desde la pagina no hay forma fiable de saber si un fallo de `fetch` fue CORS o red: el navegador
       // dice lo mismo en los dos casos (y una peticion `no-cors` a un JSON con `nosniff` tambien se
       // rechaza). Por eso solo se dice lo que se sabe: el error, cuanto tardo y desde donde a donde.
-      recordarElMotivo(`${que.slice(0, 80)} en ${Date.now() - inicio} ms (${direcciones()})`);
+      recordarElMotivo(
+        `${que.slice(0, 80)} en ${duracion} ms; por ${RUTA_DE_RESPALDO} ${
+          porRespaldo === null ? 'tampoco llega' : `el servidor respondió ${porRespaldo}`
+        } (${direcciones()})`,
+      );
     }
 
     return false;

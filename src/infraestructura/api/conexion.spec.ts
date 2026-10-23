@@ -199,17 +199,70 @@ describe('motivoDelUltimoFallo (SCRUM-244)', () => {
     expect(motivoDelUltimoFallo()).toBe(`sin respuesta en 60 s (${DESDE})`);
   });
 
-  it('fetch falla: dice el error del navegador, cuanto tardo y desde donde se pregunto', async () => {
+  // Un bloqueador de contenido del navegador (`net::ERR_BLOCKED_BY_CLIENT`) puede cortar solo `/health` y
+  // dejar pasar el resto de la API: eso dejaba el envio de lo guardado parado con el servidor sano (SCRUM-244).
+  it('si /health falla de golpe pero la API responde por otra ruta, si hay conexion', async () => {
+    const pedir = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }));
+
+    vi.stubGlobal('fetch', pedir);
+
+    expect(await hayConexionConLaApi()).toBe(true);
+
+    const [direccion, opciones] = pedir.mock.calls[1] as [string, RequestInit];
+
+    expect(direccion).toMatch(/\/api\/aviso$/);
+    expect(opciones.cache).toBe('no-store');
+    expect(motivoDelUltimoFallo()).toBeNull();
+  });
+
+  it('por la otra ruta tambien vale un 429: es la API pidiendo esperar', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValueOnce(new Response('x', { status: 429 })),
+    );
+
+    expect(await hayConexionConLaApi()).toBe(true);
+  });
+
+  it('si /health y la otra ruta fallan, no hay conexion y el motivo lo dice', async () => {
     const pedir = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+
+    vi.stubGlobal('fetch', pedir);
+
+    expect(await hayConexionConLaApi()).toBe(false);
+    expect(pedir).toHaveBeenCalledTimes(2);
+    expect(motivoDelUltimoFallo()).toMatch(
+      /^TypeError: Failed to fetch en \d+ ms; por \/api\/aviso tampoco llega \(/,
+    );
+    expect(motivoDelUltimoFallo()).toContain(DESDE);
+  });
+
+  it('si la otra ruta responde mal, tampoco hay conexion y dice el estado', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValueOnce(new Response('x', { status: 503 })),
+    );
+
+    expect(await hayConexionConLaApi()).toBe(false);
+    expect(motivoDelUltimoFallo()).toContain('por /api/aviso el servidor respondió 503');
+  });
+
+  it('si /health respondio mal, el servidor contesto: no se prueba otra ruta', async () => {
+    const pedir = vi.fn().mockResolvedValue(new Response('x', { status: 503 }));
 
     vi.stubGlobal('fetch', pedir);
 
     await hayConexionConLaApi();
 
-    // Una sola peticion: no hay forma fiable de saber, desde la pagina, si un fallo de `fetch` fue CORS o
-    // red (Chrome tambien rechaza una peticion `no-cors` cuya respuesta es JSON con `nosniff`).
     expect(pedir).toHaveBeenCalledTimes(1);
-    expect(motivoDelUltimoFallo()).toMatch(/^TypeError: Failed to fetch en \d+ ms \(/);
-    expect(motivoDelUltimoFallo()).toContain(DESDE);
   });
 });
