@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 
+import { EstadoDeCarga } from '../componentes/EstadoDeCarga.tsx';
 import { useSesion } from '../sesion/useSesion.ts';
 import { RUTAS } from './rutas.ts';
 
@@ -22,11 +23,7 @@ export function RutaDeInvitado({ children }: { children: ReactNode }) {
   if (cargando) {
     // Todavia no se sabe si hay sesion. Pintar el formulario ahora y quitarlo
     // medio segundo despues es peor que esperar.
-    return (
-      <p role="status" aria-live="polite" className="solo-lectores">
-        Comprobando la sesión
-      </p>
-    );
+    return <EstadoDeCarga mensaje="Comprobando la sesión" tarjetas={1} tardio />;
   }
 
   if (sesion) {
