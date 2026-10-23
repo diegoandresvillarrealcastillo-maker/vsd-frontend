@@ -419,6 +419,19 @@ describe('sin conexion', () => {
     expect(resultado.detalle).toBe('La comprobación de conexión con el servidor (/health) falló.');
   });
 
+  it('dice por que no hubo conexion: si la comprobacion trae su motivo, va en el detalle', async () => {
+    const banco = armar({ motivoDelFallo: () => 'el servidor respondió 503 (desde A hacia B)' });
+
+    banco.conexion.hay = false;
+    await banco.encolar('a');
+
+    const resultado = await banco.motor.sincronizar('manual');
+
+    expect(resultado.detalle).toBe(
+      'La comprobación de conexión con el servidor (/health) falló: el servidor respondió 503 (desde A hacia B).',
+    );
+  });
+
   it('dice por que no hubo conexion: que operacion y que error cortaron el envio', async () => {
     const banco = armar();
 

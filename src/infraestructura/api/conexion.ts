@@ -1,4 +1,5 @@
 import { entorno } from '../entorno.ts';
+import { recordarElMotivo } from './motivoDelFallo.ts';
 
 /**
  * Si de verdad hay conexion con la API (SCRUM-136).
@@ -18,12 +19,28 @@ import { entorno } from '../entorno.ts';
  */
 export const ESPERA_MAXIMA_DE_LA_COMPROBACION_EN_MS = 60_000;
 
+function direcciones(): string {
+  const desde = typeof location === 'undefined' ? 'un origen desconocido' : location.origin;
+  let hacia = entorno.urlDeLaApi;
+
+  try {
+    hacia = new URL(entorno.urlDeLaApi).origin;
+  } catch {
+    // Una direccion mal escrita se muestra tal cual: es justo lo que hay que ver.
+  }
+
+  return `desde ${desde} hacia ${hacia}`;
+}
+
 export async function hayConexionConLaApi(): Promise<boolean> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    recordarElMotivo(`el navegador dice que no hay red (${direcciones()})`);
+
     return false;
   }
 
   const control = new AbortController();
+  const inicio = Date.now();
   const limite = setTimeout(() => {
     control.abort();
   }, ESPERA_MAXIMA_DE_LA_COMPROBACION_EN_MS);
@@ -37,8 +54,25 @@ export async function hayConexionConLaApi(): Promise<boolean> {
 
     // Un 429 («espera un momento») tambien es la API contestando: hay conexion, y el envio
     // respetara su `Retry-After` (SCRUM-244).
-    return respuesta.ok || respuesta.status === 429;
-  } catch {
+    const hay = respuesta.ok || respuesta.status === 429;
+
+    recordarElMotivo(hay ? null : `el servidor respondió ${respuesta.status} (${direcciones()})`);
+
+    return hay;
+  } catch (error) {
+    if (control.signal.aborted) {
+      recordarElMotivo(
+        `sin respuesta en ${ESPERA_MAXIMA_DE_LA_COMPROBACION_EN_MS / 1000} s (${direcciones()})`,
+      );
+    } else {
+      const que = error instanceof Error ? `${error.name}: ${error.message}` : 'error desconocido';
+
+      // Desde la pagina no hay forma fiable de saber si un fallo de `fetch` fue CORS o red: el navegador
+      // dice lo mismo en los dos casos (y una peticion `no-cors` a un JSON con `nosniff` tambien se
+      // rechaza). Por eso solo se dice lo que se sabe: el error, cuanto tardo y desde donde a donde.
+      recordarElMotivo(`${que.slice(0, 80)} en ${Date.now() - inicio} ms (${direcciones()})`);
+    }
+
     return false;
   } finally {
     clearTimeout(limite);

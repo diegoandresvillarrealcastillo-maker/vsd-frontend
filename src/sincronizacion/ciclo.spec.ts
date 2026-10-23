@@ -245,6 +245,22 @@ describe('abrir el almacen cuando entra una persona', () => {
     expect(mundo.confirmarConexion).toHaveBeenCalledTimes(1);
   });
 
+  it('el motor de cada persona dice por que la comprobacion de conexion fallo', async () => {
+    const { mundo, fabricas } = crearMundo();
+
+    mundo.confirmarConexion.mockResolvedValue(false);
+    reiniciarElCicloParaLasPruebas({
+      ...fabricas,
+      motivoDelFallo: () => 'TypeError: Failed to fetch',
+    });
+    await alCambiarLaSesion('ana', RECORDADA);
+    await cicloActual()?.almacen.agregarOperacion(unaOperacion('a'));
+
+    const resultado = await cicloActual()?.motor.sincronizar('manual');
+
+    expect(resultado?.detalle).toContain('TypeError: Failed to fetch');
+  });
+
   it('el motor no envia con la sesion de otra persona: lo sabe en cuanto la sesion cambia', async () => {
     const { fabricas } = crearMundo();
 
