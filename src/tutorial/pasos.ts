@@ -24,6 +24,16 @@ export interface PasoDelTutorial {
   readonly expresion: Expresion;
   /** El elemento que ilumina este paso (SCRUM-201). Sin el, el paso va centrado. */
   readonly ancla?: AnclaDelTutorial;
+  /**
+   * Lo que dice el globo cuando la persona toca el elemento senalado (SCRUM-252). Un paso sin esto
+   * senala algo que no se toca: la ruta, por ejemplo.
+   */
+  readonly alProbar?: string;
+  /**
+   * Tocar el elemento llevaria a otra pantalla (el diario): en el recorrido el toque no navega, solo
+   * se reconoce, para que nadie se salga del tutorial sin querer.
+   */
+  readonly noNavega?: true;
 }
 
 export const PASOS_DEL_TUTORIAL: readonly PasoDelTutorial[] = [
@@ -49,6 +59,7 @@ export const PASOS_DEL_TUTORIAL: readonly PasoDelTutorial[] = [
       'Cuenta los días en que haces algo en la aplicación. Tócala para ver tu avance. Si un día no puedes, descansa y vuelve a encenderse cuando regreses.',
     expresion: 'feliz',
     ancla: 'llama',
+    alProbar: '¡Eso es! Ahí ves tu avance con calma. Cuando quieras, sigue.',
   },
   {
     id: 'semaforo',
@@ -57,6 +68,7 @@ export const PASOS_DEL_TUTORIAL: readonly PasoDelTutorial[] = [
       'Anota lo que tienes pendiente y márcalo como urgente, prioridad o aplazable. Así ordenas la cabeza y eliges por dónde empezar, sin exigirte.',
     expresion: 'feliz',
     ancla: 'semaforo',
+    alProbar: '¡Eso es! Ahí anotas lo que tienes pendiente. Cuando quieras, sigue.',
   },
   {
     id: 'diario',
@@ -65,6 +77,8 @@ export const PASOS_DEL_TUTORIAL: readonly PasoDelTutorial[] = [
       'Escribe lo que quieras, a tu ritmo. Es solo tuyo: solo se usa para recomendarte algo si tú lo permites. Lo abres en «Mi diario»: abajo en el celular, o arriba, junto a Inicio y Progreso, en el computador.',
     expresion: 'normal',
     ancla: 'diario',
+    alProbar: 'Ahí está. Lo abres cuando termine el recorrido: por ahora, sigamos.',
+    noNavega: true,
   },
   {
     id: 'asistente',
@@ -73,6 +87,9 @@ export const PASOS_DEL_TUTORIAL: readonly PasoDelTutorial[] = [
       'Si quieres hablar o no sabes por dónde empezar, el asistente te escucha y te orienta con calma. No sustituye a un profesional: no diagnostica ni receta nada.',
     expresion: 'feliz',
     ancla: 'asistente',
+    // La mascota que se toca es la de la persona, no necesariamente Fungito: no se dice «mi».
+    alProbar:
+      '¡Eso es! Desde la frase de tu mascota puedes hablar con el asistente. Cuando quieras, sigue.',
   },
   {
     id: 'aqui-estoy',
