@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProgresoDelModulo } from '../../../infraestructura/api/progreso.ts';
 import { fallosDeAccesibilidad } from '../../../pruebas/axe.ts';
@@ -160,5 +160,135 @@ describe('RutaDelDia', () => {
     const { container } = pintar(PROGRESO);
 
     expect(await fallosDeAccesibilidad(container)).toEqual([]);
+  });
+});
+
+/**
+ * El camino se desplaza dentro de su recuadro (SCRUM-250).
+ *
+ * jsdom no calcula el diseno: ni el alto de nada ni el desplazamiento. Lo que se vigila aqui es la
+ * estructura (que el titulo quede fuera de lo que se desplaza) y la decision de a donde se lleva
+ * el recuadro al abrir; el alto maximo y las sombras viven en `ruta.css` y se miden en el navegador.
+ */
+describe('RutaDelDia: el camino se desplaza dentro de su recuadro (SCRUM-250)', () => {
+  const ALTO_DEL_RECUADRO = 400;
+  const ALTO_DEL_CONTENIDO = 1500;
+  const ALTO_DE_LA_FILA = 150;
+  // Donde empieza cada fila dentro del contenido: 150 px de cada una mas el titulo del modulo.
+  const ARRIBA_DE_LA_SIGUIENTE = 700;
+
+  /** Lo que el recuadro lleva desplazado: el que lee y el que escribe el componente. */
+  let desplazamiento = 0;
+
+  function rectangulo(top: number, height: number): DOMRect {
+    return {
+      top,
+      height,
+      bottom: top + height,
+      left: 0,
+      right: 0,
+      width: 0,
+      x: 0,
+      y: top,
+    } as DOMRect;
+  }
+
+  beforeEach(() => {
+    desplazamiento = 0;
+
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element,
+    ) {
+      if (this.classList.contains('ruta__recorrido')) {
+        return rectangulo(0, ALTO_DEL_RECUADRO);
+      }
+
+      if (this.classList.contains('ruta__fila')) {
+        // La fila de la actividad que toca (o la de la meta) empieza en 700 del contenido, y el
+        // contenido se mueve con el desplazamiento: en la ventana esta en 700 menos lo desplazado.
+        const laDeAhora = this.querySelector('.ruta__nodo--siguiente, .ruta__nodo--meta') !== null;
+
+        return rectangulo(
+          (laDeAhora ? ARRIBA_DE_LA_SIGUIENTE : 0) - desplazamiento,
+          ALTO_DE_LA_FILA,
+        );
+      }
+
+      return rectangulo(0, 0);
+    });
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockImplementation(function (this: Element) {
+      return this.classList.contains('ruta__recorrido') ? ALTO_DEL_RECUADRO : 0;
+    });
+    vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(function (this: Element) {
+      return this.classList.contains('ruta__recorrido') ? ALTO_DEL_CONTENIDO : 0;
+    });
+    vi.spyOn(Element.prototype, 'scrollTop', 'get').mockImplementation(() => desplazamiento);
+    vi.spyOn(Element.prototype, 'scrollTop', 'set').mockImplementation((valor: number) => {
+      desplazamiento = valor;
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('el camino va dentro del recuadro y el titulo y el contador, fuera', () => {
+    const { container } = pintar(PROGRESO);
+
+    const recuadro = container.querySelector('.ruta__recorrido');
+
+    expect(recuadro).not.toBeNull();
+    expect(recuadro?.querySelector('.ruta__camino')).not.toBeNull();
+    expect(recuadro?.querySelector('.ruta__cabecera')).toBeNull();
+    expect(container.querySelector('.ruta__cabecera')?.closest('.ruta__recorrido')).toBeNull();
+  });
+
+  it('sin actividades no hay recuadro que desplazar', () => {
+    const { container } = pintar([]);
+
+    expect(container.querySelector('.ruta__recorrido')).toBeNull();
+  });
+
+  it('al abrir, lleva el recuadro hasta la actividad que toca, centrada', () => {
+    pintar(PROGRESO);
+
+    // Su mitad esta en 700 + 75 = 775; con 200 px de cada lado, el recuadro arranca en 575.
+    expect(desplazamiento).toBe(575);
+  });
+
+  it('con todo hecho, no hay nada que empezar y lleva el recuadro hasta la meta', () => {
+    pintar(completo());
+
+    // En este montaje la fila de la meta tambien empieza en 700: se centra igual que la otra.
+    expect(desplazamiento).toBe(575);
+  });
+
+  it('no mueve la pagina: no usa scrollIntoView', () => {
+    const alVer = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+
+    Element.prototype.scrollIntoView = alVer;
+
+    try {
+      pintar(PROGRESO);
+
+      expect(alVer).not.toHaveBeenCalled();
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
+  it('si la actividad que toca esta arriba, el recuadro se queda arriba', () => {
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element,
+    ) {
+      return this.classList.contains('ruta__recorrido')
+        ? rectangulo(0, ALTO_DEL_RECUADRO)
+        : rectangulo(20, ALTO_DE_LA_FILA);
+    });
+
+    pintar(PROGRESO);
+
+    expect(desplazamiento).toBe(0);
   });
 });
