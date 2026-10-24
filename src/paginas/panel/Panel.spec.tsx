@@ -1082,10 +1082,13 @@ describe('La racha por la tarde (SCRUM-243)', () => {
 });
 
 describe('La carta que te dejaste (SCRUM-230)', () => {
-  const AYER = diasAntes(diaDe(new Date()), 1);
+  let AYER: string;
 
   beforeEach(async () => {
     fijarLaZonaDeLaCuenta('America/Bogota');
+    // Despues de fijar la zona: con la del equipo (UTC en el CI), «ayer» se
+    // adelanta un dia entre las 7 p. m. y la medianoche de Bogota.
+    AYER = diasAntes(diaDe(new Date()), 1);
     await abrirUnAlmacenDePrueba();
   });
 
