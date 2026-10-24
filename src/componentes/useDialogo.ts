@@ -1,6 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react';
 
-const ENFOCABLES = [
+export const ENFOCABLES = [
   'a[href]',
   'button:not([disabled])',
   'input:not([disabled])',
@@ -11,7 +11,7 @@ const ENFOCABLES = [
 ].join(', ');
 
 /** Lo que se alcanza con Tab dentro de la caja. Lo de un desplegable cerrado, no. */
-function enfocablesDe(caja: HTMLElement): HTMLElement[] {
+export function enfocablesDe(caja: HTMLElement): HTMLElement[] {
   return [...caja.querySelectorAll<HTMLElement>(ENFOCABLES)].filter((elemento) => {
     const desplegable = elemento.closest('details');
 
