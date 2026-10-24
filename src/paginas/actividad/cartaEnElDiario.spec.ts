@@ -77,6 +77,16 @@ describe('guardarLaCartaEnElDiario', () => {
     expect(datos.payload.dia).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
+  it('va como carta a mi de manana: es lo que hace que el servidor selle su texto (SCRUM-230)', async () => {
+    encolar.mockResolvedValue(undefined);
+
+    await guardarLaCartaEnElDiario('Que mañana vaya con calma.');
+
+    const [datos] = encolar.mock.calls[0] as [{ payload: Record<string, unknown> }];
+
+    expect(datos.payload.cartaAManana).toBe(true);
+  });
+
   it('la entrada es de hoy, no de manana: el diario no admite fechas futuras', async () => {
     encolar.mockResolvedValue(undefined);
 
