@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useLayoutEffect, useRef, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 
 import { Confeti } from '../../../componentes/Confeti.tsx';
@@ -14,6 +14,7 @@ import {
   type RutaDelDia as Ruta,
   type TramoDeLaRuta,
 } from './construirLaRuta.ts';
+import { desplazamientoParaCentrar } from './desplazamientoDelRecorrido.ts';
 
 /**
  * La geometria del camino. Vive aqui porque el hilo entre dos puntos es un SVG que necesita
@@ -38,6 +39,11 @@ const CENTRO_DEL_PUNTO = 56;
  *
  * Nada aqui castiga: no hay vidas, ni rachas que se rompan, ni nada que se pierda por no
  * hacer algo hoy. Las que no se hicieron esperan, sin avisos.
+ *
+ * **El camino se desplaza dentro de su recuadro** (SCRUM-250): con las actividades del dia mide
+ * mas de 1.500 px y alargaba toda la pantalla. El titulo y el contador quedan fuera, siempre a la
+ * vista, y al abrir el recuadro se lleva solo hasta la actividad que toca (o hasta la meta, si ya
+ * se hizo todo) para que no quede escondida cuando ya hay varias hechas.
  */
 export function RutaDelDia({
   ruta,
@@ -47,6 +53,37 @@ export function RutaDelDia({
   /** Los ids de las actividades que se acaban de hacer, para celebrarlas. */
   nuevas: ReadonlySet<string>;
 }) {
+  const recorrido = useRef<HTMLDivElement>(null);
+  // Cambia cuando la actividad que toca es otra (se hizo una) o cuando se completa el dia.
+  const queToca = ruta.tramos
+    .flatMap((tramo) => tramo.nodos)
+    .find((nodo) => nodo.estado === 'siguiente')?.actividad.id;
+
+  useLayoutEffect(() => {
+    const contenedor = recorrido.current;
+    const fila = (
+      contenedor?.querySelector('.ruta__nodo--siguiente') ??
+      contenedor?.querySelector('.ruta__nodo--meta')
+    )?.closest<HTMLElement>('.ruta__fila');
+
+    if (contenedor === null || contenedor === undefined || fila === null || fila === undefined) {
+      return;
+    }
+
+    // Se mide con rectangulos y no con `offsetTop`: no depende de quien sea el padre posicionado.
+    // Solo se mueve el recuadro: `scrollIntoView` movia tambien la pagina.
+    const filaRect = fila.getBoundingClientRect();
+    const recorridoRect = contenedor.getBoundingClientRect();
+
+    contenedor.scrollTop = desplazamientoParaCentrar(
+      {
+        arriba: filaRect.top - recorridoRect.top + contenedor.scrollTop,
+        alto: filaRect.height,
+      },
+      { alto: contenedor.clientHeight, contenido: contenedor.scrollHeight },
+    );
+  }, [queToca, ruta.planCompleto]);
+
   return (
     <section
       className="app__caja ruta"
@@ -82,17 +119,19 @@ export function RutaDelDia({
           icono={<Icono nombre="activity" tamano={22} />}
         />
       ) : (
-        <div className="ruta__camino">
-          {ruta.tramos.map((tramo) => (
-            <Tramo key={tramo.progreso.modulo} tramo={tramo} nuevas={nuevas} />
-          ))}
+        <div className="ruta__recorrido" ref={recorrido}>
+          <div className="ruta__camino">
+            {ruta.tramos.map((tramo) => (
+              <Tramo key={tramo.progreso.modulo} tramo={tramo} nuevas={nuevas} />
+            ))}
 
-          <Meta
-            lograda={ruta.planCompleto}
-            fila={ruta.total}
-            // El confeti sale cuando el plan se completa ahora, no al abrir uno ya completo.
-            celebrando={ruta.planCompleto && nuevas.size > 0}
-          />
+            <Meta
+              lograda={ruta.planCompleto}
+              fila={ruta.total}
+              // El confeti sale cuando el plan se completa ahora, no al abrir uno ya completo.
+              celebrando={ruta.planCompleto && nuevas.size > 0}
+            />
+          </div>
         </div>
       )}
     </section>

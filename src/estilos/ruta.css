@@ -32,11 +32,39 @@
   gap: 1rem;
 }
 
+/* El camino entero mide mas de 1.500 px con las actividades del dia, y alargaba toda la pantalla
+   (SCRUM-250). Ahora se desplaza dentro de su recuadro y el titulo, el contador y el resto de la
+   pagina se quedan donde estan.
+
+   - El alto maximo sigue a la ventana visible: `dvh` y no `vh`, que en el celular cuenta la barra del
+     navegador aunque este desplegada. Entre 18 y 40 rem; si el camino es mas corto, el recuadro
+     mide lo que mide el camino.
+   - Sin `overscroll-behavior`: al llegar al final del recuadro el gesto sigue con la pagina, que es
+     lo que espera quien baja a ver el progreso. Con `contain` se quedaba atrapado.
+   - Se nota que hay mas camino: una sombra en el borde de arriba o de abajo que se esconde sola
+     al llegar a ese extremo (las "tapas" del color de la tarjeta se mueven con el contenido).
+   - Un poco de aire arriba y abajo para que la sombra y el halo de los puntos no se recorten. */
+.ruta__recorrido {
+  max-height: clamp(18rem, 70dvh, 40rem);
+  margin-top: 1.25rem;
+  padding: 0.5rem 0;
+  overflow-y: auto;
+  scrollbar-color: color-mix(in srgb, var(--app-tinta) 35%, transparent) transparent;
+  scrollbar-width: thin;
+  background:
+    linear-gradient(var(--app-superficie) 30%, transparent) 0 0 / 100% 2.5rem no-repeat local,
+    linear-gradient(transparent, var(--app-superficie) 70%) 0 100% / 100% 2.5rem no-repeat local,
+    linear-gradient(color-mix(in srgb, var(--app-tinta) 14%, transparent), transparent) 0 0 / 100%
+      0.875rem no-repeat scroll,
+    linear-gradient(transparent, color-mix(in srgb, var(--app-tinta) 14%, transparent)) 0 100% /
+      100% 0.875rem no-repeat scroll;
+}
+
 .ruta__camino {
   display: grid;
   gap: 1.75rem;
   max-width: 26rem;
-  margin: 1.25rem auto 0;
+  margin: 0 auto;
 }
 
 /* ---------- El titulo de cada modulo ---------- */
