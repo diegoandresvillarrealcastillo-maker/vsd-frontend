@@ -67,7 +67,7 @@ Lo que ya tiene:
 | 1     | Repositorio, ramas, CI, documentacion                               | Terminado |
 | 5     | Andamiaje React + TypeScript + Vite                                 | Terminado |
 | 5     | Registro, inicio de sesion y recuperar contrasena                   | Terminado |
-| 5     | Entrar con Google (SCRUM-74)                                        | Pendiente |
+| 5     | Entrar con Google (SCRUM-74)                                        | En curso  |
 | 6     | Landing page                                                        | Terminado |
 | 6     | Panel, actividades, sendero, diario, semaforo, avisos, perfil y PRE | En curso  |
 | 7     | Funcionamiento sin conexion                                         | En curso  |
@@ -733,6 +733,73 @@ quita la variable de Vercel.
 **En local**, Cloudflare publica claves de prueba (`1x00000000000000000000AA` siempre
 pasa); con Supabase solo sirven si su panel tiene la clave secreta de prueba que les
 corresponde. Sin la variable, el desarrollo no cambia.
+
+---
+
+## Entrar con Google (SCRUM-74)
+
+**El codigo ya esta hecho; lo que falta es un tramite que solo una persona puede
+hacer.** Activarlo no cuesta dinero: ni Google ni Supabase cobran por el inicio de
+sesion con OAuth. Lo que pide es una cuenta con permisos de administrador en
+Google Cloud y una URL de redireccion registrada por ambiente.
+
+**Que hace el codigo.** Con `VITE_PROVEEDOR_GOOGLE=si`, «Continuar con Google»
+(acceso) y «Registrarme con Google» (registro) aparecen con su separador. Sin la
+variable no hay boton: enseñarlo sin credenciales lleva a una pantalla de error de
+Google y parece que la aplicacion esta rota.
+
+- Google crea la identidad **antes** de que nadie pregunte nada. Por eso la fecha
+  de nacimiento y las dos casillas (aviso de privacidad y terminos) se piden despues,
+  en «Completa tu registro»: sin ellas la API no da de alta la cuenta ni responde lo
+  demas (`403`). El registro avisa de esto antes de pulsar.
+- La cuenta nace siempre con rol `usuario`: el rol lo fija la API y no viene de
+  Google.
+- Vuelve a `/panel` del mismo dominio desde el que se pulso (`redirectTo`). Desde
+  el registro no se pregunta si mantener la sesion: se cierra al cerrar la pestaña
+  (SCRUM-164); quien quiera conservarla la pide en la pantalla de acceso.
+- No pasa por el CAPTCHA: Supabase no lo pide para OAuth.
+
+**Quien hace que, y en que orden.** Ninguna clave va en este repositorio, ni en
+Vercel, ni en un chat, ni en una captura.
+
+Los nombres de los menus de Google y de Supabase cambian con frecuencia: esto es lo
+que hay que buscar, no un recorrido exacto.
+
+1. **Una persona con permisos en Google Cloud** crea el proyecto, configura la
+   pantalla de consentimiento de OAuth (_External_; solo pide `email`, `profile` y
+   `openid`, que son los que Supabase usa) y crea un _ID de cliente de OAuth_ de tipo
+   _Aplicacion web_. En _URI de redireccion autorizados_ va **solo** la de Supabase,
+   `https://<ref-del-proyecto>.supabase.co/auth/v1/callback`, una por proyecto de
+   Supabase (PRE y, cuando exista, PROD). Obtiene el _ID de cliente_ y el _secreto_.
+2. **Samuel**, en Supabase de ese ambiente (_Authentication > Sign In / Providers >
+   Google_), activa el proveedor y pega ahi el ID y el secreto. En _Authentication >
+   URL Configuration_ deja en _Redirect URLs_ el dominio de la PWA de ese ambiente
+   (PRE: `https://vsd-health-pre.vercel.app/**`; local: `http://localhost:5173/**`).
+   Si la URL no esta ahi, Supabase manda a quien entra al _Site URL_ y no a `/panel`.
+3. Solo despues, se pone `VITE_PROVEEDOR_GOOGLE=si` en Vercel de ese ambiente y se
+   **despliega**. Al reves el boton aparece antes de que funcione.
+4. Se comprueba en ese ambiente, con una cuenta de prueba (ver abajo).
+
+**Que hay que comprobar en el ambiente** (jsdom no puede: el viaje a Google es real):
+
+- Entrar con una cuenta de Google nueva: llega a «Completa tu registro», pide la
+  fecha y las dos casillas, y despues cae en el panel.
+- Con un menor (fecha de nacimiento de menos de 18): se rechaza, y la identidad se
+  borra (ver «Completa tu registro»).
+- Un correo que **ya tiene cuenta con contrasena**. Supabase une las identidades con
+  el mismo correo verificado cuando su opcion de enlace automatico esta activa (segun
+  su documentacion, por omision lo esta; este repositorio no lo comprueba). Si el
+  ambiente la tiene apagada, la persona ve «Ese correo ya
+  pertenece a una cuenta creada con otro metodo de acceso»; es un mensaje y no un
+  error, pero conviene saber cual de las dos cosas pasa antes de dar el acceso.
+- Cerrar sesion y volver a entrar; y la pantalla de Google en un telefono.
+
+**Para apagarlo**, quitar la variable de Vercel y desplegar. Las cuentas ya creadas
+con Google siguen existiendo; solo se esconde el boton.
+
+**En local** hace falta un cliente de OAuth con `http://localhost:5173` como origen y
+la URL de Supabase como redireccion. El puerto es fijo a proposito (ver «Como
+ejecutarlo»).
 
 ---
 
