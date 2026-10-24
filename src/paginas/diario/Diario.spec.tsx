@@ -512,7 +512,7 @@ describe('Mi diario, escribir', () => {
 
       await usuario.click(await screen.findByRole('button', { name: 'Sí, ver opciones' }));
 
-      const dialogo = await screen.findByRole('dialog', { name: 'VSD IA' });
+      const dialogo = await screen.findByRole('dialog', { name: /^Habla con / });
 
       expect(within(dialogo).getByRole('log', { name: 'Conversación' })).toHaveTextContent(
         '¿Dónde busco ayuda?',

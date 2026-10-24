@@ -570,8 +570,8 @@ export function MascotaFlotante({
         </motion.div>
 
         <span id={idDeInstrucciones} className="solo-lectores">
-          Tócala para leer una frase; desde la frase puedes hablar con VSD IA. Arrástrala, o usa las
-          flechas, para moverla.
+          Tócala para leer una frase; desde la frase puedes hablar con {nombre}. Arrástrala, o usa
+          las flechas, para moverla.
         </span>
 
         {/* Siempre montada: una region viva que aparece ya llena no siempre se
@@ -626,7 +626,7 @@ export function MascotaFlotante({
             <p className="mascota__quien">{nombre} te acompaña</p>
             <p className="mascota__frase">{frase}</p>
             <button type="button" className="mascota__hablar" onClick={abrirAsistente}>
-              Hablar con VSD IA
+              Hablar con {nombre}
             </button>
           </div>
         )}

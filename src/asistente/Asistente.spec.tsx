@@ -76,7 +76,7 @@ function pintar(preguntaInicial?: string) {
     />,
   );
 
-  return { alCerrar, dialogo: screen.getByRole('dialog', { name: 'VSD IA' }) };
+  return { alCerrar, dialogo: screen.getByRole('dialog', { name: 'Habla con Chispita' }) };
 }
 
 function campo() {
@@ -331,6 +331,36 @@ describe('VSD IA, accesibilidad (C-03)', () => {
 });
 
 describe('VSD IA', () => {
+  it('el título es «Habla con» y el nombre de la mascota, y VSD IA queda debajo (SCRUM-251)', () => {
+    const { dialogo } = pintar();
+
+    const cabecera = within(dialogo).getByRole('banner');
+
+    expect(
+      within(cabecera).getByRole('heading', { name: 'Habla con Chispita' }),
+    ).toBeInTheDocument();
+    expect(within(cabecera).getByText('VSD IA')).toBeInTheDocument();
+    // Ya no hay un título genérico ni el nombre repetido en el subtítulo.
+    expect(within(cabecera).queryByRole('heading', { name: 'VSD IA' })).not.toBeInTheDocument();
+    expect(within(cabecera).queryByText('Con Chispita')).not.toBeInTheDocument();
+  });
+
+  it('con otro nombre, el título, el diálogo y el botón de cerrar lo siguen (SCRUM-251)', () => {
+    render(
+      <Asistente
+        marco={MARCO}
+        ladoDeLaMascota={72}
+        nombreDeLaMascota="Ojo de Gato"
+        alCerrar={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('dialog', { name: 'Habla con Ojo de Gato' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Cerrar la conversación con Ojo de Gato' }),
+    ).toBeInTheDocument();
+  });
+
   it('se abre con el foco en el campo y avisa de que nada se guarda', () => {
     const { dialogo } = pintar();
 
@@ -563,7 +593,9 @@ describe('VSD IA', () => {
     const { alCerrar } = pintar();
 
     await usuario.keyboard('{Escape}');
-    await usuario.click(screen.getByRole('button', { name: 'Cerrar VSD IA' }));
+    await usuario.click(
+      screen.getByRole('button', { name: 'Cerrar la conversación con Chispita' }),
+    );
     await usuario.click(document.querySelector('.asistente-velo')!);
 
     expect(alCerrar).toHaveBeenCalledTimes(3);
