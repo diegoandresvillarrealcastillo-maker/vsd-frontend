@@ -2,6 +2,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { AvisoDeAcompanamiento } from '../../acompanamiento/AvisoDeAcompanamiento.tsx';
 import { ConfirmarSalida } from '../../componentes/ConfirmarSalida.tsx';
 import { MarcaDeLaApp } from '../../componentes/MarcaDeLaApp.tsx';
 import { IndicadorDeConexion } from '../../conexion/IndicadorDeConexion.tsx';
@@ -41,41 +42,46 @@ const SECCIONES: readonly { href: string; texto: string; icono: NombreDeIcono }[
  */
 export function BarraSuperior({ conSecciones }: { conSecciones: boolean }) {
   return (
-    <header className="app__barra">
-      <div className="app__barra-interior">
-        <MarcaDeLaApp />
+    <>
+      <header className="app__barra">
+        <div className="app__barra-interior">
+          <MarcaDeLaApp />
 
-        {conSecciones ? (
-          <nav className="app__nav" aria-label="Secciones">
-            {SECCIONES.map((seccion, indice) => (
-              <a
-                key={seccion.href}
-                className={`app__enlace${indice === 0 ? ' app__enlace--activo' : ''}`}
-                href={seccion.href}
-              >
-                <Icono nombre={seccion.icono} tamano={18} />
-                {seccion.texto}
-              </a>
-            ))}
-            {/* «Mi diario» ya no va aqui (SCRUM-182): se llega desde el menu de la
+          {conSecciones ? (
+            <nav className="app__nav" aria-label="Secciones">
+              {SECCIONES.map((seccion, indice) => (
+                <a
+                  key={seccion.href}
+                  className={`app__enlace${indice === 0 ? ' app__enlace--activo' : ''}`}
+                  href={seccion.href}
+                >
+                  <Icono nombre={seccion.icono} tamano={18} />
+                  {seccion.texto}
+                </a>
+              ))}
+              {/* «Mi diario» ya no va aqui (SCRUM-182): se llega desde el menu de la
                 cuenta y, en el movil, desde el dock. */}
-          </nav>
-        ) : (
-          // Mantiene la marca a la izquierda y la cuenta a la derecha.
-          <span aria-hidden="true" />
-        )}
+            </nav>
+          ) : (
+            // Mantiene la marca a la izquierda y la cuenta a la derecha.
+            <span aria-hidden="true" />
+          )}
 
-        <div className="app__acciones">
-          {/* La llama de la racha (SCRUM-186), a la izquierda del indicador de conexion. */}
-          <LlamaDeLaBarra />
-          {/* Si hay conexion y cuanto sigue guardado en este equipo (SCRUM-137). */}
-          <IndicadorDeConexion />
-          {/* Volvio con el modo claro (SCRUM-112). */}
-          <SelectorDeTema variante="barra" />
-          <MenuDeCuenta />
+          <div className="app__acciones">
+            {/* La llama de la racha (SCRUM-186), a la izquierda del indicador de conexion. */}
+            <LlamaDeLaBarra />
+            {/* Si hay conexion y cuanto sigue guardado en este equipo (SCRUM-137). */}
+            <IndicadorDeConexion />
+            {/* Volvio con el modo claro (SCRUM-112). */}
+            <SelectorDeTema variante="barra" />
+            <MenuDeCuenta />
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      {/* El acompanamiento por dias seguidos con atencion (SCRUM-177): en cada pantalla con barra. */}
+      <AvisoDeAcompanamiento />
+    </>
   );
 }
 
