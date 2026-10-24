@@ -469,7 +469,9 @@ describe('MascotaFlotante', () => {
       adelantar(PULSACION_LARGA_MS);
       soltar(boton);
 
-      expect(screen.getByRole('dialog', { name: 'VSD IA' })).toHaveTextContent('Con Chispita');
+      expect(screen.getByRole('dialog', { name: 'Habla con Chispita' })).toHaveTextContent(
+        'VSD IA',
+      );
       expect(screen.queryByText('Chispita te acompaña')).not.toBeInTheDocument();
       // Posada en la esquina del asistente, es solo un dibujo.
       expect(raiz()).toHaveClass('mascota--con-asistente');
@@ -505,9 +507,9 @@ describe('MascotaFlotante', () => {
       render(<MascotaFlotante mascota={SPARKY} />);
 
       fireEvent.click(mascota());
-      fireEvent.click(screen.getByRole('button', { name: 'Hablar con VSD IA' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Hablar con Chispita' }));
 
-      expect(screen.getByRole('dialog', { name: 'VSD IA' })).toBeInTheDocument();
+      expect(screen.getByRole('dialog', { name: 'Habla con Chispita' })).toBeInTheDocument();
 
       fireEvent.keyDown(document, { key: 'Escape' });
 
@@ -516,15 +518,35 @@ describe('MascotaFlotante', () => {
       expect(mascota()).toHaveFocus();
     });
 
+    it('el asistente lleva el nombre de la mascota: el que le puso la persona o, sin mascota, Fungito (SCRUM-251)', () => {
+      const { unmount } = render(<MascotaFlotante mascota={null} />);
+
+      fireEvent.click(mascota('Fungito'));
+      fireEvent.click(screen.getByRole('button', { name: 'Hablar con Fungito' }));
+
+      expect(screen.getByRole('heading', { name: 'Habla con Fungito' })).toBeInTheDocument();
+      expect(screen.getByRole('dialog', { name: 'Habla con Fungito' })).toBeInTheDocument();
+      unmount();
+
+      // Una mascota que ya trae el nombre que la persona le puso.
+      render(<MascotaFlotante mascota={SPARKY} />);
+
+      fireEvent.click(mascota());
+      fireEvent.click(screen.getByRole('button', { name: 'Hablar con Chispita' }));
+
+      expect(screen.getByRole('heading', { name: 'Habla con Chispita' })).toBeInTheDocument();
+      expect(screen.queryByText(/Fungito/)).not.toBeInTheDocument();
+    });
+
     it('con menos movimiento, se abre sin desplazarse', () => {
       render(<MascotaFlotante mascota={SPARKY} />);
 
       fireEvent.click(mascota());
-      fireEvent.click(screen.getByRole('button', { name: 'Hablar con VSD IA' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Hablar con Chispita' }));
 
-      expect(screen.getByRole('dialog', { name: 'VSD IA' }).style.transform).not.toMatch(
-        /scale|translate/,
-      );
+      expect(
+        screen.getByRole('dialog', { name: 'Habla con Chispita' }).style.transform,
+      ).not.toMatch(/scale|translate/);
     });
 
     it('al cerrarlo se olvida lo escrito', () => {
@@ -532,7 +554,7 @@ describe('MascotaFlotante', () => {
 
       const abrir = () => {
         fireEvent.click(mascota());
-        fireEvent.click(screen.getByRole('button', { name: 'Hablar con VSD IA' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Hablar con Chispita' }));
       };
 
       abrir();
@@ -545,7 +567,7 @@ describe('MascotaFlotante', () => {
 
       expect(screen.getByRole('log')).toHaveTextContent('algo mío');
 
-      fireEvent.click(screen.getByRole('button', { name: 'Cerrar VSD IA' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Cerrar la conversación con Chispita' }));
       abrir();
 
       expect(screen.getByRole('log')).not.toHaveTextContent('algo mío');
@@ -615,7 +637,7 @@ describe('MascotaFlotante: una invitacion de la pantalla (SCRUM-194)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Sí, ver opciones' }));
 
-    expect(screen.getByRole('dialog', { name: 'VSD IA' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Habla con Chispita' })).toBeInTheDocument();
     expect(screen.getByRole('log', { name: 'Conversación' })).toHaveTextContent(
       '¿Dónde busco ayuda?',
     );
