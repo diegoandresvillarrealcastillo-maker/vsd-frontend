@@ -159,6 +159,8 @@ function payloadValidoDe(tipo: TipoDeOperacion, operationId: string): Record<str
       return { clientOperationId: operationId, dia: '2026-10-07', contenido: {} };
     case 'diario.editar':
       return { id: 'a-1', version: 1 };
+    case 'diario.borrar':
+      return { id: 'a-1' };
     case 'pendiente.crear':
       return { clientOperationId: operationId, texto: 'Llamar', nivel: 'urgente' };
     case 'pendiente.editar':

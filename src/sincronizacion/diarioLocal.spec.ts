@@ -11,9 +11,11 @@ import {
   leerElDiarioConCopia,
   leerLoLocalDelDiario,
   precargarElDiario,
+  recordarLaCartaAbierta,
   ventanaDelDiario,
   type InstantaneaDelDiario,
 } from './diarioLocal.ts';
+import { idLocalDe } from './ejecutores.ts';
 import { leerSoloLaCopia } from './lecturas.ts';
 
 const { consultarElDiario, consultarLaVersionDelAviso, darDeAltaLaCuenta } = vi.hoisted(() => ({
@@ -328,6 +330,69 @@ describe('conciliarElDiario', () => {
     expect((await laInstantanea())?.anotaciones.map((a) => a.id)).toEqual(['a-1']);
   });
 
+  describe('lo que el servidor ya borro (SCRUM-230)', () => {
+    const borrada = (id: string) =>
+      agregar('diario.borrar', { estado: 'hecha', recibo: null }, { id });
+
+    it('sale de la copia: sin conexion no vuelve a verse hasta la proxima lectura', async () => {
+      await guardarInstantanea([
+        anotacion(),
+        anotacion({ id: 'carta', carta: true, sellada: true }),
+      ]);
+      await borrada('carta');
+
+      await conciliarElDiario();
+
+      expect((await laInstantanea())?.anotaciones.map((a) => a.id)).toEqual(['a-1']);
+    });
+
+    it('lo que se escribio y se borro despues no queda: gana el borrado', async () => {
+      await guardarInstantanea([anotacion()]);
+      await hecha('diario.escribir', anotacion({ id: 'carta', carta: true, sellada: true }));
+      await borrada('carta');
+
+      await conciliarElDiario();
+
+      expect((await laInstantanea())?.anotaciones.map((a) => a.id)).toEqual(['a-1']);
+    });
+
+    it('una carta escrita sin conexion y borrada sin leer: el borrado trae el id local y sale la de verdad', async () => {
+      await guardarInstantanea([anotacion()]);
+
+      const escritura = await hecha(
+        'diario.escribir',
+        anotacion({ id: 'carta-real', carta: true, sellada: true }),
+      );
+
+      await borrada(idLocalDe(escritura.operationId));
+      await conciliarElDiario();
+
+      expect((await laInstantanea())?.anotaciones.map((a) => a.id)).toEqual(['a-1']);
+    });
+
+    it('borrar algo que no esta en la copia no cambia nada, y repetirlo tampoco', async () => {
+      await guardarInstantanea([anotacion()]);
+      await borrada('que-no-esta');
+
+      await conciliarElDiario();
+      await conciliarElDiario();
+
+      expect((await laInstantanea())?.anotaciones).toEqual([anotacion()]);
+    });
+
+    it('un borrado que todavia no salio no toca la copia: se ve en lo pendiente', async () => {
+      await guardarInstantanea([anotacion()]);
+      const pendiente = await agregar('diario.borrar', {}, { id: 'a-1' });
+
+      await conciliarElDiario();
+
+      expect((await laInstantanea())?.anotaciones.map((a) => a.id)).toEqual(['a-1']);
+      expect((await leerLoLocalDelDiario()).pendientes.map((o) => o.operationId)).toEqual([
+        pendiente.operationId,
+      ]);
+    });
+  });
+
   it('una operacion de otra cosa no suma nada aunque su recibo parezca una anotacion', async () => {
     await guardarInstantanea([anotacion()]);
     await hecha('pendiente.crear', anotacion({ id: 'intrusa' }));
@@ -521,6 +586,51 @@ describe('conciliarElDiario', () => {
     await conciliarElDiario();
 
     expect((await laInstantanea())?.anotaciones.map((a) => a.id)).toEqual(['a-1', 'nueva']);
+  });
+});
+
+describe('recordarLaCartaAbierta (SCRUM-230)', () => {
+  const sellada = anotacion({
+    id: 'carta',
+    carta: true,
+    sellada: true,
+    contenido: { type: 'doc' },
+    editableHasta: '2026-10-07T11:00:00.000Z',
+  });
+  const abierta = anotacion({
+    id: 'carta',
+    carta: true,
+    sellada: false,
+    titulo: 'Para manana',
+    contenido: { type: 'doc', content: [{ type: 'paragraph' }] },
+    editableHasta: '2026-10-07T11:00:00.000Z',
+    sugiereAcompanamiento: false,
+  });
+
+  it('reemplaza la sellada de la copia por la abierta, sin lo que acompana a la respuesta', async () => {
+    await guardarInstantanea([anotacion(), sellada]);
+
+    await recordarLaCartaAbierta(abierta);
+
+    const guardada = await laInstantanea();
+
+    expect(guardada?.anotaciones.map((a) => a.id)).toEqual(['a-1', 'carta']);
+    expect(guardada?.anotaciones[1]).toMatchObject({ sellada: false, titulo: 'Para manana' });
+    expect(guardada?.anotaciones[1]).not.toHaveProperty('sugiereAcompanamiento');
+  });
+
+  it('si la copia no la tiene, no la agrega: una sola carta no es el diario', async () => {
+    await guardarInstantanea([anotacion()]);
+
+    await recordarLaCartaAbierta(abierta);
+
+    expect((await laInstantanea())?.anotaciones.map((a) => a.id)).toEqual(['a-1']);
+  });
+
+  it('sin copia del diario no arma una', async () => {
+    await recordarLaCartaAbierta(abierta);
+
+    expect(await laInstantanea()).toBeNull();
   });
 });
 
