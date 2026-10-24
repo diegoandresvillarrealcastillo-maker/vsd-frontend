@@ -28,6 +28,8 @@ import { useReglasLocales } from './useReglasLocales.ts';
 /**
  * VSD IA, el asistente que se abre desde la mascota (SCRUM-100).
  *
+ * - **El titulo es «Habla con» y el nombre de la mascota** (SCRUM-251): el que la persona le puso
+ *   o, sin mascota guardada, el de Fungito. «VSD IA» queda debajo, como el nombre del producto.
  * - Usa el asistente por reglas del backend tal cual: sus intenciones, sus
  *   recursos y su deteccion de riesgo, que va siempre primero. Si el texto
  *   tiene una senal de riesgo, la respuesta ensena siempre las lineas de
@@ -210,9 +212,9 @@ export function Asistente({
           <header className="asistente__cabecera">
             <div>
               <h2 id={idDelTitulo} className="asistente__titulo">
-                VSD IA
+                Habla con {nombreDeLaMascota}
               </h2>
-              <p className="asistente__subtitulo">Con {nombreDeLaMascota}</p>
+              <p className="asistente__subtitulo">VSD IA</p>
               {/* En la cabecera y no en cada respuesta: se ve desde que se abre,
                   antes de preguntar nada (L-03 de la auditoria 360). */}
               <AvisoOrientativo />
@@ -220,7 +222,7 @@ export function Asistente({
             <button
               type="button"
               className="asistente__cerrar"
-              aria-label="Cerrar VSD IA"
+              aria-label={`Cerrar la conversación con ${nombreDeLaMascota}`}
               onClick={alCerrar}
             >
               ×
