@@ -50,6 +50,7 @@ function cuenta(extra: Partial<Cuenta> = {}): Cuenta {
     modulosActivos: ['bienestar'],
     mascota: null,
     diarioConRecomendaciones: false,
+    acompanamientoPorDias: false,
     zonaHoraria: 'America/Bogota',
     ...extra,
   };

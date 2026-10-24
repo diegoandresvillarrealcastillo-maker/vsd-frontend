@@ -108,6 +108,7 @@ const CUENTA: Cuenta = {
   modulosActivos: ['cognicion', 'bienestar'],
   mascota: null,
   diarioConRecomendaciones: false,
+  acompanamientoPorDias: false,
   zonaHoraria: 'America/Bogota',
 };
 
@@ -433,6 +434,70 @@ describe('Perfil', () => {
       await usuario.click(boton);
 
       expect(cambiarPreferencias).toHaveBeenCalledWith({ diarioConRecomendaciones: false });
+      expect(boton).toHaveAttribute('aria-checked', 'false');
+      expect(within(seccion).getByRole('status')).toHaveTextContent('ya no se revisa');
+    });
+
+    it('si no se pudo guardar, sigue como estaba y lo dice', async () => {
+      cambiarPreferencias.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      pintar();
+
+      const { seccion, boton } = await interruptor();
+
+      await usuario.click(boton);
+
+      expect(boton).toHaveAttribute('aria-checked', 'false');
+      expect(within(seccion).getByRole('alert')).toHaveTextContent('No se pudo guardar');
+    });
+  });
+
+  describe('el permiso del acompanamiento (SCRUM-177)', () => {
+    async function interruptor() {
+      const seccion = await screen.findByRole('region', { name: 'Tu acompañamiento' });
+
+      return {
+        seccion,
+        boton: within(seccion).getByRole('switch', { name: 'Acompañarme si varios días van mal' }),
+      };
+    }
+
+    it('esta apagado y explica que no se guarda ningun puntaje', async () => {
+      pintar();
+
+      const { boton } = await interruptor();
+
+      expect(boton).toHaveAttribute('aria-checked', 'false');
+      expect(boton).toHaveAccessibleDescription(/Puedes apagarlo cuando quieras/);
+    });
+
+    it('se enciende al pulsarlo, sin boton de guardar', async () => {
+      cambiarPreferencias.mockResolvedValue({ ...CUENTA, acompanamientoPorDias: true });
+
+      pintar();
+
+      const { seccion, boton } = await interruptor();
+
+      await usuario.click(boton);
+
+      expect(cambiarPreferencias).toHaveBeenCalledWith({ acompanamientoPorDias: true });
+      expect(boton).toHaveAttribute('aria-checked', 'true');
+      expect(within(seccion).getByRole('status')).toHaveTextContent('Listo');
+    });
+
+    it('se apaga igual', async () => {
+      darDeAltaLaCuenta.mockResolvedValue({ ...CUENTA, acompanamientoPorDias: true });
+      cambiarPreferencias.mockResolvedValue({ ...CUENTA, acompanamientoPorDias: false });
+
+      pintar();
+
+      const { seccion, boton } = await interruptor();
+
+      expect(boton).toHaveAttribute('aria-checked', 'true');
+
+      await usuario.click(boton);
+
+      expect(cambiarPreferencias).toHaveBeenCalledWith({ acompanamientoPorDias: false });
       expect(boton).toHaveAttribute('aria-checked', 'false');
       expect(within(seccion).getByRole('status')).toHaveTextContent('ya no se revisa');
     });
