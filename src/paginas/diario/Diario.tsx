@@ -18,7 +18,6 @@ import { Icono } from '../panel/Icono.tsx';
 import { agruparPorDia, ahoraMismo, diaDe, horaDe, nombreDelDia } from './calendarioDelDiario.ts';
 import { DocumentoLeido } from './DocumentoLeido.tsx';
 import { EditorDelDiario, type LoQueSeEscribio } from './EditorDelDiario.tsx';
-import { BorrarSinLeer } from './cartas/BorrarSinLeer.tsx';
 import { minutosQueLeQuedan, type OrigenDeLaCopia } from './historial.ts';
 import { INVITACION_DEL_DIARIO } from './invitacionDelDiario.ts';
 import { useDiario, type EntradaDelHistorial, type NovedadDelDiario } from './useDiario.ts';
@@ -149,15 +148,6 @@ export function Diario() {
     }
   }
 
-  async function borrar(entrada: EntradaDelHistorial) {
-    try {
-      await diario.borrar(entrada);
-      setAviso('Listo: la carta se borró sin leerla.');
-    } catch {
-      setAviso('No pudimos borrarla en este momento. Inténtalo de nuevo.');
-    }
-  }
-
   function verDiagrama(entrada: EntradaDelHistorial, id: string) {
     const adjunto = entrada.adjuntos.find((uno) => uno.id === id);
 
@@ -276,7 +266,6 @@ export function Diario() {
                     ahora={ahoraVisible}
                     alEditar={() => editar(entrada)}
                     alReintentar={() => diario.reintentar(entrada)}
-                    alBorrar={() => void borrar(entrada)}
                     alVerDiagrama={(id) => verDiagrama(entrada, id)}
                   />
                 ))}
@@ -338,24 +327,18 @@ function AnotacionDelHistorial({
   ahora,
   alEditar,
   alReintentar,
-  alBorrar,
   alVerDiagrama,
 }: {
   entrada: EntradaDelHistorial;
   ahora: Date;
   alEditar: () => void;
   alReintentar: () => void;
-  alBorrar: () => void;
   alVerDiagrama: (id: string) => void;
 }) {
-  // Una carta que espera no se corrige ni se lee aqui: su texto no esta en la entrada (SCRUM-230).
-  const sellada = entrada.sellada === true;
-  const minutos = sellada ? 0 : minutosQueLeQuedan(entrada, ahora);
+  const minutos = minutosQueLeQuedan(entrada, ahora);
 
   return (
-    <li
-      className={`diario__anotacion diario__anotacion--${entrada.estado}${sellada ? ' diario__anotacion--carta' : ''}`}
-    >
+    <li className={`diario__anotacion diario__anotacion--${entrada.estado}`}>
       <div className="diario__anotacion-cabecera">
         <span className="diario__hora">{horaDe(entrada.creadaEn)}</span>
 
@@ -393,24 +376,9 @@ function AnotacionDelHistorial({
         <p className="diario__origen-de-la-copia">{textoDelOrigen(entrada.copia)}</p>
       )}
 
-      {sellada ? (
-        <>
-          <p className="diario__anotacion-titulo">Carta a mí de mañana</p>
-          <p className="diario__carta-sellada">
-            Una carta que te dejaste: su texto no se muestra aquí. Se te ofrece en el panel desde el
-            día siguiente, y puedes borrarla sin leerla.
-          </p>
-          <div className="carta__acciones">
-            <BorrarSinLeer alBorrar={alBorrar} />
-          </div>
-        </>
-      ) : (
-        <>
-          {entrada.titulo !== null && <p className="diario__anotacion-titulo">{entrada.titulo}</p>}
+      {entrada.titulo !== null && <p className="diario__anotacion-titulo">{entrada.titulo}</p>}
 
-          <DocumentoLeido documento={entrada.contenido} alVerDiagrama={alVerDiagrama} />
-        </>
-      )}
+      <DocumentoLeido documento={entrada.contenido} alVerDiagrama={alVerDiagrama} />
     </li>
   );
 }
