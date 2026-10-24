@@ -117,6 +117,21 @@ describe('soloLaAnotacion', () => {
   });
 });
 
+describe('soloLaAnotacion y las cartas (SCRUM-230)', () => {
+  it('una carta sellada sigue sellada en la copia', () => {
+    const copia = soloLaAnotacion(anotacion({ carta: true, sellada: true }));
+
+    expect(copia).toMatchObject({ carta: true, sellada: true });
+  });
+
+  it('una anotacion corriente no gana campos que no tenia', () => {
+    const copia = soloLaAnotacion(anotacion());
+
+    expect(copia).not.toHaveProperty('carta');
+    expect(copia).not.toHaveProperty('sellada');
+  });
+});
+
 describe('sonIguales', () => {
   it('lo identico es igual', () => {
     expect(sonIguales(1, 1)).toBe(true);

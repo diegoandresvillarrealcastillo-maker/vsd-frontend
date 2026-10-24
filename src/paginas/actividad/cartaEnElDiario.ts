@@ -8,12 +8,16 @@ import { diaEnLaZona } from '../../tiempo/zonaHoraria.ts';
  * diario**, que ya tiene aislamiento, exportacion y borrado. Va por la misma cola que cualquier cosa que se
  * escribe en el diario, asi que tambien se guarda sin conexion y sale cuando vuelve.
  *
- * ## Lo que esto no hace (todavia)
+ * ## Que pasa despues (SCRUM-230)
  *
- * La entrada es de **hoy**: el diario no admite entradas con fecha de manana. Que la carta reaparezca manana al
- * abrir la aplicacion, y se pueda borrar sin leerla, necesita un borrado en el diario y una tarjeta en el panel
- * que aun no existen. Mientras tanto la carta esta en el diario, y el cierre de la actividad lo dice asi: no
- * promete lo que no pasa.
+ * La entrada es de **hoy**, y va marcada como carta (`cartaAManana`): el servidor la guarda **sellada**, sin
+ * que su texto salga en ninguna respuesta, y desde manana el panel la ofrece en la tarjeta «Ayer te dejaste
+ * esto», con dos acciones de igual peso: leerla o borrarla sin leerla. Hasta que el servidor la acepte, aqui
+ * tambien sale sellada (`componerElHistorial`).
+ *
+ * El cierre de la actividad todavia dice «Quedo guardada en tu diario»: sigue siendo verdad, y cambiarlo a
+ * «para manana» es cambiar el texto de unas sesiones ya publicadas y revisadas (ADR 0030), que es una decision
+ * de quien las revisa.
  */
 export const TITULO_DE_LA_CARTA = 'Carta a mí de mañana';
 
@@ -45,6 +49,7 @@ export async function guardarLaCartaEnElDiario(
     dia: diaEnLaZona(ahora),
     titulo: TITULO_DE_LA_CARTA,
     contenido: documentoDeUnTexto(texto),
+    cartaAManana: true,
     // La hora del dispositivo: sin conexion, la de cuando llegue seria mentira.
     escritaEn: ahora.toISOString(),
   };
