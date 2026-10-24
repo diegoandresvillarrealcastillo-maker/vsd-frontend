@@ -70,7 +70,9 @@ describe('los pasos', () => {
 
     expect(diario?.texto).toMatch(/celular/);
     expect(diario?.texto).toMatch(/computador/);
-    expect(diario?.texto).toMatch(/menú de tu cuenta/);
+    // En el computador esta en la barra de arriba, junto a Inicio y Progreso (SCRUM-249).
+    expect(diario?.texto).toMatch(/junto a Inicio y Progreso/);
+    expect(diario?.texto).not.toMatch(/menú de tu cuenta/);
   });
 
   it('cada paso es breve: cabe en una lectura de unos segundos', () => {
@@ -295,21 +297,22 @@ describe('el spotlight (SCRUM-201)', () => {
     expect(dialogo).toHaveAccessibleName('Tu semáforo');
   });
 
-  // En escritorio el diario no esta en el dock (no se ve): se llega por el menu de la cuenta, y es
-  // ahi donde el paso tiene que mirar (SCRUM-246). Sin esto el paso salia centrado y sin explicar donde.
-  it('en escritorio, el diario se senala en el boton de la cuenta', async () => {
-    anclar('cuenta', { left: 1000, top: 18, width: 40, height: 40 });
+  // El diario esta en dos sitios y de los dos se ve uno: en escritorio, el enlace de la barra de
+  // arriba (SCRUM-249); en el movil, el del dock. El que no se ve (sin tamano) se salta.
+  it('en escritorio, el diario se senala en el enlace de la barra de arriba', async () => {
+    anclar('diario', { left: 560, top: 18, width: 120, height: 40 });
+    anclar('diario', { left: 0, top: 0, width: 0, height: 0 });
     const { container } = render(<TutorialDeFungito cuenta={CUENTA} />);
 
     await irAlPaso('diario');
 
     expect(container.querySelector('.tutorial--spotlight')).not.toBeNull();
-    expect(hueco(container)).toHaveStyle({ left: '992px', top: '10px' });
+    expect(hueco(container)).toHaveStyle({ left: '552px', top: '10px' });
   });
 
-  it('en el movil, el diario se senala en el dock y no en la cuenta', async () => {
+  it('en el movil, el diario se senala en el dock, y el de la barra de arriba se salta', async () => {
+    anclar('diario', { left: 0, top: 0, width: 0, height: 0 });
     anclar('diario', { left: 280, top: 700, width: 70, height: 56 });
-    anclar('cuenta', { left: 300, top: 10, width: 40, height: 40 });
     const { container } = render(<TutorialDeFungito cuenta={CUENTA} />);
 
     await irAlPaso('diario');
@@ -335,12 +338,10 @@ describe('el spotlight (SCRUM-201)', () => {
     const todo = Object.values(FUENTES).join('\n');
 
     for (const paso of PASOS_DEL_TUTORIAL) {
-      for (const ancla of [paso.ancla, paso.anclaSiNoSeVe]) {
-        if (ancla !== undefined) {
-          expect(todo, `nadie marca data-tutorial="${ancla}"`).toMatch(
-            new RegExp(`data-tutorial=["']${ancla}["']`),
-          );
-        }
+      if (paso.ancla !== undefined) {
+        expect(todo, `nadie marca data-tutorial="${paso.ancla}"`).toMatch(
+          new RegExp(`data-tutorial=["']${paso.ancla}["']`),
+        );
       }
     }
   });

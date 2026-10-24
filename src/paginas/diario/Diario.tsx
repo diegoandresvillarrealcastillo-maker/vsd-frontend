@@ -163,7 +163,7 @@ export function Diario() {
 
   return (
     <div className="app">
-      <BarraSuperior conSecciones={false} />
+      <BarraSuperior conSecciones={false} enDiario />
 
       <main id={ID_DEL_CONTENIDO} tabIndex={-1} className="app__contenido diario">
         <Link to={RUTAS.PANEL} className="perfil__volver">

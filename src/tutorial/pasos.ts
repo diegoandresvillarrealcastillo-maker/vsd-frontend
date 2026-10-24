@@ -7,7 +7,7 @@ import type { Expresion } from '../mascota/personajes.ts';
  * se ve (sin conexion, otra pantalla, un tamano en el que no existe), el paso se ve centrado,
  * como antes: el recorrido nunca depende de que el elemento este.
  */
-export type AnclaDelTutorial = 'ruta' | 'llama' | 'semaforo' | 'diario' | 'asistente' | 'cuenta';
+export type AnclaDelTutorial = 'ruta' | 'llama' | 'semaforo' | 'diario' | 'asistente';
 
 /**
  * Los pasos del tutorial de bienvenida (SCRUM-187).
@@ -24,11 +24,6 @@ export interface PasoDelTutorial {
   readonly expresion: Expresion;
   /** El elemento que ilumina este paso (SCRUM-201). Sin el, el paso va centrado. */
   readonly ancla?: AnclaDelTutorial;
-  /**
-   * Donde mirar si `ancla` no se ve (SCRUM-246). El diario esta en el dock del movil y, en escritorio,
-   * detras del boton de la cuenta: sin esto el paso salia centrado y sin decir donde esta.
-   */
-  readonly anclaSiNoSeVe?: AnclaDelTutorial;
 }
 
 export const PASOS_DEL_TUTORIAL: readonly PasoDelTutorial[] = [
@@ -67,10 +62,9 @@ export const PASOS_DEL_TUTORIAL: readonly PasoDelTutorial[] = [
     id: 'diario',
     titulo: 'Tu diario',
     texto:
-      'Escribe lo que quieras, a tu ritmo. Es solo tuyo: solo se usa para recomendarte algo si tú lo permites. Lo abres en «Mi diario»: abajo en el celular, o en el menú de tu cuenta (arriba a la derecha) en el computador.',
+      'Escribe lo que quieras, a tu ritmo. Es solo tuyo: solo se usa para recomendarte algo si tú lo permites. Lo abres en «Mi diario»: abajo en el celular, o arriba, junto a Inicio y Progreso, en el computador.',
     expresion: 'normal',
     ancla: 'diario',
-    anclaSiNoSeVe: 'cuenta',
   },
   {
     id: 'asistente',

@@ -276,16 +276,90 @@ describe('la navegacion despues de entrar (SCRUM-182)', () => {
       return screen.getByRole('navigation', { name: 'Secciones' });
     }
 
-    it('lleva Inicio y Progreso, sin «Mi diario» ni «Explorar»', () => {
-      expect(nombresDe(pintarLaBarra())).toEqual(['Inicio', 'Progreso']);
+    it('lleva Inicio, Progreso y Mi diario, en ese orden y sin «Explorar» (SCRUM-249)', () => {
+      expect(nombresDe(pintarLaBarra())).toEqual(['Inicio', 'Progreso', 'Mi diario']);
     });
 
-    it('«Mi diario» sigue a un toque, en el menu de la cuenta', async () => {
+    it('«Mi diario» esta a la vista y lleva a /diario, sin marcarse como la pagina actual', () => {
+      const barra = pintarLaBarra();
+      const diario = within(barra).getByRole('link', { name: 'Mi diario' });
+
+      expect(diario).toHaveAttribute('href', '/diario');
+      expect(diario).not.toHaveAttribute('aria-current');
+    });
+
+    it('«Mi diario» lleva la marca para que el tutorial lo senale', () => {
+      const barra = pintarLaBarra();
+
+      expect(within(barra).getByRole('link', { name: 'Mi diario' })).toHaveAttribute(
+        'data-tutorial',
+        'diario',
+      );
+    });
+
+    it('«Mi diario» sigue a un toque tambien en el menu de la cuenta', async () => {
       pintarLaBarra();
 
       await userEvent.click(screen.getByRole('button', { name: 'Abrir el menú de tu cuenta' }));
 
-      expect(screen.getByRole('link', { name: 'Mi diario' })).toHaveAttribute('href', '/diario');
+      // Dos enlaces con ese nombre: el de la barra y el del menu.
+      const enlaces = screen.getAllByRole('link', { name: 'Mi diario' });
+
+      expect(enlaces).toHaveLength(2);
+      expect(enlaces.map((enlace) => enlace.getAttribute('href'))).toEqual(['/diario', '/diario']);
+    });
+
+    it('sin secciones y fuera del diario no lleva ninguna navegacion', () => {
+      render(
+        <SesionContexto.Provider value={sesion()}>
+          <MemoryRouter>
+            <BarraSuperior conSecciones={false} />
+          </MemoryRouter>
+        </SesionContexto.Provider>,
+      );
+
+      expect(screen.queryByRole('navigation', { name: 'Secciones' })).toBeNull();
+    });
+  });
+
+  describe('la barra de arriba dentro de Mi diario (SCRUM-249)', () => {
+    function pintarLaBarraDelDiario() {
+      render(
+        <SesionContexto.Provider value={sesion()}>
+          <MemoryRouter>
+            <BarraSuperior conSecciones={false} enDiario />
+          </MemoryRouter>
+        </SesionContexto.Provider>,
+      );
+
+      return screen.getByRole('navigation', { name: 'Secciones' });
+    }
+
+    it('lleva los mismos tres enlaces', () => {
+      expect(nombresDe(pintarLaBarraDelDiario())).toEqual(['Inicio', 'Progreso', 'Mi diario']);
+    });
+
+    it('marca «Mi diario» como la pagina actual y lleva al panel por las otras dos', () => {
+      const barra = pintarLaBarraDelDiario();
+
+      expect(within(barra).getByRole('link', { name: 'Mi diario' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      );
+      expect(within(barra).getByRole('link', { name: 'Inicio' })).toHaveAttribute(
+        'href',
+        '/panel#inicio',
+      );
+      expect(within(barra).getByRole('link', { name: 'Progreso' })).toHaveAttribute(
+        'href',
+        '/panel#progreso',
+      );
+      // Ninguna otra esta marcada: solo se esta en una pagina.
+      expect(
+        within(barra)
+          .getAllByRole('link')
+          .filter((enlace) => enlace.getAttribute('aria-current') === 'page'),
+      ).toHaveLength(1);
     });
   });
 
