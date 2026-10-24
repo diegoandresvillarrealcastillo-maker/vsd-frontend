@@ -466,7 +466,7 @@ describe('Dashboard', () => {
       expect(textos).not.toContain('Explorar');
     });
 
-    it('la barra de arriba lleva solo Inicio y Progreso', async () => {
+    it('la barra de arriba lleva Inicio, Progreso y Mi diario (SCRUM-249)', async () => {
       pintar();
 
       await screen.findByRole('heading', { name: /Hola, Marina/ });
@@ -478,7 +478,7 @@ describe('Dashboard', () => {
       // media queries de escritorio) y las consultas por rol la dan por inaccesible.
       const textos = [...barra!.querySelectorAll('a')].map((enlace) => enlace.textContent.trim());
 
-      expect(textos).toEqual(['Inicio', 'Progreso']);
+      expect(textos).toEqual(['Inicio', 'Progreso', 'Mi diario']);
     });
 
     it('al llegar con #progreso desde otra pagina, baja a esa seccion', async () => {

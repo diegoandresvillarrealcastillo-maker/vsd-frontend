@@ -43,9 +43,9 @@ function seVe(elemento: HTMLElement): boolean {
 /**
  * El primer elemento marcado con ese nombre que **se ve**.
  *
- * Puede haber varios con el mismo nombre —el diario esta en el dock del movil y no en el
- * escritorio—, y el que no se ve no sirve: se salta. Si ninguno se ve, `null` y el paso va
- * centrado.
+ * Puede haber varios con el mismo nombre —el diario esta en la barra de arriba del escritorio y
+ * en el dock del movil, y de los dos solo se ve uno—, y el que no se ve no sirve: se salta. Si
+ * ninguno se ve, `null` y el paso va centrado.
  */
 export function buscarAncla(nombre: string, raiz: ParentNode = document): HTMLElement | null {
   for (const candidato of raiz.querySelectorAll<HTMLElement>(`[data-tutorial="${nombre}"]`)) {
