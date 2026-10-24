@@ -67,7 +67,6 @@ export function TutorialDeFungito({
 
   const caja = useDialogo<HTMLDivElement>(cerrar, principal);
   const nombreDelAncla = PASOS_DEL_TUTORIAL[indice]?.ancla;
-  const nombreAlternativo = PASOS_DEL_TUTORIAL[indice]?.anclaSiNoSeVe;
 
   // Lo medido guarda de que paso es: al cambiar de paso, lo del anterior deja de valer sin tener
   // que borrarlo, y el paso nuevo se ve centrado hasta que se mide (antes de pintar).
@@ -86,10 +85,8 @@ export function TutorialDeFungito({
     }
 
     const ancla = nombreDelAncla;
-    // El que se ve primero: el diario, en el dock (movil) o en el boton de la cuenta (escritorio).
-    const encontrar = () =>
-      buscarAncla(ancla) ??
-      (nombreAlternativo === undefined ? null : buscarAncla(nombreAlternativo));
+    // El que se ve primero: el diario, en la barra de arriba (escritorio) o en el dock (movil).
+    const encontrar = () => buscarAncla(ancla);
 
     function medir() {
       const elemento = encontrar();
@@ -123,7 +120,7 @@ export function TutorialDeFungito({
       window.removeEventListener('resize', medir);
       window.removeEventListener('scroll', medir, true);
     };
-  }, [abierto, nombreDelAncla, nombreAlternativo]);
+  }, [abierto, nombreDelAncla]);
 
   if (!abierto) {
     return null;
