@@ -110,16 +110,21 @@ function entradaDeUnaEscritura(operacion: Operacion, estado: EstadoDeLaEntrada) 
   }
 
   const escritaEn = esHora(payload.escritaEn) ? payload.escritaEn : operacion.creadaEn;
+  // Una carta a mi de manana que todavia no salio de este equipo sale sellada, como saldra del
+  // servidor: el texto esta en la cola, pero **no se pone en la entrada**, para que ninguna pantalla
+  // pueda pintarlo por descuido. No se corrige: su hora para editar ya paso (SCRUM-230).
+  const carta = payload.cartaAManana === true;
   const entrada: EntradaDelHistorial = {
     id: idLocalDe(operacion.operationId),
     dia: payload.dia,
-    titulo: typeof payload.titulo === 'string' ? payload.titulo : null,
-    contenido: payload.contenido,
-    adjuntos: Array.isArray(payload.adjuntos) ? payload.adjuntos : [],
+    titulo: !carta && typeof payload.titulo === 'string' ? payload.titulo : null,
+    contenido: carta ? { type: 'doc' } : payload.contenido,
+    adjuntos: !carta && Array.isArray(payload.adjuntos) ? payload.adjuntos : [],
     version: 0,
     creadaEn: escritaEn,
     editadaEn: escritaEn,
-    editableHasta: new Date(Date.parse(escritaEn) + UNA_HORA).toISOString(),
+    editableHasta: carta ? escritaEn : new Date(Date.parse(escritaEn) + UNA_HORA).toISOString(),
+    ...(carta ? { carta: true, sellada: true } : {}),
     estado,
     ...(estado === 'error' ? { operacionConError: operacion.operationId } : {}),
     // Una copia que decidio el propio dispositivo: se sabe de cual es desde que se escribe.
@@ -204,6 +209,28 @@ export function componerElHistorial({
 
       if (nueva !== null) {
         entradas.set(nueva.id, nueva);
+      }
+
+      continue;
+    }
+
+    if (operacion.tipo === 'diario.borrar') {
+      const payload = operacion.payload as { id?: unknown } | null;
+      const borrada =
+        esObjeto(payload) && esTexto(payload.id) ? entradas.get(payload.id) : undefined;
+
+      // Desaparece al momento, como todo lo que se hace aqui. Si el servidor no la dejo borrar y
+      // hace falta que la persona decida, se vuelve a ver, con su error, para reintentarlo.
+      if (borrada !== undefined) {
+        if (estado === 'error') {
+          entradas.set(borrada.id, {
+            ...borrada,
+            estado: 'error',
+            operacionConError: operacion.operationId,
+          });
+        } else {
+          entradas.delete(borrada.id);
+        }
       }
 
       continue;

@@ -39,28 +39,60 @@ const SECCIONES: readonly { href: string; texto: string; icono: NombreDeIcono }[
 /**
  * La barra de arriba. `conSecciones` muestra los enlaces a las secciones del
  * dashboard; en cualquier otra pantalla no llevarian a ningun sitio.
+ *
+ * **«Mi diario» va aqui, junto a Inicio y Progreso** (SCRUM-249): SCRUM-182 lo habia sacado de la
+ * barra, y en las pruebas con personas quien usa el computador solo lo encontraba al abrir el menu
+ * de su cuenta. Sigue tambien en ese menu.
+ *
+ * `enDiario` es la barra de Mi diario: los mismos tres enlaces, con «Mi diario» como pagina actual
+ * e Inicio y Progreso llevando al panel con su ancla, igual que el dock del movil.
  */
-export function BarraSuperior({ conSecciones }: { conSecciones: boolean }) {
+export function BarraSuperior({
+  conSecciones,
+  enDiario = false,
+}: {
+  conSecciones: boolean;
+  enDiario?: boolean;
+}) {
   return (
     <>
       <header className="app__barra">
         <div className="app__barra-interior">
           <MarcaDeLaApp />
 
-          {conSecciones ? (
+          {conSecciones || enDiario ? (
             <nav className="app__nav" aria-label="Secciones">
-              {SECCIONES.map((seccion, indice) => (
-                <a
-                  key={seccion.href}
-                  className={`app__enlace${indice === 0 ? ' app__enlace--activo' : ''}`}
-                  href={seccion.href}
-                >
-                  <Icono nombre={seccion.icono} tamano={18} />
-                  {seccion.texto}
-                </a>
-              ))}
-              {/* «Mi diario» ya no va aqui (SCRUM-182): se llega desde el menu de la
-                cuenta y, en el movil, desde el dock. */}
+              {SECCIONES.map((seccion, indice) =>
+                enDiario ? (
+                  <Link
+                    key={seccion.href}
+                    className="app__enlace"
+                    to={{ pathname: RUTAS.PANEL, hash: seccion.href }}
+                  >
+                    <Icono nombre={seccion.icono} tamano={18} />
+                    {seccion.texto}
+                  </Link>
+                ) : (
+                  <a
+                    key={seccion.href}
+                    className={`app__enlace${indice === 0 ? ' app__enlace--activo' : ''}`}
+                    href={seccion.href}
+                  >
+                    <Icono nombre={seccion.icono} tamano={18} />
+                    {seccion.texto}
+                  </a>
+                ),
+              )}
+              <Link
+                className={`app__enlace${enDiario ? ' app__enlace--activo' : ''}`}
+                to={RUTAS.DIARIO}
+                aria-current={enDiario ? 'page' : undefined}
+                // El tutorial senala el diario donde se ve: aqui en el computador y en el dock del movil.
+                data-tutorial="diario"
+              >
+                <Icono nombre="calendar" tamano={18} />
+                Mi diario
+              </Link>
             </nav>
           ) : (
             // Mantiene la marca a la izquierda y la cuenta a la derecha.
@@ -183,8 +215,6 @@ function MenuDeCuenta() {
         aria-expanded={abierto}
         aria-controls={idDelMenu}
         onClick={() => setAbierto((antes) => !antes)}
-        // En escritorio el diario esta en este menu: el tutorial senala el boton (SCRUM-246).
-        data-tutorial="cuenta"
       >
         {foto === null ? (
           <Icono nombre="user" />
@@ -394,7 +424,7 @@ export function NavegacionInferior({ enDiario = false }: { enDiario?: boolean })
         to={RUTAS.DIARIO}
         aria-current={enDiario ? 'page' : undefined}
         // El tutorial senala el diario donde se ve: en el movil, en el dock (SCRUM-201). En
-        // escritorio no se ve, y el paso senala el boton de la cuenta, que es donde esta (SCRUM-246).
+        // escritorio se ve el de la barra de arriba, y este no (SCRUM-249).
         data-tutorial="diario"
       >
         {enDiario && pastilla}

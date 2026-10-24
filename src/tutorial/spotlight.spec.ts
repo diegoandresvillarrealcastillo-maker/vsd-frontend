@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  MARGEN_DE_LA_FLECHA,
+  MARGEN_DEL_HUECO,
   PROPORCION_MAXIMA_DEL_HUECO,
+  SEPARACION_DEL_GLOBO,
   buscarAncla,
+  colocarElGlobo,
   huecoAlrededorDe,
   ladoDeLaCaja,
   quedaTodoElHueco,
@@ -109,6 +113,82 @@ describe('ladoDeLaCaja: la caja de Fungito va del lado donde hay mas sitio', () 
 
   it('con el elemento justo en medio, abajo (se lee mejor de arriba a abajo)', () => {
     expect(ladoDeLaCaja({ x: 10, y: 370, ancho: 100, alto: 60 }, VENTANA)).toBe('abajo');
+  });
+});
+
+/**
+ * Donde va el globo del paso (SCRUM-252). Ventana de 400 x 800 y un globo de 300 x 200: lo que se
+ * vigila es del lado que va, que no se sale de la ventana y que la flecha apunta al elemento.
+ */
+describe('colocarElGlobo: el globo va pegado al elemento', () => {
+  const GLOBO = { ancho: 300, alto: 200 };
+
+  it('con el elemento arriba (la barra), el globo va debajo, a una flecha de distancia', () => {
+    const colocacion = colocarElGlobo({ x: 180, y: 8, ancho: 40, alto: 40 }, GLOBO, VENTANA);
+
+    expect(colocacion?.lado).toBe('abajo');
+    expect(colocacion?.y).toBe(8 + 40 + SEPARACION_DEL_GLOBO);
+  });
+
+  it('con el elemento abajo (el dock o el semaforo), el globo va encima y no lo tapa', () => {
+    const hueco = { x: 300, y: 700, ancho: 60, alto: 60 };
+    const colocacion = colocarElGlobo(hueco, GLOBO, VENTANA);
+
+    expect(colocacion?.lado).toBe('arriba');
+    // Su borde de abajo queda a una flecha de distancia del hueco.
+    expect((colocacion?.y ?? 0) + GLOBO.alto + SEPARACION_DEL_GLOBO).toBe(hueco.y);
+  });
+
+  it('se centra en el elemento cuando hay sitio a los dos lados', () => {
+    const colocacion = colocarElGlobo({ x: 150, y: 100, ancho: 100, alto: 40 }, GLOBO, VENTANA);
+
+    // Centro del elemento: 200. Un globo de 300 con su centro ahi empieza en 50.
+    expect(colocacion?.x).toBe(50);
+    expect(colocacion?.flecha).toBe(150);
+  });
+
+  it('no se sale de la ventana: se corre, y la flecha sigue apuntando al elemento', () => {
+    // La llama, pegada al borde de la derecha.
+    const hueco = { x: 340, y: 8, ancho: 52, alto: 52 };
+    const colocacion = colocarElGlobo(hueco, GLOBO, VENTANA);
+
+    expect(colocacion?.x).toBe(VENTANA.ancho - GLOBO.ancho - MARGEN_DEL_HUECO);
+    expect((colocacion?.x ?? 0) + (colocacion?.flecha ?? 0)).toBe(hueco.x + hueco.ancho / 2);
+  });
+
+  it('en el borde de la izquierda tampoco se sale', () => {
+    const colocacion = colocarElGlobo({ x: 0, y: 700, ancho: 40, alto: 40 }, GLOBO, VENTANA);
+
+    expect(colocacion?.x).toBe(MARGEN_DEL_HUECO);
+    expect(colocacion?.flecha).toBe(MARGEN_DE_LA_FLECHA);
+  });
+
+  it('la flecha no se arrima a una esquina del globo', () => {
+    const colocacion = colocarElGlobo({ x: 392, y: 8, ancho: 8, alto: 40 }, GLOBO, VENTANA);
+
+    expect(colocacion?.flecha).toBeLessThanOrEqual(GLOBO.ancho - MARGEN_DE_LA_FLECHA);
+    expect(colocacion?.flecha).toBeGreaterThanOrEqual(MARGEN_DE_LA_FLECHA);
+  });
+
+  it('si no cabe del lado con mas sitio, devuelve null: el paso va centrado', () => {
+    // Elemento a media altura: 380 px libres a cada lado, y el globo pide 395 + flecha + margen.
+    const hueco = { x: 100, y: 380, ancho: 100, alto: 40 };
+
+    expect(colocarElGlobo(hueco, { ancho: 300, alto: 395 }, VENTANA)).toBeNull();
+    // Y con un globo que si cabe, sale por el lado de siempre.
+    expect(colocarElGlobo(hueco, { ancho: 300, alto: 300 }, VENTANA)?.lado).toBe(
+      ladoDeLaCaja(hueco, VENTANA),
+    );
+  });
+
+  it('nunca da un x negativo, ni con una ventana mas angosta que el globo', () => {
+    const colocacion = colocarElGlobo(
+      { x: 10, y: 8, ancho: 40, alto: 40 },
+      { ancho: 300, alto: 100 },
+      { ancho: 280, alto: 800 },
+    );
+
+    expect(colocacion?.x).toBe(MARGEN_DEL_HUECO);
   });
 });
 

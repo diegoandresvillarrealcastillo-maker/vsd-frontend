@@ -54,6 +54,8 @@
   font-size: 1.375rem;
   font-weight: 600;
   letter-spacing: -0.02em;
+  /* «Habla con» y un nombre de hasta 30 letras sin espacios (SCRUM-251): que se parta y no desborde. */
+  overflow-wrap: anywhere;
 }
 
 .asistente__subtitulo {
