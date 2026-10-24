@@ -112,6 +112,11 @@ export interface Cuenta {
    */
   readonly diarioConRecomendaciones: boolean;
   /**
+   * Si la persona permite que la aplicacion mire sus dias seguidos con
+   * atencion para acompanarla (SCRUM-177). Apagado salvo que ella lo encienda.
+   */
+  readonly acompanamientoPorDias: boolean;
+  /**
    * La zona horaria de la persona, la que informo su dispositivo. Decide que dia
    * es para ella, tanto aqui como en el servidor (SCRUM-123).
    */
@@ -135,6 +140,7 @@ export interface CambiosDePreferencias {
   readonly modulosActivos?: readonly Modulo[];
   readonly mascota?: Mascota;
   readonly diarioConRecomendaciones?: boolean;
+  readonly acompanamientoPorDias?: boolean;
 }
 
 const RUTA = '/api/cuenta';

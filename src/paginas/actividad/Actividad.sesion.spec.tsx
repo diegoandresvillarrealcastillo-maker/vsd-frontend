@@ -48,6 +48,7 @@ const CUENTA: Cuenta = {
   modulosActivos: ['emociones'],
   mascota: null,
   diarioConRecomendaciones: false,
+  acompanamientoPorDias: false,
   zonaHoraria: 'America/Bogota',
 };
 

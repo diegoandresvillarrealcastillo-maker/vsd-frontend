@@ -123,6 +123,7 @@ export function Perfil() {
               actualizarCuenta={reemplazarCuenta}
             />
             <TuDiario cuenta={estado.cuenta} guardar={guardar} />
+            <TuAcompanamiento cuenta={estado.cuenta} guardar={guardar} />
             <TusAvisos />
             <Correo correo={estado.cuenta.correo} />
             <Contrasena correo={estado.cuenta.correo} />
@@ -563,6 +564,85 @@ function TuDiario({
         Si lo enciendes, la aplicación revisa de forma automática lo que escribes y, si algo suena a
         que lo estás pasando mal, te muestra líneas de atención a las que puedes acudir. Encenderlo
         no hace que ninguna persona lo lea. Puedes apagarlo cuando quieras.
+      </p>
+      <MensajeDeAviso aviso={aviso} />
+    </Apartado>
+  );
+}
+
+/**
+ * El permiso para acompanar por dias seguidos con atencion (SCRUM-177, ADR 0034).
+ *
+ * Funciona igual que el del diario: un interruptor que se guarda al pulsarlo y
+ * que pinta lo que devuelve la API. Sin este permiso el servidor ni mira los
+ * resultados.
+ */
+function TuAcompanamiento({
+  cuenta,
+  guardar,
+}: {
+  cuenta: Cuenta;
+  guardar: (cambios: CambiosDePreferencias) => Promise<void>;
+}) {
+  const encendido = cuenta.acompanamientoPorDias;
+  const [ocupado, setOcupado] = useState(false);
+  const [aviso, setAviso] = useState<Aviso>(null);
+  const datos = MODULOS.emociones;
+  const idDeLaExplicacion = useId();
+
+  async function alternar() {
+    if (ocupado) {
+      return;
+    }
+
+    const nuevo = !encendido;
+
+    setOcupado(true);
+    setAviso(null);
+
+    try {
+      await guardar({ acompanamientoPorDias: nuevo });
+      setAviso({
+        tipo: 'bien',
+        texto: nuevo
+          ? 'Listo. Si varios días seguidos van mal, te acompañaremos y te mostraremos a dónde acudir.'
+          : 'Listo. Tus días ya no se revisan para acompañarte.',
+      });
+    } catch {
+      setAviso({ tipo: 'fallo', texto: SIN_CONEXION });
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  return (
+    <Apartado
+      titulo="Tu acompañamiento"
+      ayuda="Mientras esto esté apagado, la aplicación no revisa tus resultados para saber cómo van tus días."
+    >
+      <button
+        type="button"
+        role="switch"
+        aria-checked={encendido}
+        aria-describedby={idDeLaExplicacion}
+        className={`perfil__modulo${encendido ? ' perfil__modulo--activo' : ''}`}
+        style={{ '--modulo-fondo': datos.fondo, '--modulo-acento': datos.acento } as CSSProperties}
+        onClick={() => void alternar()}
+      >
+        <span className="tarjeta-modulo__icono">
+          <Icono nombre="heart" />
+        </span>
+        <span className="perfil__modulo-nombre">Acompañarme si varios días van mal</span>
+        <span className="perfil__interruptor" aria-hidden="true">
+          <span />
+        </span>
+      </button>
+
+      <p id={idDeLaExplicacion} className="app__nota perfil__ayuda">
+        Si lo enciendes, la aplicación mira si llevas varios días seguidos con resultados en carga o
+        emociones que piden atención y, si es así, te acompaña y te muestra a dónde acudir. No se lo
+        cuenta a nadie, no muestra ningún puntaje y no te avisa fuera de la aplicación. Puedes
+        apagarlo cuando quieras.
       </p>
       <MensajeDeAviso aviso={aviso} />
     </Apartado>
