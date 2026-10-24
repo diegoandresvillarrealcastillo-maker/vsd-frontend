@@ -41,6 +41,13 @@
   object-fit: contain;
 }
 
+/* Centrado, la mascota, el paso y el titulo son hijos directos de la caja (una columna centrada).
+   Pegado a un elemento se acomodan en una fila: ver mas abajo. */
+.tutorial__cabeza,
+.tutorial__encabezado {
+  display: contents;
+}
+
 .tutorial__paso {
   margin: 0;
   color: var(--app-tenue);
@@ -237,24 +244,40 @@
 }
 
 /* ============================================================
-   El spotlight (SCRUM-201)
+   Pegado a un elemento (SCRUM-201, SCRUM-252)
 
    Cuando el paso senala un elemento, el hueco lo ilumina y su
    propia sombra atenua todo lo demas: el fondo deja de oscurecer.
-   La caja de Fungito va arriba o abajo, donde hay mas sitio.
-   El hueco es solo un dibujo: el puntero lo atrapa el fondo.
+   El globo va junto al elemento, con una flecha, del lado donde hay
+   mas sitio.
+
+   El elemento se puede tocar. La raiz no recibe el puntero: lo
+   atrapan cuatro paneles transparentes alrededor del hueco y el
+   propio globo. El hueco, que es solo un dibujo, deja pasar el toque.
    ============================================================ */
 
 .tutorial--spotlight {
   background: transparent;
+  pointer-events: none;
 }
 
+/* El puntero se hereda: lo que si lo recibe tiene que decirlo. */
+.tutorial--spotlight .tutorial__caja,
+.tutorial__bloqueo {
+  pointer-events: auto;
+}
+
+/* Ya probado el elemento, el globo se va al borde de la pantalla contrario a el. */
 .tutorial--arriba {
   place-items: start center;
 }
 
 .tutorial--abajo {
   place-items: end center;
+}
+
+.tutorial__bloqueo {
+  position: fixed;
 }
 
 .tutorial__hueco {
@@ -271,20 +294,163 @@
     height 0.28s ease;
 }
 
-/* Con el elemento a la vista, la caja es mas compacta: deja ver lo que senala. */
+/* Con el elemento a la vista, la caja es mas compacta, de texto a la izquierda: deja ver lo que
+   senala. La mascota y el titulo van en una fila. */
 .tutorial--spotlight .tutorial__caja {
+  /* Por encima de los paneles de alrededor, que son posicionados: sin esto, una caja que no lo es
+     (la de ya probado, en el borde) queda debajo de ellos y no recibe ni un clic. */
+  position: relative;
+  z-index: 1;
   width: min(24rem, 100%);
   gap: 0.5rem;
   padding: 1rem 1.25rem;
+  justify-items: stretch;
+  text-align: left;
+}
+
+.tutorial--spotlight .tutorial__cabeza {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.tutorial--spotlight .tutorial__encabezado {
+  display: grid;
+  gap: 0.125rem;
+  min-width: 0;
 }
 
 .tutorial--spotlight .tutorial__fungito {
-  width: 4.5rem;
-  height: 4.5rem;
+  flex: none;
+  width: 4rem;
+  height: 4rem;
+}
+
+.tutorial--spotlight .tutorial__titulo {
+  font-size: 1.25rem;
+}
+
+.tutorial--spotlight .tutorial__puntos {
+  justify-content: center;
+}
+
+.tutorial--spotlight .tutorial__texto {
+  font-size: 0.9375rem;
+}
+
+/* Los tres botones en una fila, tambien en un celular de 320 px: con menos aire a los lados. */
+.tutorial--spotlight .tutorial__acciones {
+  flex-wrap: nowrap;
+  margin-top: 0.25rem;
+}
+
+.tutorial--spotlight .tutorial__omitir,
+.tutorial--spotlight .tutorial__boton {
+  min-width: 0;
+  padding: 0 0.875rem;
+}
+
+/* El globo: fijo junto al elemento. `left` y `top` llegan en linea, porque salen de medirlo. */
+.tutorial--spotlight .tutorial__globo {
+  position: fixed;
+  width: min(22rem, calc(100vw - 1rem));
+  max-height: none;
+  /* La flecha sale por fuera de la caja: sin esto, la caja la recortaria. */
+  overflow: visible;
+  animation: tutorial-aparecer 0.2s ease-out;
+}
+
+.tutorial__flecha {
+  position: absolute;
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 1px solid var(--app-borde);
+  background: var(--app-lienzo);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+/* Globo debajo del elemento: la flecha sale por arriba. Encima: por abajo. */
+.tutorial__globo--abajo .tutorial__flecha {
+  top: -0.4375rem;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.tutorial__globo--arriba .tutorial__flecha {
+  bottom: -0.4375rem;
+  border-top: 0;
+  border-left: 0;
+}
+
+.tutorial__invitacion {
+  margin: 0;
+  color: var(--app-tenue);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+/* Lo que dice el globo al tocar el elemento. Se distingue por el texto y la marca de la izquierda,
+   no solo por el color. Vacio hasta entonces. */
+.tutorial__probado {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--app-primario);
+  border-radius: 0.5rem;
+  background: var(--app-superficie);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* Vacio no ocupa sitio, pero sigue ahi para el lector de pantalla: con `display: none` saldria del
+   arbol y el aviso que llega despues apareceria ya lleno, que es lo que a veces no se anuncia. */
+.tutorial__probado:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+@keyframes tutorial-aparecer {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* Lo que abre el elemento senalado (el panel de la llama, el semaforo, el asistente) pasa por
+   encima del tutorial mientras este abierto: es lo que la persona esta probando. El tutorial lo
+   marca en el cuerpo de la pagina. Cuando eso se cierra, el globo sigue ahi. */
+body.con-tutorial .llama__velo,
+body.con-tutorial .llama__panel,
+body.con-tutorial .semaforo-velo,
+body.con-tutorial .asistente-velo {
+  z-index: 80;
+}
+
+body.con-tutorial .mascota--con-asistente {
+  z-index: 81;
+}
+
+/* Al tocar a la mascota sale su frase, con «Hablar con...». Esa frase vive dentro de la mascota (z-index
+   30), debajo de los paneles que atrapan el puntero: se veria y no se podria pulsar. Ya probada, la
+   mascota sube por encima del tutorial pero por debajo de lo que ella abre. */
+body[data-tutorial-probando='asistente'] .mascota {
+  z-index: 75;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .tutorial__hueco {
     transition: none;
+  }
+
+  .tutorial--spotlight .tutorial__globo {
+    animation: none;
   }
 }
