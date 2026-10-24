@@ -2,6 +2,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { AvisoDeAcompanamiento } from '../../acompanamiento/AvisoDeAcompanamiento.tsx';
 import { ConfirmarSalida } from '../../componentes/ConfirmarSalida.tsx';
 import { MarcaDeLaApp } from '../../componentes/MarcaDeLaApp.tsx';
 import { IndicadorDeConexion } from '../../conexion/IndicadorDeConexion.tsx';
@@ -54,60 +55,65 @@ export function BarraSuperior({
   enDiario?: boolean;
 }) {
   return (
-    <header className="app__barra">
-      <div className="app__barra-interior">
-        <MarcaDeLaApp />
+    <>
+      <header className="app__barra">
+        <div className="app__barra-interior">
+          <MarcaDeLaApp />
 
-        {conSecciones || enDiario ? (
-          <nav className="app__nav" aria-label="Secciones">
-            {SECCIONES.map((seccion, indice) =>
-              enDiario ? (
-                <Link
-                  key={seccion.href}
-                  className="app__enlace"
-                  to={{ pathname: RUTAS.PANEL, hash: seccion.href }}
-                >
-                  <Icono nombre={seccion.icono} tamano={18} />
-                  {seccion.texto}
-                </Link>
-              ) : (
-                <a
-                  key={seccion.href}
-                  className={`app__enlace${indice === 0 ? ' app__enlace--activo' : ''}`}
-                  href={seccion.href}
-                >
-                  <Icono nombre={seccion.icono} tamano={18} />
-                  {seccion.texto}
-                </a>
-              ),
-            )}
-            <Link
-              className={`app__enlace${enDiario ? ' app__enlace--activo' : ''}`}
-              to={RUTAS.DIARIO}
-              aria-current={enDiario ? 'page' : undefined}
-              // El tutorial senala el diario donde se ve: aqui en el computador y en el dock del movil.
-              data-tutorial="diario"
-            >
-              <Icono nombre="calendar" tamano={18} />
-              Mi diario
-            </Link>
-          </nav>
-        ) : (
-          // Mantiene la marca a la izquierda y la cuenta a la derecha.
-          <span aria-hidden="true" />
-        )}
+          {conSecciones || enDiario ? (
+            <nav className="app__nav" aria-label="Secciones">
+              {SECCIONES.map((seccion, indice) =>
+                enDiario ? (
+                  <Link
+                    key={seccion.href}
+                    className="app__enlace"
+                    to={{ pathname: RUTAS.PANEL, hash: seccion.href }}
+                  >
+                    <Icono nombre={seccion.icono} tamano={18} />
+                    {seccion.texto}
+                  </Link>
+                ) : (
+                  <a
+                    key={seccion.href}
+                    className={`app__enlace${indice === 0 ? ' app__enlace--activo' : ''}`}
+                    href={seccion.href}
+                  >
+                    <Icono nombre={seccion.icono} tamano={18} />
+                    {seccion.texto}
+                  </a>
+                ),
+              )}
+              <Link
+                className={`app__enlace${enDiario ? ' app__enlace--activo' : ''}`}
+                to={RUTAS.DIARIO}
+                aria-current={enDiario ? 'page' : undefined}
+                // El tutorial senala el diario donde se ve: aqui en el computador y en el dock del movil.
+                data-tutorial="diario"
+              >
+                <Icono nombre="calendar" tamano={18} />
+                Mi diario
+              </Link>
+            </nav>
+          ) : (
+            // Mantiene la marca a la izquierda y la cuenta a la derecha.
+            <span aria-hidden="true" />
+          )}
 
-        <div className="app__acciones">
-          {/* La llama de la racha (SCRUM-186), a la izquierda del indicador de conexion. */}
-          <LlamaDeLaBarra />
-          {/* Si hay conexion y cuanto sigue guardado en este equipo (SCRUM-137). */}
-          <IndicadorDeConexion />
-          {/* Volvio con el modo claro (SCRUM-112). */}
-          <SelectorDeTema variante="barra" />
-          <MenuDeCuenta />
+          <div className="app__acciones">
+            {/* La llama de la racha (SCRUM-186), a la izquierda del indicador de conexion. */}
+            <LlamaDeLaBarra />
+            {/* Si hay conexion y cuanto sigue guardado en este equipo (SCRUM-137). */}
+            <IndicadorDeConexion />
+            {/* Volvio con el modo claro (SCRUM-112). */}
+            <SelectorDeTema variante="barra" />
+            <MenuDeCuenta />
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      {/* El acompanamiento por dias seguidos con atencion (SCRUM-177): en cada pantalla con barra. */}
+      <AvisoDeAcompanamiento />
+    </>
   );
 }
 
