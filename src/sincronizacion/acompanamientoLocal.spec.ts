@@ -18,7 +18,7 @@ vi.mock('../infraestructura/api/acompanamiento.ts', () => ({ consultarElAcompana
 
 const NO_RECORDADA = { persistente: false };
 const LINEA = { id: 'l-1', titulo: 'Línea 192, opción 4', tipo: 'contacto', cobertura: 'nacional' };
-const CRITICO = { nivel: 'critico', lineasDeAtencion: [LINEA] };
+const CRITICO = { nivel: 'critico', abandono: 'ninguno', lineasDeAtencion: [LINEA] };
 
 beforeEach(async () => {
   consultarElAcompanamiento.mockResolvedValue(CRITICO);
@@ -61,6 +61,7 @@ describe('leerElAcompanamiento', () => {
 
     expect((await leerElAcompanamiento()).valor).toEqual({
       nivel: 'ninguno',
+      abandono: 'ninguno',
       lineasDeAtencion: [],
     });
   });
@@ -74,7 +75,11 @@ describe('comoAcompanamiento', () => {
   it.each([[null], [undefined], [7], ['critico'], [[]], [{}], [{ nivel: 3 }], [{ nivel: 'otro' }]])(
     '%j se lee como «ninguno»: nunca se inventa un aviso',
     (basura) => {
-      expect(comoAcompanamiento(basura)).toEqual({ nivel: 'ninguno', lineasDeAtencion: [] });
+      expect(comoAcompanamiento(basura)).toEqual({
+        nivel: 'ninguno',
+        abandono: 'ninguno',
+        lineasDeAtencion: [],
+      });
     },
   );
 
@@ -89,5 +94,39 @@ describe('comoAcompanamiento', () => {
 
   it('sin lista de lineas, una vacia: la pantalla usa las de respaldo del pais', () => {
     expect(comoAcompanamiento({ nivel: 'critico' }).lineasDeAtencion).toEqual([]);
+  });
+});
+
+describe('comoAcompanamiento: el abandono (SCRUM-256)', () => {
+  it.each([['ninguno'], ['moderado'], ['critico']])('entiende el abandono %s', (abandono) => {
+    expect(comoAcompanamiento({ nivel: 'ninguno', abandono, lineasDeAtencion: [] }).abandono).toBe(
+      abandono,
+    );
+  });
+
+  it('lo que guardo una version anterior no trae abandono: se lee como «ninguno»', () => {
+    expect(comoAcompanamiento({ nivel: 'moderado', lineasDeAtencion: [] })).toEqual({
+      nivel: 'moderado',
+      abandono: 'ninguno',
+      lineasDeAtencion: [],
+    });
+  });
+
+  it.each([[3], [null], ['urgente'], [{}]])(
+    'un abandono que no se entiende (%j) se lee como «ninguno» y no inventa un aviso',
+    (abandono) => {
+      expect(
+        comoAcompanamiento({ nivel: 'ninguno', abandono, lineasDeAtencion: [] }).abandono,
+      ).toBe('ninguno');
+    },
+  );
+
+  it('un abandono critico del servidor llega a la copia con sus lineas', async () => {
+    const critico = { nivel: 'ninguno', abandono: 'critico', lineasDeAtencion: [LINEA] };
+
+    consultarElAcompanamiento.mockResolvedValue(critico);
+
+    expect((await leerElAcompanamiento()).valor).toEqual(critico);
+    expect(await leerSoloLaCopia(CLAVE_DEL_ACOMPANAMIENTO)).toEqual(critico);
   });
 });
