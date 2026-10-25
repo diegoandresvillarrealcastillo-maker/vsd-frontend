@@ -112,6 +112,7 @@ function exportacion(cambios: Record<string, unknown> = {}): Record<string, unkn
     ],
     avisos: {
       horaSemaforo: '08:00',
+      frecuenciaSemaforo: 'dos_veces',
       horaRacha: null,
       recordatorioManana: true,
       recordatorioNoche: false,
@@ -229,6 +230,7 @@ describe('generarLaExportacionEnPdf', () => {
       const texto = textoDe(generarLaExportacionEnPdf(exportacion()));
 
       expect(texto).toContain('08:00');
+      expect(texto).toContain('Dos veces al día');
       expect(texto).toContain('Los pulpos tienen tres corazones.');
     });
   });
