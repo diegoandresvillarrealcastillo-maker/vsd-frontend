@@ -18,9 +18,20 @@ vi.mock('../infraestructura/api/notificaciones.ts', () => ({ soltarEsteNavegador
 
 const ENDPOINT = 'https://push.example.com/este-navegador';
 
-/** Un navegador con Web Push y, si se pide, ya suscrito. */
-function conWebPush(suscrito: boolean) {
-  const suscripcion = { endpoint: ENDPOINT, unsubscribe: vi.fn().mockResolvedValue(true) };
+/**
+ * Un navegador con Web Push y, si se pide, ya suscrito. Soltar la suscripcion la quita de verdad:
+ * despues de `unsubscribe`, el navegador ya no la devuelve (salvo que se pida que se resista).
+ */
+function conWebPush(suscrito: boolean, opciones: { readonly seResiste?: boolean } = {}) {
+  let hayUna = suscrito;
+  const suscripcion = {
+    endpoint: ENDPOINT,
+    unsubscribe: vi.fn(() => {
+      hayUna &&= opciones.seResiste === true;
+
+      return Promise.resolve(opciones.seResiste !== true);
+    }),
+  };
 
   vi.stubGlobal('PushManager', class {});
   vi.stubGlobal('Notification', { permission: 'granted' });
@@ -28,7 +39,7 @@ function conWebPush(suscrito: boolean) {
     configurable: true,
     value: {
       getRegistration: vi.fn().mockResolvedValue({
-        pushManager: { getSubscription: vi.fn().mockResolvedValue(suscrito ? suscripcion : null) },
+        pushManager: { getSubscription: vi.fn(() => Promise.resolve(hayUna ? suscripcion : null)) },
       }),
     },
   });
@@ -86,8 +97,84 @@ describe('al cerrar sesion', () => {
 
     await dejarDeAvisarAEsteNavegador();
 
-    expect(soltarEsteNavegadorDelServidor).toHaveBeenCalledWith(ENDPOINT);
+    expect(soltarEsteNavegadorDelServidor).toHaveBeenCalledWith(ENDPOINT, expect.any(AbortSignal));
     expect(suscripcion.unsubscribe).toHaveBeenCalled();
+  });
+
+  /**
+   * Lo de este equipo va primero (SCRUM-271): no depende de la red, y es lo que corta los avisos aqui.
+   * Antes se esperaba al servidor y se soltaba despues: con el servidor colgado, el navegador de
+   * quien ya salio seguia recibiendo sus avisos.
+   */
+  describe('lo de aqui va primero (SCRUM-271)', () => {
+    it('suelta la suscripcion de este navegador ANTES de avisar al servidor', async () => {
+      const suscripcion = conWebPush(true);
+
+      await dejarDeAvisarAEsteNavegador();
+
+      expect(suscripcion.unsubscribe.mock.invocationCallOrder[0]).toBeLessThan(
+        soltarEsteNavegadorDelServidor.mock.invocationCallOrder[0] ?? 0,
+      );
+    });
+
+    it('si el servidor no responde, lo de aqui ya quedo suelto', async () => {
+      vi.useFakeTimers();
+
+      const suscripcion = conWebPush(true);
+
+      soltarEsteNavegadorDelServidor.mockReturnValue(new Promise(() => undefined));
+
+      const salida = dejarDeAvisarAEsteNavegador();
+
+      await vi.advanceTimersByTimeAsync(3_000);
+      await salida;
+
+      expect(suscripcion.unsubscribe).toHaveBeenCalledOnce();
+      await expect(suscripcionActual()).resolves.toBeNull();
+    });
+
+    it('le da al servidor 3 segundos y cancela la llamada pasado ese tiempo', async () => {
+      const limite = vi.spyOn(AbortSignal, 'timeout');
+
+      conWebPush(true);
+      await dejarDeAvisarAEsteNavegador();
+
+      expect(limite).toHaveBeenCalledWith(3_000);
+      expect(soltarEsteNavegadorDelServidor.mock.calls[0]?.[1]).toBe(limite.mock.results[0]?.value);
+    });
+
+    it('si soltar lo de aqui falla, igual avisa al servidor y no lanza', async () => {
+      const suscripcion = conWebPush(true);
+      const aviso = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      suscripcion.unsubscribe.mockRejectedValue(new Error('el navegador no pudo'));
+
+      await expect(dejarDeAvisarAEsteNavegador()).resolves.toBeUndefined();
+
+      expect(soltarEsteNavegadorDelServidor).toHaveBeenCalledWith(ENDPOINT, expect.anything());
+      expect(aviso).toHaveBeenCalledOnce();
+    });
+
+    it('comprueba que quedo suelta, y si no, lo dice y avisa al servidor igual', async () => {
+      conWebPush(true, { seResiste: true });
+
+      const aviso = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      await dejarDeAvisarAEsteNavegador();
+
+      expect(aviso).toHaveBeenCalledOnce();
+      expect(soltarEsteNavegadorDelServidor).toHaveBeenCalledOnce();
+    });
+
+    it('cuando quedo suelta no dice nada', async () => {
+      conWebPush(true);
+
+      const aviso = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      await dejarDeAvisarAEsteNavegador();
+
+      expect(aviso).not.toHaveBeenCalled();
+    });
   });
 
   it('si el servidor falla, lo suelta aqui igual y no lanza', async () => {
