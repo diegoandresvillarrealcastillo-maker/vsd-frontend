@@ -1,5 +1,6 @@
 import { useId } from 'react';
 
+import { LlamarAhora } from '../../componentes/LlamarAhora.tsx';
 import type { LineaDeAtencion } from '../../infraestructura/api/resultados.ts';
 import { lineasParaMostrar, textoDeCobertura } from './lineasParaMostrar.ts';
 
@@ -11,9 +12,10 @@ import { lineasParaMostrar, textoDeCobertura } from './lineasParaMostrar.ts';
  * una semana pesada. El tono es el de alguien que deja un numero apuntado por
  * si hace falta.
  *
- * El enlace abre la pagina del servicio, no llama: el numero ya esta en el
- * titulo y en la descripcion, y algunas lineas se marcan con una opcion
- * despues ("192, opcion 4") que un `tel:` no sabria marcar.
+ * El enlace abre la pagina del servicio. Llamar es el boton «Llamar ahora»
+ * (SCRUM-257), que sale solo si la linea trae un telefono verificado: algunas
+ * lineas se marcan con una opcion despues ("192, opcion 4") que no se marca sola,
+ * y esa opcion esta en la descripcion, justo encima.
  */
 export function LineasDeAtencion({ lineas }: { lineas: readonly LineaDeAtencion[] | undefined }) {
   const idDelTitulo = useId();
@@ -45,6 +47,8 @@ export function LineasDeAtencion({ lineas }: { lineas: readonly LineaDeAtencion[
               {linea.descripcion !== undefined && (
                 <p className="actividad__linea-descripcion">{linea.descripcion}</p>
               )}
+
+              <LlamarAhora linea={linea} />
 
               {linea.enlace !== undefined && (
                 // El nombre accesible empieza por lo que se ve, para que quien

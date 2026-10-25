@@ -265,6 +265,45 @@ describe('Critico', () => {
     });
   });
 
+  describe('«Llamar ahora» (SCRUM-257)', () => {
+    it('una linea con telefono verificado se puede marcar con un toque', async () => {
+      consultarElAcompanamiento.mockResolvedValue({
+        nivel: 'critico',
+        lineasDeAtencion: [{ ...LINEA, telefono: '192' }],
+      });
+      pintar();
+
+      const boton = await screen.findByRole('link', {
+        name: 'Llamar ahora: Línea 192, opción 4',
+      });
+
+      expect(boton).toHaveAttribute('href', 'tel:192');
+    });
+
+    it('una linea sin telefono no tiene boton, y conserva su enlace', async () => {
+      consultarElAcompanamiento.mockResolvedValue(CRITICO);
+      pintar();
+
+      expect(await screen.findByText('Línea 192, opción 4')).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /Llamar ahora/ })).not.toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /Más información sobre/ })).toBeInTheDocument();
+    });
+
+    it('con las lineas de respaldo de Colombia, la 192 y la 123 se pueden marcar', async () => {
+      consultarElAcompanamiento.mockResolvedValue({ nivel: 'critico', lineasDeAtencion: [] });
+      pintar();
+
+      expect(await screen.findByRole('link', { name: /Llamar ahora: Línea 192/ })).toHaveAttribute(
+        'href',
+        'tel:192',
+      );
+      expect(screen.getByRole('link', { name: /Llamar ahora: Línea 123/ })).toHaveAttribute(
+        'href',
+        'tel:123',
+      );
+    });
+  });
+
   it('no tiene fallos de accesibilidad', async () => {
     pintar();
     await screen.findByText('Hablar con alguien puede ayudarte');

@@ -34,6 +34,14 @@
   margin: 0;
 }
 
+/* El telefono del equipo (SCRUM-257): un enlace que se ve como tal y con un blanco de toque cómodo. */
+.pie-de-la-app__telefono {
+  display: inline-block;
+  padding-block: 0.25rem;
+  color: var(--app-tinta, inherit);
+  white-space: nowrap;
+}
+
 /* La version de la aplicacion (SCRUM-234): una linea pequena y tranquila, que se puede seleccionar y copiar. */
 .pie-de-la-app__version {
   margin: 0;

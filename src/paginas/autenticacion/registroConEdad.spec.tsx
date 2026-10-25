@@ -741,6 +741,30 @@ describe('La pantalla de rechazo', () => {
     expect(screen.getByText('Línea 141 del ICBF').closest('li')).toHaveTextContent('Todo el país');
   });
 
+  it('en Colombia cada linea se puede marcar con un toque: 141, 106, 192 y 123 (SCRUM-257)', () => {
+    fijarLaZonaDeLaCuenta('America/Bogota');
+    pintarElRechazo();
+
+    for (const [linea, telefono] of [
+      ['Línea 141 del ICBF', '141'],
+      ['Línea 106', '106'],
+      ['Línea 192, opción 4', '192'],
+      ['Línea 123', '123'],
+    ] as const) {
+      expect(screen.getByRole('link', { name: `Llamar ahora: ${linea}` }), linea).toHaveAttribute(
+        'href',
+        `tel:${telefono}`,
+      );
+    }
+  });
+
+  it('fuera de Colombia no hay boton de llamar, solo el directorio', () => {
+    fijarLaZonaDeLaCuenta('Europe/Madrid');
+    pintarElRechazo();
+
+    expect(screen.queryByRole('link', { name: /Llamar ahora/ })).not.toBeInTheDocument();
+  });
+
   it('los enlaces llevan a las paginas oficiales, en otra pestaña', () => {
     fijarLaZonaDeLaCuenta('America/Bogota');
     pintarElRechazo();

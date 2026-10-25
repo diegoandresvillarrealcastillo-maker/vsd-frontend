@@ -1,5 +1,6 @@
 import { useId } from 'react';
 
+import { LlamarAhora } from '../componentes/LlamarAhora.tsx';
 import { ID_DEL_CONTENIDO } from '../componentes/SaltoAlContenido.tsx';
 import '../estilos/acompanamiento.css';
 import type { LineaDeAtencion } from '../infraestructura/api/resultados.ts';
@@ -135,6 +136,8 @@ function ListaDeLineas({ lineas }: { readonly lineas: readonly LineaDeAtencion[]
             {linea.descripcion !== undefined && (
               <p className="acompanamiento__linea-descripcion">{linea.descripcion}</p>
             )}
+
+            <LlamarAhora linea={linea} />
 
             {linea.enlace !== undefined && (
               // El nombre accesible empieza por lo que se ve y dice de cual linea es: con varios

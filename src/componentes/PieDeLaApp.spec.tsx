@@ -37,4 +37,28 @@ describe('PieDeLaApp', () => {
     expect(version.closest('button')).toBeNull();
     expect(version.closest('a')).toBeNull();
   });
+
+  it('deja el telefono tecnico del equipo, y dice que es solo para problemas tecnicos (SCRUM-257)', () => {
+    pintar();
+
+    const pie = screen.getByRole('contentinfo');
+
+    expect(screen.getByRole('link', { name: /Llamar a Diego/ })).toHaveAttribute(
+      'href',
+      'tel:+573112801363',
+    );
+    expect(screen.getByRole('link', { name: /Llamar a Samuel/ })).toHaveAttribute(
+      'href',
+      'tel:+573245889281',
+    );
+    expect(pie).toHaveTextContent('Son solo para problemas técnicos de la aplicación');
+    expect(pie).toHaveTextContent('No son una línea de ayuda');
+    expect(pie).toHaveTextContent('¿Dónde busco ayuda?');
+  });
+
+  it('el teléfono del equipo nunca es un «Llamar ahora», que es solo de las líneas de atención', () => {
+    pintar();
+
+    expect(screen.queryByRole('link', { name: /Llamar ahora/ })).not.toBeInTheDocument();
+  });
 });
