@@ -471,6 +471,17 @@ describe('Perfil', () => {
       expect(boton).toHaveAccessibleDescription(/Puedes apagarlo cuando quieras/);
     });
 
+    it('dice que tambien cubre el aviso al volver tras dejar de registrar (SCRUM-256)', async () => {
+      pintar();
+
+      const { boton } = await interruptor();
+
+      expect(boton).toHaveAccessibleDescription(
+        /dejas de registrar, al volver también te lo recuerda con un aviso que puedes cerrar/,
+      );
+      expect(boton).toHaveAccessibleDescription(/no te avisa fuera de la aplicación/);
+    });
+
     it('se enciende al pulsarlo, sin boton de guardar', async () => {
       cambiarPreferencias.mockResolvedValue({ ...CUENTA, acompanamientoPorDias: true });
 
