@@ -40,23 +40,6 @@ export interface Anotacion {
   readonly editadaEn: string;
   /** Una hora despues de escribirla. Despues, lo nuevo va en otra anotacion. */
   readonly editableHasta: string;
-  /**
-   * Si es una «carta a mi de manana» (SCRUM-230). Opcional: una anotacion guardada antes de
-   * que existieran las cartas, o por una version anterior de la API, no lo trae.
-   */
-  readonly carta?: boolean;
-  /**
-   * Si es una carta que todavia espera: **titulo, contenido y diagramas vienen vacios** y el
-   * texto solo sale al abrirla (`abrirCarta`). Nunca se pinta lo que venga en una sellada.
-   */
-  readonly sellada?: boolean;
-}
-
-/** Una carta que espera ser leida: lo justo para ofrecerla. Sin su texto (SCRUM-230). */
-export interface CartaEnEspera {
-  readonly id: string;
-  /** El dia en que se escribio, en el calendario de la persona: AAAA-MM-DD. */
-  readonly dia: string;
 }
 
 /**
@@ -76,11 +59,6 @@ export interface AnotacionPorEscribir {
   readonly titulo?: string;
   readonly contenido: NodoDelDocumento;
   readonly adjuntos?: readonly Adjunto[];
-  /**
-   * «Carta a mi de manana» (SCRUM-230): se guarda hoy y su texto no sale de la API hasta que
-   * la persona la abre, desde el dia siguiente.
-   */
-  readonly cartaAManana?: true;
   /**
    * La hora en que el dispositivo la escribio (ISO 8601). Importa cuando se escribe sin
    * conexion y llega despues: la anotacion muestra esta hora y no la de cuando se
@@ -136,33 +114,4 @@ export function editarAnotacion(
     metodo: 'PATCH',
     cuerpo: cambios,
   });
-}
-
-/**
- * Las cartas que la persona se dejo y todavia no abrio ni borro: de un dia que ya paso y
- * dentro de su semana de espera, la mas reciente primero. **Sin su texto** (SCRUM-230).
- */
-export function consultarCartasEnEspera(senal?: AbortSignal): Promise<readonly CartaEnEspera[]> {
-  return llamarALaApi<readonly CartaEnEspera[]>('/api/diario/cartas-en-espera', {
-    ...(senal ? { senal } : {}),
-  });
-}
-
-/**
- * Abre una carta para leerla: lo unico que entrega su texto. Solo desde el dia siguiente al que se
- * escribio; antes responde 409 `CARTA_PARA_MANANA`. Abrirla otra vez devuelve lo mismo (SCRUM-230).
- */
-export function abrirCarta(id: string, senal?: AbortSignal): Promise<Anotacion> {
-  return llamarALaApi<Anotacion>(`/api/diario/${encodeURIComponent(id)}/abrir`, {
-    metodo: 'POST',
-    ...(senal ? { senal } : {}),
-  });
-}
-
-/**
- * Borra una anotacion propia, la haya leido o no. Idempotente por el identificador: borrar lo que ya no
- * esta responde igual, y por eso se puede reintentar desde la cola (SCRUM-230).
- */
-export function borrarAnotacion(id: string): Promise<void> {
-  return llamarALaApi<void>(`/api/diario/${encodeURIComponent(id)}`, { metodo: 'DELETE' });
 }

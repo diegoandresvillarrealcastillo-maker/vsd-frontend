@@ -19,7 +19,14 @@ export type NivelDeAcompanamiento = 'ninguno' | 'moderado' | 'critico';
 export interface Acompanamiento {
   readonly nivel: NivelDeAcompanamiento;
   /**
-   * Las lineas del pais de la persona, solo con el nivel critico. **No sale ningun puntaje ni
+   * El acompanamiento por abandono (SCRUM-256, ADR 0035 del backend): la persona venia de varios
+   * dias seguidos con atencion, su ultimo registro fue de atencion y lleva dias sin registrar nada.
+   * **moderado** si venia de 3 a 6 dias, **critico** (con lineas) si venia de 7 o mas. Nunca es
+   * distinto de `ninguno` a la vez que `nivel`. Un servidor anterior no lo manda.
+   */
+  readonly abandono: NivelDeAcompanamiento;
+  /**
+   * Las lineas del pais de la persona, solo con `nivel` o `abandono` criticos. **No sale ningun puntaje ni
    * cuantos dias van**: lo unico que se sabe es el nivel.
    */
   readonly lineasDeAtencion: readonly LineaDeAtencion[];

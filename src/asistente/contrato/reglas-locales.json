@@ -355,14 +355,16 @@
             "descripcion": "Orientación en salud mental del Ministerio de Salud. Funciona en todo el país: se marca 192 y se elige la opción 4. Atiende un equipo de profesionales.",
             "tipo": "contacto",
             "cobertura": "nacional",
-            "enlace": "https://www.minsalud.gov.co"
+            "enlace": "https://www.minsalud.gov.co",
+            "telefono": "192"
           },
           {
             "id": "0123c0de-0000-4000-8000-000000000123",
             "titulo": "Línea 123",
             "descripcion": "Línea única de emergencias, en todo el país. Es la que hay que marcar si hay riesgo inmediato para la vida de alguien.",
             "tipo": "contacto",
-            "cobertura": "nacional"
+            "cobertura": "nacional",
+            "telefono": "123"
           },
           {
             "id": "0106c0de-0000-4000-8000-000000000106",
@@ -370,7 +372,8 @@
             "descripcion": "Apoyo psicológico gratuito de la Secretaría Distrital de Salud, las 24 horas, todos los días del año. Se marca 106 desde Bogotá; también responde por WhatsApp al 300 754 8933 y en linea106@saludcapital.gov.co.",
             "tipo": "contacto",
             "cobertura": "bogota",
-            "enlace": "https://www.saludcapital.gov.co"
+            "enlace": "https://www.saludcapital.gov.co",
+            "telefono": "106"
           }
         ]
       },
@@ -396,14 +399,16 @@
             "descripcion": "Orientación gratuita en salud mental de la Secretaría de Salud, las 24 horas, todos los días del año. Se marca 800 911 2000.",
             "tipo": "contacto",
             "cobertura": "nacional",
-            "enlace": "https://www.gob.mx/lineadelavida"
+            "enlace": "https://www.gob.mx/lineadelavida",
+            "telefono": "8009112000"
           },
           {
             "id": "0911c0de-0000-4000-8000-000000000911",
             "titulo": "Línea 911",
             "descripcion": "Línea única de emergencias, en todo el país, las 24 horas, todos los días del año. Es la que hay que marcar si hay riesgo inmediato para la vida de alguien.",
             "tipo": "contacto",
-            "cobertura": "nacional"
+            "cobertura": "nacional",
+            "telefono": "911"
           }
         ]
       },
@@ -420,14 +425,16 @@
             "descripcion": "Línea del Ministerio de Sanidad: gratuita, confidencial y las 24 horas, todos los días del año. Escucha a quien lo está pasando mal y también a su familia y sus allegados. Se marca 024.",
             "tipo": "contacto",
             "cobertura": "nacional",
-            "enlace": "https://www.sanidad.gob.es/linea024/home.htm"
+            "enlace": "https://www.sanidad.gob.es/linea024/home.htm",
+            "telefono": "024"
           },
           {
             "id": "0112c0de-0000-4000-8000-000000000112",
             "titulo": "Línea 112",
             "descripcion": "Teléfono de emergencias. Es el que hay que marcar si hay riesgo inmediato para la vida de alguien.",
             "tipo": "contacto",
-            "cobertura": "nacional"
+            "cobertura": "nacional",
+            "telefono": "112"
           }
         ]
       },
@@ -472,14 +479,16 @@
             "descripcion": "Apoyo gratuito y confidencial por llamada, mensaje de texto o chat, las 24 horas, todos los días del año. Para hablar en español, marca 988 y presiona 2, o envía AYUDA por mensaje de texto al 988.",
             "tipo": "contacto",
             "cobertura": "nacional",
-            "enlace": "https://988lifeline.org/get-help/"
+            "enlace": "https://988lifeline.org/get-help/",
+            "telefono": "988"
           },
           {
             "id": "1911c0de-0000-4000-8000-000000000911",
             "titulo": "Línea 911",
             "descripcion": "Número de emergencias, las 24 horas. Es el que hay que marcar si hay riesgo inmediato para la vida de alguien.",
             "tipo": "contacto",
-            "cobertura": "nacional"
+            "cobertura": "nacional",
+            "telefono": "911"
           }
         ]
       }

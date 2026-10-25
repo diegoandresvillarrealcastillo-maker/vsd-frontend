@@ -1,3 +1,4 @@
+import { LlamarAhora } from '../../componentes/LlamarAhora.tsx';
 import { FungitoAbogado } from '../../mascota/FungitoAbogado.tsx';
 import { LienzoDeAcceso, Aparece } from './LienzoDeAcceso.tsx';
 import { textoDeCobertura } from '../actividad/lineasParaMostrar.ts';
@@ -64,6 +65,8 @@ export function SoloMayores() {
                   {linea.descripcion !== undefined && (
                     <p className="solo-mayores__descripcion">{linea.descripcion}</p>
                   )}
+
+                  <LlamarAhora linea={linea} />
 
                   {linea.enlace !== undefined && (
                     <a

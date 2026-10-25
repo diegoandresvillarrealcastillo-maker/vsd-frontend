@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from 'react';
 
+import { LlamarAhora } from '../componentes/LlamarAhora.tsx';
 import { lineasDeRespaldo, textoDeCobertura } from '../paginas/actividad/lineasParaMostrar.ts';
 import '../estilos/aplicacion.css';
 import '../estilos/pantalla-de-error.css';
@@ -99,6 +100,7 @@ export function PantallaDeError({
                   {linea.descripcion !== undefined && (
                     <p className="error-pantalla__texto">{linea.descripcion}</p>
                   )}
+                  <LlamarAhora linea={linea} />
                   {linea.enlace !== undefined && (
                     <a
                       className="error-pantalla__enlace"

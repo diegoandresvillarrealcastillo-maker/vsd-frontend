@@ -6,6 +6,7 @@ import type {
   CambiosDeHoras,
   CambiosDeRecordatorios,
   EstadoDeLasNotificaciones,
+  FrecuenciaDelSemaforo,
 } from '../../infraestructura/api/notificaciones.ts';
 import { fijarLaZonaDeLaCuenta } from '../../tiempo/zonaHoraria.ts';
 import { TusAvisos } from './TusAvisos.tsx';
@@ -774,6 +775,130 @@ describe('Tus avisos', () => {
 
       expect(within(seccion()).getByRole('alert')).toHaveTextContent('No se pudo guardar');
       expect(interruptor(SEMAFORO)).toHaveAttribute('aria-checked', 'false');
+    });
+  });
+  describe('cuantas veces avisa el semaforo (SCRUM-146)', () => {
+    const FRECUENCIA = /Cuántas veces/;
+
+    /**
+     * El servidor decide a que horas avisa (ADR 0036 del backend); aqui solo se
+     * comprueba que la pantalla las muestra, asi que responde con las que se le
+     * den y no repite la regla.
+     */
+    function servidorQueAvisaA(
+      base: string,
+      horas: Record<FrecuenciaDelSemaforo, readonly string[]>,
+      frecuencia: FrecuenciaDelSemaforo = 'manana',
+    ) {
+      const estado = (laFrecuencia: FrecuenciaDelSemaforo): EstadoDeLasNotificaciones => ({
+        ...DISPONIBLE,
+        horaSemaforo: base,
+        frecuenciaSemaforo: laFrecuencia,
+        horasDelSemaforo: horas[laFrecuencia],
+      });
+
+      api.consultarLasNotificaciones.mockResolvedValue(estado(frecuencia));
+      api.cambiarHorasDeAviso.mockImplementation((cambios: CambiosDeHoras) =>
+        Promise.resolve(estado(cambios.frecuenciaSemaforo ?? frecuencia)),
+      );
+    }
+
+    const DE_8 = { manana: ['08:00'], noche: ['20:00'], dos_veces: ['08:00', '20:00'] } as const;
+
+    it('encendida, ofrece las tres frecuencias y empieza en «solo en la mañana»', async () => {
+      servidorQueAvisaA('08:00', DE_8);
+
+      render(<TusAvisos />);
+
+      const selector = await screen.findByLabelText(FRECUENCIA);
+
+      expect(selector).toHaveValue('manana');
+      expect(
+        within(selector)
+          .getAllByRole('option')
+          .map((opcion) => opcion.textContent),
+      ).toEqual(['Solo en la mañana', 'Solo en la noche', 'Dos veces al día']);
+      expect(seccion()).toHaveTextContent('Te avisaremos a las 08:00.');
+    });
+
+    it('apagada, no se ofrece', async () => {
+      render(<TusAvisos />);
+
+      await screen.findByRole('switch', { name: SEMAFORO });
+
+      expect(screen.queryByLabelText(FRECUENCIA)).not.toBeInTheDocument();
+    });
+
+    it('elegir «dos veces al día» lo guarda, sin tocar la hora, y dice las dos horas', async () => {
+      servidorQueAvisaA('08:00', DE_8);
+
+      render(<TusAvisos />);
+
+      await usuario.selectOptions(await screen.findByLabelText(FRECUENCIA), 'dos_veces');
+
+      expect(api.cambiarHorasDeAviso).toHaveBeenCalledWith({ frecuenciaSemaforo: 'dos_veces' });
+      await waitFor(() =>
+        expect(seccion()).toHaveTextContent('Te avisaremos a las 08:00 y 20:00.'),
+      );
+      expect(screen.getByLabelText(FRECUENCIA)).toHaveValue('dos_veces');
+      expect(screen.getByLabelText(HORA_DEL_SEMAFORO)).toHaveValue('08:00');
+    });
+
+    it('«solo en la noche» muestra la hora real, no la que se eligio', async () => {
+      servidorQueAvisaA('08:00', DE_8);
+
+      render(<TusAvisos />);
+
+      await usuario.selectOptions(await screen.findByLabelText(FRECUENCIA), 'noche');
+
+      await waitFor(() => expect(seccion()).toHaveTextContent('Te avisaremos a las 20:00.'));
+    });
+
+    it('con una hora de la tarde muestra las horas que manda el servidor, sin repetir la regla', async () => {
+      servidorQueAvisaA(
+        '18:00',
+        { manana: ['18:00'], noche: ['18:00'], dos_veces: ['06:00', '18:00'] },
+        'dos_veces',
+      );
+
+      render(<TusAvisos />);
+
+      await screen.findByLabelText(FRECUENCIA);
+
+      expect(screen.getByLabelText(FRECUENCIA)).toHaveValue('dos_veces');
+      expect(seccion()).toHaveTextContent('Te avisaremos a las 06:00 y 18:00.');
+    });
+
+    it('con una API anterior, sin frecuencia, lo trata como «solo en la mañana» a la hora guardada', async () => {
+      servidorCon({ horaSemaforo: '07:15' });
+
+      render(<TusAvisos />);
+
+      expect(await screen.findByLabelText(FRECUENCIA)).toHaveValue('manana');
+      expect(seccion()).toHaveTextContent('Te avisaremos a las 07:15.');
+    });
+
+    it('si no se pudo guardar, lo dice y la frecuencia sigue como estaba', async () => {
+      servidorQueAvisaA('08:00', DE_8);
+      api.cambiarHorasDeAviso.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      render(<TusAvisos />);
+
+      await usuario.selectOptions(await screen.findByLabelText(FRECUENCIA), 'dos_veces');
+
+      expect(within(seccion()).getByRole('alert')).toHaveTextContent('No se pudo guardar');
+      expect(screen.getByLabelText(FRECUENCIA)).toHaveValue('manana');
+      expect(seccion()).toHaveTextContent('Te avisaremos a las 08:00.');
+    });
+
+    it('apagar el semáforo no cambia la frecuencia guardada: se manda solo la hora en null', async () => {
+      servidorQueAvisaA('08:00', DE_8, 'dos_veces');
+
+      render(<TusAvisos />);
+
+      await usuario.click(await screen.findByRole('switch', { name: SEMAFORO }));
+
+      expect(api.cambiarHorasDeAviso).toHaveBeenCalledWith({ horaSemaforo: null });
     });
   });
 });

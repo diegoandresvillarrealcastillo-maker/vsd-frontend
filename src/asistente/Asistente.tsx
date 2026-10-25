@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent 
 
 import { alPulsarElFondo } from '../componentes/alPulsarElFondo.ts';
 import { AvisoOrientativo } from '../componentes/AvisoOrientativo.tsx';
+import { LlamarAhora } from '../componentes/LlamarAhora.tsx';
 import { useDialogo } from '../componentes/useDialogo.ts';
 import { useEnLinea } from '../conexion/useEnLinea.ts';
 import '../estilos/actividad.css';
@@ -525,6 +526,7 @@ function Recursos({ recursos }: { recursos: readonly Recurso[] }) {
         <li key={recurso.id} className="asistente__recurso">
           <p className="asistente__recurso-titulo">{recurso.titulo}</p>
           {recurso.descripcion !== undefined && <p>{recurso.descripcion}</p>}
+          <LlamarAhora linea={recurso} />
           {recurso.enlace !== undefined && (
             <a
               href={recurso.enlace}

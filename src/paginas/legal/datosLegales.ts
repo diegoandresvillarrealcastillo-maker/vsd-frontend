@@ -79,6 +79,11 @@ export const DATOS_DEL_RESPONSABLE: Readonly<Record<'nombre' | 'domicilio' | 'co
  * la transferencia internacional y los respaldos; los terminos traen la
  * limitacion de responsabilidad. Las dos llevan el mismo numero porque se
  * publicaron juntas, pero cada una cambia por su lado.
+ *
+ * Sin cambio de version (SCRUM-255): el aviso dejo de mencionar el rol de
+ * administrador, que nunca existio en la practica. No cambia nada de lo que se
+ * hace con los datos, asi que nadie vuelve a aceptar; si quien revisa los textos
+ * decide otra cosa, la version sube en ese envio.
  */
 export const VERSIONES_PUBLICADAS = {
   privacidad: '2026-10-3',

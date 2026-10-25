@@ -93,6 +93,35 @@ describe('la pantalla de error', () => {
     expect(seccion).toHaveTextContent('Línea 123');
   });
 
+  it('en Colombia, la 192 y la 123 se pueden marcar con un toque (SCRUM-257)', () => {
+    render(
+      <LimiteDeErrores origen="raiz">
+        <Rota />
+      </LimiteDeErrores>,
+    );
+
+    expect(screen.getByRole('link', { name: /Llamar ahora: Línea 192/ })).toHaveAttribute(
+      'href',
+      'tel:192',
+    );
+    expect(screen.getByRole('link', { name: /Llamar ahora: Línea 123/ })).toHaveAttribute(
+      'href',
+      'tel:123',
+    );
+  });
+
+  it('fuera de Colombia no hay boton de llamar: no se da un telefono que podria no ser el suyo', () => {
+    fijarLaZonaDeLaCuenta('Europe/Madrid');
+
+    render(
+      <LimiteDeErrores origen="raiz">
+        <Rota />
+      </LimiteDeErrores>,
+    );
+
+    expect(screen.queryByRole('link', { name: /Llamar ahora/ })).not.toBeInTheDocument();
+  });
+
   it('fuera de Colombia no ensena un telefono que podria no ser el suyo', () => {
     // Un numero de otro pais, ensenado como propio, es peor que ninguno.
     fijarLaZonaDeLaCuenta('Europe/Madrid');

@@ -21,7 +21,6 @@ export const TIPOS_DE_OPERACION = [
   'resultado.registrar',
   'diario.escribir',
   'diario.editar',
-  'diario.borrar',
   'pendiente.crear',
   'pendiente.editar',
   'pendiente.borrar',

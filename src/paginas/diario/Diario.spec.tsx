@@ -8,7 +8,7 @@ import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
 import { abrirUnAlmacenDePrueba, cerrarElAlmacenDePrueba } from '../../pruebas/almacenDePrueba.ts';
 import { cuantosH1, fallosDeAccesibilidad } from '../../pruebas/axe.ts';
 import { AlmacenLleno } from '../../sincronizacion/almacenLocal.ts';
-import { cicloActual, encolar } from '../../sincronizacion/ciclo.ts';
+import { cicloActual } from '../../sincronizacion/ciclo.ts';
 import { CLAVE_DE_LAS_COPIAS_DEL_DIARIO } from '../../sincronizacion/diarioLocal.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { fijarLaZonaDeLaCuenta } from '../../tiempo/zonaHoraria.ts';
@@ -23,7 +23,6 @@ const { api, cargasDelEditorDeDiagramas, hayConexionConLaApi } = vi.hoisted(() =
     consultarElDiario: vi.fn(),
     escribirEnElDiario: vi.fn(),
     editarAnotacion: vi.fn(),
-    borrarAnotacion: vi.fn(),
   },
   cargasDelEditorDeDiagramas: { veces: 0 },
   hayConexionConLaApi: vi.fn(),
@@ -186,7 +185,6 @@ afterEach(() => {
   api.consultarElDiario.mockReset();
   api.escribirEnElDiario.mockReset();
   api.editarAnotacion.mockReset();
-  api.borrarAnotacion.mockReset();
   vi.useRealTimers();
   vi.clearAllMocks();
 });
@@ -983,93 +981,6 @@ describe('Mi diario, sin conexion (SCRUM-139)', () => {
         expect(within(historial()).queryByText('Copia')).toBeNull();
       });
     });
-  });
-});
-
-describe('Mi diario, las cartas a mi de manana (SCRUM-230)', () => {
-  const SELLADA = {
-    id: '33333333-3333-4333-a333-0000000000c1',
-    dia: AYER,
-    titulo: null,
-    contenido: { type: 'doc' },
-    adjuntos: [],
-    carta: true,
-    sellada: true,
-    creadaEn: haceMinutos(60 * 20),
-    editadaEn: haceMinutos(60 * 20),
-    editableHasta: haceMinutos(60 * 19),
-  };
-
-  function conLaCartaSellada() {
-    api.consultarElDiario.mockResolvedValue([anotacion({}), anotacion(SELLADA)]);
-  }
-
-  it('una carta que espera sale sin su texto, sin corregir, y con «Borrar sin leerla»', async () => {
-    conLaCartaSellada();
-    pintar();
-
-    expect(await within(historial()).findByText('Carta a mí de mañana')).toBeVisible();
-    expect(within(historial()).getByText(/su texto no se muestra aquí/)).toBeVisible();
-    expect(within(historial()).getByRole('button', { name: 'Borrar sin leerla' })).toBeVisible();
-    // Solo la anotacion de hoy se puede corregir: la carta no.
-    expect(within(historial()).getAllByRole('button', { name: /^Editar/ })).toHaveLength(1);
-    expect(await fallosDeAccesibilidad()).toEqual([]);
-  });
-
-  it('borrarla sin leerla pide confirmar, la quita al momento y la manda a borrar', async () => {
-    conLaCartaSellada();
-    api.borrarAnotacion.mockResolvedValue(undefined);
-    pintar();
-
-    await usuario.click(
-      await within(historial()).findByRole('button', { name: 'Borrar sin leerla' }),
-    );
-    await usuario.click(screen.getByRole('button', { name: 'Sí, borrarla' }));
-
-    await waitFor(() => {
-      expect(within(historial()).queryByText('Carta a mí de mañana')).toBeNull();
-    });
-    expect(screen.getByText('Listo: la carta se borró sin leerla.')).toBeVisible();
-    await waitFor(() => {
-      expect(api.borrarAnotacion).toHaveBeenCalledWith(SELLADA.id);
-    });
-  });
-
-  it('«Mejor no» no borra nada', async () => {
-    conLaCartaSellada();
-    pintar();
-
-    await usuario.click(
-      await within(historial()).findByRole('button', { name: 'Borrar sin leerla' }),
-    );
-    await usuario.click(screen.getByRole('button', { name: 'Mejor no' }));
-
-    expect(within(historial()).getByText('Carta a mí de mañana')).toBeVisible();
-    expect(await laCola()).toHaveLength(0);
-    expect(api.borrarAnotacion).not.toHaveBeenCalled();
-  });
-
-  it('una carta escrita sin conexion sale sellada: su texto esta en la cola y no se pinta', async () => {
-    hayConexionConLaApi.mockResolvedValue(false);
-    api.consultarElDiario.mockResolvedValue([]);
-    await encolar({
-      operationId: 'op-carta',
-      tipo: 'diario.escribir',
-      entidad: 'diario:op-carta',
-      payload: {
-        clientOperationId: 'op-carta',
-        dia: HOY,
-        titulo: 'Carta a mí de mañana',
-        contenido: documentoCon('Mi secreto de esta noche'),
-        cartaAManana: true,
-        escritaEn: haceMinutos(5),
-      },
-    });
-    pintar();
-
-    expect(await within(historial()).findByText(/su texto no se muestra aquí/)).toBeVisible();
-    expect(screen.queryByText(/Mi secreto de esta noche/)).toBeNull();
-    expect(within(historial()).queryByRole('button', { name: /^Editar/ })).toBeNull();
   });
 });
 

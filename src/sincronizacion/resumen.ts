@@ -36,7 +36,6 @@ const DESCRIPCIONES: Readonly<Record<TipoDeOperacion, string>> = {
   'resultado.registrar': 'Resultado de una actividad',
   'diario.escribir': 'Anotación del diario',
   'diario.editar': 'Corrección de una anotación del diario',
-  'diario.borrar': 'Anotación del diario borrada',
   'pendiente.crear': 'Pendiente nuevo',
   'pendiente.editar': 'Cambio en un pendiente',
   'pendiente.borrar': 'Pendiente borrado',

@@ -14,7 +14,6 @@ import { rachaDePrueba } from '../../pruebas/rachaDePrueba.ts';
 import { fraseDeLaRacha } from '../../racha/frasesDeLaRacha.ts';
 import { olvidarLaRacha } from '../../racha/memoriaDeLaRacha.ts';
 import { olvidarElAvisoDeLaTarde } from '../../racha/useAvisoDeLaTarde.ts';
-import { diasAntes } from '../../tiempo/dias.ts';
 import { fijarLaZonaDeLaCuenta } from '../../tiempo/zonaHoraria.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { olvidarQueYaSePregunto } from '../../notificaciones/memoriaDelPermiso.ts';
@@ -24,7 +23,6 @@ import {
   tutorialVisto,
   volverAVerElTutorial,
 } from '../../tutorial/memoriaDelTutorial.ts';
-import { diaDe } from '../diario/calendarioDelDiario.ts';
 import { Panel } from './Panel.tsx';
 
 /**
@@ -61,14 +59,6 @@ vi.mock('../../infraestructura/api/racha.ts', () => ({ consultarLaRacha }));
 const { consultarElDatoDeHoy } = vi.hoisted(() => ({ consultarElDatoDeHoy: vi.fn() }));
 
 vi.mock('../../infraestructura/api/datosCuriosos.ts', () => ({ consultarElDatoDeHoy }));
-
-// La carta que la persona se dejo (SCRUM-230): por defecto no hay ninguna esperando.
-const { consultarCartasEnEspera } = vi.hoisted(() => ({ consultarCartasEnEspera: vi.fn() }));
-
-vi.mock('../../infraestructura/api/diario.ts', async (importar) => ({
-  ...(await importar<typeof import('../../infraestructura/api/diario.ts')>()),
-  consultarCartasEnEspera,
-}));
 
 // La oferta de avisos (SCRUM-188) mira el navegador y al servidor: aqui se simulan los dos. Por
 // defecto el navegador no recibe avisos, que es lo que pasa en jsdom.
@@ -181,7 +171,6 @@ beforeEach(() => {
   consultarLaVersionDelAviso.mockResolvedValue('version-de-la-api');
   darDeAltaLaCuenta.mockResolvedValue(CUENTA);
   consultarElProgreso.mockResolvedValue(PROGRESO);
-  consultarCartasEnEspera.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -1079,60 +1068,5 @@ describe('La racha por la tarde (SCRUM-243)', () => {
     await screen.findByRole('heading', { name: /Hola, Marina/ });
 
     expect(document.querySelector('.mascota__frase')).toBeNull();
-  });
-});
-
-describe('La carta que te dejaste (SCRUM-230)', () => {
-  let AYER: string;
-
-  beforeEach(async () => {
-    fijarLaZonaDeLaCuenta('America/Bogota');
-    // Despues de fijar la zona: con la del equipo (UTC en el CI), «ayer» se
-    // adelanta un dia entre las 7 p. m. y la medianoche de Bogota.
-    AYER = diasAntes(diaDe(new Date()), 1);
-    await abrirUnAlmacenDePrueba();
-  });
-
-  afterEach(() => {
-    cerrarElAlmacenDePrueba();
-  });
-
-  it('con una carta esperando, el panel la ofrece antes del plan, sin ensenar su texto', async () => {
-    consultarCartasEnEspera.mockResolvedValue([{ id: 'c-1', dia: AYER }]);
-
-    pintar();
-
-    const titulo = await screen.findByRole('heading', { name: 'Ayer te dejaste esto' });
-
-    expect(screen.getByRole('button', { name: 'Leerla' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Borrar sin leerla' })).toBeInTheDocument();
-    // Entre el saludo y el plan del dia.
-    expect(
-      screen.getByRole('heading', { name: /Hola, Marina/ }).compareDocumentPosition(titulo) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      titulo.compareDocumentPosition(
-        screen.getByRole('heading', { name: 'Elige dónde enfocarte' }),
-      ) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-  });
-
-  it('sin ninguna carta no hay tarjeta ni hueco', async () => {
-    pintar();
-    await screen.findByRole('heading', { name: /Hola, Marina/ });
-
-    expect(screen.queryByRole('heading', { name: /te dejaste esto/i })).toBeNull();
-    expect(document.querySelector('.carta')).toBeNull();
-  });
-
-  it('con la tarjeta a la vista no tiene fallos de accesibilidad ni suma otro h1', async () => {
-    consultarCartasEnEspera.mockResolvedValue([{ id: 'c-1', dia: AYER }]);
-
-    pintar();
-    await screen.findByRole('heading', { name: 'Ayer te dejaste esto' });
-
-    expect(await fallosDeAccesibilidad()).toEqual([]);
-    expect(cuantosH1()).toBe(1);
   });
 });

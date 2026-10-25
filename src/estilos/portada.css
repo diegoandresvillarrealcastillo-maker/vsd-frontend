@@ -561,6 +561,17 @@
   color: var(--limite-texto);
 }
 
+/* «Llamar al 192» y «Llamar al 123» (SCRUM-257): las dos lineas de Colombia que el texto nombra. */
+.limite__llamadas {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.limite__llamadas .llamar-ahora {
+  color: var(--limite-texto);
+}
+
 /* ============================================================
    Cierre y pie
    ============================================================ */
@@ -665,6 +676,14 @@
 .pie__rol {
   color: var(--texto-apagado);
   font-size: 0.8125rem;
+}
+
+/* El telefono tecnico de cada persona (SCRUM-257): un enlace con un blanco de toque comodo. */
+.pie__telefono {
+  justify-self: start;
+  padding-block: 4px;
+  color: var(--texto);
+  font-variant-numeric: tabular-nums;
 }
 
 .pie__legal {

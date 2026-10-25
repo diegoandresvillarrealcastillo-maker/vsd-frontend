@@ -107,6 +107,15 @@ export interface LineaDeAtencion {
    */
   readonly cobertura?: string;
   readonly enlace?: string;
+
+  /**
+   * Lo que marca el boton «Llamar ahora» (SCRUM-257, ADR 0037 del backend): solo
+   * cifras, con un `+` delante si lleva prefijo de pais, y solo en una linea ya
+   * verificada. Ausente en el directorio internacional y en un servidor anterior:
+   * sin telefono no hay boton. Si la linea pide elegir una opcion al contestar,
+   * la opcion esta en la descripcion y no se marca sola.
+   */
+  readonly telefono?: string;
 }
 
 /**

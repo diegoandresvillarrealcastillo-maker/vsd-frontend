@@ -113,10 +113,6 @@ export function soloLaAnotacion(valor: Anotacion): Anotacion {
     creadaEn: valor.creadaEn,
     editadaEn: valor.editadaEn,
     editableHasta: valor.editableHasta,
-    // Una carta sellada tiene que seguir sellada en la copia: sin esto, su texto vacio se veria
-    // como una anotacion en blanco (SCRUM-230).
-    ...(valor.carta === undefined ? {} : { carta: valor.carta }),
-    ...(valor.sellada === undefined ? {} : { sellada: valor.sellada }),
   };
 }
 

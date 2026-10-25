@@ -219,10 +219,9 @@ const SECCIONES: readonly SeccionLegal[] = [
           obligue.
         </p>
         <p>
-          El rol de administrador de la aplicación gestiona el catálogo de actividades y recursos.
-          No tiene acceso a los resultados, al diario ni a la información personal de las personas.
-          Quien opera la infraestructura puede, por la naturaleza técnica del servicio, tener acceso
-          a la base de datos para mantenerla.
+          Ninguna cuenta de la aplicación tiene acceso a los resultados, al diario ni a la
+          información personal de otras personas. Quien opera la infraestructura puede, por la
+          naturaleza técnica del servicio, tener acceso a la base de datos para mantenerla.
         </p>
       </>
     ),
