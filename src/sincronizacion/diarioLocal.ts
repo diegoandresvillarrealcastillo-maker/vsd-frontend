@@ -12,7 +12,6 @@ import {
   type MotivoDeLaCopia,
 } from './anotaciones.ts';
 import { cicloActual } from './ciclo.ts';
-import { operacionDeUnIdLocal } from './ejecutores.ts';
 import { crearFila } from './enFila.ts';
 import type { Operacion, TipoDeOperacion } from './cola.ts';
 import {
@@ -131,7 +130,7 @@ function comoMarcas(valor: unknown): MarcasDeCopia {
 
 /** Si un tipo de operacion es del diario. */
 export function esTipoDelDiario(tipo: TipoDeOperacion): boolean {
-  return tipo === 'diario.escribir' || tipo === 'diario.editar' || tipo === 'diario.borrar';
+  return tipo === 'diario.escribir' || tipo === 'diario.editar';
 }
 
 /** Si una operacion es del diario. */
@@ -173,27 +172,14 @@ async function hacerLaConciliacion(): Promise<void> {
     return;
   }
 
-  const delDiario = (await ciclo.almacen.operaciones())
-    .filter((operacion) => esDelDiario(operacion) && operacion.estado === 'hecha')
+  const hechas = (await ciclo.almacen.operaciones())
+    .filter(
+      (operacion) =>
+        esDelDiario(operacion) && operacion.estado === 'hecha' && esAnotacion(operacion.recibo),
+    )
     .sort((una, otra) => una.orden - otra.orden);
-  const hechas = delDiario.filter((operacion) => esAnotacion(operacion.recibo));
-  // Lo que el servidor ya borro (SCRUM-230): su recibo no es una anotacion, es solo que se hizo.
-  // Si se borro algo escrito sin conexion, el identificador de la orden es el local: el de verdad
-  // lo respondio la escritura.
-  const borradas = delDiario
-    .filter((operacion) => operacion.tipo === 'diario.borrar')
-    .map((operacion) => (operacion.payload as { id?: unknown }).id)
-    .filter((id): id is string => typeof id === 'string' && id !== '')
-    .map((id) => {
-      const escritura = operacionDeUnIdLocal(id);
-      const recibo = delDiario.find((operacion) => operacion.operationId === escritura)?.recibo;
 
-      return typeof (recibo as { id?: unknown } | null)?.id === 'string'
-        ? (recibo as { id: string }).id
-        : id;
-    });
-
-  if (hechas.length === 0 && borradas.length === 0) {
+  if (hechas.length === 0) {
     return;
   }
 
@@ -241,39 +227,8 @@ async function hacerLaConciliacion(): Promise<void> {
       }
     }
 
-    // Sin esto, lo borrado volveria a verse sin conexion hasta la proxima lectura del servidor.
-    for (const id of borradas) {
-      cambio = porId.delete(id) || cambio;
-    }
-
     return cambio ? { ...instantanea, anotaciones: [...porId.values()] } : null;
   });
-}
-
-/**
- * Deja en la copia una carta que la persona acaba de abrir (SCRUM-230).
- *
- * La copia la tenia sellada y sin texto; abierta, es una anotacion como las demas. Sin esto, sin
- * conexion se seguiria viendo «guardada para manana» hasta la proxima lectura del servidor. Solo
- * cambia una anotacion que la copia ya tiene: no arma el diario con una sola. Nunca falla.
- */
-export function recordarLaCartaAbierta(carta: Anotacion): Promise<void> {
-  return enFila(() =>
-    modificarLaCopia<InstantaneaDelDiario>(CLAVE_DEL_DIARIO, (guardada) => {
-      const instantanea = comoInstantanea(guardada);
-
-      if (!instantanea?.anotaciones.some((una) => una.id === carta.id)) {
-        return null;
-      }
-
-      return {
-        ...instantanea,
-        anotaciones: instantanea.anotaciones.map((una) =>
-          una.id === carta.id ? soloLaAnotacion(carta) : una,
-        ),
-      };
-    }),
-  );
 }
 
 // ---------------------------------------------------------------------------

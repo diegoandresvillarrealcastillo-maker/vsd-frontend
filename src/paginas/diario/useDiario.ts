@@ -248,7 +248,7 @@ export function useDiario() {
    * La lista no depende de esto: se pone al dia sola cuando la cola cambia.
    */
   const seguir = useCallback(
-    (operationId: string, alEnviarse?: () => void) => {
+    (operationId: string) => {
       const senal = seguimientos.current.signal;
 
       void (async () => {
@@ -259,7 +259,6 @@ export function useDiario() {
         }
 
         if (!senal.aborted && seguimiento.tipo === 'enviada') {
-          alEnviarse?.();
           alSalir(seguimiento.recibo);
         }
       })();
@@ -354,30 +353,6 @@ export function useDiario() {
     [escribir, seguir],
   );
 
-  /**
-   * Borra una anotacion, la haya leido o no (SCRUM-230). Entra a la cola y desaparece del historial al
-   * momento; si se escribio sin conexion y todavia no tiene el identificador de verdad, el borrado espera a
-   * que salga la escritura. Lanza si no se pudo guardar en este equipo.
-   */
-  const borrar = useCallback(
-    async (entrada: EntradaDelHistorial): Promise<void> => {
-      const operationId = globalThis.crypto.randomUUID();
-
-      await encolar({
-        operationId,
-        tipo: 'diario.borrar',
-        // Una anotacion escrita aqui y su borrado son de la misma cosa.
-        entidad: `diario:${operacionDeUnIdLocal(entrada.id) ?? entrada.id}`,
-        payload: { id: entrada.id },
-      });
-      // Ya salio: lo que se leyo del servidor antes de borrarla ya no es cierto.
-      seguir(operationId, () => {
-        setDelServidor((antes) => antes.filter((una) => una.id !== entrada.id));
-      });
-    },
-    [seguir],
-  );
-
   /** Vuelve a mandar lo que la API no acepto. */
   const reintentar = useCallback(
     (entrada: EntradaDelHistorial) => {
@@ -409,7 +384,6 @@ export function useDiario() {
     escribir,
     reintentar,
     corregir,
-    borrar,
     verDiasAnteriores: () => setDesde((antes) => diasAntes(antes, DIAS_POR_TANDA)),
     recargar: () => {
       setFase({ fase: 'cargando' });

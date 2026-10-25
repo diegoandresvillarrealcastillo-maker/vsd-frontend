@@ -605,7 +605,7 @@ function TuAcompanamiento({
       setAviso({
         tipo: 'bien',
         texto: nuevo
-          ? 'Listo. Si varios días seguidos van mal, te acompañaremos y te mostraremos a dónde acudir.'
+          ? 'Listo. Si varios días seguidos van mal, o dejas de registrar después de ellos, te acompañaremos y te mostraremos a dónde acudir.'
           : 'Listo. Tus días ya no se revisan para acompañarte.',
       });
     } catch {
@@ -640,9 +640,10 @@ function TuAcompanamiento({
 
       <p id={idDeLaExplicacion} className="app__nota perfil__ayuda">
         Si lo enciendes, la aplicación mira si llevas varios días seguidos con resultados en carga o
-        emociones que piden atención y, si es así, te acompaña y te muestra a dónde acudir. No se lo
-        cuenta a nadie, no muestra ningún puntaje y no te avisa fuera de la aplicación. Puedes
-        apagarlo cuando quieras.
+        emociones que piden atención y, si es así, te acompaña y te muestra a dónde acudir. Si pasas
+        varios días así y luego dejas de registrar, al volver también te lo recuerda con un aviso
+        que puedes cerrar. No se lo cuenta a nadie, no muestra ningún puntaje y no te avisa fuera de
+        la aplicación. Puedes apagarlo cuando quieras.
       </p>
       <MensajeDeAviso aviso={aviso} />
     </Apartado>

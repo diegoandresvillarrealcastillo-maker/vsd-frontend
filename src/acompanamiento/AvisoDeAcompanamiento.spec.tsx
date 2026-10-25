@@ -29,8 +29,10 @@ const LINEA = {
   cobertura: 'nacional',
   enlace: 'https://www.minsalud.gov.co/',
 };
-const MODERADO = { nivel: 'moderado', lineasDeAtencion: [] };
-const CRITICO = { nivel: 'critico', lineasDeAtencion: [LINEA] };
+const MODERADO = { nivel: 'moderado', abandono: 'ninguno', lineasDeAtencion: [] };
+const CRITICO = { nivel: 'critico', abandono: 'ninguno', lineasDeAtencion: [LINEA] };
+const ABANDONO_MODERADO = { nivel: 'ninguno', abandono: 'moderado', lineasDeAtencion: [] };
+const ABANDONO_CRITICO = { nivel: 'ninguno', abandono: 'critico', lineasDeAtencion: [LINEA] };
 
 function sesion(id: string | null): EstadoDeSesion {
   const vacio = vi.fn();
@@ -68,7 +70,11 @@ function elAviso() {
 
 beforeEach(async () => {
   fijarLaZonaDeLaCuenta('America/Bogota');
-  consultarElAcompanamiento.mockResolvedValue({ nivel: 'ninguno', lineasDeAtencion: [] });
+  consultarElAcompanamiento.mockResolvedValue({
+    nivel: 'ninguno',
+    abandono: 'ninguno',
+    lineasDeAtencion: [],
+  });
   await abrirUnAlmacenDePrueba();
 });
 
@@ -206,7 +212,11 @@ describe('Critico', () => {
   });
 
   it('si el servidor no manda lineas, usa las de respaldo del pais: nunca queda sin un telefono', async () => {
-    consultarElAcompanamiento.mockResolvedValue({ nivel: 'critico', lineasDeAtencion: [] });
+    consultarElAcompanamiento.mockResolvedValue({
+      nivel: 'critico',
+      abandono: 'ninguno',
+      lineasDeAtencion: [],
+    });
 
     pintar();
     await screen.findByText('Hablar con alguien puede ayudarte');
@@ -241,7 +251,11 @@ describe('Critico', () => {
     pintar();
     await screen.findByText('Hablar con alguien puede ayudarte');
 
-    consultarElAcompanamiento.mockResolvedValue({ nivel: 'ninguno', lineasDeAtencion: [] });
+    consultarElAcompanamiento.mockResolvedValue({
+      nivel: 'ninguno',
+      abandono: 'ninguno',
+      lineasDeAtencion: [],
+    });
     act(() => {
       window.dispatchEvent(new Event('online'));
     });
@@ -293,6 +307,166 @@ describe('Critico', () => {
   it('no tiene fallos de accesibilidad', async () => {
     pintar();
     await screen.findByText('Hablar con alguien puede ayudarte');
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+  });
+});
+
+describe('Abandono moderado (SCRUM-256)', () => {
+  beforeEach(() => {
+    consultarElAcompanamiento.mockResolvedValue(ABANDONO_MODERADO);
+  });
+
+  it('pregunta como ha estado, sin diagnosticar, sin afirmar que se fue y sin lineas', async () => {
+    pintar();
+
+    expect(await screen.findByText('¿Cómo has estado?')).toBeVisible();
+    expect(screen.getByText(/desde entonces no has registrado nada/)).toBeVisible();
+    expect(screen.getByText(/No tienes que ponerte al día con nada/)).toBeVisible();
+    expect(screen.getByText(/No es un diagnóstico: es una invitación/)).toBeVisible();
+    expect(screen.queryByText(/no has vuelto/i)).toBeNull();
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.getByRole('region', { name: '¿Cómo has estado?' })).toBeVisible();
+  });
+
+  it('«Ahora no» lo cierra, lleva el foco al contenido y no vuelve mientras se navega', async () => {
+    const { unmount } = pintar();
+
+    await usuario.click(await screen.findByRole('button', { name: 'Ahora no' }));
+
+    expect(elAviso()).toBeNull();
+    expect(screen.getByRole('main')).toHaveFocus();
+
+    unmount();
+    pintar();
+    await waitFor(() => {
+      expect(consultarElAcompanamiento).toHaveBeenCalledTimes(2);
+    });
+
+    expect(elAviso()).toBeNull();
+  });
+
+  it('lo que una cuenta cerro no se le oculta a otra', async () => {
+    const { unmount } = pintar('ana');
+
+    await usuario.click(await screen.findByRole('button', { name: 'Ahora no' }));
+    unmount();
+    pintar('luis');
+
+    expect(await screen.findByText('¿Cómo has estado?')).toBeVisible();
+  });
+
+  it('cerrar el de abandono no esconde el de dias seguidos que llegue despues', async () => {
+    const { unmount } = pintar();
+
+    await usuario.click(await screen.findByRole('button', { name: 'Ahora no' }));
+    unmount();
+
+    consultarElAcompanamiento.mockResolvedValue(MODERADO);
+    pintar();
+
+    expect(await screen.findByText('¿Quieres hablarlo con un profesional?')).toBeVisible();
+  });
+
+  it('no tiene fallos de accesibilidad', async () => {
+    pintar();
+    await screen.findByText('¿Cómo has estado?');
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+  });
+});
+
+describe('Abandono critico (SCRUM-256)', () => {
+  beforeEach(() => {
+    consultarElAcompanamiento.mockResolvedValue(ABANDONO_CRITICO);
+  });
+
+  it('lleva las lineas del pais, su cobertura y su enlace', async () => {
+    pintar();
+
+    expect(await screen.findByText('Aquí seguimos, cuando quieras')).toBeVisible();
+    expect(screen.getByText(/Esto no es un diagnóstico/)).toBeVisible();
+    expect(screen.getByText('Línea 192, opción 4')).toBeVisible();
+    expect(screen.getByText('Todo el país')).toBeVisible();
+    expect(
+      screen.getByRole('link', {
+        name: 'Más información sobre Línea 192, opción 4 (se abre en otra pestaña)',
+      }),
+    ).toHaveAttribute('href', 'https://www.minsalud.gov.co/');
+  });
+
+  it('a diferencia del critico por dias, SI se puede cerrar: es una bienvenida, no una vigilancia', async () => {
+    pintar();
+
+    await usuario.click(await screen.findByRole('button', { name: 'Ahora no' }));
+
+    expect(elAviso()).toBeNull();
+    expect(screen.getByRole('main')).toHaveFocus();
+  });
+
+  it('no es un modal: no atrapa el foco ni el teclado', async () => {
+    pintar();
+    await screen.findByText('Aquí seguimos, cuando quieras');
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.querySelector('[aria-modal]')).toBeNull();
+  });
+
+  it('si el servidor no manda lineas, usa las de respaldo del pais: nunca queda sin un telefono', async () => {
+    consultarElAcompanamiento.mockResolvedValue({
+      nivel: 'ninguno',
+      abandono: 'critico',
+      lineasDeAtencion: [],
+    });
+
+    pintar();
+    await screen.findByText('Aquí seguimos, cuando quieras');
+
+    for (const linea of LINEAS_DE_RESPALDO_DE_COLOMBIA) {
+      expect(screen.getByText(linea.titulo)).toBeVisible();
+    }
+  });
+
+  it('no lleva encabezados: llega antes del h1 de la pagina y no le cambia el orden', async () => {
+    pintar();
+    await screen.findByText('Aquí seguimos, cuando quieras');
+
+    expect(screen.getAllByRole('heading')).toHaveLength(1);
+  });
+
+  it('sin conexion se ve lo ultimo que se supo, de la copia de este equipo', async () => {
+    const primera = pintar();
+
+    await primera.findByText('Aquí seguimos, cuando quieras');
+    primera.unmount();
+    consultarElAcompanamiento.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    pintar();
+
+    expect(await screen.findByText('Aquí seguimos, cuando quieras')).toBeVisible();
+  });
+
+  it('al registrar algo el servidor deja de decirlo y el aviso se va solo', async () => {
+    pintar();
+    await screen.findByText('Aquí seguimos, cuando quieras');
+
+    consultarElAcompanamiento.mockResolvedValue({
+      nivel: 'ninguno',
+      abandono: 'ninguno',
+      lineasDeAtencion: [],
+    });
+    act(() => {
+      window.dispatchEvent(new Event('online'));
+    });
+
+    await waitFor(() => {
+      expect(elAviso()).toBeNull();
+    });
+  });
+
+  it('no tiene fallos de accesibilidad', async () => {
+    pintar();
+    await screen.findByText('Aquí seguimos, cuando quieras');
 
     expect(await fallosDeAccesibilidad()).toEqual([]);
   });

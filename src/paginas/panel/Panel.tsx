@@ -14,7 +14,6 @@ import type { Cuenta, Modulo } from '../../infraestructura/api/cuenta.ts';
 import type { ActividadDeHoy, ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { MascotaFlotante } from '../../mascota/MascotaFlotante.tsx';
 import { useAvisoDeLaTarde } from '../../racha/useAvisoDeLaTarde.ts';
-import { CartaDeAyer } from '../diario/cartas/CartaDeAyer.tsx';
 import { rutaDeActividad, rutaDeModulo } from '../../rutas/rutas.ts';
 import { Semaforo } from '../../semaforo/Semaforo.tsx';
 import { formatoEn, zonaActual } from '../../tiempo/zonaHoraria.ts';
@@ -197,9 +196,6 @@ function Dashboard({
           <DatoCuriosoDelDia />
         </div>
       </section>
-
-      {/* La carta que la persona se dejo ayer, si hay una (SCRUM-230). Sin ninguna, no pinta nada. */}
-      <CartaDeAyer />
 
       <section id="progreso" className="app__seccion app__ruta-y-recomendado">
         <RutaDelDia ruta={ruta} nuevas={nuevas} />

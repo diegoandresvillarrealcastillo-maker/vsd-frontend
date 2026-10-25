@@ -8,13 +8,23 @@ import { llamarALaApi } from './clienteHttp.ts';
  * es el aviso de privacidad.
  */
 
+/** Cuantas veces al dia avisa el semaforo (SCRUM-146, ADR 0036 del backend). */
+export type FrecuenciaDelSemaforo = 'manana' | 'noche' | 'dos_veces';
+
 export interface EstadoDeLasNotificaciones {
   /** Si el servidor puede mandar avisos. Sin claves VAPID, no. */
   readonly disponible: boolean;
   /** Con la que este navegador se suscribe. */
   readonly clavePublica: string | null;
-  /** "HH:MM" en la zona de la persona (SCRUM-123), o null si esta apagado. */
+  /** "HH:MM" en la zona de la persona (SCRUM-123), o null si esta apagado. La hora base. */
   readonly horaSemaforo: string | null;
+  /**
+   * SCRUM-146: cuantas veces al dia avisa el semaforo y a que horas de verdad,
+   * que el servidor calcula (nunca cruzan la medianoche). Una API anterior no
+   * los manda; la pantalla lo trata como «solo en la manana», a la hora guardada.
+   */
+  readonly frecuenciaSemaforo?: FrecuenciaDelSemaforo;
+  readonly horasDelSemaforo?: readonly string[];
   readonly horaRacha: string | null;
   /**
    * Los recordatorios de las 8:00 y las 20:00 (SCRUM-126): encendidos o no. La
@@ -28,6 +38,8 @@ export interface EstadoDeLasNotificaciones {
 /** Lo que no venga se queda; null apaga ese aviso. */
 export interface CambiosDeHoras {
   readonly horaSemaforo?: string | null;
+  /** No se puede apagar con null: se apaga con `horaSemaforo: null` y la frecuencia queda guardada. */
+  readonly frecuenciaSemaforo?: FrecuenciaDelSemaforo;
   readonly horaRacha?: string | null;
 }
 

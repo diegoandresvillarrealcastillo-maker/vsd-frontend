@@ -1,6 +1,5 @@
 import { ErrorDeLaApi } from '../infraestructura/api/clienteHttp.ts';
 import {
-  borrarAnotacion,
   consultarElDiario,
   editarAnotacion,
   escribirEnElDiario,
@@ -154,8 +153,6 @@ export function comprobarLaOperacion(operacion: Operacion): string | null {
           opcional(payload, 'titulo', (valor) => typeof valor === 'string') &&
           opcional(payload, 'adjuntos', Array.isArray) &&
           opcional(payload, 'escritaEn', esFechaIso) &&
-          // «Carta a mi de manana» (SCRUM-230): solo existe la forma `true`.
-          opcional(payload, 'cartaAManana', (valor) => valor === true) &&
           opcional(payload, 'copiaDe', esTextoConContenido) &&
           opcional(
             payload,
@@ -174,9 +171,6 @@ export function comprobarLaOperacion(operacion: Operacion): string | null {
           opcional(payload, 'contenido', esObjeto) &&
           opcional(payload, 'adjuntos', (valor) => valor === null || Array.isArray(valor))
         );
-
-      case 'diario.borrar':
-        return esTextoConContenido(payload.id);
 
       case 'pendiente.crear':
         return (
@@ -390,14 +384,6 @@ export const EJECUTORES: Readonly<Record<TipoDeOperacion, Ejecutor>> = {
   },
 
   'diario.editar': enPromesa(corregirUnaAnotacion),
-
-  // Idempotente por el identificador: borrar lo que ya no esta responde igual. Si lo que se borra se
-  // escribio sin conexion y todavia no tiene el de verdad, se espera a la escritura (SCRUM-230).
-  'diario.borrar': enPromesa((operacion, contexto) => {
-    const { id } = operacion.payload as { id: string };
-
-    return borrarAnotacion(resolverElId(id, contexto));
-  }),
 
   'pendiente.crear': (operacion) =>
     crearPendiente(operacion.payload as Parameters<typeof crearPendiente>[0]),
