@@ -21,7 +21,6 @@ const {
   crearPendiente,
   editarPendiente,
   borrarPendiente,
-  borrarAnotacion,
 } = vi.hoisted(() => ({
   registrarResultado: vi.fn(),
   escribirEnElDiario: vi.fn(),
@@ -30,7 +29,6 @@ const {
   crearPendiente: vi.fn(),
   editarPendiente: vi.fn(),
   borrarPendiente: vi.fn(),
-  borrarAnotacion: vi.fn(),
 }));
 
 vi.mock('../infraestructura/api/resultados.ts', () => ({ registrarResultado }));
@@ -39,7 +37,6 @@ vi.mock('../infraestructura/api/diario.ts', async (importar) => ({
   escribirEnElDiario,
   editarAnotacion,
   consultarElDiario,
-  borrarAnotacion,
 }));
 vi.mock('../infraestructura/api/pendientes.ts', () => ({
   crearPendiente,
@@ -57,7 +54,6 @@ beforeEach(() => {
     crearPendiente,
     editarPendiente,
     borrarPendiente,
-    borrarAnotacion,
   ]) {
     f.mockResolvedValue({ respuesta: 'de la api' });
   }
@@ -100,7 +96,6 @@ const VALIDOS: Record<TipoDeOperacion, unknown> = {
     contenido: { type: 'doc', content: [] },
   },
   'diario.editar': { id: 'anotacion-1', version: 2, contenido: { type: 'doc', content: [] } },
-  'diario.borrar': { id: 'anotacion-1' },
   'pendiente.crear': { clientOperationId: 'op-1', texto: 'Llamar', nivel: 'urgente' },
   'pendiente.editar': { id: 'pendiente-1', cambios: { hecho: true } },
   'pendiente.borrar': { id: 'pendiente-1' },
@@ -173,7 +168,7 @@ describe('comprobarLaOperacion', () => {
       },
     );
 
-    it.each(['diario.editar', 'diario.borrar', 'pendiente.editar', 'pendiente.borrar'] as const)(
+    it.each(['diario.editar', 'pendiente.editar', 'pendiente.borrar'] as const)(
       '%s: no lleva clientOperationId y no se le exige',
       (tipo) => {
         expect(comprobarLaOperacion(operacion(tipo, VALIDOS[tipo]))).toBeNull();
@@ -256,27 +251,10 @@ describe('comprobarLaOperacion', () => {
       expect(comprobarLaOperacion(con({ motivo: 7 }))).toBe('PAYLOAD_INVALIDO');
     });
 
-    it('una carta a mi de manana lleva cartaAManana en verdadero, y no hay otra forma (SCRUM-230)', () => {
-      expect(comprobarLaOperacion(con({ cartaAManana: true }))).toBeNull();
-      expect(comprobarLaOperacion(con({ cartaAManana: false }))).toBe('PAYLOAD_INVALIDO');
-      expect(comprobarLaOperacion(con({ cartaAManana: 'si' }))).toBe('PAYLOAD_INVALIDO');
-      expect(comprobarLaOperacion(con({ cartaAManana: undefined }))).toBeNull();
-    });
-
     it('la hora en que se escribio es opcional, pero si esta tiene que ser una hora', () => {
       expect(comprobarLaOperacion(con({ escritaEn: '2026-10-07T11:00:00.000Z' }))).toBeNull();
       expect(comprobarLaOperacion(con({ escritaEn: 'ayer' }))).toBe('PAYLOAD_INVALIDO');
       expect(comprobarLaOperacion(con({ escritaEn: 12 }))).toBe('PAYLOAD_INVALIDO');
-    });
-  });
-
-  describe('diario.borrar (SCRUM-230)', () => {
-    it.each([
-      ['sin id', {}],
-      ['con el id vacio', { id: '' }],
-      ['con el id como numero', { id: 7 }],
-    ])('%s es invalido', (_nombre, payload) => {
-      expect(comprobarLaOperacion(operacion('diario.borrar', payload))).toBe('PAYLOAD_INVALIDO');
     });
   });
 
@@ -606,47 +584,6 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
         ),
       ).rejects.toBeInstanceOf(OperacionInvalida);
       expect(borrarPendiente).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('diario.borrar (SCRUM-230)', () => {
-    it('borra por el id', async () => {
-      await EJECUTORES['diario.borrar'](
-        operacion('diario.borrar', { id: 'anotacion-1' }),
-        contextoCon(),
-      );
-
-      expect(borrarAnotacion).toHaveBeenCalledWith('anotacion-1');
-    });
-
-    it('una escrita sin conexion se borra con el id de verdad, cuando la escritura ya salio', async () => {
-      await EJECUTORES['diario.borrar'](
-        operacion('diario.borrar', { id: idLocalDe('op-0') }),
-        contextoCon({ 'op-0': { id: 'servidor-55' } }),
-      );
-
-      expect(borrarAnotacion).toHaveBeenCalledWith('servidor-55');
-    });
-
-    it('si la escritura todavia no salio, no llama a la API: espera su turno', async () => {
-      await expect(
-        EJECUTORES['diario.borrar'](
-          operacion('diario.borrar', { id: idLocalDe('op-0') }),
-          contextoCon(),
-        ),
-      ).rejects.toBeInstanceOf(OperacionInvalida);
-      expect(borrarAnotacion).not.toHaveBeenCalled();
-    });
-
-    it('lo que la API responda es lo que se guarda: un fallo de red se reintenta', async () => {
-      borrarAnotacion.mockRejectedValue(new TypeError('Failed to fetch'));
-
-      await expect(
-        EJECUTORES['diario.borrar'](
-          operacion('diario.borrar', { id: 'anotacion-1' }),
-          contextoCon(),
-        ),
-      ).rejects.toBeInstanceOf(TypeError);
     });
   });
 

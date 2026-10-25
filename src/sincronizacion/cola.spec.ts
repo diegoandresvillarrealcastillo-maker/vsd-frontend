@@ -98,10 +98,9 @@ describe('nuevaOperacion', () => {
 });
 
 describe('los tipos de operacion', () => {
-  it('son los siete que la API ya sabe hacer de forma idempotente', () => {
+  it('son los seis que la API ya sabe hacer de forma idempotente', () => {
     expect([...TIPOS_DE_OPERACION].sort()).toEqual(
       [
-        'diario.borrar',
         'diario.editar',
         'diario.escribir',
         'pendiente.borrar',
