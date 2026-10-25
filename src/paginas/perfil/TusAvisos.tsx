@@ -20,6 +20,7 @@ import {
   type CambiosDeHoras,
   type CambiosDeRecordatorios,
   type EstadoDeLasNotificaciones,
+  type FrecuenciaDelSemaforo,
 } from '../../infraestructura/api/notificaciones.ts';
 import {
   capacidadDelNavegador,
@@ -266,7 +267,12 @@ export function TusAvisos() {
             alCambiarHoras={cambiarHoras}
           />
 
-          <TarjetaDelSemaforo hora={estado.datos.horaSemaforo} alCambiarHoras={cambiarHoras} />
+          <TarjetaDelSemaforo
+            hora={estado.datos.horaSemaforo}
+            frecuencia={estado.datos.frecuenciaSemaforo ?? 'manana'}
+            horasReales={estado.datos.horasDelSemaforo}
+            alCambiarHoras={cambiarHoras}
+          />
 
           {(estado.datos.recordatorioManana === true ||
             estado.datos.recordatorioNoche === true ||
@@ -517,28 +523,52 @@ function TarjetaDeActividades({
   );
 }
 
-/** Cuantos pendientes hay en el semaforo, a la hora que la persona elija. */
+const FRECUENCIAS_DEL_SEMAFORO: readonly { valor: FrecuenciaDelSemaforo; nombre: string }[] = [
+  { valor: 'manana', nombre: 'Solo en la mañana' },
+  { valor: 'noche', nombre: 'Solo en la noche' },
+  { valor: 'dos_veces', nombre: 'Dos veces al día' },
+];
+
+/** «8:00», «8:00 y 20:00». Las horas llegan del servidor, que ya sabe cuales le tocan. */
+function enumerarLasHoras(horas: readonly string[]): string {
+  return horas.length > 1 ? `${horas.slice(0, -1).join(', ')} y ${horas.at(-1)}` : (horas[0] ?? '');
+}
+
+/**
+ * Cuantos pendientes hay en el semaforo, a la hora que la persona elija y una o
+ * dos veces al dia (SCRUM-146). La hora elegida es la base; las horas a las que
+ * de verdad avisa las calcula el servidor y aqui solo se muestran.
+ */
 function TarjetaDelSemaforo({
   hora: horaGuardada,
+  frecuencia,
+  horasReales,
   alCambiarHoras,
 }: {
   hora: string | null;
+  frecuencia: FrecuenciaDelSemaforo;
+  /** Ausente en una API anterior a SCRUM-146: avisa una vez, a la hora guardada. */
+  horasReales: readonly string[] | undefined;
   alCambiarHoras: (cambios: CambiosDeHoras) => Promise<boolean>;
 }) {
   const [ocupado, setOcupado] = useState(false);
+  const idDeLaFrecuencia = useId();
   const encendida = horaGuardada !== null;
+  const avisaA = horasReales ?? (horaGuardada === null ? [] : [horaGuardada]);
 
-  async function guardar(nueva: string | null) {
+  async function guardar(cambios: CambiosDeHoras) {
     setOcupado(true);
 
     try {
-      await alCambiarHoras({ horaSemaforo: nueva });
+      await alCambiarHoras(cambios);
     } finally {
       setOcupado(false);
     }
   }
 
-  const hora = useHoraElegida(horaGuardada, HORA_DEL_SEMAFORO, guardar);
+  const hora = useHoraElegida(horaGuardada, HORA_DEL_SEMAFORO, (nueva) =>
+    guardar({ horaSemaforo: nueva }),
+  );
 
   function alternar() {
     if (ocupado) {
@@ -546,7 +576,7 @@ function TarjetaDelSemaforo({
     }
 
     hora.cancelar();
-    void guardar(encendida ? null : hora.escrita);
+    void guardar({ horaSemaforo: encendida ? null : hora.escrita });
   }
 
   return (
@@ -562,6 +592,33 @@ function TarjetaDelSemaforo({
         valor={hora.escrita}
         alEscribir={hora.escribir}
       />
+
+      <div className="perfil__fila">
+        <label htmlFor={idDeLaFrecuencia} className="bienvenida__etiqueta">
+          Cuántas veces
+        </label>
+        <select
+          id={idDeLaFrecuencia}
+          className="bienvenida__entrada perfil__selector"
+          value={frecuencia}
+          disabled={ocupado}
+          onChange={(evento) =>
+            void guardar({ frecuenciaSemaforo: evento.target.value as FrecuenciaDelSemaforo })
+          }
+        >
+          {FRECUENCIAS_DEL_SEMAFORO.map((una) => (
+            <option key={una.valor} value={una.valor}>
+              {una.nombre}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Lo que de verdad pasa, dicho con las horas: «solo en la noche» o una hora de la tarde
+          no son lo que el nombre sugiere sin verlas. */}
+      <p className="app__nota" aria-live="polite">
+        Te avisaremos a las {enumerarLasHoras(avisaA)}.
+      </p>
     </TarjetaDeAviso>
   );
 }

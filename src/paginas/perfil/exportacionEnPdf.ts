@@ -302,6 +302,12 @@ const NIVELES_DE_UN_PENDIENTE: Readonly<Record<string, string>> = {
   aplazable: 'Aplazable',
 };
 
+const FRECUENCIAS_DEL_SEMAFORO: Readonly<Record<string, string>> = {
+  manana: 'Solo en la mañana',
+  noche: 'Solo en la noche',
+  dos_veces: 'Dos veces al día',
+};
+
 const ESTADOS_DE_UN_CAMBIO: Readonly<Record<string, string>> = {
   pendiente: 'Pendiente de enviar',
   enviando: 'Enviándose',
@@ -582,6 +588,10 @@ export function generarLaExportacionEnPdf(
     ],
     [
       ['Semáforo', cadena(avisos.horaSemaforo) ?? 'Sin hora'],
+      [
+        'Veces al día que avisa el semáforo',
+        nombrado(FRECUENCIAS_DEL_SEMAFORO, avisos.frecuenciaSemaforo),
+      ],
       ['Racha', cadena(avisos.horaRacha) ?? 'Sin hora'],
       ['Recordatorio de la mañana', avisos.recordatorioManana === true ? 'Activado' : 'Apagado'],
       ['Recordatorio de la noche', avisos.recordatorioNoche === true ? 'Activado' : 'Apagado'],

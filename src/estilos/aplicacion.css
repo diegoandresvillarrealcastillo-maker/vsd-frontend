@@ -1456,6 +1456,13 @@
   width: 8.5rem;
 }
 
+/* El desplegable de frecuencia del semaforo: del ancho de su contenido, no del renglon. */
+.perfil__selector {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
 /* ---------- Los avisos del perfil, en dos tarjetas ----------
    Cada una: un interruptor, lo que hace y, encendida, sus opciones. Los
    colores del modulo de bienestar llegan por `--modulo-*` desde el componente,
