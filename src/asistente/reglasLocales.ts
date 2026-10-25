@@ -439,7 +439,8 @@ function esLinea(valor: unknown): valor is LineaDeAtencion {
     esTexto(valor.tipo) &&
     esTextoOpcional(valor.descripcion) &&
     esTextoOpcional(valor.cobertura) &&
-    esTextoOpcional(valor.enlace)
+    esTextoOpcional(valor.enlace) &&
+    esTextoOpcional(valor.telefono)
   );
 }
 

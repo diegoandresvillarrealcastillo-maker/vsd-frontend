@@ -40,6 +40,7 @@ const LINEAS_PARA_MENORES_DE_COLOMBIA: readonly LineaDeAtencion[] = [
     tipo: 'contacto',
     cobertura: 'nacional',
     enlace: 'https://www.icbf.gov.co/linea-141',
+    telefono: '141',
   },
   {
     id: '0106c0de-0000-4000-8000-000000000106',
@@ -50,6 +51,7 @@ const LINEAS_PARA_MENORES_DE_COLOMBIA: readonly LineaDeAtencion[] = [
     cobertura: 'bogota',
     enlace:
       'https://bogota.gov.co/mi-ciudad/salud/servicios-de-la-linea-106-en-bogota-atencion-psicologica-y-mas-2023',
+    telefono: '106',
   },
 ];
 

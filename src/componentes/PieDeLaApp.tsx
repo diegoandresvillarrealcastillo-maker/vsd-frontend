@@ -1,6 +1,7 @@
 import '../estilos/avisos-clinicos.css';
 import { EnlacesLegales } from '../paginas/legal/EnlacesLegales.tsx';
 import { describirLaVersion, VERSION_DE_LA_APP } from '../version.ts';
+import { ContactoDelEquipo } from './ContactoDelEquipo.tsx';
 
 /**
  * El pie breve de las pantallas de la aplicacion (L-03 de la auditoria 360).
@@ -19,6 +20,9 @@ export function PieDeLaApp() {
         VSD Health no diagnostica, no formula medicamentos y no reemplaza a un especialista médico.
         Es solo para mayores de 18 años.
       </p>
+
+      {/* Solo para problemas tecnicos, y lo dice (SCRUM-257): no es una linea de ayuda. */}
+      <ContactoDelEquipo />
 
       <EnlacesLegales className="pie-de-la-app__enlaces" />
 

@@ -2,13 +2,16 @@ import { motion } from 'framer-motion';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
+import { LlamarAhora } from '../../componentes/LlamarAhora.tsx';
 import { Logo } from '../../componentes/Logo.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
+import { EQUIPO, SOLO_PROBLEMAS_TECNICOS } from '../../equipo.ts';
 import { ENTRADA, REACCION_DE_BOTON } from '../../estilos/movimiento.ts';
 import { entorno } from '../../infraestructura/entorno.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
+import { LINEAS_DE_RESPALDO_DE_COLOMBIA } from '../actividad/lineasParaMostrar.ts';
 import { EnlacesLegales } from '../legal/EnlacesLegales.tsx';
 import { AnillosDeConstancia } from './AnillosDeConstancia.tsx';
 import { BarrasDeSueno, MEDIA_DE_SUENO } from './BarrasDeSueno.tsx';
@@ -128,16 +131,6 @@ const PASOS: readonly Paso[] = [
     titulo: 'Vuelves mañana',
     texto: 'La idea es hacerlo varios días seguidos. Ahí es cuando empiezas a ver algo.',
   },
-];
-
-interface Persona {
-  readonly nombre: string;
-  readonly rol: string;
-}
-
-const EQUIPO: readonly Persona[] = [
-  { nombre: 'Diego Andrés Villarreal Castillo', rol: 'Product Owner y desarrollo' },
-  { nombre: 'Samuel Villa Pérez', rol: 'Scrum Master y desarrollo' },
 ];
 
 export function Portada() {
@@ -326,6 +319,17 @@ export function Portada() {
                   <strong>192 y elegir la opción 4</strong>, o el <strong>123</strong> si hay riesgo
                   inmediato. Las dos líneas son gratuitas y atienden a toda hora.
                 </p>
+
+                {/* Las dos son de Colombia y estan verificadas (SCRUM-257): el texto de arriba ya lo dice. */}
+                <div className="limite__llamadas">
+                  {LINEAS_DE_RESPALDO_DE_COLOMBIA.map((linea) => (
+                    <LlamarAhora
+                      key={linea.id}
+                      linea={linea}
+                      etiqueta={`Llamar al ${linea.telefono ?? ''}`}
+                    />
+                  ))}
+                </div>
               </div>
             </Entra>
           </div>
@@ -376,9 +380,19 @@ export function Portada() {
                 <li className="pie__persona" key={persona.nombre}>
                   <span className="pie__nombre">{persona.nombre}</span>
                   <span className="pie__rol">{persona.rol}</span>
+                  <a
+                    className="pie__telefono"
+                    href={`tel:${persona.telefono}`}
+                    aria-label={`Llamar a ${persona.nombreCorto}, del equipo, por un problema técnico`}
+                  >
+                    {persona.telefonoEscrito}
+                  </a>
                 </li>
               ))}
             </ul>
+
+            {/* Solo para problemas tecnicos y con todas las letras (SCRUM-257): no es una linea de ayuda. */}
+            <p className="pie__texto">{SOLO_PROBLEMAS_TECNICOS}</p>
           </div>
 
           <div className="pie__legal">

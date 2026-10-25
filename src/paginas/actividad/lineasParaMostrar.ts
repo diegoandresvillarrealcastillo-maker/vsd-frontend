@@ -34,6 +34,7 @@ export const LINEAS_DE_RESPALDO_DE_COLOMBIA: readonly LineaDeAtencion[] = [
       'Orientación en salud mental del Ministerio de Salud. Funciona en todo el país: se marca 192 y se elige la opción 4. Atiende un equipo de profesionales.',
     tipo: 'contacto',
     cobertura: 'nacional',
+    telefono: '192',
   },
   {
     id: '0123c0de-0000-4000-8000-000000000123',
@@ -42,6 +43,7 @@ export const LINEAS_DE_RESPALDO_DE_COLOMBIA: readonly LineaDeAtencion[] = [
       'Línea única de emergencias, en todo el país. Es la que hay que marcar si hay riesgo inmediato para la vida de alguien.',
     tipo: 'contacto',
     cobertura: 'nacional',
+    telefono: '123',
   },
 ];
 

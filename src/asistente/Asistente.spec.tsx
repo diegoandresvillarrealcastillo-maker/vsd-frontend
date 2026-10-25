@@ -394,6 +394,36 @@ describe('VSD IA', () => {
     expect(campo()).toHaveValue('');
   });
 
+  it('una linea de atencion con telefono se puede marcar con un toque; una lectura no (SCRUM-257)', async () => {
+    preguntarAlAsistente.mockResolvedValue({
+      ...CON_RIESGO,
+      recursos: [
+        {
+          id: 'l-192',
+          titulo: 'Línea 192, opción 4',
+          descripcion: 'Se marca 192 y se elige la opción 4.',
+          tipo: 'contacto',
+          cobertura: 'nacional',
+          telefono: '192',
+        },
+        ...SOBRE_EL_SUENO.recursos,
+      ],
+    });
+    pintar();
+
+    await usuario.type(campo(), 'me siento mal');
+    await usuario.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    const conversacion = screen.getByRole('log', { name: 'Conversación' });
+    const botones = await within(conversacion).findAllByRole('link', { name: /Llamar ahora/ });
+
+    expect(botones).toHaveLength(1);
+    expect(botones[0]).toHaveAttribute('href', 'tel:192');
+    expect(
+      within(conversacion).getByRole('link', { name: /Leer más sobre Higiene del sueño/ }),
+    ).toBeInTheDocument();
+  });
+
   it('las sugerencias preguntan por lo que sabe responder', async () => {
     pintar();
 
