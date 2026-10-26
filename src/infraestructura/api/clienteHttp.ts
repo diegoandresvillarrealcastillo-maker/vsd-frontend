@@ -156,6 +156,34 @@ async function tokenActual(): Promise<string | null> {
   }
 }
 
+/**
+ * Cierra la sesion de este dispositivo porque la API dijo 401, pero solo si ese 401 es de la sesion
+ * que hay ahora (SCRUM-272).
+ *
+ * La peticion recuerda con que token salio. Entre que sale y que vuelve la respuesta puede pasar de
+ * todo: la persona sale y entra otra, o otra pestana renueva el token. Si la sesion de ahora ya no
+ * es esa, el 401 es de una sesion que ya no existe y no puede cerrar la de quien llego despues. Una
+ * peticion que salio sin sesion tampoco cierra nada.
+ *
+ * Y se cierra con `scope: 'local'`: solo este dispositivo. El alcance global revoca los tokens de la
+ * persona en todos los demas, y un 401 de aqui no es motivo para eso.
+ *
+ * Nunca lanza: ya hay un error de la API en curso, y es el que tiene que salir.
+ */
+async function cerrarSiSigueSiendoEsaSesion(tokenUsado: string | null): Promise<void> {
+  if (tokenUsado === null) {
+    return;
+  }
+
+  try {
+    if ((await tokenActual()) === tokenUsado) {
+      await supabase().auth.signOut({ scope: 'local' });
+    }
+  } catch {
+    // Cerrar no puede tapar el 401.
+  }
+}
+
 interface Opciones {
   readonly metodo?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   /** Lo que se manda, como JSON. */
@@ -213,8 +241,9 @@ async function pedir(ruta: string, opciones: Opciones, acepta: string): Promise<
   if (respuesta.status === 401) {
     // El token no vale: caducado, revocado, o la sesion se cerro en otra
     // pestana. Se limpia aqui para que la aplicacion no siga pareciendo que
-    // hay alguien dentro mientras ninguna peticion funciona.
-    await supabase().auth.signOut();
+    // hay alguien dentro mientras ninguna peticion funciona, pero solo si la
+    // sesion sigue siendo la que hizo la peticion (SCRUM-272).
+    await cerrarSiSigueSiendoEsaSesion(token);
 
     // El mensaje lo pone el cliente y no la API, a proposito. La API distingue
     // por dentro entre "no llego token" y "el token no vale", pero responde lo

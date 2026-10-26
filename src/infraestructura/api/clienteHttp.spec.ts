@@ -263,6 +263,103 @@ describe('llamarALaApi, cuando la sesion no vale', () => {
   });
 });
 
+/**
+ * Un 401 es de la sesion con la que salio la peticion (SCRUM-272).
+ *
+ * Entre que sale y que vuelve pueden pasar segundos: la persona sale, entra otra, otra pestana
+ * renueva el token. Cerrar «la sesion» al llegar el 401 cerraria la de quien llego despues. Y se
+ * cierra solo en este dispositivo: un 401 aqui no es motivo para revocar los tokens de la persona
+ * en todos los demas.
+ */
+describe('llamarALaApi, un 401 y de quien era la peticion (SCRUM-272)', () => {
+  const sesionDe = (token: string) => ({ data: { session: { access_token: token } } });
+
+  /** La peticion sale con el token de ana; cuando vuelve el 401, la sesion es la que se diga. */
+  function conLaSesionAlVolver(alVolver: unknown) {
+    getSession.mockReset();
+    getSession.mockResolvedValueOnce(sesionDe('token-de-ana')).mockResolvedValue(alVolver);
+    cuandoLaApiResponde(respuesta({ codigo: 'SESION_INVALIDA' }, 401));
+  }
+
+  it('cierra solo la sesion de este dispositivo', async () => {
+    cuandoLaApiResponde(respuesta({}, 401));
+
+    await expect(llamarALaApi('/api/cuenta')).rejects.toMatchObject({ estado: 401 });
+
+    expect(signOut).toHaveBeenCalledExactlyOnceWith({ scope: 'local' });
+  });
+
+  it('si la sesion sigue siendo la misma al volver el 401, la cierra', async () => {
+    conLaSesionAlVolver(sesionDe('token-de-ana'));
+
+    await expect(llamarALaApi('/api/cuenta')).rejects.toMatchObject({ estado: 401 });
+
+    expect(signOut).toHaveBeenCalledOnce();
+  });
+
+  it('si al volver el 401 la sesion es de otra persona, no la cierra, y el error sale igual', async () => {
+    conLaSesionAlVolver(sesionDe('token-de-beto'));
+
+    await expect(llamarALaApi('/api/cuenta')).rejects.toMatchObject({
+      estado: 401,
+      codigo: 'SESION_INVALIDA',
+    });
+
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  it('si ya no hay sesion al volver el 401 (la persona salio), no hay nada que cerrar', async () => {
+    conLaSesionAlVolver({ data: { session: null } });
+
+    await expect(llamarALaApi('/api/cuenta')).rejects.toMatchObject({ estado: 401 });
+
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  it('si la peticion salio sin sesion, su 401 no cierra la de quien entro despues', async () => {
+    getSession.mockReset();
+    getSession.mockResolvedValueOnce({ data: { session: null } }).mockResolvedValue(sesionDe('t'));
+    cuandoLaApiResponde(respuesta({}, 401));
+
+    await expect(llamarALaApi('/api/catalogo')).rejects.toMatchObject({ estado: 401 });
+
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  it('si no se puede leer la sesion al volver el 401, no cierra nada y el error sale', async () => {
+    getSession.mockReset();
+    getSession
+      .mockResolvedValueOnce(sesionDe('token-de-ana'))
+      .mockRejectedValue(new Error('el almacen no responde'));
+    cuandoLaApiResponde(respuesta({}, 401));
+
+    await expect(llamarALaApi('/api/cuenta')).rejects.toMatchObject({ estado: 401 });
+
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  it('si cerrar la sesion falla, el error que sale sigue siendo el de la API', async () => {
+    signOut.mockRejectedValue(new Error('no se pudo cerrar'));
+    cuandoLaApiResponde(respuesta({ codigo: 'SESION_INVALIDA' }, 401));
+
+    await expect(llamarALaApi('/api/cuenta')).rejects.toMatchObject({
+      name: 'ErrorDeLaApi',
+      estado: 401,
+      codigo: 'SESION_INVALIDA',
+    });
+  });
+
+  it('lo mismo vale para las lecturas con ETag y para los archivos', async () => {
+    conLaSesionAlVolver(sesionDe('token-de-beto'));
+    await expect(leerSiCambio('/api/catalogo')).rejects.toMatchObject({ estado: 401 });
+
+    conLaSesionAlVolver(sesionDe('token-de-beto'));
+    await expect(pedirBytesALaApi('/api/cuenta/foto')).rejects.toMatchObject({ estado: 401 });
+
+    expect(signOut).not.toHaveBeenCalled();
+  });
+});
+
 describe('llamarALaApi, la cabecera de autorizacion', () => {
   it('manda el token cuando hay sesion', async () => {
     cuandoLaApiResponde(respuesta({}));
