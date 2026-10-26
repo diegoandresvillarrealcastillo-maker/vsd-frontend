@@ -622,6 +622,10 @@ describe('Mi diario, sin conexion (SCRUM-139)', () => {
     api.consultarElDiario.mockResolvedValue([
       anotacion({ contenido: documentoCon('Lo nuevo del servidor') }),
     ]);
+    // El oyente de «online» se registra en un efecto, despues de pintar el aviso de arriba. Se deja
+    // que corra antes de avisar de que volvio la red: con la maquina cargada el evento llegaba antes
+    // y se perdia (SCRUM-273).
+    await act(() => Promise.resolve());
     act(() => {
       window.dispatchEvent(new Event('online'));
     });
