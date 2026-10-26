@@ -692,3 +692,88 @@ describe('los textos pendientes de aceptar (SCRUM-237)', () => {
     expect(avisar).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Una operacion de la cola es de la persona que la anoto (SCRUM-275). Si entre que se decide
+ * enviarla y que sale la peticion la sesion pasa a ser de otra persona, el contenido de una no puede
+ * salir con el token de la otra: el servidor lo daria por legitimo.
+ */
+describe('llamarALaApi, con el contexto de la persona que hizo la operacion (SCRUM-275)', () => {
+  const sesionDe = (persona: string) => ({
+    data: { session: { access_token: `token-de-${persona}`, user: { id: persona } } },
+  });
+
+  it('con la sesion de esa persona, sale con su token', async () => {
+    getSession.mockResolvedValue(sesionDe('ana'));
+    cuandoLaApiResponde(respuesta({ ok: true }));
+
+    await expect(
+      llamarALaApi('/api/x', { contexto: { persona: 'ana', vigente: () => true } }),
+    ).resolves.toEqual({ ok: true });
+
+    expect(new Headers(loEnviado().headers).get('Authorization')).toBe('Bearer token-de-ana');
+  });
+
+  it('si la sesion de ahora es de otra persona, no sale nada', async () => {
+    getSession.mockResolvedValue(sesionDe('beto'));
+    cuandoLaApiResponde(respuesta({}));
+
+    await expect(
+      llamarALaApi('/api/x', {
+        metodo: 'POST',
+        cuerpo: { titulo: 'de ana' },
+        contexto: { persona: 'ana', vigente: () => true },
+      }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it('si el contexto ya no vale al empezar, ni siquiera lee la sesion', async () => {
+    cuandoLaApiResponde(respuesta({}));
+
+    await expect(
+      llamarALaApi('/api/x', { contexto: { persona: 'ana', vigente: () => false } }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+
+    expect(getSession).not.toHaveBeenCalled();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it('si el contexto deja de valer mientras la peticion esta en vuelo, descarta la respuesta', async () => {
+    let vigente = true;
+    getSession.mockResolvedValue(sesionDe('ana'));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => {
+        vigente = false;
+        return Promise.resolve(respuesta({ secreto: 'de ana' }));
+      }),
+    );
+
+    await expect(
+      llamarALaApi('/api/x', { contexto: { persona: 'ana', vigente: () => vigente } }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('si el contexto deja de valer mientras se lee el cuerpo, tampoco entrega lo leido', async () => {
+    let vigente = true;
+    getSession.mockResolvedValue(sesionDe('ana'));
+    class RespuestaQueCambiaElContexto extends Response {
+      override json(): Promise<unknown> {
+        vigente = false;
+        return super.json();
+      }
+    }
+    cuandoLaApiResponde(
+      new RespuestaQueCambiaElContexto('{"secreto":"de ana"}', {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    await expect(
+      llamarALaApi('/api/x', { contexto: { persona: 'ana', vigente: () => vigente } }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+  });
+});

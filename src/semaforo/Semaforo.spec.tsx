@@ -108,6 +108,9 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+/** El motor pasa, como ultimo argumento, de quien es la peticion (SCRUM-275). */
+const DE_QUIEN: unknown = expect.objectContaining({ vigente: expect.any(Function) as unknown });
+
 describe('el boton flotante', () => {
   it('cuenta los urgentes sin hacer', async () => {
     consultarElSemaforo.mockResolvedValue(
@@ -306,11 +309,14 @@ describe('anadir', () => {
     await usuario.click(within(ventana).getByRole('radio', { name: 'Urgente' }));
     await usuario.click(within(ventana).getByRole('button', { name: 'Añadir' }));
 
-    expect(crearPendiente).toHaveBeenCalledWith({
-      clientOperationId: expect.stringMatching(/^[0-9a-f-]{36}$/) as unknown,
-      texto: 'Llamar a mamá',
-      nivel: 'urgente',
-    });
+    expect(crearPendiente).toHaveBeenCalledWith(
+      {
+        clientOperationId: expect.stringMatching(/^[0-9a-f-]{36}$/) as unknown,
+        texto: 'Llamar a mamá',
+        nivel: 'urgente',
+      },
+      DE_QUIEN,
+    );
     expect(within(ventana).getByRole('region', { name: /Urgente/ })).toHaveTextContent(
       'Llamar a mamá',
     );
@@ -411,6 +417,7 @@ describe('la fecha limite, opcional (SCRUM-119)', () => {
 
     expect(crearPendiente).toHaveBeenCalledWith(
       expect.objectContaining({ texto: 'Entregar', fechaLimite: '2026-10-12' }),
+      DE_QUIEN,
     );
     expect(within(ventana).getByLabelText(/Fecha límite/)).toHaveValue('');
   });
@@ -458,7 +465,11 @@ describe('la fecha limite, opcional (SCRUM-119)', () => {
     ponerFecha(within(ventana).getByLabelText('Fecha límite'), '2030-03-04');
 
     await waitFor(() =>
-      expect(editarPendiente).toHaveBeenCalledWith('p-entrega', { fechaLimite: '2030-03-04' }),
+      expect(editarPendiente).toHaveBeenCalledWith(
+        'p-entrega',
+        { fechaLimite: '2030-03-04' },
+        DE_QUIEN,
+      ),
     );
     // Sale dos veces: en el aviso de lo hecho y en la propia tarea.
     await waitFor(() =>
@@ -483,7 +494,7 @@ describe('la fecha limite, opcional (SCRUM-119)', () => {
     await usuario.click(within(ventana).getByRole('button', { name: 'Quitar fecha' }));
 
     await waitFor(() =>
-      expect(editarPendiente).toHaveBeenCalledWith('p-entrega', { fechaLimite: null }),
+      expect(editarPendiente).toHaveBeenCalledWith('p-entrega', { fechaLimite: null }, DE_QUIEN),
     );
     expect(await within(ventana).findByText(/ya no tiene fecha límite/)).toBeInTheDocument();
     expect(
@@ -521,7 +532,7 @@ describe('completar, subir y eliminar', () => {
 
     await usuario.click(within(urgente).getByRole('button', { name: 'Hecho' }));
 
-    expect(editarPendiente).toHaveBeenCalledWith('p-entrega', { hecho: true });
+    expect(editarPendiente).toHaveBeenCalledWith('p-entrega', { hecho: true }, DE_QUIEN);
     expect(urgente).not.toHaveTextContent('Entregar el trabajo');
     expect(within(ventana).getByRole('status')).toHaveTextContent('Hecho: «Entregar el trabajo»');
 
@@ -531,7 +542,7 @@ describe('completar, subir y eliminar', () => {
 
     await usuario.click(deshacer);
 
-    expect(editarPendiente).toHaveBeenLastCalledWith('p-entrega', { hecho: false });
+    expect(editarPendiente).toHaveBeenLastCalledWith('p-entrega', { hecho: false }, DE_QUIEN);
     expect(urgente).toHaveTextContent('Entregar el trabajo');
   });
 
@@ -546,7 +557,7 @@ describe('completar, subir y eliminar', () => {
     await usuario.click(within(ventana).getByText('Hechos esta semana (1)'));
     await usuario.click(within(ventana).getByRole('button', { name: 'Volver a pendientes' }));
 
-    expect(editarPendiente).toHaveBeenCalledWith('p-cuarto', { hecho: false });
+    expect(editarPendiente).toHaveBeenCalledWith('p-cuarto', { hecho: false }, DE_QUIEN);
     expect(within(ventana).getByRole('region', { name: /Aplazable/ })).toHaveTextContent(
       'Organizar el cuarto',
     );
@@ -568,7 +579,7 @@ describe('completar, subir y eliminar', () => {
       }),
     );
 
-    expect(editarPendiente).toHaveBeenCalledWith('p-eps', { nivel: 'urgente' });
+    expect(editarPendiente).toHaveBeenCalledWith('p-eps', { nivel: 'urgente' }, DE_QUIEN);
     expect(urgente).toHaveTextContent('Pedir cita en la EPS');
     // Y el boton flotante lo cuenta.
     expect(boton()).toHaveAccessibleName('Abrir tu semáforo de pendientes: 2 urgentes');
@@ -599,7 +610,7 @@ describe('completar, subir y eliminar', () => {
       within(within(aplazable).getByRole('group')).getByRole('button', { name: 'Eliminar' }),
     );
 
-    await waitFor(() => expect(borrarPendiente).toHaveBeenCalledWith('p-cuarto'));
+    await waitFor(() => expect(borrarPendiente).toHaveBeenCalledWith('p-cuarto', DE_QUIEN));
     await waitFor(() => expect(aplazable).toHaveTextContent('Nada aquí.'));
   });
 
@@ -790,7 +801,11 @@ describe('sin conexion (SCRUM-140)', () => {
     await volverLaConexion();
 
     await waitFor(() => expect(editarPendiente).toHaveBeenCalledTimes(1));
-    expect(editarPendiente).toHaveBeenCalledWith('p-entrega', { hecho: true, version: 1 });
+    expect(editarPendiente).toHaveBeenCalledWith(
+      'p-entrega',
+      { hecho: true, version: 1 },
+      DE_QUIEN,
+    );
     await waitFor(() =>
       expect(within(ventana).queryByText(/Guardado en este equipo/)).not.toBeInTheDocument(),
     );
@@ -833,7 +848,11 @@ describe('sin conexion (SCRUM-140)', () => {
       editarPendiente.mock.invocationCallOrder[0] ?? 0,
     );
     // Se cambia el que respondio la creacion, con la version que respondio.
-    expect(editarPendiente).toHaveBeenCalledWith('servidor-1', { hecho: true, version: 1 });
+    expect(editarPendiente).toHaveBeenCalledWith(
+      'servidor-1',
+      { hecho: true, version: 1 },
+      DE_QUIEN,
+    );
   });
 
   it('se elimina sin conexion: se va al instante, llega al volver, y no reaparece', async () => {
@@ -854,7 +873,7 @@ describe('sin conexion (SCRUM-140)', () => {
     borrarPendiente.mockResolvedValue(undefined);
     await volverLaConexion();
 
-    await waitFor(() => expect(borrarPendiente).toHaveBeenCalledWith('p-cuarto'));
+    await waitFor(() => expect(borrarPendiente).toHaveBeenCalledWith('p-cuarto', DE_QUIEN));
     await new Promise((resolver) => setTimeout(resolver, 60));
 
     expect(aplazable).toHaveTextContent('Nada aquí.');
@@ -1042,7 +1061,11 @@ describe('sin conexion (SCRUM-140)', () => {
       await usuario.click(within(ventana).getByRole('button', { name: 'Aplicar mi cambio' }));
 
       await waitFor(() => expect(editarPendiente).toHaveBeenCalledTimes(1));
-      expect(editarPendiente).toHaveBeenCalledWith('p-entrega', { hecho: true, version: 2 });
+      expect(editarPendiente).toHaveBeenCalledWith(
+        'p-entrega',
+        { hecho: true, version: 2 },
+        DE_QUIEN,
+      );
       await waitFor(() => expect(within(ventana).queryByRole('article')).toBeNull());
       expect(within(ventana).getByText(/Se enviará tu cambio/)).toBeInTheDocument();
     });

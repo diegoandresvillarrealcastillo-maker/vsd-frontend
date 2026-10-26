@@ -1,4 +1,4 @@
-import { llamarALaApi } from './clienteHttp.ts';
+import { llamarALaApi, type ContextoDePeticion } from './clienteHttp.ts';
 
 /**
  * El registro de resultados, por HTTP.
@@ -128,10 +128,12 @@ export interface LineaDeAtencion {
 export function registrarResultado(
   resultado: ResultadoPorRegistrar,
   senal?: AbortSignal,
+  contexto?: ContextoDePeticion,
 ): Promise<ResultadoRegistrado> {
   return llamarALaApi<ResultadoRegistrado>('/api/resultados', {
     metodo: 'POST',
     cuerpo: resultado,
+    contexto,
     ...(senal ? { senal } : {}),
   });
 }

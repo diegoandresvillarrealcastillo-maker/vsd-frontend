@@ -132,6 +132,9 @@ async function laCola() {
 
 const sinConexion = () => hayConexionConLaApi.mockResolvedValue(false);
 
+/** El motor pasa, como ultimo argumento, de quien es la peticion (SCRUM-275). */
+const DE_QUIEN: unknown = expect.objectContaining({ vigente: expect.any(Function) as unknown });
+
 describe('useSemaforo: cargar', () => {
   it('lee el semaforo y lo ensena guardado, sin ser la copia', async () => {
     const gancho = await listo();
@@ -468,7 +471,7 @@ describe('useSemaforo: borrar', () => {
       await gancho.result.current.borrar('p-1');
     });
     await waitFor(() => {
-      expect(api.borrarPendiente).toHaveBeenCalledWith('p-1');
+      expect(api.borrarPendiente).toHaveBeenCalledWith('p-1', DE_QUIEN);
     });
     await new Promise((resolver) => setTimeout(resolver, 60));
 
@@ -609,11 +612,15 @@ describe('useSemaforo: los choques con otro dispositivo (ADR 0009)', () => {
     await waitFor(() => {
       expect(api.editarPendiente).toHaveBeenCalledTimes(1);
     });
-    expect(api.editarPendiente).toHaveBeenCalledWith('p-1', {
-      texto: 'Lo mio',
-      nivel: 'aplazable',
-      version: 3,
-    });
+    expect(api.editarPendiente).toHaveBeenCalledWith(
+      'p-1',
+      {
+        texto: 'Lo mio',
+        nivel: 'aplazable',
+        version: 3,
+      },
+      DE_QUIEN,
+    );
     await waitFor(() => {
       expect(gancho.result.current.choques).toHaveLength(0);
     });

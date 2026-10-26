@@ -1,4 +1,4 @@
-import { llamarALaApi } from './clienteHttp.ts';
+import { llamarALaApi, type ContextoDePeticion } from './clienteHttp.ts';
 
 /**
  * El semaforo de pendientes, por HTTP (SCRUM-97 en el backend, SCRUM-98 aqui).
@@ -90,17 +90,25 @@ export function consultarElSemaforo(senal?: AbortSignal): Promise<Semaforo> {
   return llamarALaApi<Semaforo>(RUTA, senal ? { senal } : {});
 }
 
-export function crearPendiente(pendiente: PendientePorCrear): Promise<Pendiente> {
-  return llamarALaApi<Pendiente>(RUTA, { metodo: 'POST', cuerpo: pendiente });
+export function crearPendiente(
+  pendiente: PendientePorCrear,
+  contexto?: ContextoDePeticion,
+): Promise<Pendiente> {
+  return llamarALaApi<Pendiente>(RUTA, { metodo: 'POST', cuerpo: pendiente, contexto });
 }
 
-export function editarPendiente(id: string, cambios: CambiosDePendiente): Promise<Pendiente> {
+export function editarPendiente(
+  id: string,
+  cambios: CambiosDePendiente,
+  contexto?: ContextoDePeticion,
+): Promise<Pendiente> {
   return llamarALaApi<Pendiente>(`${RUTA}/${encodeURIComponent(id)}`, {
     metodo: 'PATCH',
     cuerpo: cambios,
+    contexto,
   });
 }
 
-export function borrarPendiente(id: string): Promise<void> {
-  return llamarALaApi<void>(`${RUTA}/${encodeURIComponent(id)}`, { metodo: 'DELETE' });
+export function borrarPendiente(id: string, contexto?: ContextoDePeticion): Promise<void> {
+  return llamarALaApi<void>(`${RUTA}/${encodeURIComponent(id)}`, { metodo: 'DELETE', contexto });
 }
