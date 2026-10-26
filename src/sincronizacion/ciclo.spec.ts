@@ -9,6 +9,7 @@ import {
   avisarQueLaColaCambio,
   cicloActual,
   encolar,
+  generacionDeSesion,
   olvidarLosDatosDeLaSesionActual,
   reiniciarElCicloParaLasPruebas,
   suscribirAlCiclo,
@@ -938,6 +939,157 @@ describe('encolar: el unico camino para agregar algo (SCRUM-137)', () => {
     await expect(encolar(unaOperacion('a'))).rejects.toThrow();
 
     expect(oyente).not.toHaveBeenCalled();
+  });
+});
+
+describe('lo asincrono es de la sesion que lo empezo (SCRUM-269)', () => {
+  const operacionSinOrden = (operationId: string) => ({
+    operationId,
+    tipo: 'pendiente.crear' as const,
+    entidad: `pendiente:${operationId}`,
+    payload: { clientOperationId: operationId, texto: 'Llamar', nivel: 'urgente' },
+  });
+
+  /** Una puerta que la prueba abre cuando quiere. */
+  function crearCompuerta() {
+    let abrir: () => void = () => undefined;
+    const pasar = new Promise<void>((resolver) => {
+      abrir = resolver;
+    });
+
+    return { abrir, pasar };
+  }
+
+  it('la generacion cambia cuando la sesion deja de ser de quien la tenia, y solo entonces', async () => {
+    reiniciarElCicloParaLasPruebas();
+
+    const inicial = generacionDeSesion();
+
+    await alCambiarLaSesion('ana', NO_RECORDADA);
+    // La primera entrada no le quita la sesion a nadie.
+    expect(generacionDeSesion()).toBe(inicial);
+
+    // Lo mismo que pasa cada vez que se renueva el token, o si cambia donde se guarda.
+    await alCambiarLaSesion('ana', NO_RECORDADA);
+    await alCambiarLaSesion('ana', RECORDADA);
+    expect(generacionDeSesion()).toBe(inicial);
+
+    await alCambiarLaSesion('beto', NO_RECORDADA);
+    expect(generacionDeSesion()).toBe(inicial + 1);
+
+    await alCambiarLaSesion(null, NO_RECORDADA);
+    expect(generacionDeSesion()).toBe(inicial + 2);
+
+    // Entrar despues de que no haya nadie tampoco se la quita a nadie.
+    await alCambiarLaSesion('beto', NO_RECORDADA);
+    expect(generacionDeSesion()).toBe(inicial + 2);
+
+    await olvidarLosDatosDeLaSesionActual();
+    expect(generacionDeSesion()).toBe(inicial + 3);
+  });
+
+  it('en cuanto la sesion es de otra persona, el almacen de la anterior ya no es el actual', async () => {
+    const { fabricas } = crearMundo();
+
+    reiniciarElCicloParaLasPruebas(fabricas);
+    await alCambiarLaSesion('ana', NO_RECORDADA);
+
+    // Sin esperar a la fila: el almacen de ana sigue abierto, pero ya no es de quien tiene la sesion.
+    const cambio = alCambiarLaSesion('beto', NO_RECORDADA);
+
+    expect(cicloActual()).toBeNull();
+
+    await cambio;
+
+    expect(cicloActual()?.persona).toBe('beto');
+  });
+
+  it('si la sesion cambia mientras se decide el orden, no se guarda en el almacen de la otra persona', async () => {
+    const { fabricas } = crearMundo();
+    const { abrir, pasar } = crearCompuerta();
+
+    reiniciarElCicloParaLasPruebas({
+      ...fabricas,
+      abrirEnIndexedDB: async (persona, llavero) => {
+        const almacen = await fabricas.abrirEnIndexedDB(persona, llavero);
+
+        // Solo el de ana se detiene: es donde se queda esperando la operacion.
+        return persona === 'ana'
+          ? {
+              ...almacen,
+              operaciones: async () => {
+                await pasar;
+
+                return almacen.operaciones();
+              },
+            }
+          : almacen;
+      },
+    });
+    await alCambiarLaSesion('ana', RECORDADA);
+
+    const operacion = encolar(operacionSinOrden('de-ana'));
+    const rechazo = expect(operacion).rejects.toMatchObject({ name: 'AbortError' });
+
+    await alCambiarLaSesion('beto', RECORDADA);
+    abrir();
+    await rechazo;
+
+    expect(cicloActual()?.persona).toBe('beto');
+    expect(await cicloActual()?.almacen.operaciones()).toEqual([]);
+  });
+
+  it('si la sesion cambia mientras espera a que se abra el almacen, tampoco', async () => {
+    const { fabricas } = crearMundo();
+    const { abrir, pasar } = crearCompuerta();
+
+    reiniciarElCicloParaLasPruebas({
+      ...fabricas,
+      abrirEnIndexedDB: async (persona, llavero) => {
+        await pasar;
+
+        return fabricas.abrirEnIndexedDB(persona, llavero);
+      },
+    });
+    void alCambiarLaSesion('ana', RECORDADA);
+
+    const operacion = encolar(operacionSinOrden('de-ana'));
+    const rechazo = expect(operacion).rejects.toMatchObject({ name: 'AbortError' });
+    const cambio = alCambiarLaSesion('beto', RECORDADA);
+
+    abrir();
+    await cambio;
+    await rechazo;
+
+    expect(cicloActual()?.persona).toBe('beto');
+    expect(await cicloActual()?.almacen.operaciones()).toEqual([]);
+  });
+
+  it('el error de una sesion que cambio es una cancelacion, no un fallo: nadie espera la respuesta', async () => {
+    const { fabricas } = crearMundo();
+    const { abrir, pasar } = crearCompuerta();
+
+    reiniciarElCicloParaLasPruebas({
+      ...fabricas,
+      abrirEnIndexedDB: async (persona, llavero) => {
+        await pasar;
+
+        return fabricas.abrirEnIndexedDB(persona, llavero);
+      },
+    });
+    void alCambiarLaSesion('ana', RECORDADA);
+
+    const operacion = encolar(operacionSinOrden('de-ana'));
+    const rechazo = operacion.catch((error: unknown) => error);
+    const cambio = alCambiarLaSesion(null, RECORDADA);
+
+    abrir();
+    await cambio;
+
+    const error = await rechazo;
+
+    expect(error).toBeInstanceOf(DOMException);
+    expect(error).toMatchObject({ name: 'AbortError', message: 'La sesión cambió' });
   });
 });
 

@@ -74,6 +74,25 @@ function SalirYAnotar({ alTerminar }: { alTerminar: () => void }) {
   );
 }
 
+/**
+ * Supabase avisa de un cambio. El aviso es solo la senal (SCRUM-270): el proveedor vuelve a leer la
+ * sesion de este navegador, y lo que `getSession` entregue es lo que cuenta. Por omision entrega lo
+ * mismo que trae el aviso, como pasa cuando el cambio es de esta misma pestana.
+ */
+async function avisar(evento: string, sesion: Session | null) {
+  getSession.mockResolvedValue({ data: { session: sesion }, error: null });
+  await emitir(evento, sesion);
+}
+
+/** El aviso tal cual, sin tocar lo que `getSession` va a contestar. */
+async function emitir(evento: string, sesion: Session | null) {
+  await act(async () => {
+    avisarCambioDeSesion(evento, sesion);
+    // El proveedor lee la sesion fuera del aviso, en una microtarea: se deja que termine.
+    await new Promise<void>((resolver) => setTimeout(resolver, 0));
+  });
+}
+
 function pintar() {
   render(
     <ProveedorDeSesion>
@@ -115,9 +134,7 @@ describe('la foto de perfil al terminar la sesion (SCRUM-120)', () => {
     pintar();
     await screen.findByRole('button', { name: 'Salir' });
 
-    act(() => {
-      avisarCambioDeSesion('SIGNED_OUT', null);
-    });
+    await avisar('SIGNED_OUT', null);
 
     expect(olvidarLosArchivosDeLaPersona).toHaveBeenCalledOnce();
     expect(signOut).not.toHaveBeenCalled();
@@ -127,9 +144,7 @@ describe('la foto de perfil al terminar la sesion (SCRUM-120)', () => {
     pintar();
     await screen.findByRole('button', { name: 'Salir' });
 
-    act(() => {
-      avisarCambioDeSesion('TOKEN_REFRESHED', SESION);
-    });
+    await avisar('TOKEN_REFRESHED', SESION);
 
     expect(olvidarLosArchivosDeLaPersona).not.toHaveBeenCalled();
   });
@@ -139,9 +154,7 @@ describe('la foto de perfil al terminar la sesion (SCRUM-120)', () => {
     pintar();
     await screen.findByRole('button', { name: 'Salir' });
 
-    act(() => {
-      avisarCambioDeSesion('SIGNED_IN', SESION);
-    });
+    await avisar('SIGNED_IN', SESION);
 
     expect(olvidarLosArchivosDeLaPersona).not.toHaveBeenCalled();
   });
@@ -187,9 +200,7 @@ describe('lo que queda en localStorage al terminar la sesion (SCRUM-142)', () =>
     pintar();
     await screen.findByRole('button', { name: 'Salir' });
 
-    act(() => {
-      avisarCambioDeSesion('SIGNED_OUT', null);
-    });
+    await avisar('SIGNED_OUT', null);
 
     expect(quedan()).toEqual([...DEL_DISPOSITIVO].sort());
   });
@@ -199,9 +210,7 @@ describe('lo que queda en localStorage al terminar la sesion (SCRUM-142)', () =>
     pintar();
     await screen.findByRole('button', { name: 'Salir' });
 
-    act(() => {
-      avisarCambioDeSesion('TOKEN_REFRESHED', SESION);
-    });
+    await avisar('TOKEN_REFRESHED', SESION);
 
     expect(quedan()).toEqual([...LO_DE_LA_PERSONA, ...DEL_DISPOSITIVO].sort());
   });
@@ -213,17 +222,13 @@ describe('lo que queda en localStorage al terminar la sesion (SCRUM-142)', () =>
     await screen.findByRole('button', { name: 'Salir' });
 
     // Al arrancar sin sesion se olvida lo de la persona de antes.
-    act(() => {
-      avisarCambioDeSesion('INITIAL_SESSION', null);
-    });
+    await avisar('INITIAL_SESSION', null);
 
     expect(quedan()).toEqual([...DEL_DISPOSITIVO].sort());
 
     window.localStorage.setItem('vsd-h:mascota-frases', '{}');
 
-    act(() => {
-      avisarCambioDeSesion('SIGNED_IN', SESION);
-    });
+    await avisar('SIGNED_IN', SESION);
 
     expect(quedan()).toContain('vsd-h:mascota-frases');
   });
@@ -318,9 +323,7 @@ describe('el almacen local y la sesion (SCRUM-136)', () => {
     pintar();
     await esperarAQueLaSesionLlegue();
 
-    act(() => {
-      avisarCambioDeSesion('SIGNED_OUT', null);
-    });
+    await avisar('SIGNED_OUT', null);
 
     expect(olvidarLosDatosDeLaSesionActual).not.toHaveBeenCalled();
     // Se cierra el almacen (ya no hay sesion con la que enviar), sin borrarlo.
@@ -332,9 +335,7 @@ describe('el almacen local y la sesion (SCRUM-136)', () => {
     await esperarAQueLaSesionLlegue();
     vi.mocked(alCambiarLaSesion).mockClear();
 
-    act(() => {
-      avisarCambioDeSesion('TOKEN_REFRESHED', { ...SESION });
-    });
+    await avisar('TOKEN_REFRESHED', { ...SESION });
 
     expect(alCambiarLaSesion).not.toHaveBeenCalled();
   });
@@ -343,9 +344,7 @@ describe('el almacen local y la sesion (SCRUM-136)', () => {
     pintar();
     await esperarAQueLaSesionLlegue();
 
-    act(() => {
-      avisarCambioDeSesion('SIGNED_IN', OTRA_SESION);
-    });
+    await avisar('SIGNED_IN', OTRA_SESION);
 
     expect(alCambiarLaSesion).toHaveBeenLastCalledWith('id-de-beto', { persistente: true });
     expect(olvidarLosDatosDeLaSesionActual).not.toHaveBeenCalled();
@@ -398,6 +397,8 @@ describe('abrir sin conexion con el token vencido (SCRUM-137)', () => {
   it('se abre su almacen, que es lo que hace falta para usar la aplicacion', async () => {
     pintarQuien();
     await screen.findByText('ana@ejemplo.test');
+    // El texto aparece al pintar; el efecto que abre el almacen corre un instante despues.
+    await esperarAQueLaSesionLlegue();
 
     expect(alCambiarLaSesion).toHaveBeenLastCalledWith('id-de-ana', { persistente: true });
   });
@@ -406,9 +407,7 @@ describe('abrir sin conexion con el token vencido (SCRUM-137)', () => {
     pintarQuien();
     await screen.findByText('ana@ejemplo.test');
 
-    act(() => {
-      avisarCambioDeSesion('INITIAL_SESSION', null);
-    });
+    await emitir('INITIAL_SESSION', null);
 
     expect(screen.getByText('ana@ejemplo.test')).toBeInTheDocument();
     expect(olvidarLosArchivosDeLaPersona).not.toHaveBeenCalled();
@@ -418,9 +417,7 @@ describe('abrir sin conexion con el token vencido (SCRUM-137)', () => {
     pintarQuien();
     await screen.findByText('ana@ejemplo.test');
 
-    act(() => {
-      avisarCambioDeSesion('SIGNED_OUT', null);
-    });
+    await avisar('SIGNED_OUT', null);
 
     expect(screen.getByText('sin sesion')).toBeInTheDocument();
     expect(olvidarLosArchivosDeLaPersona).toHaveBeenCalledOnce();
@@ -430,13 +427,11 @@ describe('abrir sin conexion con el token vencido (SCRUM-137)', () => {
     pintarQuien();
     await screen.findByText('ana@ejemplo.test');
 
-    act(() => {
-      avisarCambioDeSesion('TOKEN_REFRESHED', {
-        ...GUARDADA,
-        access_token: 'token-nuevo',
-        user: { ...GUARDADA.user, email: 'ana-renovada@ejemplo.test' },
-      } as unknown as Session);
-    });
+    await avisar('TOKEN_REFRESHED', {
+      ...GUARDADA,
+      access_token: 'token-nuevo',
+      user: { ...GUARDADA.user, email: 'ana-renovada@ejemplo.test' },
+    } as unknown as Session);
 
     expect(screen.getByText('ana-renovada@ejemplo.test')).toBeInTheDocument();
   });
@@ -471,9 +466,7 @@ describe('abrir sin conexion con el token vencido (SCRUM-137)', () => {
     pintarQuien();
     await screen.findByText('sin sesion');
 
-    act(() => {
-      avisarCambioDeSesion('INITIAL_SESSION', null);
-    });
+    await avisar('INITIAL_SESSION', null);
 
     expect(olvidarLosArchivosDeLaPersona).toHaveBeenCalledOnce();
   });
@@ -486,5 +479,131 @@ describe('abrir sin conexion con el token vencido (SCRUM-137)', () => {
     pintarQuien();
 
     expect(await screen.findByText('beto@ejemplo.test')).toBeInTheDocument();
+  });
+});
+
+/**
+ * Un aviso de Supabase no es una sesion que adoptar (SCRUM-270).
+ *
+ * Con la sesion que no se recuerda, cada pestana guarda la suya, pero Supabase avisa de los cambios
+ * a todas las pestanas del navegador. Si esta adoptara lo que trae el aviso, bastaria que otra
+ * persona entrara en otra pestana para que esta pasara a ser suya (y se borrara lo de quien estaba).
+ * El aviso solo dice que algo cambio; la sesion es la que esta pestana tiene guardada.
+ */
+describe('un aviso de autenticacion es una senal, no una sesion (SCRUM-270)', () => {
+  function Quien() {
+    const { correo, cargando } = useSesion();
+
+    return <p>{cargando ? 'cargando' : (correo ?? 'sin sesion')}</p>;
+  }
+
+  function pintarQuien() {
+    return render(
+      <ProveedorDeSesion>
+        <Quien />
+      </ProveedorDeSesion>,
+    );
+  }
+
+  /** Una lectura de la sesion que contesta cuando la prueba lo diga. */
+  function lecturaLenta() {
+    let contestar: (valor: unknown) => void = () => undefined;
+    const lectura = new Promise((resolver) => {
+      contestar = resolver;
+    });
+
+    return { lectura, contestar };
+  }
+
+  it('el aviso con la sesion de otra persona no cambia la de esta pestana', async () => {
+    pintarQuien();
+    await screen.findByText('ana@ejemplo.test');
+    vi.mocked(alCambiarLaSesion).mockClear();
+
+    // Otra pestana entro como beto; lo que esta pestana tiene guardado sigue siendo de ana.
+    await emitir('SIGNED_IN', OTRA_SESION);
+
+    expect(screen.getByText('ana@ejemplo.test')).toBeInTheDocument();
+    expect(alCambiarLaSesion).not.toHaveBeenCalled();
+    expect(olvidarLosDatosDeLaSesionActual).not.toHaveBeenCalled();
+  });
+
+  it('el aviso de salida de otra pestana no cierra esta si su sesion sigue guardada', async () => {
+    pintarQuien();
+    await screen.findByText('ana@ejemplo.test');
+
+    await emitir('SIGNED_OUT', null);
+
+    expect(screen.getByText('ana@ejemplo.test')).toBeInTheDocument();
+    expect(olvidarLosArchivosDeLaPersona).not.toHaveBeenCalled();
+  });
+
+  it('no lee la sesion dentro del aviso: Supabase lo llama con su candado puesto', async () => {
+    pintarQuien();
+    await screen.findByText('ana@ejemplo.test');
+    getSession.mockClear();
+
+    act(() => {
+      avisarCambioDeSesion('TOKEN_REFRESHED', SESION);
+    });
+
+    expect(getSession).not.toHaveBeenCalled();
+
+    await vi.waitFor(() => {
+      expect(getSession).toHaveBeenCalledOnce();
+    });
+  });
+
+  it('con dos avisos seguidos vale la ultima lectura, aunque la primera conteste despues', async () => {
+    pintarQuien();
+    await screen.findByText('ana@ejemplo.test');
+
+    const primera = lecturaLenta();
+
+    getSession
+      .mockReturnValueOnce(primera.lectura)
+      .mockResolvedValueOnce({ data: { session: OTRA_SESION }, error: null });
+
+    await emitir('TOKEN_REFRESHED', SESION);
+    await emitir('SIGNED_IN', OTRA_SESION);
+
+    expect(screen.getByText('beto@ejemplo.test')).toBeInTheDocument();
+
+    await act(async () => {
+      primera.contestar({ data: { session: SESION }, error: null });
+      await Promise.resolve();
+    });
+
+    // La lectura vieja llega tarde y no pisa a la nueva.
+    expect(screen.getByText('beto@ejemplo.test')).toBeInTheDocument();
+  });
+
+  it('si leer la sesion falla, se queda la que habia', async () => {
+    pintarQuien();
+    await screen.findByText('ana@ejemplo.test');
+    getSession.mockRejectedValue(new Error('el almacen no responde'));
+
+    await emitir('TOKEN_REFRESHED', SESION);
+
+    expect(screen.getByText('ana@ejemplo.test')).toBeInTheDocument();
+  });
+
+  it('si el proveedor se desmonta antes de que conteste la lectura, no adopta nada', async () => {
+    const { unmount } = pintarQuien();
+
+    await screen.findByText('ana@ejemplo.test');
+    vi.mocked(alCambiarLaSesion).mockClear();
+
+    const lenta = lecturaLenta();
+
+    getSession.mockReturnValueOnce(lenta.lectura);
+    await emitir('SIGNED_IN', OTRA_SESION);
+    unmount();
+    await act(async () => {
+      lenta.contestar({ data: { session: OTRA_SESION }, error: null });
+      await Promise.resolve();
+    });
+
+    expect(alCambiarLaSesion).not.toHaveBeenCalled();
   });
 });

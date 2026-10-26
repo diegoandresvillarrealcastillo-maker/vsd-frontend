@@ -1,5 +1,5 @@
 import type { RespuestaCondicional } from '../infraestructura/api/clienteHttp.ts';
-import { cicloActual } from './ciclo.ts';
+import { cicloActual, exigirLaMismaSesion, generacionDeSesion } from './ciclo.ts';
 import { clasificarFallo } from './clasificarFallo.ts';
 import { conLimite } from './tiempo.ts';
 
@@ -55,10 +55,13 @@ export const ESPERA_CON_COPIA_EN_MS = 2500;
 async function leerLaCopia<T>(
   clave: string,
 ): Promise<{ readonly copia: Copia<T>; readonly guardadoEn: string } | null> {
+  const generacionInicial = generacionDeSesion();
+
   try {
     const lectura = await cicloActual()?.almacen.leerLectura<Copia<T>>(clave);
 
-    if (lectura === null || lectura === undefined) {
+    // Es la copia de quien tenia la sesion al empezar: si ya no la tiene, no es para quien llego despues.
+    if (lectura === null || lectura === undefined || generacionDeSesion() !== generacionInicial) {
       return null;
     }
 
@@ -98,9 +101,16 @@ export async function leerSoloLaCopiaConFecha<T>(
     : { valor: guardada.copia.valor, guardadoEn: guardada.guardadoEn };
 }
 
-async function guardarLaCopia<T>(clave: string, copia: Copia<T>): Promise<void> {
+async function guardarLaCopia<T>(
+  clave: string,
+  copia: Copia<T>,
+  generacionInicial: number,
+): Promise<void> {
   try {
-    await cicloActual()?.almacen.guardarLectura(clave, copia, new Date());
+    // Lo leido es de quien tenia la sesion al empezar: si ya no la tiene, no va al almacen de quien llego despues.
+    if (generacionDeSesion() === generacionInicial) {
+      await cicloActual()?.almacen.guardarLectura(clave, copia, new Date());
+    }
   } catch {
     // Sin espacio, o el almacen se cerro. La lectura ya se hizo: no se pierde por esto.
   }
@@ -117,11 +127,22 @@ export async function modificarLaCopia<T>(
   clave: string,
   cambiar: (actual: T | null) => T | null,
 ): Promise<void> {
+  const generacionInicial = generacionDeSesion();
   const guardada = await leerLaCopia<T>(clave);
+
+  // Lo leido es de otra sesion: no hay nada que cambiar ni donde guardarlo.
+  if (generacionDeSesion() !== generacionInicial) {
+    return;
+  }
+
   const nueva = cambiar(guardada?.copia.valor ?? null);
 
   if (nueva !== null) {
-    await guardarLaCopia(clave, { valor: nueva, etag: guardada?.copia.etag ?? null });
+    await guardarLaCopia(
+      clave,
+      { valor: nueva, etag: guardada?.copia.etag ?? null },
+      generacionInicial,
+    );
   }
 }
 
@@ -129,11 +150,19 @@ export async function modificarLaCopia<T>(
  * Cuando se uso la copia sin esperar a la API, la lectura sigue sola: si trae algo nuevo,
  * se guarda para la proxima vez. Si falla, no pasa nada: la copia ya se uso.
  */
-function renovarEnSegundoPlano<T>(clave: string, pedida: Promise<RespuestaCondicional<T>>): void {
+function renovarEnSegundoPlano<T>(
+  clave: string,
+  pedida: Promise<RespuestaCondicional<T>>,
+  generacionInicial: number,
+): void {
   void pedida
     .then(async (despues) => {
       if (despues.estado === 'nuevo') {
-        await guardarLaCopia(clave, { valor: despues.valor, etag: despues.etag });
+        await guardarLaCopia(
+          clave,
+          { valor: despues.valor, etag: despues.etag },
+          generacionInicial,
+        );
       }
     })
     .catch(() => undefined);
@@ -166,7 +195,13 @@ export async function leerConCopia<T>(
   senal?: AbortSignal,
   opciones?: OpcionesDeLaLectura,
 ): Promise<LecturaConCopia<T>> {
+  // Antes del primer await: lo que se lee es de quien tiene la sesion ahora.
+  const generacionInicial = generacionDeSesion();
   const guardada = await leerLaCopia<T>(clave);
+
+  // Con otra persona, la copia y su ETag ya no sirven para preguntar con la sesion de ahora.
+  exigirLaMismaSesion(generacionInicial);
+
   const verificar = opciones?.verificar === true;
 
   try {
@@ -182,13 +217,17 @@ export async function leerConCopia<T>(
       const alcanzo = await conLimite(pedida, ESPERA_CON_COPIA_EN_MS);
 
       if (alcanzo === 'tiempo') {
-        renovarEnSegundoPlano(clave, pedida);
+        exigirLaMismaSesion(generacionInicial);
+        renovarEnSegundoPlano(clave, pedida, generacionInicial);
 
         return { valor: guardada.copia.valor, deLaCopia: true, guardadoEn: guardada.guardadoEn };
       }
 
       respuesta = alcanzo;
     }
+
+    // La respuesta es para quien pregunto: si ya es otra la sesion, ni se le entrega ni se guarda.
+    exigirLaMismaSesion(generacionInicial);
 
     if (respuesta.estado === 'sin_cambios') {
       if (guardada !== null) {
@@ -200,7 +239,11 @@ export async function leerConCopia<T>(
       throw new Error('El servidor dijo que no cambio algo de lo que no hay copia.');
     }
 
-    await guardarLaCopia(clave, { valor: respuesta.valor, etag: respuesta.etag });
+    await guardarLaCopia(
+      clave,
+      { valor: respuesta.valor, etag: respuesta.etag },
+      generacionInicial,
+    );
 
     return { valor: respuesta.valor, deLaCopia: false, guardadoEn: null };
   } catch (error) {

@@ -149,9 +149,13 @@ const LIMITE_AL_SALIR_MS = 3_000;
  * Al cerrar sesion, este navegador deja de recibir los avisos de esa persona.
  *
  * En un equipo compartido, quien entre despues no tiene por que ver los
- * pendientes de quien salio. Primero se avisa al servidor, que necesita el
- * token; despues se suelta aqui. Si algo falla o tarda, se sale igual: el
- * servidor suelta solo un navegador que ya no responde.
+ * pendientes de quien salio. **Lo de este equipo va primero** (SCRUM-271): soltar la
+ * suscripcion no depende de la red y es lo que corta los avisos aqui; si se esperara al
+ * servidor y este no respondiera, la suscripcion quedaba sin soltar. Se comprueba que quedo
+ * suelta. Despues se avisa al servidor, que necesita el token (todavia vale: salir lo suelta
+ * despues), con un limite de tiempo que cancela la llamada de verdad.
+ *
+ * Si algo falla o tarda, se sale igual: el servidor suelta solo un navegador que ya no responde.
  */
 export async function dejarDeAvisarAEsteNavegador(): Promise<void> {
   const trabajo = (async () => {
@@ -161,11 +165,25 @@ export async function dejarDeAvisarAEsteNavegador(): Promise<void> {
       return;
     }
 
+    const { endpoint } = suscripcion;
+
     try {
-      await soltarEsteNavegadorDelServidor(suscripcion.endpoint);
-    } finally {
       await suscripcion.unsubscribe();
+    } catch {
+      // Lo dice la comprobacion de abajo: si no se soltara, sigue apareciendo.
     }
+
+    // Si no se puede ni preguntar, tampoco se puede dar por suelta.
+    const sigueSuscrito = await suscripcionActual().then(
+      (actual) => actual !== null,
+      () => true,
+    );
+
+    if (sigueSuscrito) {
+      console.warn('No se pudo soltar la suscripcion de avisos de este navegador.');
+    }
+
+    await soltarEsteNavegadorDelServidor(endpoint, AbortSignal.timeout(LIMITE_AL_SALIR_MS));
   })();
 
   try {

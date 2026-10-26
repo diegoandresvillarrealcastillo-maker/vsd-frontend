@@ -84,6 +84,14 @@ export function suscribirEsteNavegador(suscripcion: SuscripcionDelNavegador): Pr
   return llamarALaApi<void>(`${RUTA}/suscripciones`, { metodo: 'POST', cuerpo: suscripcion });
 }
 
-export function soltarEsteNavegadorDelServidor(endpoint: string): Promise<void> {
-  return llamarALaApi<void>(`${RUTA}/suscripciones`, { metodo: 'DELETE', cuerpo: { endpoint } });
+/** Con `senal`, la llamada se puede cortar: al cerrar sesion no se espera al servidor mas de lo debido. */
+export function soltarEsteNavegadorDelServidor(
+  endpoint: string,
+  senal?: AbortSignal,
+): Promise<void> {
+  return llamarALaApi<void>(`${RUTA}/suscripciones`, {
+    metodo: 'DELETE',
+    cuerpo: { endpoint },
+    ...(senal ? { senal } : {}),
+  });
 }

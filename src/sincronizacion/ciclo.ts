@@ -123,6 +123,12 @@ let abierto: CicloAbierto | null = null;
 let llaveroDelAbierto: Llavero | null = null;
 /** Quien tiene la sesion ahora, para que el motor no envie con la de otra persona. */
 let personaDeLaSesion: string | null = null;
+/**
+ * Cuantas veces la sesion dejo de ser de quien la tenia: sale, o entra otra persona. No cuenta la
+ * primera entrada ni que se vuelva a anunciar a la misma persona (se renovo el token), porque
+ * en ninguno de los dos casos se le quita nada a nadie.
+ */
+let generacion = 0;
 let ocupado: Promise<void> = Promise.resolve();
 const oyentes = new Set<() => void>();
 const oyentesDeLaCola = new Set<() => void>();
@@ -134,9 +140,34 @@ function avisar(): void {
   });
 }
 
-/** Lo que hay abierto ahora, o `null` si no hay sesion o todavia no se abrio. */
+/**
+ * Lo que hay abierto ahora, o `null` si no hay sesion o todavia no se abrio.
+ *
+ * Solo se entrega el almacen de **quien tiene la sesion**. Entre que la sesion pasa a otra persona
+ * y la fila cierra el almacen de la anterior hay un rato (la fila puede estar ocupada abriendo
+ * algo), y en ese rato lo de la anterior no es de nadie que lo pueda usar.
+ */
 export function cicloActual(): CicloAbierto | null {
-  return abierto;
+  return abierto !== null && abierto.persona === personaDeLaSesion ? abierto : null;
+}
+
+/**
+ * La generacion de la sesion. Lo que se hace de forma asincrona la anota **antes de su primer
+ * `await`** y, antes de guardar, comprueba con `exigirLaMismaSesion` que sigue siendo la misma:
+ * lo que empezo una persona no puede terminar guardado en lo de otra (SCRUM-269).
+ */
+export function generacionDeSesion(): number {
+  return generacion;
+}
+
+/**
+ * @throws {DOMException} `AbortError` si la sesion dejo de ser de quien la tenia desde que se anoto
+ *   `generacionInicial`. Es una cancelacion y no un fallo: nadie espera ya lo que se estaba haciendo.
+ */
+export function exigirLaMismaSesion(generacionInicial: number): void {
+  if (generacionInicial !== generacion) {
+    throw new DOMException('La sesión cambió', 'AbortError');
+  }
 }
 
 export function suscribirAlCiclo(oyente: () => void): () => void {
@@ -210,20 +241,32 @@ export class SinAlmacenAbierto extends Error {
  * correccion usa lo que respondio la creacion. Quien quiera otra cosa pasa `dependeDe`
  * (incluso `null`, para no depender de nada).
  *
+ * **Es de quien la pidio** (SCRUM-269): si mientras espera cambia la sesion, no se guarda en el
+ * almacen de la persona que llego despues.
+ *
  * @throws {SinAlmacenAbierto} Si no hay sesion.
+ * @throws {DOMException} `AbortError` si la sesion cambio mientras se guardaba.
  */
 export async function encolar(datos: DatosDeOperacionNueva): Promise<Operacion> {
-  await ocupado;
+  const generacionInicial = generacionDeSesion();
 
-  if (abierto === null) {
+  await ocupado;
+  exigirLaMismaSesion(generacionInicial);
+
+  const ciclo = cicloActual();
+
+  if (ciclo === null) {
     throw new SinAlmacenAbierto();
   }
 
   const dependeDe =
     datos.dependeDe === undefined
-      ? (ultimaPendienteDe(await abierto.almacen.operaciones(), datos.entidad)?.operationId ?? null)
+      ? (ultimaPendienteDe(await ciclo.almacen.operaciones(), datos.entidad)?.operationId ?? null)
       : datos.dependeDe;
-  const guardada = await abierto.almacen.agregarOperacion(
+
+  exigirLaMismaSesion(generacionInicial);
+
+  const guardada = await ciclo.almacen.agregarOperacion(
     nuevaOperacion({ ...datos, dependeDe }, new Date()),
   );
 
@@ -281,6 +324,10 @@ export function alCambiarLaSesion(
   persona: string | null,
   opciones: { readonly persistente: boolean },
 ): Promise<void> {
+  if (personaDeLaSesion !== null && persona !== personaDeLaSesion) {
+    generacion += 1;
+  }
+
   // Se anota ya, sin esperar a la fila: el motor mira esto en cada envio.
   personaDeLaSesion = persona;
 
@@ -353,6 +400,11 @@ export function alCambiarLaSesion(
 export function olvidarLosDatosDeLaSesionActual(): Promise<void> {
   const persona = personaDeLaSesion;
 
+  // Lo que esa persona dejo a medias ya no tiene donde terminar.
+  if (persona !== null) {
+    generacion += 1;
+  }
+
   return enFila(async () => {
     const llavero = llaveroDelAbierto;
 
@@ -387,6 +439,7 @@ export function reiniciarElCicloParaLasPruebas(nuevas: FabricasDelCiclo = FABRIC
   abierto = null;
   llaveroDelAbierto = null;
   personaDeLaSesion = null;
+  generacion += 1;
   ocupado = Promise.resolve();
   oyentes.clear();
   oyentesDeLaCola.clear();

@@ -496,3 +496,167 @@ describe('modificarLaCopia (SCRUM-139)', () => {
     await expect(modificarLaCopia('lista', () => ['uno'])).resolves.toBeUndefined();
   });
 });
+
+/**
+ * Una lectura que empieza con la sesion de ana puede terminar cuando ya es la de beto (sale una
+ * persona, entra otra en el mismo equipo). Lo de ana no se le entrega ni se guarda en lo de beto
+ * (SCRUM-269).
+ */
+describe('cuando la sesion cambia a mitad de una lectura (SCRUM-269)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Una API que tarda: la respuesta llega cuando la prueba lo diga. */
+  function apiLenta<T>() {
+    let responder: (respuesta: RespuestaCondicional<T>) => void = () => undefined;
+    const respuesta = new Promise<RespuestaCondicional<T>>((resolve) => {
+      responder = resolve;
+    });
+
+    return { traer: vi.fn(() => respuesta), responder };
+  }
+
+  const comoCancelacion = { name: 'AbortError', message: 'La sesión cambió' };
+
+  it('lo que llega de la API para ana no se guarda en el almacen de beto', async () => {
+    const api = apiLenta<string>();
+    const lectura = leerConCopia(CLAVE, api.traer);
+    const rechazo = expect(lectura).rejects.toMatchObject(comoCancelacion);
+
+    await vi.waitFor(() => {
+      expect(api.traer).toHaveBeenCalled();
+    });
+    await alCambiarLaSesion('beto', NO_RECORDADA);
+    api.responder(nuevo('lo de ana'));
+    await rechazo;
+
+    expect(await leerSoloLaCopia(CLAVE)).toBeNull();
+  });
+
+  it('si la sesion cambia antes de preguntar, ni siquiera pregunta con la copia de ana', async () => {
+    await leerConCopia(CLAVE, () => Promise.resolve(nuevo('copia de ana', 'W/"a"')));
+
+    const traer = vi.fn(() => Promise.resolve(nuevo('lo de beto')));
+    const lectura = leerConCopia(CLAVE, traer);
+    const rechazo = expect(lectura).rejects.toMatchObject(comoCancelacion);
+
+    // Sin esperar: la copia de ana todavia se esta leyendo.
+    await alCambiarLaSesion('beto', NO_RECORDADA);
+    await rechazo;
+
+    expect(traer).not.toHaveBeenCalled();
+  });
+
+  it('con copia, tampoco se le entrega a beto la que se uso por la espera', async () => {
+    await leerConCopia(CLAVE, () => Promise.resolve(nuevo('copia de ana', 'W/"a"')));
+    vi.useFakeTimers();
+
+    const api = apiLenta<string>();
+    const lectura = leerConCopia(CLAVE, api.traer);
+    const rechazo = expect(lectura).rejects.toMatchObject(comoCancelacion);
+
+    await vi.advanceTimersByTimeAsync(ESPERA_CON_COPIA_EN_MS - 1);
+    await alCambiarLaSesion('beto', NO_RECORDADA);
+    await vi.advanceTimersByTimeAsync(1);
+    await rechazo;
+  });
+
+  it('la renovacion en segundo plano de ana no cae en el almacen de beto', async () => {
+    await leerConCopia(CLAVE, () => Promise.resolve(nuevo('copia de ana', 'W/"a"')));
+    vi.useFakeTimers();
+
+    const api = apiLenta<string>();
+    const lectura = leerConCopia(CLAVE, api.traer);
+
+    await vi.advanceTimersByTimeAsync(ESPERA_CON_COPIA_EN_MS);
+    expect(await lectura).toMatchObject({ valor: 'copia de ana', deLaCopia: true });
+
+    await alCambiarLaSesion('beto', NO_RECORDADA);
+    api.responder(nuevo('renovada para ana', 'W/"b"'));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(await leerSoloLaCopia(CLAVE)).toBeNull();
+  });
+
+  it('una lectura de la sesion que no cambio sigue guardando como siempre', async () => {
+    const api = apiLenta<string>();
+    const lectura = leerConCopia(CLAVE, api.traer);
+
+    await vi.waitFor(() => {
+      expect(api.traer).toHaveBeenCalled();
+    });
+    // Renovar el token vuelve a avisar de la misma persona: no es otra sesion.
+    await alCambiarLaSesion('ana', NO_RECORDADA);
+    api.responder(nuevo('lo de ana'));
+
+    expect((await lectura).valor).toBe('lo de ana');
+    expect(await leerSoloLaCopia(CLAVE)).toBe('lo de ana');
+  });
+
+  it('sin nadie con la sesion al empezar, lo que llega se guarda para quien entre despues', async () => {
+    reiniciarElCicloParaLasPruebas();
+
+    const api = apiLenta<string>();
+    const lectura = leerConCopia(CLAVE, api.traer);
+
+    await vi.waitFor(() => {
+      expect(api.traer).toHaveBeenCalled();
+    });
+    // Es lo que pasa al entrar: la pagina empieza a leer antes de que el almacen este abierto.
+    await alCambiarLaSesion('ana', NO_RECORDADA);
+    api.responder(nuevo('catalogo'));
+
+    expect((await lectura).valor).toBe('catalogo');
+    expect(await leerSoloLaCopia(CLAVE)).toBe('catalogo');
+  });
+
+  it('modificarLaCopia: si la sesion cambia mientras lee, no cambia ni guarda nada', async () => {
+    const almacenDeAna = cicloActual()!.almacen;
+    let soltar: () => void = () => undefined;
+    const puerta = new Promise<void>((resolver) => {
+      soltar = resolver;
+    });
+
+    vi.spyOn(almacenDeAna, 'leerLectura').mockImplementation(async () => {
+      await puerta;
+
+      return null;
+    });
+
+    const cambiar = vi.fn(() => 'de ana');
+    const modificada = modificarLaCopia(CLAVE, cambiar);
+
+    await alCambiarLaSesion('beto', NO_RECORDADA);
+    soltar();
+    await modificada;
+
+    expect(cambiar).not.toHaveBeenCalled();
+    expect(await leerSoloLaCopia(CLAVE)).toBeNull();
+  });
+
+  it('leerSoloLaCopia: lo leido para ana no se le entrega a quien llega despues', async () => {
+    await leerConCopia(CLAVE, () => Promise.resolve(nuevo('de ana')));
+
+    const almacenDeAna = cicloActual()!.almacen;
+    // Lo que ya se habia leido: el almacen se cierra al cambiar la sesion y no podria leerse despues.
+    const lecturaDeAna = await almacenDeAna.leerLectura(CLAVE);
+    let soltar: () => void = () => undefined;
+    const puerta = new Promise<void>((resolver) => {
+      soltar = resolver;
+    });
+
+    vi.spyOn(almacenDeAna, 'leerLectura').mockImplementation(async () => {
+      await puerta;
+
+      return lecturaDeAna;
+    });
+
+    const leida = leerSoloLaCopia(CLAVE);
+
+    await alCambiarLaSesion('beto', NO_RECORDADA);
+    soltar();
+
+    expect(await leida).toBeNull();
+  });
+});
