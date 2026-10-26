@@ -4,7 +4,7 @@ import {
   type Semaforo,
 } from '../infraestructura/api/pendientes.ts';
 import { sonIguales } from './anotaciones.ts';
-import { cicloActual } from './ciclo.ts';
+import { cicloActual, generacionDeSesion } from './ciclo.ts';
 import type { Operacion, TipoDeOperacion } from './cola.ts';
 import { crearFila } from './enFila.ts';
 import { operacionDeUnIdLocal } from './ejecutores.ts';
@@ -104,13 +104,15 @@ function idRealDelBorrado(operacion: Operacion, todas: readonly Operacion[]): st
  * mayor, y lo que no se entiende se deja como esta. Nunca falla ni rechaza.
  */
 export function conciliarElSemaforo(): Promise<void> {
-  return enFila(hacerLaConciliacion);
+  const generacionInicial = generacionDeSesion();
+  return enFila(() => hacerLaConciliacion(generacionInicial));
 }
 
 /** Se hacen de una en una: cada una lee, cambia y escribe. */
 const enFila = crearFila();
 
-async function hacerLaConciliacion(): Promise<void> {
+async function hacerLaConciliacion(generacionInicial: number): Promise<void> {
+  if (generacionInicial !== generacionDeSesion()) return;
   const ciclo = cicloActual();
 
   if (ciclo === null) {
@@ -126,48 +128,52 @@ async function hacerLaConciliacion(): Promise<void> {
     return;
   }
 
-  await modificarLaCopia<InstantaneaDelSemaforo>(CLAVE_DEL_SEMAFORO, (guardada) => {
-    const instantanea = comoInstantanea(guardada);
+  await modificarLaCopia<InstantaneaDelSemaforo>(
+    CLAVE_DEL_SEMAFORO,
+    (guardada) => {
+      const instantanea = comoInstantanea(guardada);
 
-    // Sin una copia no hay a que agregar: una con solo unos cuantos pendientes pareceria el
-    // semaforo completo. Se arma la proxima vez que se pregunte al servidor.
-    if (instantanea === null) {
-      return null;
-    }
+      // Sin una copia no hay a que agregar: una con solo unos cuantos pendientes pareceria el
+      // semaforo completo. Se arma la proxima vez que se pregunte al servidor.
+      if (instantanea === null) {
+        return null;
+      }
 
-    const porId = new Map(instantanea.pendientes.map((pendiente) => [pendiente.id, pendiente]));
-    let cambio = false;
+      const porId = new Map(instantanea.pendientes.map((pendiente) => [pendiente.id, pendiente]));
+      let cambio = false;
 
-    for (const operacion of hechas) {
-      if (operacion.tipo === 'pendiente.borrar') {
-        const id = idRealDelBorrado(operacion, todas);
+      for (const operacion of hechas) {
+        if (operacion.tipo === 'pendiente.borrar') {
+          const id = idRealDelBorrado(operacion, todas);
 
-        if (id !== null && porId.delete(id)) {
-          cambio = true;
+          if (id !== null && porId.delete(id)) {
+            cambio = true;
+          }
+
+          continue;
         }
 
-        continue;
+        const { recibo } = operacion;
+
+        if (!esPendiente(recibo)) {
+          continue;
+        }
+
+        const previa = porId.get(recibo.id);
+        const sirve =
+          previa === undefined ||
+          ((recibo.version ?? 0) >= (previa.version ?? 0) && !sonIguales(previa, recibo));
+
+        if (sirve) {
+          porId.set(recibo.id, recibo);
+          cambio = true;
+        }
       }
 
-      const { recibo } = operacion;
-
-      if (!esPendiente(recibo)) {
-        continue;
-      }
-
-      const previa = porId.get(recibo.id);
-      const sirve =
-        previa === undefined ||
-        ((recibo.version ?? 0) >= (previa.version ?? 0) && !sonIguales(previa, recibo));
-
-      if (sirve) {
-        porId.set(recibo.id, recibo);
-        cambio = true;
-      }
-    }
-
-    return cambio ? { pendientes: [...porId.values()] } : null;
-  });
+      return cambio ? { pendientes: [...porId.values()] } : null;
+    },
+    generacionInicial,
+  );
 }
 
 // ---------------------------------------------------------------------------

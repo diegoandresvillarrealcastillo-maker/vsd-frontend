@@ -126,8 +126,9 @@ async function guardarLaCopia<T>(
 export async function modificarLaCopia<T>(
   clave: string,
   cambiar: (actual: T | null) => T | null,
+  generacionInicial: number = generacionDeSesion(),
 ): Promise<void> {
-  const generacionInicial = generacionDeSesion();
+  if (generacionDeSesion() !== generacionInicial) return;
   const guardada = await leerLaCopia<T>(clave);
 
   // Lo leido es de otra sesion: no hay nada que cambiar ni donde guardarlo.
@@ -245,8 +246,10 @@ export async function leerConCopia<T>(
       generacionInicial,
     );
 
+    exigirLaMismaSesion(generacionInicial);
     return { valor: respuesta.valor, deLaCopia: false, guardadoEn: null };
   } catch (error) {
+    exigirLaMismaSesion(generacionInicial);
     if (seCancelo(error, senal)) {
       throw error;
     }
