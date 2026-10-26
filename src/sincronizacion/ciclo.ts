@@ -377,6 +377,7 @@ export function alCambiarLaSesion(
       almacen,
       motor: crearMotor({
         almacen,
+        generacionDeSesion,
         personaDeLaSesion: () => personaDeLaSesion,
         confirmarConexion: fabricas.confirmarConexion,
         ...(fabricas.motivoDelFallo === undefined

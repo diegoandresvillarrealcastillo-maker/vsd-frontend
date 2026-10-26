@@ -145,7 +145,27 @@ async function explicacionDe(respuesta: Response): Promise<ExplicacionDelFallo> 
   };
 }
 
-async function tokenActual(): Promise<string | null> {
+export interface ContextoDePeticion {
+  readonly persona: string;
+  readonly vigente: () => boolean;
+}
+
+function exigirContexto(contexto?: ContextoDePeticion): void {
+  if (contexto && !contexto.vigente()) {
+    throw new DOMException('La sesion cambio', 'AbortError');
+  }
+}
+
+async function tokenActual(contexto?: ContextoDePeticion): Promise<string | null> {
+  if (contexto) {
+    exigirContexto(contexto);
+    const { data } = await supabase().auth.getSession();
+    exigirContexto(contexto);
+    if (data.session?.user.id !== contexto.persona) {
+      throw new DOMException('La identidad no coincide con la operacion', 'AbortError');
+    }
+    return data.session.access_token;
+  }
   try {
     // getSession renueva el token si le queda poco, asi que esta es tambien la
     // forma de no mandar uno caducado a media sesion larga.
@@ -185,6 +205,7 @@ async function cerrarSiSigueSiendoEsaSesion(tokenUsado: string | null): Promise<
 }
 
 interface Opciones {
+  readonly contexto?: ContextoDePeticion | undefined;
   readonly metodo?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   /** Lo que se manda, como JSON. */
   readonly cuerpo?: unknown;
@@ -210,7 +231,8 @@ interface Opciones {
  * una respuesta buena, y eso lo decide quien llama.
  */
 async function pedir(ruta: string, opciones: Opciones, acepta: string): Promise<Response> {
-  const token = await tokenActual();
+  const token = await tokenActual(opciones.contexto);
+  exigirContexto(opciones.contexto);
 
   const cabeceras = new Headers({ Accept: acepta });
 
@@ -236,6 +258,7 @@ async function pedir(ruta: string, opciones: Opciones, acepta: string): Promise<
     ...(opciones.senal ? { signal: opciones.senal } : {}),
   });
 
+  exigirContexto(opciones.contexto);
   const identificador = respuesta.headers.get('x-request-id') ?? undefined;
 
   if (respuesta.status === 401) {
@@ -327,7 +350,9 @@ export async function llamarALaApi<T>(ruta: string, opciones: Opciones = {}): Pr
     return undefined as T;
   }
 
-  return (await respuesta.json()) as T;
+  const datos = (await respuesta.json()) as T;
+  exigirContexto(opciones.contexto);
+  return datos;
 }
 
 /** Lo que responde una lectura condicional: o hay algo nuevo, o sigue valiendo lo que se tenia. */
