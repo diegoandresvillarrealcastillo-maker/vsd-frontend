@@ -203,6 +203,28 @@ function traducirRegistro(error: AuthError | null): ResultadoDeAcceso {
   return traducir(error);
 }
 
+/**
+ * La sesion que ESTE navegador tiene guardada ahora (SCRUM-270).
+ *
+ * Es lo que cuenta: lo que trae un aviso de Supabase puede venir de otra pestana, y con la sesion
+ * que no se recuerda en el equipo cada pestana guarda la suya.
+ *
+ * Si no hay sesion porque el token vencio y SIN CONEXION no se pudo renovar, la sesion sigue
+ * guardada y sirve para saber quien es: se abre la aplicacion sin conexion (SCRUM-137). Cualquier
+ * otro fallo es una sesion que de verdad no existe.
+ */
+async function leerLaSesionDeEsteNavegador(
+  cliente: ReturnType<typeof supabase>,
+): Promise<Session | null> {
+  const { data, error } = await cliente.auth.getSession();
+  const sinRenovar =
+    data.session === null && error !== null && isAuthRetryableFetchError(error)
+      ? leerLaSesionGuardada()
+      : null;
+
+  return data.session ?? sinRenovar;
+}
+
 export function ProveedorDeSesion({ children }: { children: ReactNode }) {
   const [sesion, setSesion] = useState<Session | null>(null);
 
@@ -216,6 +238,9 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let vigente = true;
+    // Cada lectura de la sesion lleva su turno: solo la ultima que se pidio puede adoptarse, y una
+    // que contesta tarde no pisa a una mas nueva.
+    let revision = 0;
     const cliente = clienteONulo();
 
     if (!cliente) {
@@ -225,20 +250,12 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     }
 
     // Primero lo que ya hubiera guardado, para no expulsar a quien recarga.
-    void cliente.auth
-      .getSession()
-      .then(({ data, error }) => {
-        if (vigente) {
-          // Si no hay sesion porque el token vencio y SIN CONEXION no se pudo
-          // renovar, la sesion sigue guardada y sirve para saber quien es: se abre
-          // la aplicacion sin conexion (SCRUM-137). Cualquier otro fallo es una
-          // sesion que de verdad no existe.
-          const sinRenovar =
-            data.session === null && error !== null && isAuthRetryableFetchError(error)
-              ? leerLaSesionGuardada()
-              : null;
+    const turnoDelArranque = ++revision;
 
-          setSesion(data.session ?? sinRenovar);
+    void leerLaSesionDeEsteNavegador(cliente)
+      .then((leida) => {
+        if (vigente && turnoDelArranque === revision) {
+          setSesion(leida);
           setCargando(false);
         }
       })
@@ -248,32 +265,44 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
         }
       });
 
-    // Y despues, cualquier cambio: entrar, salir, o que se renueve el token.
-    // Sin esta suscripcion, cerrar sesion en otra pestana dejaria esta creyendo
-    // que sigue dentro.
-    const { data: suscripcion } = cliente.auth.onAuthStateChange((evento, nueva) => {
-      if (vigente) {
-        // Lo mismo que arriba: al arrancar sin conexion con el token vencido,
-        // Supabase empieza diciendo "sin sesion". Si queda una guardada, sigue siendo
-        // la de esta persona. Solo en el arranque: un `SIGNED_OUT` es de verdad.
-        const sinRenovar =
-          nueva === null && evento === 'INITIAL_SESSION' ? leerLaSesionGuardada() : null;
-        const actual = nueva ?? sinRenovar;
+    // Y despues, cualquier cambio: entrar, salir, o que se renueve el token. Sin esta suscripcion,
+    // cerrar sesion en otra pestana dejaria esta creyendo que sigue dentro.
+    //
+    // El aviso es solo una senal (SCRUM-270): no se adopta lo que trae, porque puede ser la sesion
+    // de otra persona que entro en otra pestana del mismo navegador. Se vuelve a leer la que esta
+    // pestana tiene guardada. Y se lee fuera del aviso: Supabase lo llama con su candado puesto, y
+    // pedirle la sesion desde dentro es esperar a algo que espera por uno.
+    const { data: suscripcion } = cliente.auth.onAuthStateChange(() => {
+      const turno = ++revision;
 
-        // Sin sesion, lo que era de quien estaba —su foto, su mascota propia, lo que su
-        // mascota ya le dijo— no se queda. `salir` ya lo suelta, pero la sesion tambien
-        // termina sin pasar por ahi: caduca, se revoca, o se cierra en otra pestana.
-        if (actual === null) {
-          olvidarLosArchivosDeLaPersona();
-          olvidarElDatoGuardado();
-          olvidarLaRacha();
-          reiniciarLasFrases();
-          olvidarLoVisto();
-        }
+      queueMicrotask(() => {
+        void leerLaSesionDeEsteNavegador(cliente)
+          .then((actual) => {
+            if (!vigente || turno !== revision) {
+              return;
+            }
 
-        setSesion(actual);
-        setCargando(false);
-      }
+            // Sin sesion, lo que era de quien estaba —su foto, su mascota propia, lo que su
+            // mascota ya le dijo— no se queda. `salir` ya lo suelta, pero la sesion tambien
+            // termina sin pasar por ahi: caduca, se revoca, o se cierra en otra pestana.
+            if (actual === null) {
+              olvidarLosArchivosDeLaPersona();
+              olvidarElDatoGuardado();
+              olvidarLaRacha();
+              reiniciarLasFrases();
+              olvidarLoVisto();
+            }
+
+            setSesion(actual);
+            setCargando(false);
+          })
+          .catch(() => {
+            // No se pudo leer: se queda la sesion que habia, sin dejar la pantalla esperando.
+            if (vigente && turno === revision) {
+              setCargando(false);
+            }
+          });
+      });
     });
 
     return () => {
