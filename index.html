@@ -53,6 +53,452 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
     <!--
+      La pantalla de carga (SCRUM-283).
+
+      Sale con el primer byte del HTML, antes de que baje el JavaScript: abrir la aplicacion ya no
+      es una pantalla en blanco mientras se descarga y se interpreta el paquete. La mascota que la
+      persona eligio corre sobre una barra de carga; cuando React pinta, `PantallaDeCarga`
+      (src/componentes/PantallaDeCarga.tsx) usa estas mismas clases, asi que la espera se ve igual
+      en las tres fases: el HTML, el paquete que llega y la comprobacion de la sesion.
+
+      Va en linea y no en una hoja aparte por la misma razon que el script del tema: una hoja mas
+      es otra peticion antes del primer pintado. Los colores repiten los de `global.css`
+      (claro y oscuro) porque esa hoja aun no llego. Lo unico que se mueve son `transform` y
+      `opacity`, que no obligan al navegador a recalcular la pagina.
+    -->
+    <style>
+      .vsd-carga {
+        --vsd-fondo: #f7f5f2;
+        --vsd-texto: #1f2328;
+        --vsd-tenue: #5c6470;
+        --vsd-pista: #e4dfd7;
+        --vsd-relleno: #3d7a6b;
+        --vsd-brillo: rgb(255 255 255 / 45%);
+        --vsd-sombra: rgb(31 35 40 / 30%);
+        --vsd-polvo: rgb(120 110 98 / 55%);
+        --vsd-ancho: min(320px, 78vw);
+        --vsd-mascota: 76px;
+        --vsd-vuelta: 3s;
+        --vsd-zancada: 0.44s;
+        --vsd-datos: 8;
+        --vsd-ritmo: 5s;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        min-height: 100vh;
+        min-height: 100dvh;
+        padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
+          max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+        color: var(--vsd-texto);
+        background: var(--vsd-fondo);
+        font-family:
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+      }
+      :root[data-tema='oscuro'] .vsd-carga {
+        --vsd-fondo: #14161a;
+        --vsd-texto: #e8e6e3;
+        --vsd-tenue: #9aa1ab;
+        --vsd-pista: #2b3038;
+        --vsd-relleno: #7fc3b1;
+        --vsd-brillo: rgb(255 255 255 / 28%);
+        --vsd-sombra: rgb(0 0 0 / 55%);
+        --vsd-polvo: rgb(154 161 171 / 45%);
+      }
+      .vsd-carga--en-linea {
+        min-height: 55vh;
+        background: transparent;
+      }
+      .vsd-carga--tardio {
+        opacity: 0;
+        animation: vsd-carga-aparece 0.2s ease-out 0.8s forwards;
+      }
+
+      /*
+        La pista: la mascota corre SOBRE la barra, y la barra se llena detras de ella. Cuatro
+        capas, todas con transform u opacity, que son las unicas que el navegador anima sin tocar
+        la pagina y sin esperar al JavaScript (por eso siguen moviendose mientras el paquete se
+        interpreta):
+
+        1. el recorrido (.corredor): de un lado al otro, a velocidad constante (linear);
+        2. la zancada (.img): salto con aplastado al caer y estirado al despegar, inclinada hacia
+           delante; sube frenando y baja acelerando, como cae lo que pesa;
+        3. lo que la acompana (pseudo-elementos): la sombra que se encoge cuando esta en el aire, el
+           polvo que levanta al caer y las rayas de velocidad detras;
+        4. la barra: se llena y un brillo la recorre.
+      */
+      .vsd-carga__pista {
+        position: relative;
+        width: var(--vsd-ancho);
+        height: calc(var(--vsd-mascota) + 38px);
+      }
+      /* La meta: un punto al final que late cuando llega la mascota. */
+      .vsd-carga__pista::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        bottom: 14px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--vsd-relleno);
+        opacity: 0.3;
+        animation: vsd-carga-meta var(--vsd-vuelta) linear infinite;
+      }
+      .vsd-carga__corredor {
+        position: absolute;
+        left: 0;
+        bottom: 8px;
+        width: var(--vsd-mascota);
+        height: var(--vsd-mascota);
+        will-change: transform, opacity;
+        animation: vsd-carga-correr var(--vsd-vuelta) linear infinite;
+      }
+      /* La sombra sobre la barra: se encoge y se aclara cuando la mascota esta en el aire. */
+      .vsd-carga__corredor::before {
+        content: '';
+        position: absolute;
+        right: 14%;
+        bottom: -4px;
+        left: 14%;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--vsd-sombra);
+        animation: vsd-carga-sombra var(--vsd-zancada) linear infinite;
+      }
+      /* El polvo: una nube pequena que se levanta detras al caer y se deshace. */
+      .vsd-carga__corredor::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 12%;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--vsd-polvo);
+        box-shadow:
+          -11px -3px 0 -2px var(--vsd-polvo),
+          -20px 1px 0 -3px var(--vsd-polvo);
+        opacity: 0;
+        animation: vsd-carga-polvo var(--vsd-zancada) linear infinite;
+      }
+      .vsd-carga__img {
+        position: relative;
+        display: block;
+        width: 100%;
+        height: 100%;
+        background: url(/mascotas/fungito.webp) center bottom / contain no-repeat;
+        transform-origin: 50% 100%;
+        will-change: transform;
+        animation: vsd-carga-zancada var(--vsd-zancada) linear infinite;
+      }
+      /* Las rayas de velocidad, detras de la mascota: tres lineas que se estiran y se apagan. */
+      .vsd-carga__img::before {
+        content: '';
+        position: absolute;
+        top: 34%;
+        right: 88%;
+        width: 22px;
+        height: 3px;
+        border-radius: 2px;
+        background: var(--vsd-relleno);
+        box-shadow:
+          -5px 11px 0 var(--vsd-relleno),
+          3px 22px 0 var(--vsd-relleno);
+        opacity: 0;
+        transform-origin: 100% 50%;
+        animation: vsd-carga-rayas calc(var(--vsd-zancada) / 2) ease-out infinite;
+      }
+      :root[data-mascota='sparky'] .vsd-carga__img {
+        background-image: url(/mascotas/sparky.webp);
+      }
+      :root[data-mascota='ori'] .vsd-carga__img {
+        background-image: url(/mascotas/ori.webp);
+      }
+      :root[data-mascota='gato'] .vsd-carga__img {
+        background-image: url(/mascotas/gato.webp);
+      }
+      :root[data-mascota='obsidian'] .vsd-carga__img {
+        background-image: url(/mascotas/obsidian.webp);
+      }
+      .vsd-carga__barra {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: 8px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: var(--vsd-pista);
+      }
+      /* El brillo que recorre la barra, para que se note que sigue avanzando. */
+      .vsd-carga__barra::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent, var(--vsd-brillo), transparent);
+        transform: translateX(-100%);
+        animation: vsd-carga-brillo 1.2s ease-in-out infinite;
+      }
+      .vsd-carga__relleno {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--vsd-relleno);
+        transform-origin: left center;
+        will-change: transform;
+        animation: vsd-carga-llenar var(--vsd-vuelta) linear infinite;
+      }
+      .vsd-carga__texto {
+        margin: 0;
+        color: var(--vsd-tenue);
+        font-size: 0.9375rem;
+      }
+
+      /*
+        Lo que se lee mientras tanto (SCRUM-283): ocho datos, uno a la vez, cada 5 s, sin JavaScript.
+        Cada uno es una capa encima de las demas que solo se ve en su turno; `--i` es su lugar en la
+        fila y `--vsd-inicio` (lo pone el script de arriba, al azar) corre la fila para que cada visita
+        empiece en uno distinto. Los cuadros de `vsd-carga-dato` reparten el ciclo en OCHO partes
+        iguales: si cambia el numero de datos, cambian ellos y `--vsd-datos`
+        (src/componentes/datosDeLaCarga.ts).
+      */
+      .vsd-carga__datos {
+        position: relative;
+        width: var(--vsd-ancho);
+        min-height: 6.25rem;
+        margin: 4px 0 0;
+        padding: 0;
+        list-style: none;
+        font-size: 0.875rem;
+        line-height: 1.45;
+        text-align: center;
+      }
+      .vsd-carga__dato {
+        position: absolute;
+        top: 0;
+        right: 0;
+        left: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        opacity: 0;
+        animation: vsd-carga-dato calc(var(--vsd-datos) * var(--vsd-ritmo)) linear infinite;
+        animation-delay: calc(var(--i) * var(--vsd-ritmo) + var(--vsd-inicio, 0s));
+      }
+      .vsd-carga__etiqueta {
+        color: var(--vsd-relleno);
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .vsd-carga__frase {
+        color: var(--vsd-tenue);
+      }
+
+      /* Constante: la mascota cruza la pista a velocidad fija, y aparece y se va sin saltos. */
+      @keyframes vsd-carga-correr {
+        0% {
+          opacity: 0;
+          transform: translateX(0);
+        }
+        6% {
+          opacity: 1;
+        }
+        92% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+          transform: translateX(calc(var(--vsd-ancho) - var(--vsd-mascota)));
+        }
+      }
+      @keyframes vsd-carga-llenar {
+        from {
+          transform: scaleX(0);
+        }
+        to {
+          transform: scaleX(1);
+        }
+      }
+      /*
+        Una zancada: cae aplastada (0 %), despega estirada (18 %), llega arriba inclinada hacia
+        delante (50 %) y baja. Cada tramo lleva su curva: sube frenando (ease-out) y baja
+        acelerando (ease-in), que es lo que hace la gravedad; no es una transicion de interfaz.
+      */
+      @keyframes vsd-carga-zancada {
+        0% {
+          transform: translateY(0) rotate(2deg) scale(1.14, 0.86);
+          animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        18% {
+          transform: translateY(-4px) rotate(5deg) scale(0.94, 1.09);
+          animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
+        }
+        50% {
+          transform: translateY(-15px) rotate(9deg) scale(1, 1);
+          animation-timing-function: cubic-bezier(0.32, 0, 0.67, 0);
+        }
+        100% {
+          transform: translateY(0) rotate(2deg) scale(1.14, 0.86);
+        }
+      }
+      @keyframes vsd-carga-sombra {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scaleX(1.12);
+        }
+        50% {
+          opacity: 0.35;
+          transform: scaleX(0.55);
+        }
+      }
+      @keyframes vsd-carga-polvo {
+        0% {
+          opacity: 0.9;
+          transform: translateX(0) scale(0.5);
+        }
+        45% {
+          opacity: 0;
+          transform: translateX(-16px) scale(1.5);
+        }
+        100% {
+          opacity: 0;
+          transform: translateX(-16px) scale(1.5);
+        }
+      }
+      @keyframes vsd-carga-rayas {
+        0% {
+          opacity: 0;
+          transform: scaleX(0.3);
+        }
+        35% {
+          opacity: 0.55;
+          transform: scaleX(1);
+        }
+        100% {
+          opacity: 0;
+          transform: scaleX(1) translateX(-6px);
+        }
+      }
+      @keyframes vsd-carga-brillo {
+        0% {
+          transform: translateX(-100%);
+        }
+        60%,
+        100% {
+          transform: translateX(100%);
+        }
+      }
+      @keyframes vsd-carga-meta {
+        0%,
+        78% {
+          opacity: 0.3;
+          transform: scale(1);
+        }
+        94% {
+          opacity: 1;
+          transform: scale(1.7);
+        }
+        100% {
+          opacity: 0.3;
+          transform: scale(1);
+        }
+      }
+      @keyframes vsd-carga-respira {
+        from {
+          opacity: 0.6;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      /* Cada dato ocupa un octavo del ciclo: entra, se queda y sale antes de que llegue el siguiente. */
+      @keyframes vsd-carga-dato {
+        0% {
+          opacity: 0;
+          transform: translateY(6px);
+          animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        1.6% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        10.9% {
+          opacity: 1;
+          transform: translateY(0);
+          animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        12.5%,
+        100% {
+          opacity: 0;
+          transform: translateY(-4px);
+        }
+      }
+      @keyframes vsd-carga-aparece {
+        to {
+          opacity: 1;
+        }
+      }
+
+      /*
+        Menos movimiento: la mascota se queda quieta a media pista y la barra a la mitad. Se quitan
+        el salto, el recorrido y todo lo que se mueve; lo unico que queda es que la barra y el
+        texto laten suavemente (solo opacidad), para que se vea que la pantalla sigue viva.
+      */
+      @media (prefers-reduced-motion: reduce) {
+        .vsd-carga__corredor {
+          opacity: 1;
+          animation: none;
+          transform: translateX(calc((var(--vsd-ancho) - var(--vsd-mascota)) / 2));
+        }
+        .vsd-carga__pista::after,
+        .vsd-carga__corredor::before,
+        .vsd-carga__corredor::after,
+        .vsd-carga__img,
+        .vsd-carga__img::before,
+        .vsd-carga__barra::after {
+          animation: none;
+        }
+        .vsd-carga__corredor::after,
+        .vsd-carga__img::before,
+        .vsd-carga__barra::after {
+          display: none;
+        }
+        .vsd-carga__relleno {
+          transform: scaleX(0.5);
+          animation: vsd-carga-respira 1.8s ease-in-out infinite alternate;
+        }
+        /* Un solo dato y quieto: cambiar de texto cada pocos segundos tambien es movimiento. */
+        .vsd-carga__dato {
+          display: none;
+          animation: none;
+        }
+        .vsd-carga__dato:first-child {
+          display: flex;
+          opacity: 1;
+        }
+      }
+    </style>
+    <noscript>
+      <style>
+        .vsd-carga {
+          display: none;
+        }
+      </style>
+    </noscript>
+
+    <!--
       El tema se decide aqui, antes de que se pinte nada.
 
       Si esperara al JavaScript de la aplicacion, quien tiene el sistema en
@@ -72,6 +518,21 @@
             : 'claro';
 
           document.documentElement.dataset.tema = vale ? guardado : delSistema;
+
+          // La mascota de la pantalla de carga (SCRUM-283): la ultima que se vio en este
+          // navegador. Lista y clave duplicadas de `src/mascota/mascotaDeLaCarga.ts`; la prueba
+          // de ese archivo comprueba que sigan iguales.
+          var formas = { fungito: 1, sparky: 1, ori: 1, gato: 1, obsidian: 1 };
+          var mascota = localStorage.getItem('vsd.mascota');
+
+          document.documentElement.dataset.mascota = formas[mascota] === 1 ? mascota : 'fungito';
+
+          // Cada visita empieza por uno distinto de los ocho datos de la pantalla de carga (se lee
+          // poco rato: sin esto siempre saldria el primero).
+          document.documentElement.style.setProperty(
+            '--vsd-inicio',
+            '-' + Math.floor(Math.random() * 8) * 5 + 's',
+          );
         } catch (error) {
           // En navegacion privada leer puede lanzar. Se queda en claro, que es
           // el valor por defecto de la hoja de estilos.
@@ -81,7 +542,61 @@
     </script>
   </head>
   <body>
-    <div id="raiz"></div>
+    <div id="raiz">
+      <!-- Lo reemplaza React al pintar; ver el comentario de los estilos, arriba. -->
+      <div class="vsd-carga" role="status">
+        <div class="vsd-carga__pista" aria-hidden="true">
+          <span class="vsd-carga__corredor"><span class="vsd-carga__img"></span></span>
+          <span class="vsd-carga__barra"><span class="vsd-carga__relleno"></span></span>
+        </div>
+        <p class="vsd-carga__texto">Preparando tu espacio…</p>
+        <ul class="vsd-carga__datos" aria-hidden="true">
+          <li class="vsd-carga__dato" style="--i: 0">
+            <span class="vsd-carga__etiqueta">Dato curioso</span>
+            <span class="vsd-carga__frase">Los pulpos tienen tres corazones.</span>
+          </li>
+          <li class="vsd-carga__dato" style="--i: 1">
+            <span class="vsd-carga__etiqueta">Sobre VSD Health</span>
+            <span class="vsd-carga__frase">Tu diario es solo tuyo: nadie más lo lee.</span>
+          </li>
+          <li class="vsd-carga__dato" style="--i: 2">
+            <span class="vsd-carga__etiqueta">Dato curioso</span>
+            <span class="vsd-carga__frase">Un día en Venus dura más que un año en Venus.</span>
+          </li>
+          <li class="vsd-carga__dato" style="--i: 3">
+            <span class="vsd-carga__etiqueta">Sobre VSD Health</span>
+            <span class="vsd-carga__frase">
+              Puedes usar VSD Health sin conexión: lo que hagas se envía cuando vuelva la red.
+            </span>
+          </li>
+          <li class="vsd-carga__dato" style="--i: 4">
+            <span class="vsd-carga__etiqueta">Dato curioso</span>
+            <span class="vsd-carga__frase">
+              Colombia es el país con más especies de aves del planeta.
+            </span>
+          </li>
+          <li class="vsd-carga__dato" style="--i: 5">
+            <span class="vsd-carga__etiqueta">Sobre VSD Health</span>
+            <span class="vsd-carga__frase">
+              Puedes cambiar de mascota y ponerle nombre cuando quieras, desde tu perfil.
+            </span>
+          </li>
+          <li class="vsd-carga__dato" style="--i: 6">
+            <span class="vsd-carga__etiqueta">Dato curioso</span>
+            <span class="vsd-carga__frase">
+              Las nutrias marinas duermen a veces tomadas de la mano para no separarse mientras
+              flotan.
+            </span>
+          </li>
+          <li class="vsd-carga__dato" style="--i: 7">
+            <span class="vsd-carga__etiqueta">Sobre VSD Health</span>
+            <span class="vsd-carga__frase">
+              VSD Health acompaña tu bienestar: no diagnostica ni reemplaza la atención profesional.
+            </span>
+          </li>
+        </ul>
+      </div>
+    </div>
     <noscript>
       VSD Health necesita JavaScript para funcionar. Si no puedes activarlo y estás pasando por un
       momento difícil, en Colombia puedes marcar 192 y elegir la opción 4, o el 123 si hay riesgo

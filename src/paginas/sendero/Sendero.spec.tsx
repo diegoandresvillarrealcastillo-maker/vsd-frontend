@@ -137,7 +137,8 @@ describe('Sendero, la carga (SCRUM-180)', () => {
 
     expect(estado).toHaveTextContent('Cargando tu sendero…');
     expect(estado).toHaveAttribute('aria-busy', 'true');
-    expect(estado.querySelectorAll('.esqueleto').length).toBeGreaterThan(0);
+    // La mascota corre sobre la barra (SCRUM-283, antes unas tarjetas de esqueleto).
+    expect(estado.querySelector('.vsd-carga__corredor')).not.toBeNull();
   });
 });
 

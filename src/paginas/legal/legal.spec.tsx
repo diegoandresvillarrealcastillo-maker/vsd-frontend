@@ -40,14 +40,19 @@ function estado(parcial: Partial<EstadoDeSesion> = {}): EstadoDeSesion {
 
 const SESION = { access_token: 'de-mentira' } as unknown as Session;
 
-function pintar(ruta: string, valor: EstadoDeSesion = estado()) {
-  return render(
+async function pintar(ruta: string, valor: EstadoDeSesion = estado()) {
+  const pintado = render(
     <SesionContexto.Provider value={valor}>
       <MemoryRouter initialEntries={[ruta]}>
         <App />
       </MemoryRouter>
     </SesionContexto.Provider>,
   );
+
+  // Las pantallas se bajan cuando se necesitan (SCRUM-283): se espera a que llegue la del documento.
+  await screen.findByRole('heading', { level: 1 });
+
+  return pintado;
 }
 
 const DOCUMENTOS = [
@@ -57,20 +62,20 @@ const DOCUMENTOS = [
 ] as const;
 
 describe.each(DOCUMENTOS)('$titulo', ({ ruta, titulo, enlace }) => {
-  it('se puede leer sin haber entrado', () => {
-    pintar(ruta);
+  it('se puede leer sin haber entrado', async () => {
+    await pintar(ruta);
 
     expect(screen.getByRole('heading', { level: 1, name: titulo })).toBeInTheDocument();
   });
 
-  it('tambien con la sesion abierta: no lleva al panel', () => {
-    pintar(ruta, estado({ sesion: SESION }));
+  it('tambien con la sesion abierta: no lleva al panel', async () => {
+    await pintar(ruta, estado({ sesion: SESION }));
 
     expect(screen.getByRole('heading', { level: 1, name: titulo })).toBeInTheDocument();
   });
 
-  it('tiene un solo h1 y todas sus secciones con un h2', () => {
-    pintar(ruta);
+  it('tiene un solo h1 y todas sus secciones con un h2', async () => {
+    await pintar(ruta);
 
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
 
@@ -82,8 +87,8 @@ describe.each(DOCUMENTOS)('$titulo', ({ ruta, titulo, enlace }) => {
     }
   });
 
-  it('el indice lleva a cada seccion', () => {
-    pintar(ruta);
+  it('el indice lleva a cada seccion', async () => {
+    await pintar(ruta);
 
     const indice = screen.getByRole('navigation', { name: 'En este documento' });
     const enlaces = within(indice).getAllByRole('link');
@@ -97,8 +102,8 @@ describe.each(DOCUMENTOS)('$titulo', ({ ruta, titulo, enlace }) => {
     }
   });
 
-  it('muestra los tres documentos en el pie y marca en el que esta', () => {
-    pintar(ruta);
+  it('muestra los tres documentos en el pie y marca en el que esta', async () => {
+    await pintar(ruta);
 
     const pie = screen.getByRole('navigation', { name: 'Documentos legales' });
 
@@ -110,8 +115,8 @@ describe.each(DOCUMENTOS)('$titulo', ({ ruta, titulo, enlace }) => {
     expect(within(pie).getByRole('link', { name: enlace })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('repite que no diagnostica ni reemplaza a un especialista', () => {
-    pintar(ruta);
+  it('repite que no diagnostica ni reemplaza a un especialista', async () => {
+    await pintar(ruta);
 
     expect(
       screen.getAllByText(
@@ -126,8 +131,8 @@ describe('Los textos estan cerrados (SCRUM-235)', () => {
     expect(TEXTOS_REVISADOS).toBe(true);
   });
 
-  it.each(DOCUMENTOS)('$titulo ya no se presenta como borrador', ({ ruta }) => {
-    const { container } = pintar(ruta);
+  it.each(DOCUMENTOS)('$titulo ya no se presenta como borrador', async ({ ruta }) => {
+    const { container } = await pintar(ruta);
 
     expect(screen.queryByRole('note')).not.toBeInTheDocument();
     expect(container).not.toHaveTextContent(/borrador/i);
@@ -136,9 +141,9 @@ describe('Los textos estan cerrados (SCRUM-235)', () => {
     );
   });
 
-  it.each(DOCUMENTOS)('$titulo no deja nada por definir', ({ ruta }) => {
+  it.each(DOCUMENTOS)('$titulo no deja nada por definir', async ({ ruta }) => {
     // Es el candado: un texto dado por cerrado no puede llevar una marca de pendiente.
-    const { container } = pintar(ruta);
+    const { container } = await pintar(ruta);
 
     expect(container.textContent).not.toContain(POR_DEFINIR);
     expect(container.querySelectorAll('mark.legal__pendiente')).toHaveLength(0);
@@ -161,8 +166,8 @@ describe('Los textos estan cerrados (SCRUM-235)', () => {
 
   it.each([RUTAS.PRIVACIDAD, RUTAS.TERMINOS])(
     '%s da un solo correo, el oficial, en todo el documento',
-    (ruta) => {
-      const { container } = pintar(ruta);
+    async (ruta) => {
+      const { container } = await pintar(ruta);
 
       // `textContent` pega un bloque con el siguiente sin espacio; los nodos de texto, no.
       const trozos: string[] = [];
@@ -185,24 +190,24 @@ describe('Los textos estan cerrados (SCRUM-235)', () => {
 });
 
 describe('Aviso de privacidad', () => {
-  it('muestra su version, la misma que la API tiene como vigente', () => {
-    pintar(RUTAS.PRIVACIDAD);
+  it('muestra su version, la misma que la API tiene como vigente', async () => {
+    await pintar(RUTAS.PRIVACIDAD);
 
     expect(
       screen.getByText(new RegExp(`Versión ${VERSIONES_PUBLICADAS.privacidad}`)),
     ).toBeInTheDocument();
   });
 
-  it('dice que es solo para mayores de 18 años y que a un menor no se le guarda nada', () => {
-    pintar(RUTAS.PRIVACIDAD);
+  it('dice que es solo para mayores de 18 años y que a un menor no se le guarda nada', async () => {
+    await pintar(RUTAS.PRIVACIDAD);
 
     const seccion = screen.getByRole('region', { name: /solo para mayores de 18 años/i });
 
     expect(seccion).toHaveTextContent(/no guardamos ninguno de tus datos/i);
   });
 
-  it('identifica al responsable, con sus datos de contacto', () => {
-    pintar(RUTAS.PRIVACIDAD);
+  it('identifica al responsable, con sus datos de contacto', async () => {
+    await pintar(RUTAS.PRIVACIDAD);
 
     const seccion = screen.getByRole('region', { name: /quién es el responsable/i });
 
@@ -210,8 +215,8 @@ describe('Aviso de privacidad', () => {
     expect(seccion).toHaveTextContent(/correo para ejercer tus derechos/i);
   });
 
-  it('muestra el nombre, la ciudad y el correo del responsable, tal como están en datosLegales', () => {
-    pintar(RUTAS.PRIVACIDAD);
+  it('muestra el nombre, la ciudad y el correo del responsable, tal como están en datosLegales', async () => {
+    await pintar(RUTAS.PRIVACIDAD);
 
     const seccion = screen.getByRole('region', { name: /quién es el responsable/i });
 
@@ -222,16 +227,16 @@ describe('Aviso de privacidad', () => {
     expect(seccion).toHaveTextContent(DATOS_DEL_RESPONSABLE.correo);
   });
 
-  it('no publica un teléfono: el repositorio y la página son públicos y no se retira', () => {
-    pintar(RUTAS.PRIVACIDAD);
+  it('no publica un teléfono: el repositorio y la página son públicos y no se retira', async () => {
+    await pintar(RUTAS.PRIVACIDAD);
 
     const seccion = screen.getByRole('region', { name: /quién es el responsable/i });
 
     expect(seccion).not.toHaveTextContent(/tel[eé]fono|\b3\d{2}[\s-]?\d{3}[\s-]?\d{4}\b/i);
   });
 
-  it('la autorización de datos sensibles y de transferencia se da en la casilla del aviso', () => {
-    pintar(RUTAS.PRIVACIDAD);
+  it('la autorización de datos sensibles y de transferencia se da en la casilla del aviso', async () => {
+    await pintar(RUTAS.PRIVACIDAD);
 
     const seccion = screen.getByRole('region', { name: /dónde se guardan/i });
 
@@ -247,8 +252,8 @@ describe('Aviso de privacidad', () => {
     expect(seccion).toHaveTextContent(/Estados Unidos de América u otros países/i);
   });
 
-  it('al borrar la cuenta se conserva una constancia mínima, y dice cuál es y por cuánto', () => {
-    pintar(RUTAS.PRIVACIDAD);
+  it('al borrar la cuenta se conserva una constancia mínima, y dice cuál es y por cuánto', async () => {
+    await pintar(RUTAS.PRIVACIDAD);
 
     const seccion = screen.getByRole('region', { name: /cuánto tiempo los conservamos/i });
 
@@ -263,8 +268,8 @@ describe('Aviso de privacidad', () => {
     expect(seccion).toHaveTextContent(/plazo de 10 años.*tras lo cual se elimina/i);
   });
 
-  it('las copias de respaldo se conservan como máximo 7 días y no queda un plazo por decidir', () => {
-    pintar(RUTAS.PRIVACIDAD);
+  it('las copias de respaldo se conservan como máximo 7 días y no queda un plazo por decidir', async () => {
+    await pintar(RUTAS.PRIVACIDAD);
 
     const seccion = screen.getByRole('region', { name: /cuánto tiempo los conservamos/i });
 
@@ -274,8 +279,8 @@ describe('Aviso de privacidad', () => {
     expect(seccion).not.toHaveTextContent(/7 a 30 días/);
   });
 
-  it('borrar la cuenta no promete «todo lo tuyo» sin decir lo de la constancia', () => {
-    pintar(RUTAS.PRIVACIDAD);
+  it('borrar la cuenta no promete «todo lo tuyo» sin decir lo de la constancia', async () => {
+    await pintar(RUTAS.PRIVACIDAD);
 
     const seccion = screen.getByRole('region', { name: /tus derechos/i });
 
@@ -283,8 +288,8 @@ describe('Aviso de privacidad', () => {
     expect(seccion).toHaveTextContent(/salvo la constancia de lo que aceptaste/i);
   });
 
-  it('no publica un documento de identidad ni una dirección de calle del responsable', () => {
-    pintar(RUTAS.PRIVACIDAD);
+  it('no publica un documento de identidad ni una dirección de calle del responsable', async () => {
+    await pintar(RUTAS.PRIVACIDAD);
 
     const seccion = screen.getByRole('region', { name: /quién es el responsable/i });
 
@@ -295,8 +300,8 @@ describe('Aviso de privacidad', () => {
     );
   });
 
-  it('nombra los datos sensibles y dice que darlos es voluntario', () => {
-    pintar(RUTAS.PRIVACIDAD);
+  it('nombra los datos sensibles y dice que darlos es voluntario', async () => {
+    await pintar(RUTAS.PRIVACIDAD);
 
     const seccion = screen.getByRole('region', { name: /datos sensibles/i });
 
@@ -304,8 +309,8 @@ describe('Aviso de privacidad', () => {
     expect(seccion).toHaveTextContent(/no los vendemos/i);
   });
 
-  it('explica los derechos y como ejercerlos dentro de la aplicacion', () => {
-    pintar(RUTAS.PRIVACIDAD);
+  it('explica los derechos y como ejercerlos dentro de la aplicacion', async () => {
+    await pintar(RUTAS.PRIVACIDAD);
 
     const seccion = screen.getByRole('region', { name: /tus derechos/i });
 
@@ -317,8 +322,8 @@ describe('Aviso de privacidad', () => {
     );
   });
 
-  it('el diario solo se lee para recomendar si la persona lo permite', () => {
-    pintar(RUTAS.PRIVACIDAD);
+  it('el diario solo se lee para recomendar si la persona lo permite', async () => {
+    await pintar(RUTAS.PRIVACIDAD);
 
     expect(
       screen.getByText(/el diario solo se lee para recomendarte algo si tú lo permites/i),
@@ -327,32 +332,32 @@ describe('Aviso de privacidad', () => {
 });
 
 describe('Términos y condiciones', () => {
-  it('lleva la frase de que no formula, no diagnostica y no reemplaza a un especialista médico', () => {
-    pintar(RUTAS.TERMINOS);
+  it('lleva la frase de que no formula, no diagnostica y no reemplaza a un especialista médico', async () => {
+    await pintar(RUTAS.TERMINOS);
 
     expect(
       screen.getByText(/no formula, no diagnostica y no reemplaza a un especialista médico/i),
     ).toBeInTheDocument();
   });
 
-  it('dice que es solo para mayores de 18 años', () => {
-    pintar(RUTAS.TERMINOS);
+  it('dice que es solo para mayores de 18 años', async () => {
+    await pintar(RUTAS.TERMINOS);
 
     expect(
       screen.getByRole('region', { name: /solo para mayores de 18 años/i }),
     ).toBeInTheDocument();
   });
 
-  it('muestra su version', () => {
-    pintar(RUTAS.TERMINOS);
+  it('muestra su version', async () => {
+    await pintar(RUTAS.TERMINOS);
 
     expect(
       screen.getByText(new RegExp(`Versión ${VERSIONES_PUBLICADAS.terminos}`)),
     ).toBeInTheDocument();
   });
 
-  it('enlaza al aviso de privacidad sin recargar la pagina', () => {
-    pintar(RUTAS.TERMINOS);
+  it('enlaza al aviso de privacidad sin recargar la pagina', async () => {
+    await pintar(RUTAS.TERMINOS);
 
     const enlace = screen.getByRole('link', { name: 'aviso de privacidad' });
 
@@ -364,15 +369,15 @@ describe('Términos y condiciones', () => {
       return screen.getByRole('region', { name: /límites de nuestra responsabilidad/i });
     }
 
-    it('se redacta conforme al Estatuto del Consumidor, no contra él', () => {
-      pintar(RUTAS.TERMINOS);
+    it('se redacta conforme al Estatuto del Consumidor, no contra él', async () => {
+      await pintar(RUTAS.TERMINOS);
 
       expect(seccion()).toHaveTextContent(/Ley 1480 de 2011 \(Estatuto del Consumidor\)/);
       expect(seccion()).toHaveTextContent(/calidad e idoneidad del software/i);
     });
 
-    it('limita lo que se puede limitar: el funcionamiento técnico y los datos, no tus decisiones', () => {
-      pintar(RUTAS.TERMINOS);
+    it('limita lo que se puede limitar: el funcionamiento técnico y los datos, no tus decisiones', async () => {
+      await pintar(RUTAS.TERMINOS);
 
       expect(seccion()).toHaveTextContent(
         /herramienta de software de apoyo autónomo y no un servicio médico, psicológico ni terapéutico/i,
@@ -386,8 +391,8 @@ describe('Términos y condiciones', () => {
       expect(seccion()).toHaveTextContent(/no sustituye el criterio de un profesional/i);
     });
 
-    it('no quita los derechos que la ley da y que un contrato no puede quitar', () => {
-      pintar(RUTAS.TERMINOS);
+    it('no quita los derechos que la ley da y que un contrato no puede quitar', async () => {
+      await pintar(RUTAS.TERMINOS);
 
       // Una cláusula que los excluyera sería ineficaz (Ley 1480 de 2011, art. 43) y no protegería
       // de nada: la salvedad va escrita.
@@ -396,8 +401,8 @@ describe('Términos y condiciones', () => {
       );
     });
 
-    it('no promete lo que la sección de disponibilidad niega', () => {
-      pintar(RUTAS.TERMINOS);
+    it('no promete lo que la sección de disponibilidad niega', async () => {
+      await pintar(RUTAS.TERMINOS);
 
       const disponibilidad = screen.getByRole('region', { name: /disponibilidad y cambios/i });
 
@@ -410,14 +415,14 @@ describe('Términos y condiciones', () => {
 });
 
 describe('Cookies y almacenamiento local', () => {
-  it('dice sin rodeos que no hay cookies de publicidad ni de seguimiento', () => {
-    pintar(RUTAS.COOKIES);
+  it('dice sin rodeos que no hay cookies de publicidad ni de seguimiento', async () => {
+    await pintar(RUTAS.COOKIES);
 
     expect(screen.getByText(/no usa cookies de publicidad ni de seguimiento/i)).toBeInTheDocument();
   });
 
-  it('lista lo que guarda en una tabla con titulo y encabezados', () => {
-    pintar(RUTAS.COOKIES);
+  it('lista lo que guarda en una tabla con titulo y encabezados', async () => {
+    await pintar(RUTAS.COOKIES);
 
     const tabla = screen.getByRole('table', {
       name: /elementos que vsd health guarda en tu navegador/i,
@@ -432,20 +437,20 @@ describe('Cookies y almacenamiento local', () => {
     expect(within(tabla).getByText('vsd.tema')).toBeInTheDocument();
   });
 
-  it('no inventa elementos: la sesion en una sola pestana no se usa hoy y no sale', () => {
-    pintar(RUTAS.COOKIES);
+  it('no inventa elementos: la sesion en una sola pestana no se usa hoy y no sale', async () => {
+    await pintar(RUTAS.COOKIES);
 
     expect(screen.queryByText('vsd.solo-esta-pestana')).not.toBeInTheDocument();
   });
 
-  it('no lleva version: no hay nada que aceptar', () => {
-    pintar(RUTAS.COOKIES);
+  it('no lleva version: no hay nada que aceptar', async () => {
+    await pintar(RUTAS.COOKIES);
 
     expect(screen.queryByText(/Versión \d{4}-/)).not.toBeInTheDocument();
   });
 
-  it('la fecha de actualización se ve aunque no tenga versión', () => {
-    const { container } = pintar(RUTAS.COOKIES);
+  it('la fecha de actualización se ve aunque no tenga versión', async () => {
+    const { container } = await pintar(RUTAS.COOKIES);
 
     expect(container.querySelector('.legal__meta')).toHaveTextContent(
       `Vigente · actualizado el ${FECHA_DE_ACTUALIZACION}`,
@@ -454,8 +459,8 @@ describe('Cookies y almacenamiento local', () => {
 });
 
 describe('Los enlaces desde el resto del sitio', () => {
-  it('la portada los tiene en el pie', () => {
-    pintar(RUTAS.INICIO);
+  it('la portada los tiene en el pie', async () => {
+    await pintar(RUTAS.INICIO);
 
     const pie = screen.getByRole('navigation', { name: 'Documentos legales' });
 
@@ -475,8 +480,8 @@ describe('Los enlaces desde el resto del sitio', () => {
 
   it.each([RUTAS.ACCESO, RUTAS.REGISTRO, RUTAS.RECUPERAR])(
     '%s los tiene, para poder leerlos antes de aceptar',
-    (ruta) => {
-      pintar(ruta);
+    async (ruta) => {
+      await pintar(ruta);
 
       const pie = screen.getByRole('navigation', { name: 'Documentos legales' });
 

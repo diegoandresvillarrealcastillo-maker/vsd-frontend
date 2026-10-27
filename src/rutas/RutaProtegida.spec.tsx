@@ -4,10 +4,18 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { avisarQueHayTextosPendientes } from '../infraestructura/api/clienteHttp.ts';
-import { ESPERA_DEL_REGISTRO_EN_MS, olvidarElRegistro } from '../sesion/useRegistroCompleto.ts';
+import { almacenamientoDeSesion } from '../infraestructura/supabase/almacenamiento.ts';
+import {
+  ESPERA_DEL_REGISTRO_EN_MS,
+  olvidarElRegistro,
+  olvidarElRegistroGuardado,
+} from '../sesion/useRegistroCompleto.ts';
 import { SesionContexto, type EstadoDeSesion } from '../sesion/SesionContexto.ts';
 import { RutaProtegida } from './RutaProtegida.tsx';
 import { RUTAS } from './rutas.ts';
+
+/** La clave de `useRegistroCompleto.ts`: la prueba simula lo que dejo una visita anterior. */
+const CLAVE_DEL_REGISTRO_RECORDADO = 'vsd.registro-completo';
 
 const { consultarElEstadoDelRegistro } = vi.hoisted(() => ({
   consultarElEstadoDelRegistro: vi.fn(),
@@ -175,16 +183,20 @@ describe('RutaProtegida y el registro (T-03 de la auditoria 360)', () => {
 
     const mensaje = screen.getByText('Comprobando tu registro');
 
-    expect(mensaje.closest('.estado-de-carga--tardio')).not.toBeNull();
+    // Tardia: llega despues de que la persona ya vio algo, y mostrarla de golpe parpadea.
+    expect(mensaje.closest('.vsd-carga--tardio')).not.toBeNull();
     expect(mensaje.closest('.solo-lectores')).toBeNull();
   });
 
-  it('mientras comprueba la sesion, tambien se ve', () => {
+  it('mientras comprueba la sesion, tambien se ve, y desde el primer instante (SCRUM-283)', () => {
     pintar(estado({ sesion: null, cargando: true }));
 
-    expect(
-      screen.getByText('Comprobando la sesión').closest('.estado-de-carga--tardio'),
-    ).not.toBeNull();
+    const pantalla = screen.getByText('Comprobando la sesión').closest('.vsd-carga');
+
+    // Es la misma pantalla de carga que el `index.html` ya puso al abrir: no hay que esperar a que
+    // aparezca ni parpadea al reemplazarla.
+    expect(pantalla).not.toBeNull();
+    expect(pantalla).not.toHaveClass('vsd-carga--tardio');
   });
 
   it('no bloquea si no se pudo preguntar: la aplicacion se usa sin conexion', async () => {
@@ -330,5 +342,67 @@ describe('RutaProtegida y los textos que cambian (SCRUM-237)', () => {
     });
 
     expect(screen.getByText('Contenido sin registro')).toBeInTheDocument();
+  });
+});
+
+describe('RutaProtegida y el registro recordado entre visitas (SCRUM-283)', () => {
+  /** Lo que queda en el equipo de una visita anterior: la memoria de la pagina se perdio, esto no. */
+  function recordarDeUnaVisitaAnterior(persona: string): void {
+    almacenamientoDeSesion.setItem(CLAVE_DEL_REGISTRO_RECORDADO, persona);
+  }
+
+  it('si ya se supo que esta completo, abre sin esperar a la API', () => {
+    // Con el servidor dormido, preguntar antes de ensenar nada era la espera mas larga al abrir.
+    consultarElEstadoDelRegistro.mockReturnValue(new Promise(() => undefined));
+    recordarDeUnaVisitaAnterior('persona-1');
+
+    pintar(estado({ sesion: SESION_CUALQUIERA }));
+
+    expect(screen.getByText('Contenido reservado')).toBeInTheDocument();
+    expect(screen.queryByText('Comprobando tu registro')).not.toBeInTheDocument();
+    expect(consultarElEstadoDelRegistro).not.toHaveBeenCalled();
+  });
+
+  it('lo recordado de otra persona no vale para esta: se comprueba por su cuenta', () => {
+    consultarElEstadoDelRegistro.mockReturnValue(new Promise(() => undefined));
+    recordarDeUnaVisitaAnterior('otra-persona');
+
+    pintar(estado({ sesion: SESION_CUALQUIERA }));
+
+    expect(screen.getByText('Comprobando tu registro')).toBeInTheDocument();
+    expect(consultarElEstadoDelRegistro).toHaveBeenCalledTimes(1);
+  });
+
+  it('la primera vez lo deja recordado para la proxima', async () => {
+    pintar(estado({ sesion: SESION_CUALQUIERA }));
+
+    expect(await screen.findByText('Contenido reservado')).toBeInTheDocument();
+    expect(almacenamientoDeSesion.getItem(CLAVE_DEL_REGISTRO_RECORDADO)).toBe('persona-1');
+  });
+
+  it('al cerrar la sesion se olvida, para quien use el mismo equipo despues', () => {
+    recordarDeUnaVisitaAnterior('persona-1');
+
+    olvidarElRegistroGuardado();
+
+    expect(almacenamientoDeSesion.getItem(CLAVE_DEL_REGISTRO_RECORDADO)).toBeNull();
+  });
+
+  it('si la API avisa de textos nuevos, lo recordado deja de valer y se lleva a aceptarlos', async () => {
+    recordarDeUnaVisitaAnterior('persona-1');
+
+    pintar(estado({ sesion: SESION_CUALQUIERA }));
+
+    expect(screen.getByText('Contenido reservado')).toBeInTheDocument();
+
+    // La primera llamada de la pantalla recibe el 403 de «textos pendientes».
+    act(() => {
+      avisarQueHayTextosPendientes();
+    });
+
+    expect(
+      await screen.findByText(`Actualizamos nuestros textos. Venia de: ${RUTAS.PANEL}`),
+    ).toBeInTheDocument();
+    expect(almacenamientoDeSesion.getItem(CLAVE_DEL_REGISTRO_RECORDADO)).toBeNull();
   });
 });

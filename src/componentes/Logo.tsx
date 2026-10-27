@@ -19,7 +19,16 @@ import { RUTAS } from '../rutas/rutas.ts';
 export function Logo({ to = RUTAS.INICIO, className }: { to?: string; className?: string }) {
   return (
     <Link className={className === undefined ? 'logo' : `logo ${className}`} to={to}>
-      <img className="logo__imagen" src="/logo-vsd-health.png" alt="VSD Health" />
+      {/* 264 x 135, que es el triple de lo que se dibuja (40 a 44 px de alto): cubre una pantalla
+          de 3 puntos por pixel. Antes era un PNG de 480 x 246 y 150 KB, mas que todo el JavaScript
+          de la portada junto (SCRUM-283). Con ancho y alto, la pagina no se mueve al llegar. */}
+      <img
+        className="logo__imagen"
+        src="/logo-vsd-health.webp"
+        width={264}
+        height={135}
+        alt="VSD Health"
+      />
     </Link>
   );
 }
