@@ -148,33 +148,73 @@
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
 }
 
+/* Los enlaces de la navegacion: la barra de arriba y el dock del movil son dos piezas porque el espacio no es el
+   mismo, pero se sienten como una sola (SCRUM-284). Todo lo que se siente se escribe una vez, con los dos
+   selectores juntos (`barraDeNavegacion.spec.ts` vigila que no se separen): el color de reposo, el de la seccion
+   a la vista, el hundirse un poco al pulsar, el pasar el raton y la pastilla que se desliza. Lo que sigue abajo
+   de cada uno es solo su forma (uno es una fila; el otro, un icono sobre su texto). */
+.app__enlace,
+.app__nav-inferior-enlace {
+  position: relative;
+  border-radius: 9999px;
+  color: var(--app-tenue);
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    color 0.2s,
+    background-color 0.2s,
+    transform 0.14s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.app__enlace--activo,
+.app__nav-inferior-enlace--activo {
+  color: var(--app-salvia);
+}
+
+/* Al pulsar se hunde un poco: el aviso de que el toque llego, con el dedo y con el raton. */
+.app__enlace:active,
+.app__nav-inferior-enlace:active {
+  transform: scale(0.96);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .app__enlace:hover,
+  .app__nav-inferior-enlace:hover {
+    background-color: color-mix(in srgb, var(--app-superficie-alta) 55%, transparent);
+    color: var(--app-salvia);
+  }
+}
+
+/* La pastilla que se desliza hasta la seccion a la vista, debajo del texto. Es la misma en la barra y en el dock;
+   el movimiento lo da `PastillaDeLaNavegacion` (un resorte, o nada con «reducir movimiento»). */
+.app__pastilla {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: var(--app-superficie-alta);
+}
+
+/* Lo que se lee va por encima de la pastilla. */
+.app__enlace > svg,
+.app__enlace-texto,
+.app__nav-inferior-icono,
+.app__nav-inferior-texto {
+  position: relative;
+}
+
+/* La forma de la barra de arriba: una fila. */
 .app__enlace {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.625rem 1rem;
-  border-radius: 9999px;
-  color: var(--app-tenue);
   font-size: 0.875rem;
-  font-weight: 600;
-  text-decoration: none;
-  transition:
-    color 0.18s,
-    background 0.18s;
-}
-
-.app__enlace--activo {
-  background: var(--app-superficie-alta);
-  color: var(--app-salvia);
-}
-
-/* «Mi diario» se sumo a la barra (SCRUM-249) y la hizo mas ancha. Un enlace nunca se parte en dos
-   lineas, y entre 768 y 1023 px —donde la barra ya lleva la marca, la llama, la conexion, el tema y
-   la cuenta— pierden el icono y se aprietan para no pegarse a la marca ni a las acciones. */
-.app__enlace {
+  /* «Mi diario» se sumo a la barra (SCRUM-249) y la hizo mas ancha: un enlace nunca se parte en dos lineas. */
   white-space: nowrap;
 }
 
+/* Entre 768 y 1023 px la barra ya lleva la marca, la llama, la conexion, el tema y la cuenta: los enlaces pierden
+   el icono y se aprietan para no pegarse a la marca ni a las acciones. */
 @media (min-width: 768px) and (max-width: 1023px) {
   .app__enlace {
     padding-inline: 0.75rem;
@@ -182,13 +222,6 @@
 
   .app__enlace > svg {
     display: none;
-  }
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .app__enlace:hover {
-    background: var(--app-superficie-alta);
-    color: var(--app-salvia);
   }
 }
 
@@ -896,36 +929,13 @@
 }
 
 .app__nav-inferior-enlace {
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.125rem;
   min-width: 4rem;
   padding: 0.5rem 0.75rem;
-  border-radius: 9999px;
-  color: var(--app-tenue);
   font-size: 11px;
-  font-weight: 600;
-  text-decoration: none;
-  transition: color 0.2s;
-}
-
-.app__nav-inferior-enlace--activo {
-  color: var(--app-salvia);
-}
-
-/* La pastilla que se desliza a la seccion a la vista, debajo del icono. */
-.app__nav-inferior-pastilla {
-  position: absolute;
-  inset: 0;
-  border-radius: 9999px;
-  background: var(--app-superficie-alta);
-}
-
-.app__nav-inferior-icono,
-.app__nav-inferior-texto {
-  position: relative;
 }
 
 /* ---------- Bienvenida (SCRUM-90) ---------- */
@@ -2538,6 +2548,12 @@
 
   .sendero__punto--respira::after {
     animation: none;
+  }
+
+  /* Sin «reducir movimiento» se hunden un poco al pulsar; con el, no se mueven (SCRUM-284). */
+  .app__enlace:active,
+  .app__nav-inferior-enlace:active {
+    transform: none;
   }
 }
 
