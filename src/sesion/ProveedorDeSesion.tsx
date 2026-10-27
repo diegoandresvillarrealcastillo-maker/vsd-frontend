@@ -17,6 +17,7 @@ import { olvidarLoVisto } from '../paginas/panel/ruta/useAvanceCelebrable.ts';
 import { RUTAS } from '../rutas/rutas.ts';
 import { alCambiarLaSesion, olvidarLosDatosDeLaSesionActual } from '../sincronizacion/ciclo.ts';
 import { olvidarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
+import { olvidarElRegistroGuardado } from './useRegistroCompleto.ts';
 import { consultarLosTextosVigentes, type TextosVigentes } from '../infraestructura/api/aviso.ts';
 import {
   SesionContexto,
@@ -541,6 +542,7 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     // el historial de lo que su mascota le dijo (SCRUM-142).
     olvidarLaZonaDeLaCuenta();
     olvidarLosArchivosDeLaPersona();
+    olvidarElRegistroGuardado();
     olvidarElDatoGuardado();
     olvidarLaRacha();
     reiniciarLasFrases();

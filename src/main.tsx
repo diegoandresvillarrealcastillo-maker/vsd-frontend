@@ -9,8 +9,11 @@ import { AvisoDeSincronizacion } from './conexion/AvisoDeSincronizacion.tsx';
 import { LimiteDeErrores } from './errores/LimiteDeErrores.tsx';
 import { reportarError } from './errores/reportarError.ts';
 import { despertarElApi } from './infraestructura/api/despertar.ts';
+import { leerLaSesionGuardada } from './infraestructura/supabase/almacenamiento.ts';
+import { alEstarOcioso } from './pwa/alEstarOcioso.ts';
 import { AvisoDeVersionNueva } from './pwa/AvisoDeVersionNueva.tsx';
 import { registrarElServiceWorker } from './pwa/registrarElServiceWorker.ts';
+import { precargarLaPrimeraPantalla } from './rutas/paginas.ts';
 import { ProveedorDeSesion } from './sesion/ProveedorDeSesion.tsx';
 import { iniciarLaSincronizacionAutomatica } from './sincronizacion/estado.ts';
 import { seguirAlSistema } from './tema/tema.ts';
@@ -26,9 +29,17 @@ seguirAlSistema();
 // persona lee la portada o escribe su correo (SCRUM-111).
 despertarElApi();
 
+// La primera pantalla se pide ya, en paralelo con comprobar la sesion, y no despues de saber
+// quien es (SCRUM-283): quien vuelve con la sesion abierta va al panel, quien no, al acceso.
+precargarLaPrimeraPantalla(leerLaSesionGuardada() !== null);
+
 // El service worker guarda la aplicacion para abrirla sin conexion y recibe los
 // avisos (SCRUM-135). Una version nueva se ofrece con un aviso; no se activa sola.
-registrarElServiceWorker(registerSW);
+//
+// Se registra cuando ya hay algo en pantalla y el navegador esta libre (SCRUM-283): al instalarse
+// baja varios megas, y en la primera visita eso competia con el paquete y con las primeras
+// llamadas. Quien ya lo tiene instalado no lo nota: ese lo controla desde antes de registrarlo otra vez.
+alEstarOcioso(() => registrarElServiceWorker(registerSW));
 
 // Lo guardado sin conexion se envia solo: al volver la red, al abrir la aplicacion,
 // al volver a la pestana y de vez en cuando (SCRUM-137).
