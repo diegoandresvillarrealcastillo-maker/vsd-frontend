@@ -450,7 +450,7 @@
   z-index: 60;
   display: flex;
   flex-direction: column;
-  background: var(--app-lienzo, #151c19);
+  background: var(--app-lienzo, #14161a);
 }
 
 .diagrama__barra {
@@ -460,11 +460,11 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--app-borde, #35463b);
+  border-bottom: 1px solid var(--app-borde, #2e333b);
 }
 
 .diagrama__titulo {
-  color: var(--app-tinta, #f0eee5);
+  color: var(--app-tinta, #e8e6e3);
   font-weight: 600;
 }
 
@@ -484,7 +484,7 @@
   z-index: 61;
   margin: 0;
   padding: 0.75rem 1rem;
-  color: var(--app-tinta, #f0eee5);
-  background: var(--app-superficie, #1d2722);
+  color: var(--app-tinta, #e8e6e3);
+  background: var(--app-superficie, #1c1f25);
   border-radius: 10px;
 }
