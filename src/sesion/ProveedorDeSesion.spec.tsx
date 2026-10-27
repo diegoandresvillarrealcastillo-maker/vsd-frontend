@@ -518,6 +518,9 @@ describe('un aviso de autenticacion es una senal, no una sesion (SCRUM-270)', ()
   it('el aviso con la sesion de otra persona no cambia la de esta pestana', async () => {
     pintarQuien();
     await screen.findByText('ana@ejemplo.test');
+    // La llamada inicial llega en un efecto, despues de pintar el correo: con la maquina cargada
+    // se cruzaba con el mockClear y la prueba la tomaba por una llamada del aviso.
+    await esperarAQueLaSesionLlegue();
     vi.mocked(alCambiarLaSesion).mockClear();
 
     // Otra pestana entro como beto; lo que esta pestana tiene guardado sigue siendo de ana.
@@ -592,6 +595,7 @@ describe('un aviso de autenticacion es una senal, no una sesion (SCRUM-270)', ()
     const { unmount } = pintarQuien();
 
     await screen.findByText('ana@ejemplo.test');
+    await esperarAQueLaSesionLlegue();
     vi.mocked(alCambiarLaSesion).mockClear();
 
     const lenta = lecturaLenta();
