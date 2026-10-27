@@ -42,6 +42,35 @@ export function barajar<T>(lista: readonly T[]): T[] {
 }
 
 // ---------------------------------------------------------------------------
+// Cuantas rondas se juegan (SCRUM-288)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lo que mas se juega en una actividad de rondas. Quince eran demasiadas para quien juega: cansan y la
+ * atencion se va. El catalogo no cambia (sigue diciendo doce o quince, que es su **maximo de puntos**): lo
+ * que se recorta es cuantas se juegan, aqui, en un solo sitio para todos los juegos.
+ */
+export const MAXIMO_DE_RONDAS = 7;
+
+/** Las rondas que se juegan de las que declara el catalogo o la sesion. */
+export function rondasAJugar(rondasDelCatalogo: number): number {
+  return Math.min(rondasDelCatalogo, MAXIMO_DE_RONDAS);
+}
+
+/**
+ * El puntaje crudo de un juego en el que «un acierto vale un punto», cuando solo se jugaron `jugadas` de las
+ * rondas que dan el `maximo`. El servidor divide lo que recibe entre el maximo de la actividad para sacar el
+ * nivel: sin reescalar, acertar siete de siete valdria 7/15 y la mejor partida caeria en «seguimiento».
+ */
+export function puntajeSobreElMaximo(aciertos: number, jugadas: number, maximo: number): number {
+  if (jugadas <= 0) {
+    return 0;
+  }
+
+  return Math.min(Math.round((aciertos / jugadas) * maximo * 100) / 100, maximo);
+}
+
+// ---------------------------------------------------------------------------
 // Parejas de cartas
 // ---------------------------------------------------------------------------
 

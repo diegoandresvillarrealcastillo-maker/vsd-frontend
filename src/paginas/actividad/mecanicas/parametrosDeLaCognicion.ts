@@ -1,3 +1,4 @@
+import { MAXIMO_DE_RONDAS } from './cognicion.ts';
 import { esEntero, esObjeto, esTexto } from './parametrosDeLaSesion.ts';
 
 /**
@@ -10,6 +11,10 @@ import { esEntero, esObjeto, esTexto } from './parametrosDeLaSesion.ts';
  * necesita la sesion de hoy en lugar de pintarse a medias. **Tolera lo que sobra** y devuelve **copias**.
  *
  * Son pantallas de una sesion: no tienen respaldo, porque lo que se juega sale entero de la sesion.
+ *
+ * **Se juegan hasta siete rondas** (SCRUM-288, `MAXIMO_DE_RONDAS`): los lectores de los juegos de rondas
+ * (`intruso`, `calculo`, las preguntas de la escena y las palabras) se quedan con las siete primeras. El
+ * puntaje de esas pantallas es la proporcion de aciertos por `puntosMaximos`, asi que el maximo no cambia.
  */
 
 const claveDe = (valor: unknown): valor is string => esTexto(valor);
@@ -308,7 +313,7 @@ export function leerLaEscena(parametros: unknown): ParametrosDeEscena | null {
     filas,
     columnas,
     celdas,
-    preguntas,
+    preguntas: preguntas.slice(0, MAXIMO_DE_RONDAS),
     puntosMaximos: parametros.puntosMaximos,
   };
 }
@@ -351,7 +356,7 @@ export function leerIntruso(parametros: unknown): ParametrosDeIntruso | null {
     return null;
   }
 
-  return { rondas, puntosMaximos: parametros.puntosMaximos };
+  return { rondas: rondas.slice(0, MAXIMO_DE_RONDAS), puntosMaximos: parametros.puntosMaximos };
 }
 
 // ---------------------------------------------------------------------------
@@ -512,7 +517,11 @@ export function leerLasPalabras(parametros: unknown): ParametrosDePalabras | nul
     return null;
   }
 
-  return { modo, palabras, puntosMaximos: parametros.puntosMaximos };
+  return {
+    modo,
+    palabras: palabras.slice(0, MAXIMO_DE_RONDAS),
+    puntosMaximos: parametros.puntosMaximos,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -551,5 +560,5 @@ export function leerElCalculo(parametros: unknown): ParametrosDeCalculo | null {
     return null;
   }
 
-  return { rondas, puntosMaximos: parametros.puntosMaximos };
+  return { rondas: rondas.slice(0, MAXIMO_DE_RONDAS), puntosMaximos: parametros.puntosMaximos };
 }

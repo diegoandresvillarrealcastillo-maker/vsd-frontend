@@ -121,9 +121,9 @@ describe('sin una sesion que entienda', () => {
 
 describe('la presentacion', () => {
   it('explica la tarea y las rondas de la sesion, y espera a que se empiece', () => {
-    pintar({ ...NORMAL, rondas: 8 });
+    pintar({ ...NORMAL, rondas: 5 });
 
-    expect(screen.getByText(/Son 8 rondas/)).toBeInTheDocument();
+    expect(screen.getByText(/Son 5 rondas/)).toBeInTheDocument();
     expect(screen.getByText(/una casilla más/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Empezar/ })).toBeInTheDocument();
     expect(screen.queryByRole('group', { name: 'Casillas' })).not.toBeInTheDocument();
@@ -498,6 +498,33 @@ describe('las rondas', () => {
       { largo: 3, acerto: true },
       { largo: 4, acerto: false },
     ]);
+  });
+
+  it('con mas de siete rondas en la sesion, se juegan siete y el puntaje se reescala al maximo', async () => {
+    // Siete rondas todas acertadas, con la secuencia alargandose de a una: tres, cuatro... nueve.
+    secuencias(...Array.from({ length: 7 }, (_, i) => Array.from({ length: 3 + i }, () => 0)));
+    pintar({ ...NORMAL, rondas: 12 });
+    await empezar();
+
+    expect(screen.getByText('Ronda 1 de 7')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '7');
+
+    for (let ronda = 1; ronda <= 7; ronda++) {
+      verLaSecuencia(2 + ronda);
+
+      for (let toque = 0; toque < 2 + ronda; toque++) {
+        await usuario.click(casilla('círculo verde'));
+      }
+
+      await usuario.click(
+        screen.getByRole('button', { name: ronda < 7 ? /Siguiente ronda/ : 'Terminar' }),
+      );
+    }
+
+    expect(alTerminar).toHaveBeenCalledTimes(1);
+
+    // Siete de siete en una actividad de doce puntos vale doce, no siete.
+    expect(alTerminar.mock.calls[0]?.[0]).toMatchObject({ score: 12, metadata: { aciertos: 7 } });
   });
 
   it('al cerrarse la ronda, el foco va al boton de seguir', async () => {
