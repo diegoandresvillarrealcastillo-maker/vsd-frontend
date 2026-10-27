@@ -189,8 +189,8 @@ export function paginaNoEncontrada() {
       p { margin: 0 0 20px; }
       a { color: #2f6b55; font-weight: 600; text-underline-offset: 3px; }
       @media (prefers-color-scheme: dark) {
-        body { background: #151c19; color: #f0eee5; }
-        a { color: #a5cbb2; }
+        body { background: #14161a; color: #e8e6e3; }
+        a { color: #94d2c1; }
       }
     </style>
   </head>

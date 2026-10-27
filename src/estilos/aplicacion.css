@@ -7,41 +7,48 @@
  * eso es lo que garantiza que la portada, el acceso y el registro no cambian:
  * los tokens de Figma no existen fuera de este bloque.
  *
- * El diseño de Figma es oscuro, y es el tema oscuro. El claro (SCRUM-112) usa
- * los mismos tokens con valores de la paleta de la portada, crema y verde:
+ * El diseño de Figma es oscuro, y es el tema oscuro, con los colores de la
+ * portada (SCRUM-286). El claro (SCRUM-112) usa los mismos tokens con valores
+ * de la paleta de la portada, crema y verde:
  * ningun componente sabe en que tema esta, solo lee `--app-*`. Al tocar un
  * color, hay que tocarlo en los dos bloques.
  */
 
 /* Los tokens tambien los lee la pantalla de una actividad (SCRUM-173), que no cuelga de `.app`
    pero tiene que verse con la misma paleta, en claro y en oscuro. Solo los tokens: el aspecto de
-   pagina de abajo sigue siendo de `.app`. */
+   pagina de abajo sigue siendo de `.app`.
+
+   La paleta oscura es la de la portada (`:root[data-tema='oscuro']` de global.css), no una propia
+   (SCRUM-286): lienzo, superficies, borde, tinta y acento valen lo mismo dentro y fuera de la
+   cuenta. No se enlazan con `var()` porque `viva.css` redefine `--fondo` dentro de `.actividad`,
+   y un token que se apunta a si mismo queda invalido; `paletaUnificada.spec.ts` vigila que sigan
+   siendo iguales. */
 .app,
 .actividad {
-  --app-lienzo: #151c19;
-  --app-superficie: #1d2722;
-  --app-superficie-alta: #25322b;
-  --app-borde: #35463b;
-  --app-tinta: #f0eee5;
-  --app-tenue: #a8b8ad;
-  --app-salvia: #a5cbb2;
-  --app-primario: #87b89b;
-  --app-sobre-primario: #15271d;
-  --app-bienestar: #263f32;
-  --app-bienestar-acento: #a2d9b6;
-  --app-cognicion: #2c3249;
-  --app-cognicion-acento: #bbc6f1;
-  --app-emociones: #44312d;
-  --app-emociones-acento: #eeb9a7;
+  --app-lienzo: #14161a;
+  --app-superficie: #1c1f25;
+  --app-superficie-alta: #23272e;
+  --app-borde: #2e333b;
+  --app-tinta: #e8e6e3;
+  --app-tenue: #9aa1ab;
+  --app-salvia: #94d2c1;
+  --app-primario: #7fc3b1;
+  --app-sobre-primario: #10221e;
+  --app-bienestar: #1f3b35;
+  --app-bienestar-acento: #94d2c1;
+  --app-cognicion: #1e2836;
+  --app-cognicion-acento: #8fb3e0;
+  --app-emociones: #3a2422;
+  --app-emociones-acento: #e8897a;
   --app-avatar: #493b2e;
   --app-avatar-tinta: #e7c9a5;
-  --app-descanso: #2c493a;
+  --app-descanso: #25443c;
 
   /* Capas sobre fondos de color: los adornos y el icono de la tarjeta
      recomendada, las cifras de los modulos y los carriles de progreso. */
   --app-trazo-sobre: rgb(255 255 255 / 0.1);
   --app-capa-sobre: rgb(255 255 255 / 0.12);
-  --app-tinta-suave: rgb(240 238 229 / 0.82);
+  --app-tinta-suave: rgb(232 230 227 / 0.82);
   --app-hundido: rgb(0 0 0 / 0.15);
   --app-carril: rgb(0 0 0 / 0.2);
 
