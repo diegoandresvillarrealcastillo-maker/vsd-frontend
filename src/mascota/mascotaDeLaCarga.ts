@@ -20,10 +20,6 @@ import { PERSONAJE_POR_DEFECTO, PERSONAJES_EN_ORDEN, type Personaje } from './pe
  */
 export const CLAVE_DE_LA_MASCOTA_DE_LA_CARGA = 'vsd.mascota';
 
-function esPersonaje(valor: string | null | undefined): valor is Personaje {
-  return PERSONAJES_EN_ORDEN.some((personaje) => personaje === valor);
-}
-
 /** Pone la mascota en el elemento raiz, donde la leen las reglas de estilo de la pantalla de carga. */
 function ponerEnElDocumento(personaje: Personaje): void {
   document.documentElement.dataset.mascota = personaje;
@@ -31,7 +27,10 @@ function ponerEnElDocumento(personaje: Personaje): void {
 
 /** Llega la cuenta: se recuerda su mascota para la proxima vez que se abra la aplicacion. */
 export function recordarLaMascotaDeLaCarga(forma: string | undefined): void {
-  const personaje = esPersonaje(forma) ? forma : PERSONAJE_POR_DEFECTO;
+  // Lo que se guarda sale de la lista nuestra, nunca de lo que llego: asi el almacenamiento no puede
+  // recibir otra cosa que una de las cinco formas.
+  const personaje =
+    PERSONAJES_EN_ORDEN.find((conocido) => conocido === forma) ?? PERSONAJE_POR_DEFECTO;
 
   ponerEnElDocumento(personaje);
 
