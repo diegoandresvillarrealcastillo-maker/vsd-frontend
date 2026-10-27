@@ -7,41 +7,48 @@
  * eso es lo que garantiza que la portada, el acceso y el registro no cambian:
  * los tokens de Figma no existen fuera de este bloque.
  *
- * El diseño de Figma es oscuro, y es el tema oscuro. El claro (SCRUM-112) usa
- * los mismos tokens con valores de la paleta de la portada, crema y verde:
+ * El diseño de Figma es oscuro, y es el tema oscuro, con los colores de la
+ * portada (SCRUM-286). El claro (SCRUM-112) usa los mismos tokens con valores
+ * de la paleta de la portada, crema y verde:
  * ningun componente sabe en que tema esta, solo lee `--app-*`. Al tocar un
  * color, hay que tocarlo en los dos bloques.
  */
 
 /* Los tokens tambien los lee la pantalla de una actividad (SCRUM-173), que no cuelga de `.app`
    pero tiene que verse con la misma paleta, en claro y en oscuro. Solo los tokens: el aspecto de
-   pagina de abajo sigue siendo de `.app`. */
+   pagina de abajo sigue siendo de `.app`.
+
+   La paleta oscura es la de la portada (`:root[data-tema='oscuro']` de global.css), no una propia
+   (SCRUM-286): lienzo, superficies, borde, tinta y acento valen lo mismo dentro y fuera de la
+   cuenta. No se enlazan con `var()` porque `viva.css` redefine `--fondo` dentro de `.actividad`,
+   y un token que se apunta a si mismo queda invalido; `paletaUnificada.spec.ts` vigila que sigan
+   siendo iguales. */
 .app,
 .actividad {
-  --app-lienzo: #151c19;
-  --app-superficie: #1d2722;
-  --app-superficie-alta: #25322b;
-  --app-borde: #35463b;
-  --app-tinta: #f0eee5;
-  --app-tenue: #a8b8ad;
-  --app-salvia: #a5cbb2;
-  --app-primario: #87b89b;
-  --app-sobre-primario: #15271d;
-  --app-bienestar: #263f32;
-  --app-bienestar-acento: #a2d9b6;
-  --app-cognicion: #2c3249;
-  --app-cognicion-acento: #bbc6f1;
-  --app-emociones: #44312d;
-  --app-emociones-acento: #eeb9a7;
+  --app-lienzo: #14161a;
+  --app-superficie: #1c1f25;
+  --app-superficie-alta: #23272e;
+  --app-borde: #2e333b;
+  --app-tinta: #e8e6e3;
+  --app-tenue: #9aa1ab;
+  --app-salvia: #94d2c1;
+  --app-primario: #7fc3b1;
+  --app-sobre-primario: #10221e;
+  --app-bienestar: #1f3b35;
+  --app-bienestar-acento: #94d2c1;
+  --app-cognicion: #1e2836;
+  --app-cognicion-acento: #8fb3e0;
+  --app-emociones: #3a2422;
+  --app-emociones-acento: #e8897a;
   --app-avatar: #493b2e;
   --app-avatar-tinta: #e7c9a5;
-  --app-descanso: #2c493a;
+  --app-descanso: #25443c;
 
   /* Capas sobre fondos de color: los adornos y el icono de la tarjeta
      recomendada, las cifras de los modulos y los carriles de progreso. */
   --app-trazo-sobre: rgb(255 255 255 / 0.1);
   --app-capa-sobre: rgb(255 255 255 / 0.12);
-  --app-tinta-suave: rgb(240 238 229 / 0.82);
+  --app-tinta-suave: rgb(232 230 227 / 0.82);
   --app-hundido: rgb(0 0 0 / 0.15);
   --app-carril: rgb(0 0 0 / 0.2);
 
@@ -148,33 +155,73 @@
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
 }
 
+/* Los enlaces de la navegacion: la barra de arriba y el dock del movil son dos piezas porque el espacio no es el
+   mismo, pero se sienten como una sola (SCRUM-284). Todo lo que se siente se escribe una vez, con los dos
+   selectores juntos (`barraDeNavegacion.spec.ts` vigila que no se separen): el color de reposo, el de la seccion
+   a la vista, el hundirse un poco al pulsar, el pasar el raton y la pastilla que se desliza. Lo que sigue abajo
+   de cada uno es solo su forma (uno es una fila; el otro, un icono sobre su texto). */
+.app__enlace,
+.app__nav-inferior-enlace {
+  position: relative;
+  border-radius: 9999px;
+  color: var(--app-tenue);
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    color 0.2s,
+    background-color 0.2s,
+    transform 0.14s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.app__enlace--activo,
+.app__nav-inferior-enlace--activo {
+  color: var(--app-salvia);
+}
+
+/* Al pulsar se hunde un poco: el aviso de que el toque llego, con el dedo y con el raton. */
+.app__enlace:active,
+.app__nav-inferior-enlace:active {
+  transform: scale(0.96);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .app__enlace:hover,
+  .app__nav-inferior-enlace:hover {
+    background-color: color-mix(in srgb, var(--app-superficie-alta) 55%, transparent);
+    color: var(--app-salvia);
+  }
+}
+
+/* La pastilla que se desliza hasta la seccion a la vista, debajo del texto. Es la misma en la barra y en el dock;
+   el movimiento lo da `PastillaDeLaNavegacion` (un resorte, o nada con «reducir movimiento»). */
+.app__pastilla {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: var(--app-superficie-alta);
+}
+
+/* Lo que se lee va por encima de la pastilla. */
+.app__enlace > svg,
+.app__enlace-texto,
+.app__nav-inferior-icono,
+.app__nav-inferior-texto {
+  position: relative;
+}
+
+/* La forma de la barra de arriba: una fila. */
 .app__enlace {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.625rem 1rem;
-  border-radius: 9999px;
-  color: var(--app-tenue);
   font-size: 0.875rem;
-  font-weight: 600;
-  text-decoration: none;
-  transition:
-    color 0.18s,
-    background 0.18s;
-}
-
-.app__enlace--activo {
-  background: var(--app-superficie-alta);
-  color: var(--app-salvia);
-}
-
-/* «Mi diario» se sumo a la barra (SCRUM-249) y la hizo mas ancha. Un enlace nunca se parte en dos
-   lineas, y entre 768 y 1023 px —donde la barra ya lleva la marca, la llama, la conexion, el tema y
-   la cuenta— pierden el icono y se aprietan para no pegarse a la marca ni a las acciones. */
-.app__enlace {
+  /* «Mi diario» se sumo a la barra (SCRUM-249) y la hizo mas ancha: un enlace nunca se parte en dos lineas. */
   white-space: nowrap;
 }
 
+/* Entre 768 y 1023 px la barra ya lleva la marca, la llama, la conexion, el tema y la cuenta: los enlaces pierden
+   el icono y se aprietan para no pegarse a la marca ni a las acciones. */
 @media (min-width: 768px) and (max-width: 1023px) {
   .app__enlace {
     padding-inline: 0.75rem;
@@ -182,13 +229,6 @@
 
   .app__enlace > svg {
     display: none;
-  }
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .app__enlace:hover {
-    background: var(--app-superficie-alta);
-    color: var(--app-salvia);
   }
 }
 
@@ -896,36 +936,13 @@
 }
 
 .app__nav-inferior-enlace {
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.125rem;
   min-width: 4rem;
   padding: 0.5rem 0.75rem;
-  border-radius: 9999px;
-  color: var(--app-tenue);
   font-size: 11px;
-  font-weight: 600;
-  text-decoration: none;
-  transition: color 0.2s;
-}
-
-.app__nav-inferior-enlace--activo {
-  color: var(--app-salvia);
-}
-
-/* La pastilla que se desliza a la seccion a la vista, debajo del icono. */
-.app__nav-inferior-pastilla {
-  position: absolute;
-  inset: 0;
-  border-radius: 9999px;
-  background: var(--app-superficie-alta);
-}
-
-.app__nav-inferior-icono,
-.app__nav-inferior-texto {
-  position: relative;
 }
 
 /* ---------- Bienvenida (SCRUM-90) ---------- */
@@ -2538,6 +2555,12 @@
 
   .sendero__punto--respira::after {
     animation: none;
+  }
+
+  /* Sin «reducir movimiento» se hunden un poco al pulsar; con el, no se mueven (SCRUM-284). */
+  .app__enlace:active,
+  .app__nav-inferior-enlace:active {
+    transform: none;
   }
 }
 

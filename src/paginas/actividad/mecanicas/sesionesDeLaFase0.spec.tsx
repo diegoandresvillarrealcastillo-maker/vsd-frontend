@@ -284,7 +284,8 @@ describe('Secuencia de números', () => {
     );
 
     expect(conSesion).toEqual(sinSesion);
-    expect(conSesion.texto).toContain('Son 12 rondas');
+    // El catalogo dice doce, y se juegan siete (SCRUM-288).
+    expect(conSesion.texto).toContain('Son 7 rondas');
   });
 
   it('con otra sesion dice sus rondas', () => {
@@ -292,12 +293,25 @@ describe('Secuencia de números', () => {
       <Pantalla
         alTerminar={alTerminar}
         enviando={false}
-        sesion={sesionDe({ ...SECUENCIA_FASE_0, rondas: 8 })}
+        sesion={sesionDe({ ...SECUENCIA_FASE_0, rondas: 5 })}
       />,
     );
 
-    expect(screen.getByText(/Son 8 rondas/)).toBeInTheDocument();
-    expect(screen.queryByText(/Son 12 rondas/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Son 5 rondas/)).toBeInTheDocument();
+    expect(screen.queryByText(/Son 7 rondas/)).not.toBeInTheDocument();
+  });
+
+  it('con una sesion de mas de siete rondas, solo se juegan siete', () => {
+    render(
+      <Pantalla
+        alTerminar={alTerminar}
+        enviando={false}
+        sesion={sesionDe({ ...SECUENCIA_FASE_0, rondas: 30 })}
+      />,
+    );
+
+    expect(screen.getByText(/Son 7 rondas/)).toBeInTheDocument();
+    expect(screen.queryByText(/Son 30 rondas/)).not.toBeInTheDocument();
   });
 
   it('empieza con el largo inicial de la sesion', async () => {
@@ -427,7 +441,7 @@ describe('Secuencia de números', () => {
     );
 
     expect(conSesionRara).toEqual(sinSesion);
-    expect(conSesionRara.texto).toContain('Son 12 rondas');
+    expect(conSesionRara.texto).toContain('Son 7 rondas');
   });
 });
 
@@ -447,8 +461,9 @@ describe('Encuentra la diferencia', () => {
     );
 
     expect(conSesion).toEqual(sinSesion);
+    // El catalogo dice quince, y se juegan siete (SCRUM-288): ya no se reparten parejo entre los tres tamanos.
     expect(conSesion.texto).toContain(
-      'Son 15 rondas de 15 segundos, y el tablero crece cada cinco.',
+      'Son 7 rondas de 15 segundos, y el tablero crece poco a poco.',
     );
   });
 

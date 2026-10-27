@@ -1,36 +1,32 @@
 import { AnimatePresence } from 'framer-motion';
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import { BannerDeAnalitica } from './analitica/BannerDeAnalitica.tsx';
+import { PantallaDeCarga } from './componentes/PantallaDeCarga.tsx';
 import { SaltoAlContenido } from './componentes/SaltoAlContenido.tsx';
 import { LimiteDeErrores } from './errores/LimiteDeErrores.tsx';
-import { Actividad } from './paginas/actividad/Actividad.tsx';
-import { Panel } from './paginas/panel/Panel.tsx';
-import { Perfil } from './paginas/perfil/Perfil.tsx';
-import { Sendero } from './paginas/sendero/Sendero.tsx';
-import { Acceso } from './paginas/autenticacion/Acceso.tsx';
-import { ActualizamosNuestrosTextos } from './paginas/autenticacion/ActualizamosNuestrosTextos.tsx';
-import { CompletarRegistro } from './paginas/autenticacion/CompletarRegistro.tsx';
-import { ContrasenaNueva } from './paginas/autenticacion/ContrasenaNueva.tsx';
-import { Recuperar } from './paginas/autenticacion/Recuperar.tsx';
-import { Registro } from './paginas/autenticacion/Registro.tsx';
-import { SoloMayores } from './paginas/autenticacion/SoloMayores.tsx';
-import { Cookies } from './paginas/legal/Cookies.tsx';
-import { Privacidad } from './paginas/legal/Privacidad.tsx';
-import { Terminos } from './paginas/legal/Terminos.tsx';
 import { Portada } from './paginas/portada/Portada.tsx';
+import {
+  Acceso,
+  Actividad,
+  ActualizamosNuestrosTextos,
+  CompletarRegistro,
+  ContrasenaNueva,
+  Cookies,
+  Diario,
+  Panel,
+  Perfil,
+  Privacidad,
+  Recuperar,
+  Registro,
+  Sendero,
+  SoloMayores,
+  Terminos,
+} from './rutas/paginas.ts';
 import { RutaDeInvitado } from './rutas/RutaDeInvitado.tsx';
 import { RutaProtegida } from './rutas/RutaProtegida.tsx';
 import { RUTAS } from './rutas/rutas.ts';
-
-/**
- * El diario se carga aparte (SCRUM-96): su editor pesa, y quien no lo abre no
- * tiene por que descargarlo.
- */
-const Diario = lazy(() =>
-  import('./paginas/diario/Diario.tsx').then((modulo) => ({ default: modulo.Diario })),
-);
 
 /**
  * El mapa de la aplicacion.
@@ -61,6 +57,15 @@ const Diario = lazy(() =>
  * verdad protege son el token que la API verifica y las politicas de
  * aislamiento de la base.
  *
+ * ---------------------------------------------------------------------------
+ * Cada pantalla se baja cuando se necesita (SCRUM-283)
+ * ---------------------------------------------------------------------------
+ *
+ * Solo la portada va en el paquete principal; las demas estan en `rutas/paginas.ts`. Mientras
+ * llega la primera, `Suspense` muestra la misma pantalla de carga que el `index.html` pinto al abrir,
+ * asi que no hay un salto entre una y otra. Al navegar despues, `react-router` conserva la pantalla de
+ * antes hasta que la nueva esta lista (la transicion no enseña el respaldo).
+ *
  * `AnimatePresence` con la ubicacion como clave es lo que permite que la
  * tarjeta de acceso se transforme entre las pantallas de autenticacion en vez
  * de desaparecer y volver: sin el, React desmonta la ruta vieja antes de que
@@ -84,124 +89,118 @@ export function App() {
           (SCRUM-156): sale la pantalla de error con una salida y las lineas de
           atencion, y navegar a otra ruta la quita sola. */}
       <LimiteDeErrores origen="ruta" restablecerCon={ubicacion.pathname}>
-        <AnimatePresence mode="popLayout" initial={false}>
-          <Routes location={ubicacion} key={ubicacion.pathname}>
-            {/* ---------- Publicas ---------- */}
-            <Route path={RUTAS.INICIO} element={<Portada />} />
-            <Route path={RUTAS.PRIVACIDAD} element={<Privacidad />} />
-            <Route path={RUTAS.TERMINOS} element={<Terminos />} />
-            <Route path={RUTAS.COOKIES} element={<Cookies />} />
+        <Suspense fallback={<PantallaDeCarga mensaje="Preparando tu espacio…" />}>
+          <AnimatePresence mode="popLayout" initial={false}>
+            <Routes location={ubicacion} key={ubicacion.pathname}>
+              {/* ---------- Publicas ---------- */}
+              <Route path={RUTAS.INICIO} element={<Portada />} />
+              <Route path={RUTAS.PRIVACIDAD} element={<Privacidad />} />
+              <Route path={RUTAS.TERMINOS} element={<Terminos />} />
+              <Route path={RUTAS.COOKIES} element={<Cookies />} />
 
-            {/* ---------- Solo sin sesion ---------- */}
-            <Route
-              path={RUTAS.ACCESO}
-              element={
-                <RutaDeInvitado>
-                  <Acceso />
-                </RutaDeInvitado>
-              }
-            />
-            <Route
-              path={RUTAS.REGISTRO}
-              element={
-                <RutaDeInvitado>
-                  <Registro />
-                </RutaDeInvitado>
-              }
-            />
-            <Route
-              path={RUTAS.RECUPERAR}
-              element={
-                <RutaDeInvitado>
-                  <Recuperar />
-                </RutaDeInvitado>
-              }
-            />
+              {/* ---------- Solo sin sesion ---------- */}
+              <Route
+                path={RUTAS.ACCESO}
+                element={
+                  <RutaDeInvitado>
+                    <Acceso />
+                  </RutaDeInvitado>
+                }
+              />
+              <Route
+                path={RUTAS.REGISTRO}
+                element={
+                  <RutaDeInvitado>
+                    <Registro />
+                  </RutaDeInvitado>
+                }
+              />
+              <Route
+                path={RUTAS.RECUPERAR}
+                element={
+                  <RutaDeInvitado>
+                    <Recuperar />
+                  </RutaDeInvitado>
+                }
+              />
 
-            {/* Se guarda sola: ver la nota de arriba. */}
-            <Route path={RUTAS.CONTRASENA_NUEVA} element={<ContrasenaNueva />} />
+              {/* Se guarda sola: ver la nota de arriba. */}
+              <Route path={RUTAS.CONTRASENA_NUEVA} element={<ContrasenaNueva />} />
 
-            {/* Lo que ve quien resulta menor de 18 anos. Publica: se llega despues
+              {/* Lo que ve quien resulta menor de 18 anos. Publica: se llega despues
               de cerrar la sesion, y no pide ni guarda nada. */}
-            <Route path={RUTAS.SOLO_MAYORES} element={<SoloMayores />} />
+              <Route path={RUTAS.SOLO_MAYORES} element={<SoloMayores />} />
 
-            {/* Pide sesion pero no el registro completo: es justo lo que hace. */}
-            <Route
-              path={RUTAS.COMPLETAR_REGISTRO}
-              element={
-                <RutaProtegida sinRegistro>
-                  <CompletarRegistro />
-                </RutaProtegida>
-              }
-            />
+              {/* Pide sesion pero no el registro completo: es justo lo que hace. */}
+              <Route
+                path={RUTAS.COMPLETAR_REGISTRO}
+                element={
+                  <RutaProtegida sinRegistro>
+                    <CompletarRegistro />
+                  </RutaProtegida>
+                }
+              />
 
-            {/* Pide sesion pero no el registro completo: es donde se vuelve a aceptar el aviso o los
+              {/* Pide sesion pero no el registro completo: es donde se vuelve a aceptar el aviso o los
               terminos cuando cambian (SCRUM-237), asi que no puede exigir estar al dia. */}
-            <Route
-              path={RUTAS.ACTUALIZAMOS_TEXTOS}
-              element={
-                <RutaProtegida sinRegistro>
-                  <ActualizamosNuestrosTextos />
-                </RutaProtegida>
-              }
-            />
+              <Route
+                path={RUTAS.ACTUALIZAMOS_TEXTOS}
+                element={
+                  <RutaProtegida sinRegistro>
+                    <ActualizamosNuestrosTextos />
+                  </RutaProtegida>
+                }
+              />
 
-            {/* ---------- Protegidas ---------- */}
-            <Route
-              path={RUTAS.PANEL}
-              element={
-                <RutaProtegida>
-                  <Panel />
-                </RutaProtegida>
-              }
-            />
-            <Route
-              path={RUTAS.PERFIL}
-              element={
-                <RutaProtegida>
-                  <Perfil />
-                </RutaProtegida>
-              }
-            />
-            <Route
-              path={RUTAS.DIARIO}
-              element={
-                <RutaProtegida>
-                  <Suspense
-                    fallback={
-                      <p className="solo-lectores" role="status">
-                        Cargando tu diario…
-                      </p>
-                    }
-                  >
+              {/* ---------- Protegidas ---------- */}
+              <Route
+                path={RUTAS.PANEL}
+                element={
+                  <RutaProtegida>
+                    <Panel />
+                  </RutaProtegida>
+                }
+              />
+              <Route
+                path={RUTAS.PERFIL}
+                element={
+                  <RutaProtegida>
+                    <Perfil />
+                  </RutaProtegida>
+                }
+              />
+              <Route
+                path={RUTAS.DIARIO}
+                element={
+                  <RutaProtegida>
                     <Diario />
-                  </Suspense>
-                </RutaProtegida>
-              }
-            />
-            <Route
-              path={RUTAS.MODULO}
-              element={
-                <RutaProtegida>
-                  <Sendero />
-                </RutaProtegida>
-              }
-            />
-            <Route
-              path={RUTAS.ACTIVIDAD}
-              element={
-                <RutaProtegida>
-                  <Actividad />
-                </RutaProtegida>
-              }
-            />
+                  </RutaProtegida>
+                }
+              />
+              <Route
+                path={RUTAS.MODULO}
+                element={
+                  <RutaProtegida>
+                    <Sendero />
+                  </RutaProtegida>
+                }
+              />
+              <Route
+                path={RUTAS.ACTIVIDAD}
+                element={
+                  <RutaProtegida>
+                    <Actividad />
+                  </RutaProtegida>
+                }
+              />
 
-            {/* Una direccion que no existe no merece una pantalla de error: se
+              {/* Una direccion que no existe no merece una pantalla de error: se
               vuelve a la portada, que es lo que la persona queria de todos
               modos. */}
-            <Route path="*" element={<Navigate to={RUTAS.INICIO} replace />} />
-          </Routes>
-        </AnimatePresence>
+              <Route path="*" element={<Navigate to={RUTAS.INICIO} replace />} />
+            </Routes>
+          </AnimatePresence>
+        </Suspense>
       </LimiteDeErrores>
     </>
   );

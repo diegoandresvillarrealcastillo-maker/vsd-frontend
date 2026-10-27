@@ -385,14 +385,28 @@ textarea:focus-visible,
   width: auto;
 }
 
-/* El logo tiene las letras blancas con perfil verde. Sobre el lienzo claro se
-   apoya en ese perfil y pierde cuerpo, sobre todo la palabra "Health". Esta
-   sombra le devuelve el borde.
-   Es un parche: lo que corresponde es una version del logo con las letras
-   oscuras para tema claro. Un logotipo esta exento del minimo de contraste de
-   la WCAG, asi que esto es legibilidad, no accesibilidad. */
-:root[data-tema='claro'] .logo__imagen {
-  filter: drop-shadow(0 1px 1.5px rgb(31 35 40 / 30%));
+/* El logo completo (SCRUM-287) es para los sitios amplios; en cada uno, su CSS le da la medida. */
+.logo__imagen--completo {
+  height: 112px;
+}
+
+/* El nombre escrito junto al loto (`conNombre`): el mismo trazo de los titulos de la portada. */
+.logo__nombre {
+  margin-left: 10px;
+  color: inherit;
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  white-space: nowrap;
+}
+
+/* El logo y el loto son de tonos claros, pensados para un lienzo oscuro. Sobre el crema del
+   tema claro se pierden, sobre todo las letras finas de "HEALTH". Oscurecerlos con un filtro da
+   el mismo dibujo en verdes profundos sin llevar un segundo archivo por tema. Un logotipo esta
+   exento del minimo de contraste de la WCAG, asi que esto es legibilidad, no accesibilidad. */
+:root[data-tema='claro'] .logo__imagen,
+:root[data-tema='claro'] .isotipo {
+  filter: brightness(0.62) saturate(1.15);
 }
 
 /* ============================================================

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 
-import { EstadoDeCarga } from '../componentes/EstadoDeCarga.tsx';
+import { PantallaDeCarga } from '../componentes/PantallaDeCarga.tsx';
 import { useRegistroCompleto } from '../sesion/useRegistroCompleto.ts';
 import { useSesion } from '../sesion/useSesion.ts';
 import { RUTAS } from './rutas.ts';
@@ -50,8 +50,10 @@ export function RutaProtegida({ children, sinRegistro = false }: Props) {
 
   if (cargando) {
     // Todavia no se sabe si hay sesion. Redirigir ahora expulsaria a quien si
-    // la tiene, cada vez que recarga la pagina.
-    return <EstadoDeCarga mensaje="Comprobando la sesión" tarjetas={1} tardio />;
+    // la tiene, cada vez que recarga la pagina. Se ve de inmediato (SCRUM-283): es
+    // la misma pantalla de carga que el `index.html` ya puso al abrir, asi que no
+    // parpadea, y esperar a que se vea dejaba la pantalla en blanco.
+    return <PantallaDeCarga mensaje="Comprobando la sesión" />;
   }
 
   if (!sesion) {
@@ -63,7 +65,7 @@ export function RutaProtegida({ children, sinRegistro = false }: Props) {
 
   if (!sinRegistro) {
     if (registro === 'comprobando') {
-      return <EstadoDeCarga mensaje="Comprobando tu registro" tarjetas={1} tardio />;
+      return <PantallaDeCarga mensaje="Comprobando tu registro" tardio />;
     }
 
     if (registro === 'pendiente') {

@@ -101,7 +101,7 @@ export function PaginaLegal({ ruta, titulo, entradilla, version, secciones }: Pr
   return (
     <div className="legal">
       <header className="legal__cabecera">
-        <Logo className="legal__marca" />
+        <Logo variante="loto" className="legal__marca" />
 
         {/* El selector va aqui y no flotando, como en la portada: es una pagina
             de lectura, y un control fijo en la esquina se queda encima del

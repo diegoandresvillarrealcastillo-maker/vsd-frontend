@@ -15,6 +15,8 @@ import {
   generarTablero,
   ladoDeLaRondaSegun,
   marcaDeTiempo,
+  puntajeSobreElMaximo,
+  rondasAJugar,
   segundosDesde,
   SIMBOLOS_DE_DIFERENCIA as SIMBOLOS,
   type Tablero,
@@ -26,10 +28,11 @@ import type { PropsDeMecanica } from './registro.tsx';
  * "Encuentra la diferencia": dos tableros casi iguales; hay que tocar la
  * casilla que cambio, contra reloj (SCRUM-84).
  *
- * Son quince rondas de quince segundos. El tablero crece cada cinco: 3×3, 4×4
- * y 5×5. El puntaje crudo es el numero de diferencias encontradas a tiempo,
- * sobre quince. Tocar una casilla equivocada cierra la ronda como fallo: si no,
- * se podria encontrar la diferencia tocando todas.
+ * Son siete rondas de quince segundos (SCRUM-288: el catalogo dice quince, y se juegan siete). El
+ * tablero crece a lo largo de ellas: 3×3, 4×4 y 5×5. El puntaje crudo es el numero de diferencias
+ * encontradas a tiempo, reescalado a los quince del catalogo (`puntajeSobreElMaximo`). Tocar una
+ * casilla equivocada cierra la ronda como fallo: si no, se podria encontrar la diferencia tocando
+ * todas.
  *
  * Las casillas del segundo tablero son botones, asi que se juega con teclado,
  * y cada una dice que simbolo tiene: un lector de pantalla puede comparar los
@@ -91,9 +94,9 @@ const PALABRAS_DE_CANTIDAD: Readonly<Record<number, string>> = {
 };
 
 /**
- * Lo que la presentacion dice del tamano del tablero: «, y el tablero crece cada cinco» con las
- * reglas de siempre (quince rondas y tres tamanos). Con un solo tamano no hay nada que decir, y si
- * las rondas no se reparten parejo entre los tamanos, solo que va creciendo.
+ * Lo que la presentacion dice del tamano del tablero: «, y el tablero crece cada cinco» cuando las
+ * rondas se reparten parejo entre los tamanos. Con un solo tamano no hay nada que decir, y si no se
+ * reparten parejo (siete rondas y tres tamanos), solo que va creciendo.
  */
 function cuantoCreceElTablero(rondas: number, lados: readonly number[]): string {
   if (lados.length < 2) {
@@ -121,7 +124,8 @@ export function EncuentraLaDiferencia({ alTerminar, enviando, sesion }: PropsDeM
     () => leerTocarElObjetivo(sesion?.parametros) ?? DIFERENCIA_DE_SIEMPRE,
     [sesion],
   );
-  const { rondas: RONDAS, segundosPorRonda: SEGUNDOS_POR_RONDA, lados } = reglas;
+  const { rondas: rondasDelCatalogo, segundosPorRonda: SEGUNDOS_POR_RONDA, lados } = reglas;
+  const RONDAS = rondasAJugar(rondasDelCatalogo);
   const [fase, setFase] = useState<Fase>({ tipo: 'inicio' });
   const [resultados, setResultados] = useState<readonly Motivo[]>([]);
   const [restantes, setRestantes] = useState(SEGUNDOS_POR_RONDA);
@@ -200,7 +204,7 @@ export function EncuentraLaDiferencia({ alTerminar, enviando, sesion }: PropsDeM
       const aciertos = resultados.filter((motivo) => motivo === 'acierto').length;
 
       alTerminar({
-        score: Math.min(aciertos, RONDAS),
+        score: puntajeSobreElMaximo(aciertos, RONDAS, rondasDelCatalogo),
         metadata: {
           aciertos,
           fallos: resultados.filter((motivo) => motivo === 'fallo').length,
@@ -212,7 +216,7 @@ export function EncuentraLaDiferencia({ alTerminar, enviando, sesion }: PropsDeM
     }, PAUSA_TRAS_RONDA_MS);
 
     return () => clearTimeout(temporizador);
-  }, [fase, resultados, alTerminar, RONDAS, SEGUNDOS_POR_RONDA, lados]);
+  }, [fase, resultados, alTerminar, RONDAS, rondasDelCatalogo, SEGUNDOS_POR_RONDA, lados]);
 
   // Cada ronda nueva empieza con el foco en el tablero, para jugar con teclado.
   const rondaEnJuego = fase.tipo === 'jugando' ? fase.ronda : null;

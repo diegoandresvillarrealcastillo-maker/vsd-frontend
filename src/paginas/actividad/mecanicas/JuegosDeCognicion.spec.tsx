@@ -23,7 +23,7 @@ import { repartir, tiempoAlaVista } from './cognicion.ts';
  */
 // Cada partida entera pinta decenas de veces una pantalla con barra, mascota y fichas animadas.
 // Sola tarda dos o tres segundos, y con todo el conjunto corriendo a la vez el limite de cinco se
-// quedaba corto: es lo que cuesta jugar doce rondas, no un fallo.
+// quedaba corto: es lo que cuesta jugar varias rondas, no un fallo.
 vi.setConfig({ testTimeout: 20_000 });
 
 const { buscarActividad, registrarResultado, hayConexionConLaApi } = vi.hoisted(() => ({
@@ -246,25 +246,44 @@ describe('Secuencia de números', () => {
     return secuencia;
   }
 
-  it('acertar las doce rondas manda 12 sobre 12, y cada ronda alarga la siguiente', async () => {
+  it('acertar las siete rondas manda 12 sobre 12, y cada ronda alarga la siguiente', async () => {
     pintar(SECUENCIA);
 
     await usuario.click(await screen.findByRole('button', { name: 'Empezar' }));
 
     const largos: number[] = [];
 
-    for (let ronda = 1; ronda <= 12; ronda++) {
+    for (let ronda = 1; ronda <= 7; ronda++) {
       largos.push((await jugarRonda((secuencia) => secuencia)).length);
       expect(await screen.findByText('¡Bien! Era esa.')).toBeInTheDocument();
       await usuario.click(
-        screen.getByRole('button', { name: ronda < 12 ? 'Siguiente ronda' : 'Terminar' }),
+        screen.getByRole('button', { name: ronda < 7 ? 'Siguiente ronda' : 'Terminar' }),
       );
     }
 
     await waitFor(() => expect(registrarResultado).toHaveBeenCalledTimes(1));
 
-    expect(largos).toEqual([3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
-    expect(enviado()).toMatchObject({ score: 12, metadata: { aciertos: 12, largoMaximo: 14 } });
+    // Se juegan siete (SCRUM-288) y el maximo sigue siendo el del catalogo: siete de siete vale doce.
+    expect(largos).toEqual([3, 4, 5, 6, 7, 8, 9]);
+    expect(enviado()).toMatchObject({ score: 12, metadata: { aciertos: 7, largoMaximo: 9 } });
+  });
+
+  it('tres aciertos de siete valen tres septimos del maximo, no tres puntos', async () => {
+    pintar(SECUENCIA);
+
+    await usuario.click(await screen.findByRole('button', { name: 'Empezar' }));
+
+    for (let ronda = 1; ronda <= 7; ronda++) {
+      await jugarRonda((secuencia) => (ronda <= 3 ? secuencia : '9'));
+      await screen.findByText(/^¡(Bien|Casi)! Era /);
+      await usuario.click(
+        screen.getByRole('button', { name: ronda < 7 ? 'Siguiente ronda' : 'Terminar' }),
+      );
+    }
+
+    await waitFor(() => expect(registrarResultado).toHaveBeenCalledTimes(1));
+
+    expect(enviado()).toMatchObject({ score: 5.14, metadata: { aciertos: 3 } });
   });
 
   it('fallar todas manda 0, y la secuencia no baja de tres digitos', async () => {
@@ -272,13 +291,13 @@ describe('Secuencia de números', () => {
 
     await usuario.click(await screen.findByRole('button', { name: 'Empezar' }));
 
-    for (let ronda = 1; ronda <= 12; ronda++) {
+    for (let ronda = 1; ronda <= 7; ronda++) {
       const secuencia = await jugarRonda(() => '9');
 
       expect(secuencia).toHaveLength(3);
       expect(await screen.findByText(/^¡Casi! Era /)).toBeInTheDocument();
       await usuario.click(
-        screen.getByRole('button', { name: ronda < 12 ? 'Siguiente ronda' : 'Terminar' }),
+        screen.getByRole('button', { name: ronda < 7 ? 'Siguiente ronda' : 'Terminar' }),
       );
     }
 
@@ -325,7 +344,8 @@ describe('Encuentra la diferencia', () => {
 
     const lados: number[] = [];
 
-    for (let ronda = 1; ronda <= 15; ronda++) {
+    // Se juegan siete (SCRUM-288), y el maximo sigue siendo el del catalogo: siete de siete vale quince.
+    for (let ronda = 1; ronda <= 7; ronda++) {
       const casillas = within(tableroAhora()).getAllByRole('button');
 
       lados.push(Math.sqrt(casillas.length));
@@ -339,17 +359,17 @@ describe('Encuentra la diferencia', () => {
 
     await waitFor(() => expect(registrarResultado).toHaveBeenCalledTimes(1));
 
-    expect(lados).toEqual([3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5]);
+    expect(lados).toEqual([3, 3, 3, 4, 4, 5, 5]);
     expect(enviado()).toMatchObject({
       score: 15,
-      metadata: { aciertos: 15, fallos: 0, sinTiempo: 0, rondas: 15 },
+      metadata: { aciertos: 7, fallos: 0, sinTiempo: 0, rondas: 7 },
     });
   });
 
   it('una casilla equivocada o el tiempo agotado no suman', async () => {
     await empezar();
 
-    for (let ronda = 1; ronda <= 15; ronda++) {
+    for (let ronda = 1; ronda <= 7; ronda++) {
       if (ronda % 2 === 0) {
         // Se deja pasar el tiempo.
         adelantar(15_000);
@@ -366,7 +386,7 @@ describe('Encuentra la diferencia', () => {
 
     expect(enviado()).toMatchObject({
       score: 0,
-      metadata: { aciertos: 0, fallos: 8, sinTiempo: 7 },
+      metadata: { aciertos: 0, fallos: 4, sinTiempo: 3 },
     });
   });
 
@@ -483,8 +503,8 @@ describe('Secuencia de números, lo que se ve', () => {
 
     await usuario.click(await screen.findByRole('button', { name: 'Empezar' }));
 
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '12');
-    expect(screen.getByText('Ronda 1 de 12')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '7');
+    expect(screen.getByText('Ronda 1 de 7')).toBeInTheDocument();
     expect(screen.getByText('Memoriza con calma.')).toBeInTheDocument();
 
     // Las fichas son adorno; lo que leen los lectores es el texto de la secuencia.
@@ -529,7 +549,7 @@ describe('Secuencia de números, lo que se ve', () => {
     expect(await screen.findByText('¡Bien! Era esa.')).toBeInTheDocument();
     expect(globo).toHaveAttribute('aria-live', 'polite');
     expect(globo).toHaveAttribute('data-resultado', 'acierto');
-    expect(screen.getByText('Ronda 1 de 12')).toBeInTheDocument();
+    expect(screen.getByText('Ronda 1 de 7')).toBeInTheDocument();
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1');
   });
 });
@@ -556,8 +576,8 @@ describe('Encuentra la diferencia, lo que se ve', () => {
   it('muestra las rondas, el tiempo que queda y una barra que se vacia', async () => {
     await empezar();
 
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '15');
-    expect(screen.getByText('Ronda 1 de 15')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '7');
+    expect(screen.getByText('Ronda 1 de 7')).toBeInTheDocument();
     expect(screen.getByText('Quedan 15 s')).toBeInTheDocument();
     expect(document.querySelector('.juego__tiempo')).toHaveAttribute('aria-hidden', 'true');
     expect(screen.getByText('Busca la casilla que cambió.')).toBeInTheDocument();

@@ -121,6 +121,27 @@ export default defineConfig(({ mode }) => ({
   build: {
     outDir: 'dist',
 
+    // Lo que casi no cambia entre versiones va en archivos aparte (SCRUM-283). Cada version nueva
+    // cambia el codigo de la aplicacion, y si react, supabase y las animaciones viajaran dentro de
+    // el, quien ya tenia la aplicacion bajaria todo de nuevo cada vez. Asi solo baja lo que cambio:
+    // el service worker y el navegador guardan cada archivo por su huella.
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            // Las rutas llegan con `/` tambien en Windows: rolldown las normaliza.
+            { name: 'vendor-react', test: /node_modules\/(react|react-dom|scheduler)\// },
+            { name: 'vendor-router', test: /node_modules\/(react-router|react-router-dom)\// },
+            { name: 'vendor-supabase', test: /node_modules\/@supabase\// },
+            {
+              name: 'vendor-animacion',
+              test: /node_modules\/(framer-motion|motion-dom|motion-utils)\//,
+            },
+          ],
+        },
+      },
+    },
+
     // En produccion no se publican los mapas. No es que revelen un secreto
     // —las claves publicas ya estan en el paquete— pero son dos megas y medio
     // de codigo fuente servido a cada visita, y no hacen falta para nada. En

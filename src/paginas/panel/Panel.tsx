@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
-import { EstadoDeCarga } from '../../componentes/EstadoDeCarga.tsx';
+import { PantallaDeCarga } from '../../componentes/PantallaDeCarga.tsx';
 import { ExigeConexion } from '../../componentes/ExigeConexion.tsx';
 import { DatoCuriosoDelDia } from '../../datosCuriosos/DatoCuriosoDelDia.tsx';
 import { PieDeLaApp } from '../../componentes/PieDeLaApp.tsx';
@@ -85,9 +85,9 @@ export function VistaDelPanel({
 
       <main id={ID_DEL_CONTENIDO} tabIndex={-1} className="app__contenido">
         {estado.fase === 'cargando' && (
-          // Esqueleto y `role="status"`: se ve que algo viene y un lector de pantalla
-          // lo anuncia sin interrumpir (SCRUM-180).
-          <EstadoDeCarga mensaje="Cargando tu espacio…" />
+          // La mascota corre sobre la barra (SCRUM-283) y `role="status"`: se ve que algo
+          // viene y un lector de pantalla lo anuncia sin interrumpir (SCRUM-180).
+          <PantallaDeCarga mensaje="Cargando tu espacio…" enLinea />
         )}
 
         {estado.fase === 'error' && (
@@ -372,8 +372,9 @@ function Recomendado({
         aria-hidden="true"
       />
 
+      {/* Destellos y no la luna (SCRUM-285): la luna es la del cambio de tema, y se confundian. */}
       <span className="app__recomendado-icono">
-        <Icono nombre="moon" />
+        <Icono nombre="sparkles" />
       </span>
 
       <p className="app__antetitulo app__antetitulo--salvia">Recomendado</p>

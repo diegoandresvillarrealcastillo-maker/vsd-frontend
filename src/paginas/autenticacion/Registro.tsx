@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { BotonDeEnvio, type EstadoDeEnvio } from '../../componentes/BotonDeEnvio.tsx';
 import { CaptchaDeTurnstile } from '../../captcha/CaptchaDeTurnstile.tsx';
 import { ESPERA_DEL_CAPTCHA, useCaptcha } from '../../captcha/useCaptcha.ts';
+import { AvisoDeGoogleEnPrueba } from '../../componentes/AvisoDeGoogleEnPrueba.tsx';
 import { BotonDeGoogle } from '../../componentes/BotonDeGoogle.tsx';
 import { Campo } from '../../componentes/Campo.tsx';
 import { MedidorDeContrasena } from '../../componentes/MedidorDeContrasena.tsx';
@@ -297,6 +298,8 @@ export function Registro() {
                 Registrarme con Google
               </BotonDeGoogle>
             </Aparece>
+
+            <AvisoDeGoogleEnPrueba />
 
             <Aparece>
               {/* Google crea la identidad antes de que se pueda preguntar nada,

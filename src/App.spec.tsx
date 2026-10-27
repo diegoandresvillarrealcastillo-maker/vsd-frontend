@@ -125,7 +125,7 @@ describe('Volver a la portada', () => {
     ['el acceso', RUTAS.ACCESO],
     ['el registro', RUTAS.REGISTRO],
     ['la recuperación', RUTAS.RECUPERAR],
-  ])('se puede salir de %s', (_nombre, ruta) => {
+  ])('se puede salir de %s', async (_nombre, ruta) => {
     // Sin esto, quien abre una de estas pantallas desde un enlace se queda
     // encerrado: no hay menú, no hay atrás, y el único camino de vuelta sería
     // un logo que nadie sabe que es un enlace.
@@ -133,7 +133,8 @@ describe('Volver a la portada', () => {
 
     // Nombre exacto: la pantalla de recuperación tiene además un "Volver al
     // inicio de sesión", y una expresión suelta encontraría los dos.
-    const volver = screen.getByRole('link', { name: 'Volver al inicio' });
+    // Las pantallas se bajan cuando se necesitan (SCRUM-283): se espera a que llegue.
+    const volver = await screen.findByRole('link', { name: 'Volver al inicio' });
 
     expect(volver).toHaveAttribute('href', RUTAS.INICIO);
   });
@@ -189,18 +190,18 @@ describe('Guardas de ruta', () => {
     expect(await screen.findByRole('link', { name: 'VSD-H, inicio' })).toBeInTheDocument();
   });
 
-  it('no deja escribir una contrasena nueva a quien no vino del correo', () => {
+  it('no deja escribir una contrasena nueva a quien no vino del correo', async () => {
     // Sin sesion y sin motivo de error en la direccion, nadie llego aqui desde
     // un enlace: se escribio la ruta a mano. No hay contrasena que cambiar,
     // porque no se sabe de quien.
     pintar(RUTAS.CONTRASENA_NUEVA);
 
-    expect(screen.getByRole('heading', { name: 'Recuperar el acceso' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Recuperar el acceso' })).toBeInTheDocument();
   });
 
-  it('deja escribir la contrasena nueva a quien si vino del correo', () => {
+  it('deja escribir la contrasena nueva a quien si vino del correo', async () => {
     pintar(RUTAS.CONTRASENA_NUEVA, estado({ sesion: SESION }));
 
-    expect(screen.getByRole('heading', { name: 'Contraseña nueva' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Contraseña nueva' })).toBeInTheDocument();
   });
 });

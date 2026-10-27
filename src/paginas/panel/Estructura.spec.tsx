@@ -309,6 +309,42 @@ describe('la navegacion despues de entrar (SCRUM-182)', () => {
       expect(enlaces.map((enlace) => enlace.getAttribute('href'))).toEqual(['/diario', '/diario']);
     });
 
+    it('marca la seccion a la vista con la misma pastilla que el dock del movil (SCRUM-284)', async () => {
+      const barra = pintarLaBarra();
+      const marcada = () =>
+        within(barra)
+          .getAllByRole('link')
+          .filter((enlace) => enlace.querySelector('.app__pastilla') !== null);
+
+      // Al abrir, la que esta a la vista es Inicio: lleva la pastilla y se anuncia como ubicacion.
+      expect(marcada().map((enlace) => enlace.textContent.trim())).toEqual(['Inicio']);
+      expect(within(barra).getByRole('link', { name: 'Inicio' })).toHaveAttribute(
+        'aria-current',
+        'location',
+      );
+
+      // Al pulsar otra seccion la pastilla viaja alli, igual que en el dock.
+      await userEvent.click(within(barra).getByRole('link', { name: 'Progreso' }));
+
+      expect(marcada().map((enlace) => enlace.textContent.trim())).toEqual(['Progreso']);
+      expect(within(barra).getByRole('link', { name: 'Inicio' })).not.toHaveAttribute(
+        'aria-current',
+      );
+      expect(within(barra).getByRole('link', { name: 'Progreso' })).toHaveAttribute(
+        'aria-current',
+        'location',
+      );
+    });
+
+    it('las pastillas de la barra y del dock son la misma pieza', () => {
+      const barra = pintarLaBarra();
+      const pastilla = barra.querySelector('.app__pastilla');
+
+      expect(pastilla).not.toBeNull();
+      // El mismo elemento y la misma clase que usa el dock: un solo estilo para las dos.
+      expect(pastilla?.tagName).toBe('SPAN');
+    });
+
     it('sin secciones y fuera del diario no lleva ninguna navegacion', () => {
       render(
         <SesionContexto.Provider value={sesion()}>
@@ -337,6 +373,15 @@ describe('la navegacion despues de entrar (SCRUM-182)', () => {
 
     it('lleva los mismos tres enlaces', () => {
       expect(nombresDe(pintarLaBarraDelDiario())).toEqual(['Inicio', 'Progreso', 'Mi diario']);
+    });
+
+    it('«Mi diario» lleva la pastilla y las otras dos no (igual que el dock)', () => {
+      const barra = pintarLaBarraDelDiario();
+      const conPastilla = within(barra)
+        .getAllByRole('link')
+        .filter((enlace) => enlace.querySelector('.app__pastilla') !== null);
+
+      expect(conPastilla.map((enlace) => enlace.textContent.trim())).toEqual(['Mi diario']);
     });
 
     it('marca «Mi diario» como la pagina actual y lleva al panel por las otras dos', () => {
@@ -380,6 +425,12 @@ describe('la navegacion despues de entrar (SCRUM-182)', () => {
 
     it('lleva Inicio, Progreso y Mi diario, sin «Explorar»', () => {
       expect(nombresDe(pintarElDock())).toEqual(['Inicio', 'Progreso', 'Mi diario']);
+    });
+
+    it('su pastilla es la misma pieza que la de la barra de arriba (SCRUM-284)', () => {
+      const dock = pintarElDock();
+
+      expect(dock.querySelector('.app__pastilla')).not.toBeNull();
     });
 
     it('en el panel, «Mi diario» no esta marcado como la pagina actual', () => {

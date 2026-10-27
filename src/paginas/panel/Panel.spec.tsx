@@ -23,6 +23,7 @@ import {
   tutorialVisto,
   volverAVerElTutorial,
 } from '../../tutorial/memoriaDelTutorial.ts';
+import { Icono, type NombreDeIcono } from './Icono.tsx';
 import { Panel } from './Panel.tsx';
 
 /**
@@ -214,9 +215,11 @@ describe('Dashboard', () => {
       const estado = screen.getByRole('status');
 
       expect(estado).toHaveTextContent(/Cargando tu espacio/);
-      // Con esqueleto (SCRUM-180): la pantalla no queda en blanco ni salta al llegar los datos.
+      // Con la mascota corriendo sobre la barra (SCRUM-283, antes un esqueleto, SCRUM-180): la
+      // pantalla no queda en blanco ni salta al llegar los datos.
       expect(estado).toHaveAttribute('aria-busy', 'true');
-      expect(estado.querySelectorAll('.esqueleto').length).toBeGreaterThan(0);
+      expect(estado.querySelector('.vsd-carga__corredor')).not.toBeNull();
+      expect(estado.querySelector('.vsd-carga__barra')).not.toBeNull();
     });
 
     it('si no se puede conectar, lo explica y deja reintentar', async () => {
@@ -597,6 +600,26 @@ describe('Dashboard', () => {
 
       expect(within(recomendado).getByRole('heading')).toHaveTextContent('Cómo dormiste anoche');
       expect(within(recomendado).getByRole('link', { name: /Comenzar/ })).toBeInTheDocument();
+    });
+
+    it('el icono de la tarjeta no es la luna del cambio de tema (SCRUM-285)', async () => {
+      pintar();
+
+      const recomendado = await screen.findByRole('complementary');
+      const trazos = (nombre: NombreDeIcono) =>
+        [...render(<Icono nombre={nombre} />).container.querySelectorAll('path')]
+          .map((trazo) => trazo.getAttribute('d'))
+          .join('|');
+      const delIcono = [
+        ...(recomendado.querySelector('.app__recomendado-icono svg')?.querySelectorAll('path') ??
+          []),
+      ]
+        .map((trazo) => trazo.getAttribute('d'))
+        .join('|');
+
+      expect(delIcono).not.toBe('');
+      expect(delIcono).toBe(trazos('sparkles'));
+      expect(delIcono).not.toBe(trazos('moon'));
     });
 
     it('la mascota acompaña en el dashboard y no celebra con el plan a medias', async () => {

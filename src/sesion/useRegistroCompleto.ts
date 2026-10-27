@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { suscribirseALosTextosPendientes } from '../infraestructura/api/clienteHttp.ts';
 import { consultarElEstadoDelRegistro } from '../infraestructura/api/registro.ts';
+import { almacenamientoDeSesion } from '../infraestructura/supabase/almacenamiento.ts';
 
 /**
  * Lo que se sabe del registro de quien tiene sesion, desde el punto de vista de
@@ -39,17 +40,51 @@ export const ESPERA_DEL_REGISTRO_EN_MS = 8_000;
  * cambia: el registro solo avanza, nunca retrocede. Se guarda el identificador y
  * no un `true`, de modo que otra persona que entre en el mismo equipo se
  * comprueba por su cuenta.
+ *
+ * ## Tambien entre visitas (SCRUM-283)
+ *
+ * Y se recuerda en el almacen de la sesion, no solo en memoria. Antes, cada vez que se abria la
+ * aplicacion con la sesion abierta se esperaba a la API **antes de ensenar nada** (hasta
+ * `ESPERA_DEL_REGISTRO_EN_MS`), y con el servidor dormido esa era la espera mas larga de todas.
+ * Quien ya completo su registro no lo desanda, y lo que si puede cambiar —que el aviso o los
+ * terminos tengan una version nueva— lo avisa la API con un 403 en la primera llamada de la pantalla
+ * (ver `suscribirseALosTextosPendientes`, mas abajo). Va al mismo almacen que la sesion y no a otro:
+ * donde la sesion vive solo en la pestana, esto tambien, y se borra al cerrarla (`olvidarElRegistroGuardado`).
  */
 let completaPara: string | null = null;
 
+/** Donde se recuerda, con la misma clave en los dos almacenes de la sesion. */
+const CLAVE_DEL_REGISTRO_COMPLETO = 'vsd.registro-completo';
+
+function darPorCompleto(persona: string): void {
+  completaPara = persona;
+  almacenamientoDeSesion.setItem(CLAVE_DEL_REGISTRO_COMPLETO, persona);
+}
+
+/** Lo recuerda de una visita anterior, si era de esta persona. */
+function recordarLoGuardado(persona: string): void {
+  if (
+    completaPara === null &&
+    almacenamientoDeSesion.getItem(CLAVE_DEL_REGISTRO_COMPLETO) === persona
+  ) {
+    completaPara = persona;
+  }
+}
+
 /** Lo llama la pantalla que completa el registro, para no volver a preguntar. */
 export function recordarQueElRegistroEstaCompleto(persona: string): void {
-  completaPara = persona;
+  darPorCompleto(persona);
+}
+
+/** Termina la sesion: lo recordado era de quien salio, no de quien llegue despues. */
+export function olvidarElRegistroGuardado(): void {
+  completaPara = null;
+  almacenamientoDeSesion.removeItem(CLAVE_DEL_REGISTRO_COMPLETO);
 }
 
 /** Para las pruebas: cada una parte sin saber nada. */
 export function olvidarElRegistro(): void {
-  completaPara = null;
+  olvidarElRegistroGuardado();
 }
 
 interface Respuesta {
@@ -68,6 +103,10 @@ export function useRegistroCompleto(
   activo: boolean,
 ): ComprobacionDelRegistro {
   const [respuesta, setRespuesta] = useState<Respuesta | null>(null);
+
+  if (persona !== null) {
+    recordarLoGuardado(persona);
+  }
 
   useEffect(() => {
     if (!activo || persona === null || completaPara === persona) {
@@ -88,7 +127,7 @@ export function useRegistroCompleto(
         }
 
         if (estado.estado === 'completo') {
-          completaPara = persona;
+          darPorCompleto(persona);
         }
 
         setRespuesta({
@@ -125,7 +164,7 @@ export function useRegistroCompleto(
 
     return suscribirseALosTextosPendientes(() => {
       if (completaPara === persona) {
-        completaPara = null;
+        olvidarElRegistroGuardado();
       }
 
       setRespuesta({ persona, resultado: 'textos-pendientes' });

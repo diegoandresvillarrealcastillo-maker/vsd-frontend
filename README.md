@@ -743,7 +743,7 @@ hacer.** Activarlo no cuesta dinero: ni Google ni Supabase cobran por el inicio 
 sesion con OAuth. Lo que pide es una cuenta con permisos de administrador en
 Google Cloud y una URL de redireccion registrada por ambiente.
 
-**Que hace el codigo.** Con `VITE_PROVEEDOR_GOOGLE=si`, «Continuar con Google»
+**Que hace el codigo.** Con `VITE_PROVEEDOR_GOOGLE=si` (o `prueba`, ver mas abajo), «Continuar con Google»
 (acceso) y «Registrarme con Google» (registro) aparecen con su separador. Sin la
 variable no hay boton: enseñarlo sin credenciales lleva a una pantalla de error de
 Google y parece que la aplicacion esta rota.
@@ -800,6 +800,48 @@ con Google siguen existiendo; solo se esconde el boton.
 **En local** hace falta un cliente de OAuth con `http://localhost:5173` como origen y
 la URL de Supabase como redireccion. El puerto es fijo a proposito (ver «Como
 ejecutarlo»).
+
+### Modo de prueba: el boton se ve, pero solo entran las cuentas que el equipo defina
+
+Para validar el flujo sin pasar por la verificacion publica de la aplicacion en Google,
+la pantalla de consentimiento se deja en **modo de prueba** y el boton se despliega con
+`VITE_PROVEEDOR_GOOGLE=prueba` (en vez de `si`). El boton aparece igual, y debajo lleva
+un aviso: «Entrar con Google esta en pruebas: por ahora solo funciona con las cuentas
+que el equipo autorizo». Sin el aviso, quien no esta en la lista llegaria a un error de
+Google en otra pagina, sin camino de vuelta, y creeria que la aplicacion esta rota.
+
+**La lista de correos la hace cumplir Google, no este codigo.** No hay ninguna lista en
+el repositorio, ni en Supabase, ni en Vercel: es la de _evaluadores_ de la pantalla de
+consentimiento. Quien no esta en ella no llega a volver a la aplicacion.
+
+Lo que cambia respecto a la guia de arriba, que se sigue igual:
+
+1. En Google Cloud, en la pantalla de consentimiento (hoy _Google Auth Platform >
+   Audience_, antes _OAuth consent screen_): tipo de usuario **External** y estado de
+   publicacion **Testing**. En _Test users_ se agregan los correos de Google de quien
+   va a probar (hasta 100). Cada correo tiene que ser una cuenta de Google real.
+2. **Internal no sirve para una lista de correos.** Solo existe si el proyecto pertenece
+   a una organizacion de Google Workspace, y entonces entra **cualquiera de esa
+   organizacion**, no los que uno elija. Para una lista cerrada, External + Testing.
+3. En Vercel del ambiente se pone `VITE_PROVEEDOR_GOOGLE=prueba` y se **despliega**: es
+   una variable de compilacion, y cambiarla sin desplegar no hace nada.
+4. Agregar o quitar a alguien es solo tocar _Test users_ en Google; no hace falta
+   desplegar. Puede tardar unos minutos en aplicarse.
+
+**Que se espera ver:**
+
+- Un evaluador entra, y puede aparecerle un aviso de Google de que la aplicacion no
+  esta verificada: tiene que continuar. Despues llega a «Completa tu registro».
+- Alguien que no esta en la lista ve un error de Google (`access_denied`, «no ha
+  completado el proceso de verificacion») y se queda en la pagina de Google. La
+  aplicacion no puede interceptarlo; por eso existe el aviso.
+- Las cuentas que los evaluadores crean son cuentas reales del ambiente: si el
+  ambiente es PRE, quedan en su base. Al terminar la prueba, se borran o se dejan.
+
+**Para abrirlo a todo el mundo** mas adelante: en Google, pasar la aplicacion a
+_In production_ (revisar en la consola que pide Google para los alcances `openid`,
+`email` y `profile`, que son los unicos que se usan) y cambiar la variable a `si`.
+Mientras tanto, no cuesta nada tenerlo asi.
 
 ---
 

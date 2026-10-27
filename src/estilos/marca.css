@@ -1,6 +1,6 @@
 /* La marca de la aplicacion despues de entrar (SCRUM-117).
-   Sin ningun valor que dependa del tema: el isotipo lleva sus colores fijos y
-   el texto hereda el de la pantalla donde esta. */
+   El isotipo es el mismo en los dos temas (global.css solo lo oscurece sobre el crema) y el
+   texto hereda el de la pantalla donde esta. */
 
 /* `flex: none`: en una barra apretada el nombre nunca se parte en «VSD-» y «H» (SCRUM-245);
    lo que cede es lo demas (el indicador de la conexion). */
@@ -16,6 +16,7 @@
 .marca .isotipo {
   display: block;
   flex: none;
+  width: auto;
 }
 
 .marca__texto {

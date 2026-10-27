@@ -10,6 +10,8 @@ import { VozDeLaMascota } from '../viva/VozDeLaMascota.tsx';
 import {
   generarSecuencia,
   marcaDeTiempo,
+  puntajeSobreElMaximo,
+  rondasAJugar,
   SECUENCIA_DE_SIEMPRE,
   segundosDesde,
   siguienteLargo,
@@ -22,9 +24,10 @@ import type { PropsDeMecanica } from './registro.tsx';
  * "Secuencia de numeros": se muestra una secuencia, se oculta y hay que
  * escribirla (SCRUM-84).
  *
- * Son doce rondas. Empieza con tres digitos; cada acierto alarga la siguiente
- * un digito, y cada fallo la acorta uno, sin bajar de tres. El puntaje crudo es
- * el numero de rondas acertadas, sobre doce.
+ * Son siete rondas (SCRUM-288: el catalogo dice doce, y se juegan siete). Empieza con tres digitos;
+ * cada acierto alarga la siguiente un digito, y cada fallo la acorta uno, sin bajar de tres. El
+ * puntaje crudo es el numero de rondas acertadas, reescalado a los doce del catalogo
+ * (`puntajeSobreElMaximo`).
  *
  * Esos numeros (rondas, largo inicial, tiempo a la vista) son los de siempre; si el servidor
  * entrega la sesion de hoy (SCRUM-208, ADR 0030) se usan los de la sesion, que en la Fase 0 son
@@ -105,7 +108,8 @@ export function SecuenciaDeNumeros({ alTerminar, enviando, sesion }: PropsDeMeca
     () => leerSecuenciaDeNumeros(sesion?.parametros) ?? SECUENCIA_DE_SIEMPRE,
     [sesion],
   );
-  const { largoInicial, rondas: RONDAS, msPorElemento, msDeMargen } = reglas;
+  const { largoInicial, rondas: rondasDelCatalogo, msPorElemento, msDeMargen } = reglas;
+  const RONDAS = rondasAJugar(rondasDelCatalogo);
   const [fase, setFase] = useState<Fase>({ tipo: 'inicio' });
   const [rondas, setRondas] = useState<readonly Ronda[]>([]);
   const [respuesta, setRespuesta] = useState('');
@@ -183,7 +187,7 @@ export function SecuenciaDeNumeros({ alTerminar, enviando, sesion }: PropsDeMeca
     const aciertos = rondas.filter((ronda) => ronda.acerto).length;
 
     alTerminar({
-      score: Math.min(aciertos, RONDAS),
+      score: puntajeSobreElMaximo(aciertos, RONDAS, rondasDelCatalogo),
       metadata: {
         aciertos,
         rondas: rondas.map(({ largo: digitos, acerto }) => ({ digitos, acerto })),
