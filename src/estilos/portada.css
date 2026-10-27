@@ -102,12 +102,19 @@
    quita la propia capsula, para que la marca quede del todo a la izquierda. */
 .navegacion__marca {
   margin-right: auto;
+  color: var(--nav-texto);
 }
 
-/* El logo lleva "VSD" arriba y "Health" debajo. Por debajo de esta altura, la
-   segunda linea se convierte en una mancha y el logo deja de leerse. */
+/* En la capsula va el loto con el nombre escrito al lado (SCRUM-287): el logo completo, a esta
+   altura, deja "HEALTH" hecho una mancha. El logo completo esta en el pie. */
 .navegacion__marca .logo__imagen {
-  height: 44px;
+  height: 40px;
+}
+
+/* La capsula es oscura en los dos temas: ahi el loto va con sus tonos claros, sin el filtro que
+   lo oscurece sobre el crema (global.css). */
+:root[data-tema='claro'] .navegacion .logo__imagen {
+  filter: none;
 }
 
 .navegacion__enlaces {
@@ -628,7 +635,7 @@
 }
 
 .pie__marca-logo .logo__imagen {
-  height: 48px;
+  height: 112px;
 }
 
 .pie__aviso {

@@ -99,7 +99,7 @@ export function NavegacionFlotante() {
       animate={{ opacity: 1, y: 0 }}
       transition={ENTRADA}
     >
-      <Logo className="navegacion__marca" />
+      <Logo variante="loto" conNombre className="navegacion__marca" />
 
       <div className="navegacion__enlaces">
         {SECCIONES.map((seccion) => (
