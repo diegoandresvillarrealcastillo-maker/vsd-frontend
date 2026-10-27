@@ -32,7 +32,11 @@ interface ImportMetaEnv {
   /** development | preproduction | production */
   readonly VITE_APP_ENV: string;
 
-  /** `si` para ofrecer entrar con Google. Cualquier otro valor lo oculta. */
+  /**
+   * `si` para ofrecer entrar con Google; `prueba` para ofrecerlo con el aviso de que solo
+   * entran las cuentas autorizadas (la pantalla de consentimiento en modo de prueba).
+   * Cualquier otro valor lo oculta.
+   */
   readonly VITE_PROVEEDOR_GOOGLE?: string;
 
   /**

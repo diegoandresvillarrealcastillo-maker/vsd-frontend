@@ -126,8 +126,16 @@ export const entorno = {
    *
    * Cuando las credenciales existan, se pone esta variable en `si` y el boton
    * aparece sin tocar una linea de codigo.
+   *
+   * `prueba` (SCRUM-74) ofrece el mismo boton con la pantalla de consentimiento de Google en
+   * modo de prueba: solo entran las cuentas que el equipo agrego como evaluadoras en Google
+   * Cloud. Quien no esta en esa lista ve un error de Google, y por eso el boton lleva un aviso
+   * (`googleEnPrueba`). La lista la hace cumplir Google, no esta aplicacion.
    */
-  conGoogle: import.meta.env.VITE_PROVEEDOR_GOOGLE?.trim() === 'si',
+  conGoogle: ['si', 'prueba'].includes(import.meta.env.VITE_PROVEEDOR_GOOGLE?.trim() ?? ''),
+
+  /** Google se ofrece, pero solo a las cuentas de prueba. Ver `conGoogle`. */
+  googleEnPrueba: import.meta.env.VITE_PROVEEDOR_GOOGLE?.trim() === 'prueba',
 
   /**
    * El CAPTCHA de registro, acceso y recuperacion (SCRUM-165).

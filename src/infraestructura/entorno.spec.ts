@@ -91,6 +91,24 @@ describe('la analitica (SCRUM-161)', () => {
   });
 });
 
+describe('entrar con Google (SCRUM-74)', () => {
+  it.each([
+    ['', false, false],
+    ['no', false, false],
+    ['si', true, false],
+    [' si ', true, false],
+    ['prueba', true, true],
+    ['Prueba', false, false],
+  ])('con «%s»: se ofrece %s y es de prueba %s', async (valor, conGoogle, enPrueba) => {
+    vi.stubEnv('VITE_PROVEEDOR_GOOGLE', valor);
+
+    const { entorno } = await cargarEntorno();
+
+    expect(entorno.conGoogle).toBe(conGoogle);
+    expect(entorno.googleEnPrueba).toBe(enPrueba);
+  });
+});
+
 describe('credencialesDeSupabase', () => {
   it('devuelve las credenciales cuando estan completas', async () => {
     vi.stubEnv('VITE_APP_ENV', 'development');

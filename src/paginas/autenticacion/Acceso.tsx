@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { BotonDeEnvio, type EstadoDeEnvio } from '../../componentes/BotonDeEnvio.tsx';
 import { CaptchaDeTurnstile } from '../../captcha/CaptchaDeTurnstile.tsx';
 import { ESPERA_DEL_CAPTCHA, useCaptcha } from '../../captcha/useCaptcha.ts';
+import { AvisoDeGoogleEnPrueba } from '../../componentes/AvisoDeGoogleEnPrueba.tsx';
 import { BotonDeGoogle } from '../../componentes/BotonDeGoogle.tsx';
 import { Campo } from '../../componentes/Campo.tsx';
 import { Casilla } from '../../componentes/Casilla.tsx';
@@ -160,6 +161,8 @@ export function Acceso() {
             <Aparece>
               <BotonDeGoogle disabled={ocupado} onClick={() => void entrarConGoogle(recordar)} />
             </Aparece>
+
+            <AvisoDeGoogleEnPrueba />
           </>
         )}
       </form>
