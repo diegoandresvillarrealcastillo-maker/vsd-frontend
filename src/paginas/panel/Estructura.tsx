@@ -36,6 +36,64 @@ const SECCIONES: readonly { href: string; texto: string; icono: NombreDeIcono }[
   { href: '#progreso', texto: 'Progreso', icono: 'activity' },
 ];
 
+/** La seccion del dashboard que esta a la vista, la que cruza el centro. */
+function useSeccionALaVista(ids: readonly string[]): [string, (id: string) => void] {
+  const [activa, setActiva] = useState(ids[0] ?? '');
+
+  useEffect(() => {
+    const secciones = ids
+      .map((id) => document.getElementById(id))
+      .filter((seccion): seccion is HTMLElement => seccion !== null);
+
+    if (secciones.length === 0) {
+      return undefined;
+    }
+
+    const observador = new IntersectionObserver(
+      (entradas) => {
+        const visible = entradas.find((entrada) => entrada.isIntersecting);
+
+        if (visible !== undefined) {
+          setActiva(visible.target.id);
+        }
+      },
+      // Una franja en el centro de la pantalla: cuenta la seccion que la cruza.
+      { rootMargin: '-45% 0px -50% 0px' },
+    );
+
+    secciones.forEach((seccion) => observador.observe(seccion));
+
+    return () => observador.disconnect();
+  }, [ids]);
+
+  return [activa, setActiva];
+}
+
+const IDS_DE_SECCIONES = SECCIONES.map((seccion) => seccion.href.slice(1));
+
+/** El resorte de la pastilla: el mismo en la barra de arriba y en el dock del movil (SCRUM-284). */
+const RESORTE_DE_LA_PASTILLA = { type: 'spring', stiffness: 420, damping: 34 } as const;
+
+/**
+ * La pastilla que se desliza hasta la seccion a la vista. **Una sola pieza para la barra de arriba y para el
+ * dock** (SCRUM-284): antes solo el dock la tenia, y en el computador la marca era fija. Cada una lleva su
+ * `id` porque las dos estan en el documento a la vez (una se esconde con CSS segun el ancho), y con el mismo
+ * `layoutId` la pastilla de una intentaria viajar a la de la otra.
+ *
+ * Con `prefers-reduced-motion`, sin deslizamientos: aparece donde toca.
+ */
+function PastillaDeLaNavegacion({ id }: { id: string }) {
+  const sinMovimiento = useReducedMotion() ?? false;
+
+  return (
+    <motion.span
+      className="app__pastilla"
+      layoutId={id}
+      transition={sinMovimiento ? { duration: 0 } : RESORTE_DE_LA_PASTILLA}
+    />
+  );
+}
+
 /**
  * La barra de arriba. `conSecciones` muestra los enlaces a las secciones del
  * dashboard; en cualquier otra pantalla no llevarian a ningun sitio.
@@ -54,6 +112,9 @@ export function BarraSuperior({
   conSecciones: boolean;
   enDiario?: boolean;
 }) {
+  // La seccion a la vista, como en el dock: la pastilla la sigue, y el primero ya no esta fijo (SCRUM-284).
+  const [activa, setActiva] = useSeccionALaVista(IDS_DE_SECCIONES);
+
   return (
     <>
       <header className="app__barra">
@@ -62,27 +123,43 @@ export function BarraSuperior({
 
           {conSecciones || enDiario ? (
             <nav className="app__nav" aria-label="Secciones">
-              {SECCIONES.map((seccion, indice) =>
-                enDiario ? (
-                  <Link
-                    key={seccion.href}
-                    className="app__enlace"
-                    to={{ pathname: RUTAS.PANEL, hash: seccion.href }}
-                  >
+              {SECCIONES.map((seccion) => {
+                const id = seccion.href.slice(1);
+                const contenido = (
+                  <>
                     <Icono nombre={seccion.icono} tamano={18} />
-                    {seccion.texto}
-                  </Link>
-                ) : (
+                    <span className="app__enlace-texto">{seccion.texto}</span>
+                  </>
+                );
+
+                if (enDiario) {
+                  // Otra pagina: un enlace del enrutador, y ninguna seccion esta «a la vista».
+                  return (
+                    <Link
+                      key={seccion.href}
+                      className="app__enlace"
+                      to={{ pathname: RUTAS.PANEL, hash: seccion.href }}
+                    >
+                      {contenido}
+                    </Link>
+                  );
+                }
+
+                const esLaActiva = id === activa;
+
+                return (
                   <a
                     key={seccion.href}
-                    className={`app__enlace${indice === 0 ? ' app__enlace--activo' : ''}`}
+                    className={`app__enlace${esLaActiva ? ' app__enlace--activo' : ''}`}
                     href={seccion.href}
+                    aria-current={esLaActiva ? 'location' : undefined}
+                    onClick={() => setActiva(id)}
                   >
-                    <Icono nombre={seccion.icono} tamano={18} />
-                    {seccion.texto}
+                    {esLaActiva && <PastillaDeLaNavegacion id="pastilla-de-la-barra" />}
+                    {contenido}
                   </a>
-                ),
-              )}
+                );
+              })}
               <Link
                 className={`app__enlace${enDiario ? ' app__enlace--activo' : ''}`}
                 to={RUTAS.DIARIO}
@@ -90,8 +167,9 @@ export function BarraSuperior({
                 // El tutorial senala el diario donde se ve: aqui en el computador y en el dock del movil.
                 data-tutorial="diario"
               >
+                {enDiario && <PastillaDeLaNavegacion id="pastilla-de-la-barra" />}
                 <Icono nombre="calendar" tamano={18} />
-                Mi diario
+                <span className="app__enlace-texto">Mi diario</span>
               </Link>
             </nav>
           ) : (
@@ -308,41 +386,6 @@ function useOcultarAlBajar(): [boolean, (oculto: boolean) => void] {
   return [oculto, setOculto];
 }
 
-/** La seccion del dashboard que esta a la vista, la que cruza el centro. */
-function useSeccionALaVista(ids: readonly string[]): [string, (id: string) => void] {
-  const [activa, setActiva] = useState(ids[0] ?? '');
-
-  useEffect(() => {
-    const secciones = ids
-      .map((id) => document.getElementById(id))
-      .filter((seccion): seccion is HTMLElement => seccion !== null);
-
-    if (secciones.length === 0) {
-      return undefined;
-    }
-
-    const observador = new IntersectionObserver(
-      (entradas) => {
-        const visible = entradas.find((entrada) => entrada.isIntersecting);
-
-        if (visible !== undefined) {
-          setActiva(visible.target.id);
-        }
-      },
-      // Una franja en el centro de la pantalla: cuenta la seccion que la cruza.
-      { rootMargin: '-45% 0px -50% 0px' },
-    );
-
-    secciones.forEach((seccion) => observador.observe(seccion));
-
-    return () => observador.disconnect();
-  }, [ids]);
-
-  return [activa, setActiva];
-}
-
-const IDS_DE_SECCIONES = SECCIONES.map((seccion) => seccion.href.slice(1));
-
 /**
  * El dock flotante del movil (SCRUM-114). Vive en el dashboard y, desde SCRUM-182,
  * tambien dentro de Mi diario.
@@ -362,15 +405,7 @@ const IDS_DE_SECCIONES = SECCIONES.map((seccion) => seccion.href.slice(1));
 export function NavegacionInferior({ enDiario = false }: { enDiario?: boolean }) {
   const [activa, setActiva] = useSeccionALaVista(IDS_DE_SECCIONES);
   const [oculto, setOculto] = useOcultarAlBajar();
-  const sinMovimiento = useReducedMotion() ?? false;
-
-  const pastilla = (
-    <motion.span
-      className="app__nav-inferior-pastilla"
-      layoutId="pastilla-del-dock"
-      transition={sinMovimiento ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 34 }}
-    />
-  );
+  const pastilla = <PastillaDeLaNavegacion id="pastilla-del-dock" />;
 
   return (
     <nav
