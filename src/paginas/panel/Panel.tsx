@@ -372,8 +372,9 @@ function Recomendado({
         aria-hidden="true"
       />
 
+      {/* Destellos y no la luna (SCRUM-285): la luna es la del cambio de tema, y se confundian. */}
       <span className="app__recomendado-icono">
-        <Icono nombre="moon" />
+        <Icono nombre="sparkles" />
       </span>
 
       <p className="app__antetitulo app__antetitulo--salvia">Recomendado</p>
