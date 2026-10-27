@@ -9,9 +9,12 @@ import {
   LADOS_DE_SIEMPRE,
   RONDAS_DE_DIFERENCIA,
   MAXIMO_DE_PAREJAS,
+  MAXIMO_DE_RONDAS,
   PAREJAS,
   puntajeDeParejas,
+  puntajeSobreElMaximo,
   repartir,
+  rondasAJugar,
   siguienteLargo,
   tiempoAlaVista,
 } from './cognicion.ts';
@@ -100,6 +103,48 @@ describe('Secuencia de numeros', () => {
       expect(siguienteLargo(7, false, 5)).toBe(6);
       expect(siguienteLargo(5, true, 5)).toBe(6);
       expect(siguienteLargo(2, false, 2)).toBe(2);
+    });
+  });
+});
+
+describe('El tope de rondas (SCRUM-288)', () => {
+  it('ninguna actividad juega mas de siete rondas', () => {
+    expect(MAXIMO_DE_RONDAS).toBe(7);
+    expect(rondasAJugar(15)).toBe(7);
+    expect(rondasAJugar(12)).toBe(7);
+    expect(rondasAJugar(8)).toBe(7);
+  });
+
+  it('las que ya eran siete o menos se juegan enteras', () => {
+    expect(rondasAJugar(7)).toBe(7);
+    expect(rondasAJugar(5)).toBe(5);
+    expect(rondasAJugar(1)).toBe(1);
+  });
+
+  describe('el puntaje se reescala al maximo del catalogo', () => {
+    // El servidor divide el puntaje crudo por el maximo de la actividad para sacar el nivel: si solo se
+    // jugaran siete de quince y se mandara «7», la mejor partida valdria 7/15 y caeria a «seguimiento».
+    it('siete de siete en una actividad de quince vale quince', () => {
+      expect(puntajeSobreElMaximo(7, 7, 15)).toBe(15);
+    });
+
+    it('la mitad de las rondas vale la mitad del maximo', () => {
+      expect(puntajeSobreElMaximo(3.5, 7, 12)).toBe(6);
+      expect(puntajeSobreElMaximo(0, 7, 12)).toBe(0);
+    });
+
+    it('con una sesion de siete rondas o menos queda como siempre: un acierto, un punto', () => {
+      expect(puntajeSobreElMaximo(4, 5, 5)).toBe(4);
+      expect(puntajeSobreElMaximo(5, 5, 5)).toBe(5);
+    });
+
+    it('redondea a dos decimales y nunca pasa del maximo', () => {
+      expect(puntajeSobreElMaximo(1, 7, 15)).toBe(2.14);
+      expect(puntajeSobreElMaximo(9, 7, 15)).toBe(15);
+    });
+
+    it('sin rondas jugadas no hay puntaje que dividir', () => {
+      expect(puntajeSobreElMaximo(0, 0, 15)).toBe(0);
     });
   });
 });

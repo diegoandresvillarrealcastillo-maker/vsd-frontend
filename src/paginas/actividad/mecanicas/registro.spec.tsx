@@ -100,7 +100,7 @@ describe('mecanicaDe', () => {
     // Tiene motor `secuencia`, igual que «Recuerda los colores», pero se juega distinto.
     pantalla(SECUENCIA_DE_NUMEROS, 'secuencia');
 
-    expect(screen.getByText(/Son 12 rondas/)).toBeInTheDocument();
+    expect(screen.getByText(/Son 7 rondas/)).toBeInTheDocument();
     expect(screen.queryByText(/una casilla más/)).not.toBeInTheDocument();
   });
 

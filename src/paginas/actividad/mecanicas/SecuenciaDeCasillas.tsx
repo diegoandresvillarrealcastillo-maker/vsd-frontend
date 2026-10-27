@@ -10,6 +10,8 @@ import { VozDeLaMascota } from '../viva/VozDeLaMascota.tsx';
 import {
   generarSecuenciaDeCasillas,
   marcaDeTiempo,
+  puntajeSobreElMaximo,
+  rondasAJugar,
   segundosDesde,
   siguienteLargo,
 } from './cognicion.ts';
@@ -26,9 +28,9 @@ import { SinSesion } from './SinSesion.tsx';
  * «Recuerda los colores»: unas casillas se iluminan una a una, se apagan y hay que tocarlas en el
  * mismo orden (SCRUM-209, ficha COG-01). Es el motor `secuencia` con casillas, no el de digitos.
  *
- * Son las rondas que diga la sesion. Empieza con el largo inicial; cada acierto alarga la siguiente
- * una casilla y cada fallo la acorta una, sin bajar del largo inicial. El puntaje crudo es el numero
- * de rondas acertadas. Como en los demas juegos, una casilla equivocada cierra la ronda como un
+ * Son las rondas que diga la sesion, hasta siete (SCRUM-288). Empieza con el largo inicial; cada acierto
+ * alarga la siguiente una casilla y cada fallo la acorta una, sin bajar del largo inicial. El puntaje
+ * crudo es el numero de rondas acertadas, reescalado al maximo que declara la sesion. Como en los demas juegos, una casilla equivocada cierra la ronda como un
  * «casi»: se acompana, no se senala.
  *
  * ## Lo que dice la sesion
@@ -80,7 +82,15 @@ function Juego({
   reglas,
 }: Omit<PropsDeMecanica, 'sesion'> & { readonly reglas: ParametrosDeSecuenciaDeCasillas }) {
   const mascota = useMascotaDeLaPersona();
-  const { casillas, largoInicial, rondas: TOTAL, msPorElemento, msDeMargen, msDestello } = reglas;
+  const {
+    casillas,
+    largoInicial,
+    rondas: rondasDeLaSesion,
+    msPorElemento,
+    msDeMargen,
+    msDestello,
+  } = reglas;
+  const TOTAL = rondasAJugar(rondasDeLaSesion);
   const [fase, setFase] = useState<Fase>({ tipo: 'inicio' });
   const [historial, setHistorial] = useState<readonly Ronda[]>([]);
   /** La casilla que esta iluminada ahora. */
@@ -186,7 +196,7 @@ function Juego({
     const aciertos = historial.filter((ronda) => ronda.acerto).length;
 
     alTerminar({
-      score: Math.min(aciertos, TOTAL),
+      score: puntajeSobreElMaximo(aciertos, TOTAL, rondasDeLaSesion),
       metadata: {
         aciertos,
         rondas: historial.map(({ largo, acerto }) => ({ largo, acerto })),

@@ -318,3 +318,44 @@ describe('leerElCalculo', () => {
     ).toBeNull();
   });
 });
+
+describe('el tope de siete rondas (SCRUM-288)', () => {
+  /** La misma ronda repetida `veces` veces: los lectores no piden que las rondas sean distintas entre si. */
+  const repetida = <T>(ronda: T, veces: number): T[] => Array.from({ length: veces }, () => ronda);
+
+  it.each([
+    [
+      'leerIntruso',
+      (n: number) => leerIntruso({ ...INTRUSO, rondas: repetida(INTRUSO.rondas[0], n) })?.rondas,
+    ],
+    [
+      'leerElCalculo',
+      (n: number) => leerElCalculo({ ...CALCULO, rondas: repetida(CALCULO.rondas[0], n) })?.rondas,
+    ],
+    [
+      'leerLaEscena (preguntas)',
+      (n: number) =>
+        leerLaEscena({ ...ESCENA, preguntas: repetida(ESCENA.preguntas[0], n) })?.preguntas,
+    ],
+    [
+      'leerLasPalabras',
+      (n: number) =>
+        leerLasPalabras({ ...COMPLETAR, palabras: repetida(COMPLETAR.palabras[0], n) })?.palabras,
+    ],
+  ])('%s se queda con las siete primeras de una sesion mas larga', (_nombre, leer) => {
+    expect(leer(8)).toHaveLength(7);
+    expect(leer(7)).toHaveLength(7);
+  });
+
+  it('las sesiones de siete rondas o menos quedan enteras', () => {
+    expect(leerIntruso(INTRUSO)?.rondas).toHaveLength(3);
+    expect(leerElCalculo(CALCULO)?.rondas).toHaveLength(3);
+    expect(leerLasPalabras(COMPLETAR)?.palabras).toHaveLength(3);
+  });
+
+  it('con las rondas cortadas, el maximo de puntos sigue siendo el de la sesion', () => {
+    const larga = { ...INTRUSO, rondas: repetida(INTRUSO.rondas[0], 10), puntosMaximos: 10 };
+
+    expect(leerIntruso(larga)?.puntosMaximos).toBe(10);
+  });
+});
