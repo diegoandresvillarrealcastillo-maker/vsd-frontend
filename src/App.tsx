@@ -1,4 +1,3 @@
-import { AnimatePresence } from 'framer-motion';
 import { Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
@@ -66,10 +65,9 @@ import { RUTAS } from './rutas/rutas.ts';
  * asi que no hay un salto entre una y otra. Al navegar despues, `react-router` conserva la pantalla de
  * antes hasta que la nueva esta lista (la transicion no enseña el respaldo).
  *
- * `AnimatePresence` con la ubicacion como clave es lo que permite que la
- * tarjeta de acceso se transforme entre las pantallas de autenticacion en vez
- * de desaparecer y volver: sin el, React desmonta la ruta vieja antes de que
- * Framer Motion pueda emparejarla con la nueva.
+ * Aqui no hay `AnimatePresence`: sobre `<Routes>` la pantalla que se iba no tenia un nodo del que
+ * Framer Motion pudiera sacarla y se quedaba debajo de la nueva, con dos `main` a la vez. Cada
+ * pantalla se anima por dentro (la tarjeta de acceso con su `layoutId`, la pastilla de la barra).
  */
 export function App() {
   const ubicacion = useLocation();
@@ -90,116 +88,114 @@ export function App() {
           atencion, y navegar a otra ruta la quita sola. */}
       <LimiteDeErrores origen="ruta" restablecerCon={ubicacion.pathname}>
         <Suspense fallback={<PantallaDeCarga mensaje="Preparando tu espacio…" />}>
-          <AnimatePresence mode="popLayout" initial={false}>
-            <Routes location={ubicacion} key={ubicacion.pathname}>
-              {/* ---------- Publicas ---------- */}
-              <Route path={RUTAS.INICIO} element={<Portada />} />
-              <Route path={RUTAS.PRIVACIDAD} element={<Privacidad />} />
-              <Route path={RUTAS.TERMINOS} element={<Terminos />} />
-              <Route path={RUTAS.COOKIES} element={<Cookies />} />
+          <Routes>
+            {/* ---------- Publicas ---------- */}
+            <Route path={RUTAS.INICIO} element={<Portada />} />
+            <Route path={RUTAS.PRIVACIDAD} element={<Privacidad />} />
+            <Route path={RUTAS.TERMINOS} element={<Terminos />} />
+            <Route path={RUTAS.COOKIES} element={<Cookies />} />
 
-              {/* ---------- Solo sin sesion ---------- */}
-              <Route
-                path={RUTAS.ACCESO}
-                element={
-                  <RutaDeInvitado>
-                    <Acceso />
-                  </RutaDeInvitado>
-                }
-              />
-              <Route
-                path={RUTAS.REGISTRO}
-                element={
-                  <RutaDeInvitado>
-                    <Registro />
-                  </RutaDeInvitado>
-                }
-              />
-              <Route
-                path={RUTAS.RECUPERAR}
-                element={
-                  <RutaDeInvitado>
-                    <Recuperar />
-                  </RutaDeInvitado>
-                }
-              />
+            {/* ---------- Solo sin sesion ---------- */}
+            <Route
+              path={RUTAS.ACCESO}
+              element={
+                <RutaDeInvitado>
+                  <Acceso />
+                </RutaDeInvitado>
+              }
+            />
+            <Route
+              path={RUTAS.REGISTRO}
+              element={
+                <RutaDeInvitado>
+                  <Registro />
+                </RutaDeInvitado>
+              }
+            />
+            <Route
+              path={RUTAS.RECUPERAR}
+              element={
+                <RutaDeInvitado>
+                  <Recuperar />
+                </RutaDeInvitado>
+              }
+            />
 
-              {/* Se guarda sola: ver la nota de arriba. */}
-              <Route path={RUTAS.CONTRASENA_NUEVA} element={<ContrasenaNueva />} />
+            {/* Se guarda sola: ver la nota de arriba. */}
+            <Route path={RUTAS.CONTRASENA_NUEVA} element={<ContrasenaNueva />} />
 
-              {/* Lo que ve quien resulta menor de 18 anos. Publica: se llega despues
+            {/* Lo que ve quien resulta menor de 18 anos. Publica: se llega despues
               de cerrar la sesion, y no pide ni guarda nada. */}
-              <Route path={RUTAS.SOLO_MAYORES} element={<SoloMayores />} />
+            <Route path={RUTAS.SOLO_MAYORES} element={<SoloMayores />} />
 
-              {/* Pide sesion pero no el registro completo: es justo lo que hace. */}
-              <Route
-                path={RUTAS.COMPLETAR_REGISTRO}
-                element={
-                  <RutaProtegida sinRegistro>
-                    <CompletarRegistro />
-                  </RutaProtegida>
-                }
-              />
+            {/* Pide sesion pero no el registro completo: es justo lo que hace. */}
+            <Route
+              path={RUTAS.COMPLETAR_REGISTRO}
+              element={
+                <RutaProtegida sinRegistro>
+                  <CompletarRegistro />
+                </RutaProtegida>
+              }
+            />
 
-              {/* Pide sesion pero no el registro completo: es donde se vuelve a aceptar el aviso o los
+            {/* Pide sesion pero no el registro completo: es donde se vuelve a aceptar el aviso o los
               terminos cuando cambian (SCRUM-237), asi que no puede exigir estar al dia. */}
-              <Route
-                path={RUTAS.ACTUALIZAMOS_TEXTOS}
-                element={
-                  <RutaProtegida sinRegistro>
-                    <ActualizamosNuestrosTextos />
-                  </RutaProtegida>
-                }
-              />
+            <Route
+              path={RUTAS.ACTUALIZAMOS_TEXTOS}
+              element={
+                <RutaProtegida sinRegistro>
+                  <ActualizamosNuestrosTextos />
+                </RutaProtegida>
+              }
+            />
 
-              {/* ---------- Protegidas ---------- */}
-              <Route
-                path={RUTAS.PANEL}
-                element={
-                  <RutaProtegida>
-                    <Panel />
-                  </RutaProtegida>
-                }
-              />
-              <Route
-                path={RUTAS.PERFIL}
-                element={
-                  <RutaProtegida>
-                    <Perfil />
-                  </RutaProtegida>
-                }
-              />
-              <Route
-                path={RUTAS.DIARIO}
-                element={
-                  <RutaProtegida>
-                    <Diario />
-                  </RutaProtegida>
-                }
-              />
-              <Route
-                path={RUTAS.MODULO}
-                element={
-                  <RutaProtegida>
-                    <Sendero />
-                  </RutaProtegida>
-                }
-              />
-              <Route
-                path={RUTAS.ACTIVIDAD}
-                element={
-                  <RutaProtegida>
-                    <Actividad />
-                  </RutaProtegida>
-                }
-              />
+            {/* ---------- Protegidas ---------- */}
+            <Route
+              path={RUTAS.PANEL}
+              element={
+                <RutaProtegida>
+                  <Panel />
+                </RutaProtegida>
+              }
+            />
+            <Route
+              path={RUTAS.PERFIL}
+              element={
+                <RutaProtegida>
+                  <Perfil />
+                </RutaProtegida>
+              }
+            />
+            <Route
+              path={RUTAS.DIARIO}
+              element={
+                <RutaProtegida>
+                  <Diario />
+                </RutaProtegida>
+              }
+            />
+            <Route
+              path={RUTAS.MODULO}
+              element={
+                <RutaProtegida>
+                  <Sendero />
+                </RutaProtegida>
+              }
+            />
+            <Route
+              path={RUTAS.ACTIVIDAD}
+              element={
+                <RutaProtegida>
+                  <Actividad />
+                </RutaProtegida>
+              }
+            />
 
-              {/* Una direccion que no existe no merece una pantalla de error: se
+            {/* Una direccion que no existe no merece una pantalla de error: se
               vuelve a la portada, que es lo que la persona queria de todos
               modos. */}
-              <Route path="*" element={<Navigate to={RUTAS.INICIO} replace />} />
-            </Routes>
-          </AnimatePresence>
+            <Route path="*" element={<Navigate to={RUTAS.INICIO} replace />} />
+          </Routes>
         </Suspense>
       </LimiteDeErrores>
     </>

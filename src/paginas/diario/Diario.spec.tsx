@@ -222,6 +222,19 @@ describe('Mi diario, accesibilidad (C-03)', () => {
 });
 
 describe('Mi diario, la navegacion (SCRUM-182)', () => {
+  it('al llegar parte de arriba y lleva el foco al contenido', async () => {
+    // Sin esto, quien llega desde otra pantalla se queda donde estaba su scroll.
+    const irArriba = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+
+    pintar();
+    await within(historial()).findByRole('heading', { name: 'Hoy' });
+
+    expect(irArriba).toHaveBeenCalledWith(expect.objectContaining({ top: 0, left: 0 }));
+    expect(document.activeElement).toBe(document.querySelector('main'));
+
+    irArriba.mockRestore();
+  });
+
   it('lleva el dock del movil, con «Mi diario» como la pagina actual', async () => {
     pintar();
     await within(historial()).findByRole('heading', { name: 'Hoy' });

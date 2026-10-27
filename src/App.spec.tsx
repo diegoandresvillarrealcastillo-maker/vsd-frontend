@@ -1,7 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { App } from './App.tsx';
@@ -203,5 +203,41 @@ describe('Guardas de ruta', () => {
     pintar(RUTAS.CONTRASENA_NUEVA, estado({ sesion: SESION }));
 
     expect(await screen.findByRole('heading', { name: 'Contraseña nueva' })).toBeInTheDocument();
+  });
+});
+
+describe('Navegar entre pantallas', () => {
+  it('al llegar a otra pantalla la anterior ya no esta: no se quedan las dos una encima de la otra', async () => {
+    // Con `AnimatePresence mode="popLayout"` sobre `<Routes>` la pantalla que se va no
+    // tenia un nodo del que Framer Motion pudiera sacarla, y se quedaba en el documento
+    // debajo de la nueva: dos `main` a la vez, y quien llegaba a «Mi diario» veia la parte
+    // de abajo de la pantalla de antes.
+    let irA: (ruta: string) => void = () => undefined;
+
+    function Navegador() {
+      const navegar = useNavigate();
+
+      irA = (ruta) => void navegar(ruta);
+
+      return null;
+    }
+
+    render(
+      <SesionContexto.Provider value={estado({ sesion: SESION })}>
+        <MemoryRouter initialEntries={[RUTAS.PANEL]}>
+          <App />
+          <Navegador />
+        </MemoryRouter>
+      </SesionContexto.Provider>,
+    );
+
+    await screen.findByRole('button', { name: /menú de tu cuenta/ });
+
+    irA(RUTAS.DIARIO);
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Mi diario' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(document.querySelectorAll('main')).toHaveLength(1);
+    });
   });
 });
