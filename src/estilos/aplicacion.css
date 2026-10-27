@@ -239,6 +239,43 @@
   gap: 0.75rem;
 }
 
+/* La barra en un telefono (< 768 px, donde el dock hace de navegacion). El isotipo nuevo y la llama ya no
+   caben en una fila a 375 px (pedian ~423 y ensanchaban la pantalla): el nombre «VSD-H» queda solo para el
+   lector de pantalla (el enlace ya lleva su `aria-label`; un recorte, no `display: none`) y, si aun asi no
+   cabe, las acciones pasan a una segunda fila en vez de salirse. Desde 768 px no se toca: ahi la navegacion
+   central sigue centrada. Lleva `.app` para ganar en especificidad sin depender del orden de las hojas. */
+@media (max-width: 767px) {
+  .app .app__barra-interior {
+    min-width: 0;
+    height: auto;
+    min-height: 76px;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding-block: 0.5rem;
+  }
+
+  .app .app__acciones {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-inline-start: auto;
+    gap: 0.5rem;
+  }
+
+  .app .marca__texto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
 /* El selector de tema dentro de la barra (SCRUM-112): con los colores de
    la aplicacion y sin flotar.
 

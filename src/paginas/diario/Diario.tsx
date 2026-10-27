@@ -97,6 +97,13 @@ export function Diario() {
   const seccionDelLienzo = useRef<HTMLElement>(null);
   const idDelHistorial = useId();
 
+  // Al llegar desde otra pantalla se parte de arriba y el foco va al contenido: sin esto la persona
+  // se queda mirando donde estaba el scroll de la pantalla anterior.
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.getElementById(ID_DEL_CONTENIDO)?.focus({ preventScroll: true });
+  }, []);
+
   useEffect(() => {
     const reloj = setInterval(() => setAhora(ahoraMismo()), CADA_MEDIO_MINUTO);
 
