@@ -102,6 +102,9 @@ jobs:
     steps:
       - name: Descargar el codigo
         uses: actions/checkout@v7
+        with:
+          # SonarQube Cloud necesita el historial para atribuir lo nuevo (SCRUM-277).
+          fetch-depth: 0
 
       - name: Preparar Node
         uses: actions/setup-node@v7
@@ -127,6 +130,44 @@ jobs:
         # Todavia sin umbral minimo: se fija en SCRUM-73, cuando exista logica
         # que merezca cubrirse. El umbral vive en vite.config.ts.
         run: npm run test:coverage
+
+      # SonarQube Cloud (SCRUM-277). Se salta mientras no exista la variable SONAR_PROJECT_KEY, para
+      # no poner el CI en rojo antes de crear el proyecto, y en PR de forks, a los que GitHub no
+      # entrega los secretos (esos PR se analizan desde una rama de confianza antes de aprobarse).
+      # Tampoco en los de Dependabot: sus secretos son otros y SONAR_TOKEN llegaria vacio.
+      # Solo en PR: un push a desarrollo o a preproduccion se compara con produccion, que esta
+      # en pausa, y toda la diferencia cuenta como codigo nuevo: el Quality Gate saldria en rojo
+      # por lo que ya estaba fusionado y no por el cambio de turno.
+      - name: Validar la configuracion de SonarQube Cloud
+        if: >-
+          vars.SONAR_PROJECT_KEY != '' &&
+          github.actor != 'dependabot[bot]' &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        shell: bash
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+        run: |
+          set -euo pipefail
+          test -n "$SONAR_TOKEN"
+          test -n "$SONAR_ORGANIZATION"
+          test -s coverage/lcov.info
+
+      - name: Analizar con SonarQube Cloud y exigir el Quality Gate
+        if: >-
+          vars.SONAR_PROJECT_KEY != '' &&
+          github.actor != 'dependabot[bot]' &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: SonarSource/sonarqube-scan-action@59db25f34e16620e48ab4bb9e4a5dce155cb5432 # v8.0.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+        with:
+          args: >
+            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
 
       - name: Compilar
         run: npm run build

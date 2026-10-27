@@ -1,4 +1,4 @@
-import { llamarALaApi } from './clienteHttp.ts';
+import { llamarALaApi, type ContextoDePeticion } from './clienteHttp.ts';
 
 /**
  * El diario, por HTTP (SCRUM-95 en el backend, SCRUM-96 aqui).
@@ -94,24 +94,35 @@ export function consultarElDiario(
   desde: string,
   hasta: string,
   senal?: AbortSignal,
+  contexto?: ContextoDePeticion,
 ): Promise<readonly Anotacion[]> {
   const consulta = new URLSearchParams({ desde, hasta });
 
   return llamarALaApi<readonly Anotacion[]>(`/api/diario?${consulta.toString()}`, {
     ...(senal ? { senal } : {}),
+    contexto,
   });
 }
 
-export function escribirEnElDiario(anotacion: AnotacionPorEscribir): Promise<AnotacionGuardada> {
-  return llamarALaApi<AnotacionGuardada>('/api/diario', { metodo: 'POST', cuerpo: anotacion });
+export function escribirEnElDiario(
+  anotacion: AnotacionPorEscribir,
+  contexto?: ContextoDePeticion,
+): Promise<AnotacionGuardada> {
+  return llamarALaApi<AnotacionGuardada>('/api/diario', {
+    metodo: 'POST',
+    cuerpo: anotacion,
+    contexto,
+  });
 }
 
 export function editarAnotacion(
   id: string,
   cambios: CambiosDeAnotacion,
+  contexto?: ContextoDePeticion,
 ): Promise<AnotacionGuardada> {
   return llamarALaApi<AnotacionGuardada>(`/api/diario/${encodeURIComponent(id)}`, {
     metodo: 'PATCH',
     cuerpo: cambios,
+    contexto,
   });
 }

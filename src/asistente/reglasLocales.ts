@@ -38,12 +38,13 @@ import type { LineaDeAtencion } from '../infraestructura/api/resultados.ts';
 
 /**
  * Deja el texto comparable: sin tildes, en minusculas y con los espacios colapsados.
- * La forma NFD separa cada letra de su tilde, y el rango de marcas diacriticas las borra.
+ * NFKD unifica variantes compatibles; se quitan invisibles y todas las marcas Unicode.
  */
 export function normalizar(texto: string): string {
   return texto
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/gu, '')
+    .normalize('NFKD')
+    .replace(/\p{Default_Ignorable_Code_Point}/gu, '')
+    .replace(/\p{M}/gu, '')
     .toLowerCase()
     .replace(/\s+/gu, ' ')
     .trim();
@@ -316,23 +317,22 @@ export function responderSinConexion(
   reglas: ReglasLocales,
   consulta: ConsultaSinConexion,
 ): ResultadoSinConexion {
-  const limpio = normalizar(consulta.texto);
   const dichas = palabrasDe(consulta.texto);
   const erratas = reglas.erratas ?? {};
+  const vocabulario = vocabularioDe([reglas.riesgo.expresiones]);
+  const variantes = [
+    consulta.texto,
+    consulta.texto.replace(/\p{Default_Ignorable_Code_Point}/gu, ' '),
+  ];
+  const riesgo = variantes.some((texto) => {
+    const limpio = normalizar(texto);
+    const corregido = corregirPalabras(palabrasDe(texto), vocabulario, erratas).join(' ');
+    return reglas.riesgo.expresiones.some(
+      (expresion) => limpio.includes(expresion) || corregido.includes(expresion),
+    );
+  });
 
-  // El riesgo: tal cual, y despues con las erratas leidas como se quisieron escribir. La segunda
-  // busqueda solo suma (SCRUM-193), con el vocabulario del propio riesgo.
-  const corregidoDelRiesgo = corregirPalabras(
-    dichas,
-    vocabularioDe([reglas.riesgo.expresiones]),
-    erratas,
-  ).join(' ');
-
-  if (
-    reglas.riesgo.expresiones.some(
-      (expresion) => limpio.includes(expresion) || corregidoDelRiesgo.includes(expresion),
-    )
-  ) {
+  if (riesgo) {
     return {
       tipo: 'riesgo',
       mensaje: reglas.riesgo.mensaje,

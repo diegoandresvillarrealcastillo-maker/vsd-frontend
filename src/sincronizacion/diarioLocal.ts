@@ -11,7 +11,7 @@ import {
   sonIguales,
   type MotivoDeLaCopia,
 } from './anotaciones.ts';
-import { cicloActual } from './ciclo.ts';
+import { cicloActual, generacionDeSesion } from './ciclo.ts';
 import { crearFila } from './enFila.ts';
 import type { Operacion, TipoDeOperacion } from './cola.ts';
 import {
@@ -159,13 +159,15 @@ export function esDelDiario(operacion: Operacion): boolean {
  * Nunca falla ni rechaza.
  */
 export function conciliarElDiario(): Promise<void> {
-  return enFila(hacerLaConciliacion);
+  const generacionInicial = generacionDeSesion();
+  return enFila(() => hacerLaConciliacion(generacionInicial));
 }
 
 /** Las conciliaciones se hacen de una en una: cada una lee, cambia y escribe. */
 const enFila = crearFila();
 
-async function hacerLaConciliacion(): Promise<void> {
+async function hacerLaConciliacion(generacionInicial: number): Promise<void> {
+  if (generacionInicial !== generacionDeSesion()) return;
   const ciclo = cicloActual();
 
   if (ciclo === null) {
@@ -186,49 +188,57 @@ async function hacerLaConciliacion(): Promise<void> {
   const copias = hechas.map((hecha) => hecha.recibo).filter(esAnotacionCopiada);
 
   if (copias.length > 0) {
-    await modificarLaCopia<MarcasDeCopia>(CLAVE_DE_LAS_COPIAS_DEL_DIARIO, (guardadas) => {
-      const marcas: Record<string, MarcaDeCopia> = { ...comoMarcas(guardadas) };
+    await modificarLaCopia<MarcasDeCopia>(
+      CLAVE_DE_LAS_COPIAS_DEL_DIARIO,
+      (guardadas) => {
+        const marcas: Record<string, MarcaDeCopia> = { ...comoMarcas(guardadas) };
+        let cambio = false;
+
+        for (const copia of copias) {
+          if (marcas[copia.id]?.copiaDe !== copia.copiaDe) {
+            marcas[copia.id] = { copiaDe: copia.copiaDe, motivo: copia.motivo };
+            cambio = true;
+          }
+        }
+
+        return cambio ? marcas : null;
+      },
+      generacionInicial,
+    );
+  }
+
+  await modificarLaCopia<InstantaneaDelDiario>(
+    CLAVE_DEL_DIARIO,
+    (guardada) => {
+      const instantanea = comoInstantanea(guardada);
+
+      // Sin una instantanea no hay a que agregar: una con solo unas cuantas anotaciones
+      // pareceria el diario completo. Se arma la proxima vez que se pregunte al servidor.
+      if (instantanea === null) {
+        return null;
+      }
+
+      const porId = new Map(instantanea.anotaciones.map((anotacion) => [anotacion.id, anotacion]));
       let cambio = false;
 
-      for (const copia of copias) {
-        if (marcas[copia.id]?.copiaDe !== copia.copiaDe) {
-          marcas[copia.id] = { copiaDe: copia.copiaDe, motivo: copia.motivo };
+      for (const { recibo } of hechas) {
+        const nueva = soloLaAnotacion(recibo as Anotacion);
+        const previa = porId.get(nueva.id);
+        const sirve =
+          previa === undefined
+            ? nueva.dia >= instantanea.desde
+            : nueva.version >= previa.version && !sonIguales(previa, nueva);
+
+        if (sirve) {
+          porId.set(nueva.id, nueva);
           cambio = true;
         }
       }
 
-      return cambio ? marcas : null;
-    });
-  }
-
-  await modificarLaCopia<InstantaneaDelDiario>(CLAVE_DEL_DIARIO, (guardada) => {
-    const instantanea = comoInstantanea(guardada);
-
-    // Sin una instantanea no hay a que agregar: una con solo unas cuantas anotaciones
-    // pareceria el diario completo. Se arma la proxima vez que se pregunte al servidor.
-    if (instantanea === null) {
-      return null;
-    }
-
-    const porId = new Map(instantanea.anotaciones.map((anotacion) => [anotacion.id, anotacion]));
-    let cambio = false;
-
-    for (const { recibo } of hechas) {
-      const nueva = soloLaAnotacion(recibo as Anotacion);
-      const previa = porId.get(nueva.id);
-      const sirve =
-        previa === undefined
-          ? nueva.dia >= instantanea.desde
-          : nueva.version >= previa.version && !sonIguales(previa, nueva);
-
-      if (sirve) {
-        porId.set(nueva.id, nueva);
-        cambio = true;
-      }
-    }
-
-    return cambio ? { ...instantanea, anotaciones: [...porId.values()] } : null;
-  });
+      return cambio ? { ...instantanea, anotaciones: [...porId.values()] } : null;
+    },
+    generacionInicial,
+  );
 }
 
 // ---------------------------------------------------------------------------

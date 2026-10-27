@@ -76,8 +76,10 @@ function operacion(
   };
 }
 
+const peticion = { persona: 'audit-A', vigente: () => true };
+
 function contextoCon(recibos: Record<string, unknown> = {}): ContextoDeEjecucion {
-  return { reciboDe: (id) => recibos[id] ?? null };
+  return { reciboDe: (id) => recibos[id] ?? null, peticion };
 }
 
 // Un payload valido de cada tipo.
@@ -391,7 +393,11 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
     expect(await EJECUTORES['resultado.registrar'](o, contextoCon())).toEqual({
       respuesta: 'de la api',
     });
-    expect(registrarResultado).toHaveBeenCalledWith(VALIDOS['resultado.registrar']);
+    expect(registrarResultado).toHaveBeenCalledWith(
+      VALIDOS['resultado.registrar'],
+      undefined,
+      peticion,
+    );
   });
 
   it('diario.escribir manda el payload tal cual', async () => {
@@ -400,7 +406,7 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
       contextoCon(),
     );
 
-    expect(escribirEnElDiario).toHaveBeenCalledWith(VALIDOS['diario.escribir']);
+    expect(escribirEnElDiario).toHaveBeenCalledWith(VALIDOS['diario.escribir'], peticion);
   });
 
   describe('diario.escribir cuando es copia de otra anotacion', () => {
@@ -418,11 +424,14 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
         contextoCon(),
       );
 
-      expect(escribirEnElDiario).toHaveBeenCalledWith({
-        clientOperationId: 'op-1',
-        dia: '2026-10-07',
-        contenido: { type: 'doc', content: [] },
-      });
+      expect(escribirEnElDiario).toHaveBeenCalledWith(
+        {
+          clientOperationId: 'op-1',
+          dia: '2026-10-07',
+          contenido: { type: 'doc', content: [] },
+        },
+        peticion,
+      );
       expect(recibo).toEqual({
         id: 'nueva',
         version: 1,
@@ -466,7 +475,7 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
       contextoCon(),
     );
 
-    expect(crearPendiente).toHaveBeenCalledWith(VALIDOS['pendiente.crear']);
+    expect(crearPendiente).toHaveBeenCalledWith(VALIDOS['pendiente.crear'], peticion);
   });
 
   it('un fallo de la API sale tal cual: el motor es quien lo clasifica', async () => {
@@ -490,7 +499,11 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
         contextoCon(),
       );
 
-      expect(editarPendiente).toHaveBeenCalledWith('pendiente-1', { hecho: true, texto: 'Nuevo' });
+      expect(editarPendiente).toHaveBeenCalledWith(
+        'pendiente-1',
+        { hecho: true, texto: 'Nuevo' },
+        peticion,
+      );
     });
 
     it('sin version en ningun lado, no inventa una (la API no comprueba nada)', async () => {
@@ -512,7 +525,7 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
         contextoCon({ 'op-0': { id: 'p', version: 9 } }),
       );
 
-      expect(editarPendiente).toHaveBeenCalledWith('p', { texto: 'x', version: 4 });
+      expect(editarPendiente).toHaveBeenCalledWith('p', { texto: 'x', version: 4 }, peticion);
     });
 
     it('si los cambios no fijan la version, usa la que respondio la operacion de la que depende', async () => {
@@ -521,7 +534,7 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
         contextoCon({ 'op-0': { id: 'p', version: 3 } }),
       );
 
-      expect(editarPendiente).toHaveBeenCalledWith('p', { texto: 'x', version: 3 });
+      expect(editarPendiente).toHaveBeenCalledWith('p', { texto: 'x', version: 3 }, peticion);
     });
 
     it('un recibo sin version valida no fija ninguna', async () => {
@@ -543,7 +556,11 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
         contextoCon({ 'op-0': { id: 'servidor-55', version: 1 } }),
       );
 
-      expect(editarPendiente).toHaveBeenCalledWith('servidor-55', { hecho: true, version: 1 });
+      expect(editarPendiente).toHaveBeenCalledWith(
+        'servidor-55',
+        { hecho: true, version: 1 },
+        peticion,
+      );
     });
 
     it('si la creacion todavia no termino, no llama a la API', async () => {
@@ -564,7 +581,7 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
         contextoCon(),
       );
 
-      expect(borrarPendiente).toHaveBeenCalledWith('pendiente-1');
+      expect(borrarPendiente).toHaveBeenCalledWith('pendiente-1', peticion);
     });
 
     it('uno creado sin conexion se borra con el id de verdad', async () => {
@@ -573,7 +590,7 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
         contextoCon({ 'op-0': { id: 'servidor-55' } }),
       );
 
-      expect(borrarPendiente).toHaveBeenCalledWith('servidor-55');
+      expect(borrarPendiente).toHaveBeenCalledWith('servidor-55', peticion);
     });
 
     it('si la creacion todavia no termino, no llama a la API', async () => {
@@ -594,7 +611,11 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
         contextoCon(),
       );
 
-      expect(editarAnotacion).toHaveBeenCalledWith('a-1', { titulo: 'Nuevo', version: 2 });
+      expect(editarAnotacion).toHaveBeenCalledWith(
+        'a-1',
+        { titulo: 'Nuevo', version: 2 },
+        peticion,
+      );
     });
 
     it('sin version en el payload, usa la que respondio la operacion de la que depende', async () => {
@@ -607,10 +628,14 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
         contextoCon({ 'op-0': { id: 'a-1', version: 5 } }),
       );
 
-      expect(editarAnotacion).toHaveBeenCalledWith('a-1', {
-        contenido: { type: 'doc' },
-        version: 5,
-      });
+      expect(editarAnotacion).toHaveBeenCalledWith(
+        'a-1',
+        {
+          contenido: { type: 'doc' },
+          version: 5,
+        },
+        peticion,
+      );
     });
 
     it('la version del payload manda sobre la del recibo', async () => {
@@ -641,7 +666,7 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
         contextoCon({ 'op-0': { id: '', version: 5 } }),
       );
 
-      expect(editarAnotacion).toHaveBeenCalledWith('a-1', { version: 2 });
+      expect(editarAnotacion).toHaveBeenCalledWith('a-1', { version: 2 }, peticion);
     });
 
     it('SIN version de ningun lado no se envia: pisar lo de otro dispositivo seria perder lo que escribio', async () => {
@@ -664,10 +689,14 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
         contextoCon({ 'op-0': { id: 'servidor-a', version: 1 } }),
       );
 
-      expect(editarAnotacion).toHaveBeenCalledWith('servidor-a', {
-        titulo: 'Corregido',
-        version: 1,
-      });
+      expect(editarAnotacion).toHaveBeenCalledWith(
+        'servidor-a',
+        {
+          titulo: 'Corregido',
+          version: 1,
+        },
+        peticion,
+      );
     });
 
     it('no manda el id dentro de los cambios', async () => {
@@ -698,10 +727,14 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
         contextoCon(),
       );
 
-      expect(editarAnotacion).toHaveBeenCalledWith('a-1', {
-        version: 2,
-        editadaEn: '2026-10-07T11:30:00.000Z',
-      });
+      expect(editarAnotacion).toHaveBeenCalledWith(
+        'a-1',
+        {
+          version: 2,
+          editadaEn: '2026-10-07T11:30:00.000Z',
+        },
+        peticion,
+      );
     });
 
     describe('cuando la API no deja corregirla (ADR 0009: nunca se sobrescribe)', () => {
@@ -755,14 +788,17 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
           const recibo = await corregir();
 
           expect(escribirEnElDiario).toHaveBeenCalledTimes(1);
-          expect(escribirEnElDiario).toHaveBeenCalledWith({
-            clientOperationId: 'op-9',
-            dia: DIA,
-            titulo: 'Mi titulo',
-            contenido: CONTENIDO,
-            adjuntos: [DIAGRAMA],
-            escritaEn: '2026-10-07T11:30:00.000Z',
-          });
+          expect(escribirEnElDiario).toHaveBeenCalledWith(
+            {
+              clientOperationId: 'op-9',
+              dia: DIA,
+              titulo: 'Mi titulo',
+              contenido: CONTENIDO,
+              adjuntos: [DIAGRAMA],
+              escritaEn: '2026-10-07T11:30:00.000Z',
+            },
+            peticion,
+          );
           // El recibo es la anotacion nueva, y dice de cual es copia y por que.
           expect(recibo).toEqual({ id: 'copia-1', version: 1, copiaDe: 'a-1', motivo: codigo });
         },
@@ -790,11 +826,14 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
           adjuntos: null,
         });
 
-        expect(escribirEnElDiario).toHaveBeenCalledWith({
-          clientOperationId: 'op-9',
-          dia: DIA,
-          contenido: CONTENIDO,
-        });
+        expect(escribirEnElDiario).toHaveBeenCalledWith(
+          {
+            clientOperationId: 'op-9',
+            dia: DIA,
+            contenido: CONTENIDO,
+          },
+          peticion,
+        );
 
         await corregir({ id: 'a-1', version: 2, dia: DIA, contenido: CONTENIDO, adjuntos: [] });
 
@@ -839,7 +878,7 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
           consultarElDiario.mockResolvedValue([delServidor({ id: 'otra' }), delServidor()]);
 
           expect(await corregir()).toEqual(delServidor());
-          expect(consultarElDiario).toHaveBeenCalledWith(DIA, DIA);
+          expect(consultarElDiario).toHaveBeenCalledWith(DIA, DIA, undefined, peticion);
           expect(escribirEnElDiario).not.toHaveBeenCalled();
         });
 
@@ -932,19 +971,27 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
         it('sigue a la copia, con la version de la copia y no la de la original', async () => {
           await despuesDeLaCopia({ id: 'a-1', version: 2, contenido: CONTENIDO });
 
-          expect(editarAnotacion).toHaveBeenCalledWith('copia-1', {
-            contenido: CONTENIDO,
-            version: 1,
-          });
+          expect(editarAnotacion).toHaveBeenCalledWith(
+            'copia-1',
+            {
+              contenido: CONTENIDO,
+              version: 1,
+            },
+            peticion,
+          );
         });
 
         it('aunque no traiga version, sigue a la copia', async () => {
           await despuesDeLaCopia({ id: 'a-1', contenido: CONTENIDO });
 
-          expect(editarAnotacion).toHaveBeenCalledWith('copia-1', {
-            contenido: CONTENIDO,
-            version: 1,
-          });
+          expect(editarAnotacion).toHaveBeenCalledWith(
+            'copia-1',
+            {
+              contenido: CONTENIDO,
+              version: 1,
+            },
+            peticion,
+          );
         });
 
         it('una correccion mas, despues de la que ya iba sobre la copia, tambien', async () => {
@@ -953,7 +1000,7 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
             contextoCon({ 'op-1': { id: 'copia-1', version: 4 } }),
           );
 
-          expect(editarAnotacion).toHaveBeenCalledWith('copia-1', { version: 4 });
+          expect(editarAnotacion).toHaveBeenCalledWith('copia-1', { version: 4 }, peticion);
         });
 
         it('si la corregida era la misma de antes, nada cambia', async () => {
@@ -962,7 +1009,7 @@ describe('EJECUTORES: que llamada hace cada tipo', () => {
             contextoCon({ 'op-0': { id: 'a-1', version: 9 } }),
           );
 
-          expect(editarAnotacion).toHaveBeenCalledWith('a-1', { version: 2 });
+          expect(editarAnotacion).toHaveBeenCalledWith('a-1', { version: 2 }, peticion);
         });
       });
     });

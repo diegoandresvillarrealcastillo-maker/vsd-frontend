@@ -167,6 +167,7 @@ export function crearExclusion(): Exclusion {
 // ---------------------------------------------------------------------------
 
 export interface DependenciasDelMotor {
+  readonly generacionDeSesion?: () => number;
   readonly almacen: AlmacenLocal;
   /** Como se envia cada tipo. Por omision, las llamadas de verdad a la API. */
   readonly ejecutores?: Readonly<Record<TipoDeOperacion, Ejecutor>>;
@@ -213,6 +214,7 @@ function describirElError(error: unknown): string {
 export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincronizacion {
   const {
     almacen,
+    generacionDeSesion = () => 0,
     personaDeLaSesion,
     confirmarConexion,
     motivoDelFallo = () => null,
@@ -236,6 +238,9 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
 
   /** Lo que hace una tanda, con la exclusion ya tomada. */
   async function tanda(motivo: MotivoDeSincronizacion): Promise<ResultadoDeSincronizacion> {
+    const generacionInicial = generacionDeSesion();
+    const vigente = () =>
+      personaDeLaSesion() === almacen.persona && generacionDeSesion() === generacionInicial;
     const persona = personaDeLaSesion();
 
     if (persona === null) {
@@ -323,6 +328,7 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
     let detalle: string | undefined;
 
     const contexto: ContextoDeEjecucion = {
+      peticion: { persona: almacen.persona, vigente },
       reciboDe: (operationId) => {
         const operacion = operaciones.get(operationId);
 
@@ -347,7 +353,7 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
       }
 
       // La sesion pudo cambiar mientras se enviaba (se cerro, entro otra persona).
-      if (personaDeLaSesion() !== almacen.persona) {
+      if (!vigente()) {
         corte = 'persona_distinta';
         break;
       }
@@ -367,6 +373,10 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
       }
 
       await guardar({ ...siguiente, estado: 'enviando' });
+      if (!vigente()) {
+        corte = 'persona_distinta';
+        break;
+      }
 
       // Solo la llamada a la API va dentro del `try`. Si fallara guardar lo que
       // respondio (el disco lleno), eso no es un fallo de la API ni hay que
@@ -381,6 +391,10 @@ export function crearMotor(dependencias: DependenciasDelMotor): MotorDeSincroniz
         falloDelEnvio = { error };
       }
 
+      if (!vigente()) {
+        corte = 'persona_distinta';
+        break;
+      }
       if (falloDelEnvio === null) {
         const hecha = await guardar({
           ...siguiente,

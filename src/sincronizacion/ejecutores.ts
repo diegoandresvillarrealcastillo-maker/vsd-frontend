@@ -1,4 +1,4 @@
-import { ErrorDeLaApi } from '../infraestructura/api/clienteHttp.ts';
+import { ErrorDeLaApi, type ContextoDePeticion } from '../infraestructura/api/clienteHttp.ts';
 import {
   consultarElDiario,
   editarAnotacion,
@@ -43,6 +43,7 @@ import { VERSION_ACTUAL_DEL_PAYLOAD, type Operacion, type TipoDeOperacion } from
 
 /** Lo que el motor le da a un ejecutor ademas de la operacion. */
 export interface ContextoDeEjecucion {
+  readonly peticion?: ContextoDePeticion;
   /** El recibo de otra operacion (que ya termino bien), o `null` si no hay. */
   reciboDe(operationId: string): unknown;
 }
@@ -314,10 +315,10 @@ async function corregirUnaAnotacion(
   }
 
   try {
-    return await editarAnotacion(objetivo, { ...cambios, version: laVersion });
+    return await editarAnotacion(objetivo, { ...cambios, version: laVersion }, contexto.peticion);
   } catch (error) {
     if (error instanceof ErrorDeLaApi && NO_SE_PUEDE_EDITAR.has(error.codigo ?? '')) {
-      return guardarAparte(operacion, error, objetivo, dia, cambios);
+      return guardarAparte(operacion, error, objetivo, dia, cambios, contexto.peticion);
     }
 
     throw error;
@@ -342,9 +343,12 @@ async function guardarAparte(
   objetivo: string,
   dia: string | undefined,
   cambios: Omit<EdicionEnCola, 'id' | 'version' | 'dia'>,
+  peticion?: ContextoDePeticion,
 ): Promise<unknown> {
   if (error.codigo === 'VERSION_DESACTUALIZADA' && dia !== undefined) {
-    const delServidor = (await consultarElDiario(dia, dia)).find((una) => una.id === objetivo);
+    const delServidor = (await consultarElDiario(dia, dia, undefined, peticion)).find(
+      (una) => una.id === objetivo,
+    );
 
     if (delServidor !== undefined && yaEstaAplicada(delServidor, cambios)) {
       return delServidor;
@@ -365,18 +369,26 @@ async function guardarAparte(
     ...(cambios.editadaEn === undefined ? {} : { escritaEn: cambios.editadaEn }),
   };
 
-  return { ...(await escribirEnElDiario(nueva)), copiaDe: objetivo, motivo: error.codigo };
+  return {
+    ...(await escribirEnElDiario(nueva, peticion)),
+    copiaDe: objetivo,
+    motivo: error.codigo,
+  };
 }
 
 /** Lo que cada operacion manda, ya comprobado por `comprobarLaOperacion`. */
 export const EJECUTORES: Readonly<Record<TipoDeOperacion, Ejecutor>> = {
-  'resultado.registrar': (operacion) =>
-    registrarResultado(operacion.payload as Parameters<typeof registrarResultado>[0]),
+  'resultado.registrar': (operacion, contexto) =>
+    registrarResultado(
+      operacion.payload as Parameters<typeof registrarResultado>[0],
+      undefined,
+      contexto.peticion,
+    ),
 
-  'diario.escribir': async (operacion) => {
+  'diario.escribir': async (operacion, contexto) => {
     // Si es copia de otra anotacion, eso es de la pantalla: la API no lo recibe.
     const { copiaDe, motivo, ...paraLaApi } = operacion.payload as EscrituraEnCola;
-    const guardada = await escribirEnElDiario(paraLaApi);
+    const guardada = await escribirEnElDiario(paraLaApi, contexto.peticion);
 
     return copiaDe === undefined || motivo === undefined
       ? guardada
@@ -385,8 +397,8 @@ export const EJECUTORES: Readonly<Record<TipoDeOperacion, Ejecutor>> = {
 
   'diario.editar': enPromesa(corregirUnaAnotacion),
 
-  'pendiente.crear': (operacion) =>
-    crearPendiente(operacion.payload as Parameters<typeof crearPendiente>[0]),
+  'pendiente.crear': (operacion, contexto) =>
+    crearPendiente(operacion.payload as Parameters<typeof crearPendiente>[0], contexto.peticion),
 
   'pendiente.editar': enPromesa((operacion, contexto) => {
     const { id, cambios } = operacion.payload as {
@@ -398,15 +410,19 @@ export const EJECUTORES: Readonly<Record<TipoDeOperacion, Ejecutor>> = {
     // comprueba nada, que es lo que hacia antes de tener version.
     const version = cambios.version ?? versionDeLaDependencia(operacion, contexto);
 
-    return editarPendiente(resolverElId(id, contexto), {
-      ...cambios,
-      ...(version === undefined ? {} : { version }),
-    });
+    return editarPendiente(
+      resolverElId(id, contexto),
+      {
+        ...cambios,
+        ...(version === undefined ? {} : { version }),
+      },
+      contexto.peticion,
+    );
   }),
 
   'pendiente.borrar': enPromesa((operacion, contexto) => {
     const { id } = operacion.payload as { id: string };
 
-    return borrarPendiente(resolverElId(id, contexto));
+    return borrarPendiente(resolverElId(id, contexto), contexto.peticion);
   }),
 };
