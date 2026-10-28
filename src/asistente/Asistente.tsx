@@ -240,10 +240,9 @@ export function Asistente({
 
             {entorno.geminiEnPrueba ? (
               <p className="asistente__nota" role="status">
-                Prueba de Gemini en PRE: usa solo situaciones ficticias. Si tu cuenta está
-                autorizada, escribe [PRUEBA] antes de la pregunta. Ese texto se enviará a Google,
-                que puede usarlo para mejorar sus servicios. No incluyas datos personales ni de
-                salud reales.
+                Prueba de Gemini en PRE: las reglas responden primero. Si no reconocen tu pregunta,
+                el texto puede enviarse a Google, que puede usarlo para mejorar sus servicios. Usa
+                solo situaciones ficticias; no incluyas datos personales ni de salud reales.
               </p>
             ) : (
               <p className="asistente__nota">
