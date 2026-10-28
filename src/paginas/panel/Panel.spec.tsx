@@ -23,8 +23,10 @@ import {
   tutorialVisto,
   volverAVerElTutorial,
 } from '../../tutorial/memoriaDelTutorial.ts';
+import { ALTO_DE_FILA, ALTO_DE_FILA_DE_HOY } from '../sendero/geometria.ts';
 import { Icono, type NombreDeIcono } from './Icono.tsx';
 import { Panel } from './Panel.tsx';
+import { olvidarLaRutaAbierta, rutaAbierta } from './ruta/memoriaDeLaRuta.ts';
 
 /**
  * El dashboard, con la API simulada y el resto de verdad.
@@ -148,11 +150,17 @@ function pintar(sesion: Partial<EstadoDeSesion> = {}, ruta = '/') {
   );
 }
 
-function tarjeta(nombre: RegExp) {
-  return screen.getByRole('link', { name: nombre });
+/** El encabezado desplegable de un modulo activo (SCRUM-293). */
+function acordeon(nombre: RegExp) {
+  return screen.getByRole('button', { name: nombre, expanded: false });
+}
+
+function acordeonAbierto(nombre: RegExp) {
+  return screen.getByRole('button', { name: nombre, expanded: true });
 }
 
 beforeEach(() => {
+  olvidarLaRutaAbierta(CUENTA.id);
   consultarLaRacha.mockResolvedValue(rachaDePrueba());
   consultarElDatoDeHoy.mockResolvedValue({
     dia: '2026-10-13',
@@ -185,6 +193,88 @@ describe('Dashboard, accesibilidad (C-03)', () => {
 
     expect(await fallosDeAccesibilidad()).toEqual([]);
     expect(cuantosH1()).toBe(1);
+  });
+});
+
+describe('Dashboard, la ruta de 365 dias desplegable (SCRUM-293)', () => {
+  const RUTA = /Ruta de 365 días de/;
+
+  it('al entrar todos los modulos estan cerrados y ninguna ruta pesa en la pantalla', async () => {
+    pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    expect(acordeon(/Cognición/)).toBeInTheDocument();
+    expect(acordeon(/Bienestar/)).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: RUTA })).not.toBeInTheDocument();
+  });
+
+  it('al abrir un modulo aparecen sus 365 dias y la vista va sola al dia activo', async () => {
+    pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+    await userEvent.click(acordeon(/Bienestar/));
+
+    const ventana = screen.getByRole('region', { name: 'Ruta de 365 días de Bienestar' });
+
+    expect(within(within(ventana).getByRole('list')).getAllByRole('listitem')).toHaveLength(365);
+    // Bienestar va en el dia 4: tres filas hechas y el centro de la de hoy. En jsdom no se mide
+    // nada, asi que la ventana mide 0 y el punto de hoy queda arriba del todo.
+    expect(ventana.scrollTop).toBe(3 * ALTO_DE_FILA + ALTO_DE_FILA_DE_HOY / 2);
+    expect(acordeonAbierto(/Bienestar/)).toBeInTheDocument();
+  });
+
+  it('abre un solo modulo a la vez', async () => {
+    pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+    await userEvent.click(acordeon(/Cognición/));
+    await userEvent.click(acordeon(/Bienestar/));
+
+    expect(acordeon(/Cognición/)).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getAllByRole('region', { name: RUTA })).toHaveLength(1);
+    expect(screen.getByRole('region', { name: 'Ruta de 365 días de Bienestar' })).toBeVisible();
+  });
+
+  it('un modulo abierto se cierra al pulsarlo de nuevo', async () => {
+    pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+    await userEvent.click(acordeon(/Bienestar/));
+    await userEvent.click(acordeonAbierto(/Bienestar/));
+
+    expect(acordeon(/Bienestar/)).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: RUTA })).not.toBeInTheDocument();
+    expect(rutaAbierta(CUENTA.id)).toBeNull();
+  });
+
+  it('recuerda el ultimo modulo abierto al volver al panel (checkpoint)', async () => {
+    const primera = pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+    await userEvent.click(acordeon(/Cognición/));
+
+    expect(rutaAbierta(CUENTA.id)).toBe('cognicion');
+
+    primera.unmount();
+    pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    expect(acordeonAbierto(/Cognición/)).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Ruta de 365 días de Cognición' })).toBeVisible();
+  });
+
+  it('se maneja con teclado y no tiene fallos de accesibilidad con un modulo abierto', async () => {
+    pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    acordeon(/Bienestar/).focus();
+    await userEvent.keyboard('{Enter}');
+
+    expect(acordeonAbierto(/Bienestar/)).toHaveFocus();
+    expect(await fallosDeAccesibilidad()).toEqual([]);
   });
 });
 
@@ -565,14 +655,14 @@ describe('Dashboard', () => {
       ).toHaveAttribute('aria-valuenow', '1');
     });
 
-    it('cada modulo activo muestra su etapa real', async () => {
+    it('cada modulo activo dice en que dia de sus 365 va, con lo que dice la API', async () => {
       pintar();
 
       await screen.findByRole('heading', { name: /Hola, Marina/ });
 
-      expect(tarjeta(/Cognición/)).toHaveTextContent('Etapa 2 · 2 de 10 sesiones');
-      expect(tarjeta(/Cognición/)).toHaveTextContent('20%');
-      expect(tarjeta(/Bienestar/)).toHaveTextContent('Etapa 1 · 3 de 5 sesiones');
+      // Cognicion: 7 sesiones y hoy ya hecho, asi que hoy es el dia 7. Bienestar: 3 y nada hoy, dia 4.
+      expect(acordeon(/Cognición/)).toHaveTextContent('Día 7 de 365 · 2%');
+      expect(acordeon(/Bienestar/)).toHaveTextContent('Día 4 de 365 · 1%');
     });
 
     it('el modulo que no esta activo se ofrece para añadirlo', async () => {
@@ -787,13 +877,22 @@ describe('Dashboard', () => {
   });
 
   describe('lo que se puede hacer', () => {
-    it('cada modulo activo lleva a su sendero (SCRUM-92)', async () => {
+    it('cada modulo activo, al desplegarlo, lleva a su sendero (SCRUM-92)', async () => {
       pintar();
 
       await screen.findByRole('heading', { name: 'Tu ruta de hoy' });
 
-      expect(tarjeta(/Cognición/)).toHaveAttribute('href', '/modulo/cognicion');
-      expect(tarjeta(/Bienestar/)).toHaveAttribute('href', '/modulo/bienestar');
+      await userEvent.click(acordeon(/Cognición/));
+      expect(screen.getByRole('link', { name: /Ver el detalle de Cognición/ })).toHaveAttribute(
+        'href',
+        '/modulo/cognicion',
+      );
+
+      await userEvent.click(acordeon(/Bienestar/));
+      expect(screen.getByRole('link', { name: /Ver el detalle de Bienestar/ })).toHaveAttribute(
+        'href',
+        '/modulo/bienestar',
+      );
       // La ruta del día sigue mostrando lo de todos los modulos.
       // Hay mas de una lista en la pantalla (el pie lleva la de los documentos
       // legales), asi que se mira que cada actividad este dentro de alguna.
@@ -849,9 +948,9 @@ describe('Dashboard', () => {
       expect(cambiarPreferencias).toHaveBeenCalledWith({
         modulosActivos: ['cognicion', 'bienestar', 'emociones'],
       });
-      expect(await screen.findByRole('link', { name: /Emociones/ })).toHaveTextContent(
-        'Etapa 1 · 0 de 5 sesiones',
-      );
+      expect(
+        await screen.findByRole('button', { name: /Emociones/, expanded: false }),
+      ).toHaveTextContent('Día 1 de 365 · 0%');
       expect(screen.queryByRole('button', { name: /Añadir Emociones/ })).not.toBeInTheDocument();
     });
 
