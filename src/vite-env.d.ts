@@ -38,6 +38,7 @@ interface ImportMetaEnv {
    * Cualquier otro valor lo oculta.
    */
   readonly VITE_PROVEEDOR_GOOGLE?: string;
+  readonly VITE_GEMINI_PRE_TEST?: string;
 
   /**
    * La clave **del sitio** de Cloudflare Turnstile (SCRUM-165). Publica por

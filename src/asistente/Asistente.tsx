@@ -6,6 +6,7 @@ import { AvisoOrientativo } from '../componentes/AvisoOrientativo.tsx';
 import { LlamarAhora } from '../componentes/LlamarAhora.tsx';
 import { useDialogo } from '../componentes/useDialogo.ts';
 import { useEnLinea } from '../conexion/useEnLinea.ts';
+import { entorno } from '../infraestructura/entorno.ts';
 import '../estilos/actividad.css';
 import '../estilos/asistente.css';
 import {
@@ -35,8 +36,8 @@ import { useReglasLocales } from './useReglasLocales.ts';
  *   recursos y su deteccion de riesgo, que va siempre primero. Si el texto
  *   tiene una senal de riesgo, la respuesta ensena siempre las lineas de
  *   atencion.
- * - Lo escrito no se guarda: vive en memoria mientras esta abierto y se
- *   olvida al cerrarlo.
+ * - Lo escrito vive en memoria mientras esta abierto y se olvida al cerrarlo.
+ *   En la prueba opcional de Gemini, el mensaje marcado se envia a Google.
  * - Nunca se queda cargando: sin conexion, o si tarda demasiado, lo dice. Y
  *   como entonces no se sabe que habria respondido, deja a mano las dos
  *   lineas nacionales.
@@ -237,10 +238,19 @@ export function Asistente({
               </p>
             )}
 
-            <p className="asistente__nota">
-              Pregúntame por tu descanso, por lo que significa un resultado o por dónde buscar
-              ayuda. Lo que escribas aquí no se guarda.
-            </p>
+            {entorno.geminiEnPrueba ? (
+              <p className="asistente__nota" role="status">
+                Prueba de Gemini en PRE: usa solo situaciones ficticias. Si tu cuenta está
+                autorizada, escribe [PRUEBA] antes de la pregunta. Ese texto se enviará a Google,
+                que puede usarlo para mejorar sus servicios. No incluyas datos personales ni de
+                salud reales.
+              </p>
+            ) : (
+              <p className="asistente__nota">
+                Pregúntame por tu descanso, por lo que significa un resultado o por dónde buscar
+                ayuda. Lo que escribas aquí no se guarda.
+              </p>
+            )}
 
             {mensajes.length === 0 && (
               <ul className="asistente__sugerencias" aria-label="Para empezar">
