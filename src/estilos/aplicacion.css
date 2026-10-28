@@ -729,6 +729,144 @@
   font-size: 0.75rem;
 }
 
+/* ---------- Ruta de 365 dias, desplegable por modulo (SCRUM-293) ---------- */
+
+.acordeon-modulo {
+  border: 1px solid var(--app-borde);
+  border-radius: 28px;
+  background: var(--modulo-fondo);
+  color: var(--app-tinta);
+}
+
+.acordeon-modulo__encabezado {
+  margin: 0;
+  font: inherit;
+}
+
+.acordeon-modulo__boton {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  width: 100%;
+  min-height: 4.5rem;
+  padding: 1.25rem 1.5rem;
+  border: 0;
+  border-radius: 28px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.acordeon-modulo__texto {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.acordeon-modulo__titulo {
+  font-family: var(--app-fuente-titulos);
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.acordeon-modulo__descripcion {
+  margin-top: 0.125rem;
+  color: var(--app-tenue);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.acordeon-modulo__pie {
+  margin-top: 0.625rem;
+  color: var(--app-tenue);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.acordeon-modulo__texto .tarjeta-modulo__barra {
+  margin-top: 0.5rem;
+}
+
+.acordeon-modulo__chevron {
+  align-self: center;
+}
+
+.acordeon-modulo--abierto .acordeon-modulo__chevron {
+  transform: rotate(90deg);
+}
+
+.acordeon-modulo__cuerpo {
+  display: grid;
+  gap: 1rem;
+  padding: 0 1.25rem 1.25rem;
+}
+
+.acordeon-modulo__detalle {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  color: var(--app-tinta);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------- Mapa de los 365 dias ---------- */
+
+.mapa {
+  display: grid;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 40rem;
+  margin-inline: auto;
+}
+
+.mapa__cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.mapa__vuelta {
+  color: var(--app-tenue);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* La ventana es la que se desplaza, no la pagina. `scroll-behavior: auto` para que el salto al dia
+   activo sea instantaneo aunque la pagina tenga desplazamiento suave. */
+.mapa__ventana {
+  max-height: min(32rem, 70vh);
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  border-radius: 20px;
+  background: var(--app-superficie);
+  scroll-behavior: auto;
+}
+
+.mapa__ventana .sendero__tramo {
+  margin-top: 0;
+}
+
+/* Sin `transform`: la fila ya usa `translateX(var(--x))` para el zigzag y se perderia. */
+.mapa__punto-hecho {
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mapa__punto-hecho:hover {
+    filter: brightness(1.08);
+  }
+}
+
 /* ---------- Ruta del dia y recomendado (SCRUM-170) ---------- */
 
 .app__ruta-y-recomendado {
@@ -1939,7 +2077,7 @@
 }
 
 /* Las alturas tienen que coincidir con ALTO_DE_FILA y ALTO_DE_FILA_DE_HOY de
-   Sendero.tsx, que es con lo que se dibuja la traza. */
+   sendero/geometria.ts, que es con lo que se dibuja la traza. */
 .sendero__fila {
   display: grid;
   place-items: center;
@@ -2519,6 +2657,12 @@
 
   .app__modulos {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  /* El modulo desplegado ocupa toda la fila: 365 dias no caben en un tercio. */
+  .acordeon-modulo--abierto {
+    grid-column: 1 / -1;
   }
 
   .tarjeta-modulo {
