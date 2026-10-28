@@ -13,7 +13,9 @@ import { Semaforo } from '../../semaforo/Semaforo.tsx';
 import { BarraSuperior } from '../panel/Estructura.tsx';
 import { Icono } from '../panel/Icono.tsx';
 import { MODULOS, ORDEN } from '../panel/modulos.ts';
+import { Anillo } from './Anillo.tsx';
 import { etapaSiguiente, etapasAnteriores, nombreDeEtapa, tramoDeHoy } from './etapas.ts';
+import { ALTO_DE_FILA, ALTO_DE_FILA_DE_HOY, desplazamiento } from './geometria.ts';
 import { HojaDeHoy } from './HojaDeHoy.tsx';
 import { DatosDeHace } from '../../conexion/DatosDeHace.tsx';
 import { ahoraMismo, diaDe } from '../diario/calendarioDelDiario.ts';
@@ -31,15 +33,6 @@ import { useSendero } from './useSendero.ts';
  * Los puntos ya hechos no se pueden abrir: la API dice cuantas sesiones hubo,
  * no que se hizo cada dia. El de hoy si, y abre lo que toca.
  */
-
-/** Alto de cada fila del camino. Tiene que coincidir con la hoja de estilos. */
-const ALTO_DE_FILA = 96;
-const ALTO_DE_FILA_DE_HOY = 132;
-
-/** Desplazamiento lateral de cada punto, para que el camino serpentee. */
-function desplazamiento(indice: number): number {
-  return Math.round(Math.sin(indice * 0.9) * 56);
-}
 
 function esModulo(valor: string | undefined): valor is Modulo {
   return valor !== undefined && (ORDEN as readonly string[]).includes(valor);
@@ -390,26 +383,6 @@ function Traza({
           />
         );
       })}
-    </svg>
-  );
-}
-
-/** El anillo alrededor del punto de hoy: se llena con lo hecho hoy. */
-function Anillo({ avance }: { avance: number }) {
-  const radio = 46;
-  const circunferencia = 2 * Math.PI * radio;
-
-  return (
-    <svg className="sendero__anillo" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
-      <circle className="sendero__anillo-fondo" cx="50" cy="50" r={radio} />
-      <circle
-        className="sendero__anillo-avance"
-        cx="50"
-        cy="50"
-        r={radio}
-        strokeDasharray={circunferencia}
-        strokeDashoffset={circunferencia * (1 - avance)}
-      />
     </svg>
   );
 }

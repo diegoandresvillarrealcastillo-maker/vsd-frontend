@@ -14,18 +14,19 @@ import type { Cuenta, Modulo } from '../../infraestructura/api/cuenta.ts';
 import type { ActividadDeHoy, ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { MascotaFlotante } from '../../mascota/MascotaFlotante.tsx';
 import { useAvisoDeLaTarde } from '../../racha/useAvisoDeLaTarde.ts';
-import { rutaDeActividad, rutaDeModulo } from '../../rutas/rutas.ts';
+import { rutaDeActividad } from '../../rutas/rutas.ts';
 import { Semaforo } from '../../semaforo/Semaforo.tsx';
 import { formatoEn, zonaActual } from '../../tiempo/zonaHoraria.ts';
 import { Bienvenida } from './Bienvenida.tsx';
 import { Celebracion } from './Celebracion.tsx';
+import { AcordeonDeModulo } from './AcordeonDeModulo.tsx';
 import { BarraSuperior, NavegacionInferior } from './Estructura.tsx';
 import { Icono } from './Icono.tsx';
 import { MODULOS, ORDEN } from './modulos.ts';
-import { porcentaje } from './porcentaje.ts';
 import { DatosDeHace } from '../../conexion/DatosDeHace.tsx';
 import { AvanceDeHoy } from './ruta/AvanceDeHoy.tsx';
 import { construirLaRuta } from './ruta/construirLaRuta.ts';
+import { recordarLaRutaAbierta, rutaAbierta } from './ruta/memoriaDeLaRuta.ts';
 import { RutaDelDia } from './ruta/RutaDelDia.tsx';
 import { useAvanceCelebrable } from './ruta/useAvanceCelebrable.ts';
 import { useDatosDelPanel } from './useDatosDelPanel.ts';
@@ -156,6 +157,17 @@ function Dashboard({
   // Si el tutorial ya se vio, la oferta de avisos no tiene nada que esperar.
   const [tutorialTerminado, setTutorialTerminado] = useState(() => tutorialVisto(cuenta.id));
 
+  // El modulo cuya ruta de 365 dias esta desplegada (SCRUM-293): uno solo a la vez, y se recuerda el
+  // ultimo en este equipo. Sin nada guardado, todos cerrados.
+  const [desplegado, setDesplegado] = useState<Modulo | null>(() => rutaAbierta(cuenta.id));
+
+  function alternarLaRuta(modulo: Modulo): void {
+    const siguiente = desplegado === modulo ? null : modulo;
+
+    setDesplegado(siguiente);
+    recordarLaRutaAbierta(cuenta.id, siguiente);
+  }
+
   const porModulo = new Map(progreso.map((uno) => [uno.modulo, uno]));
   const ruta = useMemo(() => construirLaRuta(progreso), [progreso]);
   const { nuevas } = useAvanceCelebrable(ruta.idsHechos);
@@ -219,7 +231,12 @@ function Dashboard({
             return suyo === undefined ? (
               <ModuloPorActivar key={modulo} modulo={modulo} activar={activarYCelebrar} />
             ) : (
-              <TarjetaDeModulo key={modulo} progreso={suyo} />
+              <AcordeonDeModulo
+                key={modulo}
+                progreso={suyo}
+                abierto={desplegado === modulo}
+                alAlternar={() => alternarLaRuta(modulo)}
+              />
             );
           })}
         </div>
@@ -240,45 +257,6 @@ function Dashboard({
       />
       <Semaforo />
     </>
-  );
-}
-
-/** Un modulo activo. Lleva a su sendero (SCRUM-92). */
-function TarjetaDeModulo({ progreso }: { progreso: ProgresoDelModulo }) {
-  const datos = MODULOS[progreso.modulo];
-  const { etapa } = progreso;
-  const avance = porcentaje(etapa.sesionesHechas, etapa.sesionesDeLaEtapa);
-  const nombreDeEtapa = `${etapa.esTemporada ? 'Temporada' : 'Etapa'} ${etapa.numero}`;
-
-  return (
-    <Link
-      to={rutaDeModulo(progreso.modulo)}
-      className="tarjeta-modulo"
-      style={{ '--modulo-fondo': datos.fondo, '--modulo-acento': datos.acento } as CSSProperties}
-    >
-      <span className="tarjeta-modulo__arriba">
-        <span className="tarjeta-modulo__icono">
-          <Icono nombre={datos.icono} tamano={24} />
-        </span>
-        <span className="tarjeta-modulo__cifra">{avance}%</span>
-      </span>
-
-      <span className="tarjeta-modulo__cuerpo">
-        <span className="tarjeta-modulo__titulo">{datos.titulo}</span>
-        <span className="tarjeta-modulo__texto">{datos.descripcion}</span>
-
-        <span className="tarjeta-modulo__barra" aria-hidden="true">
-          <span style={{ width: `${avance}%` }} />
-        </span>
-
-        <span className="tarjeta-modulo__pie">
-          <span>
-            {nombreDeEtapa} · {etapa.sesionesHechas} de {etapa.sesionesDeLaEtapa} sesiones
-          </span>
-          <Icono nombre="arrow" tamano={16} />
-        </span>
-      </span>
-    </Link>
   );
 }
 
