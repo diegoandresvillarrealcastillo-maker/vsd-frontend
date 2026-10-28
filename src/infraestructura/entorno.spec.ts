@@ -15,6 +15,24 @@ afterEach(() => {
 });
 
 describe('entorno', () => {
+  it('muestra el aviso de Gemini solo en PRE cuando la prueba esta activada', async () => {
+    vi.stubEnv('VITE_APP_ENV', 'preproduction');
+    vi.stubEnv('VITE_GEMINI_PRE_TEST', 'si');
+
+    const { entorno } = await cargarEntorno();
+
+    expect(entorno.geminiEnPrueba).toBe(true);
+  });
+
+  it('nunca muestra la prueba de Gemini en produccion', async () => {
+    vi.stubEnv('VITE_APP_ENV', 'production');
+    vi.stubEnv('VITE_GEMINI_PRE_TEST', 'si');
+
+    const { entorno } = await cargarEntorno();
+
+    expect(entorno.geminiEnPrueba).toBe(false);
+  });
+
   it('toma development cuando no se indica ambiente', async () => {
     vi.stubEnv('VITE_APP_ENV', '');
 

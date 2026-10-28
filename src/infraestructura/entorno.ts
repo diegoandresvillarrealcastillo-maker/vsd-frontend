@@ -106,6 +106,9 @@ export const entorno = {
   nombre: nombreDeAmbiente,
   esDesarrollo: nombreDeAmbiente === 'development',
   esProduccion: nombreDeAmbiente === 'production',
+  /** Aviso publico de la prueba limitada de Gemini en PRE. */
+  geminiEnPrueba:
+    nombreDeAmbiente === 'preproduction' && import.meta.env.VITE_GEMINI_PRE_TEST?.trim() === 'si',
 
   /** La analitica (SCRUM-161). Apagada mientras no haya identificador de medicion. */
   analitica: {
