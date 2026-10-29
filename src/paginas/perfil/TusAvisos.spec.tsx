@@ -151,6 +151,9 @@ describe('Tus avisos', () => {
     const actividades = await screen.findByRole('switch', { name: ACTIVIDADES });
 
     expect(seccion()).toHaveTextContent('Nunca dicen nada de tu salud');
+    expect(seccion()).toHaveTextContent('Te avisamos aunque no tengas la aplicación abierta');
+    // Dice cuantos pendientes hay, no cuales: lo que escribio la persona no viaja en un aviso.
+    expect(seccion()).toHaveTextContent('solo cuántos pendientes tienes');
     expect(actividades).toHaveAttribute('aria-checked', 'false');
     expect(interruptor(SEMAFORO)).toHaveAttribute('aria-checked', 'false');
     // Apagadas, no ocupan sitio: no hay chips ni campo de hora.
@@ -236,7 +239,10 @@ describe('Tus avisos', () => {
 
       render(<TusAvisos />);
 
-      expect(await screen.findByText(/Agregar a inicio/)).toBeInTheDocument();
+      const nota = await screen.findByText(/Agregar a inicio/);
+
+      expect(nota).toHaveTextContent('iOS 16.4 o más reciente');
+      expect(nota).toHaveTextContent('Ábrela desde ahí y vuelve aquí');
       expect(
         screen.queryByRole('button', { name: 'Recibir avisos en este dispositivo' }),
       ).not.toBeInTheDocument();

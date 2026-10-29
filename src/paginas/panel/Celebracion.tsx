@@ -21,8 +21,7 @@ import { MODULOS } from './modulos.ts';
 const TEXTOS: Readonly<Record<number, { titulo: string; texto: string }>> = {
   2: {
     titulo: 'Desbloqueaste tu segundo módulo',
-    texto:
-      'Ahora tu plan de cada día suma un espacio más. Ve a tu ritmo: no hace falta hacerlo todo.',
+    texto: 'Tu plan diario suma un espacio más. Ve a tu ritmo: no hace falta hacerlo todo.',
   },
   3: {
     titulo: 'Ya tienes los tres módulos',

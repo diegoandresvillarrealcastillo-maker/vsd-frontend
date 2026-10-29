@@ -41,7 +41,7 @@ describe('Celebracion', () => {
     const { dialogo } = pintar();
 
     expect(dialogo).toHaveAccessibleName('Desbloqueaste tu segundo módulo');
-    expect(dialogo).toHaveAccessibleDescription(/Ahora tu plan de cada día suma un espacio más/);
+    expect(dialogo).toHaveAccessibleDescription(/Tu plan diario suma un espacio más/);
     expect(screen.getByRole('button', { name: /Seguir/ })).toHaveFocus();
   });
 
