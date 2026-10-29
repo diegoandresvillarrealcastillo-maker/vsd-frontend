@@ -234,8 +234,14 @@ export const FRASE_PARA_BORRAR = 'BORRAR MI CUENTA';
  * Se trata como datos opacos: esta pantalla no los interpreta, solo los
  * entrega a la persona en un archivo.
  */
-export function exportarMisDatos(senal?: AbortSignal): Promise<unknown> {
-  return llamarALaApi<unknown>(`${RUTA}/exportacion`, senal ? { senal } : {});
+export function exportarMisDatos(
+  senal?: AbortSignal,
+  contexto?: ContextoDePeticion,
+): Promise<unknown> {
+  return llamarALaApi<unknown>(`${RUTA}/exportacion`, {
+    ...(senal ? { senal } : {}),
+    ...(contexto ? { contexto } : {}),
+  });
 }
 
 /**
