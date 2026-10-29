@@ -1,4 +1,5 @@
 import type { Cuenta } from '../infraestructura/api/cuenta.ts';
+import type { ContextoDePeticion } from '../infraestructura/api/clienteHttp.ts';
 import { guardarLaFoto, pedirLaFoto, quitarLaFoto } from '../infraestructura/api/foto.ts';
 import { crearElAlmacenDeArchivo } from './almacenDeArchivo.ts';
 
@@ -31,18 +32,29 @@ export function olvidarLaFoto(): void {
 /**
  * Guarda la foto y la deja lista para pintar. Devuelve la cuenta como quedo.
  * Si la API la rechaza, lanza y lo que se veia se queda como estaba.
+ *
+ * Con el `contexto` de quien empezo la operacion, si la sesion cambio mientras tanto no sale la
+ * peticion o su respuesta se descarta (lanza `AbortError`), y la foto de esa persona no llega a la
+ * que ve la siguiente (SCRUM-317).
  */
-export async function subirLaFoto(foto: Blob): Promise<Cuenta> {
-  const cuenta = await guardarLaFoto(foto);
+export async function subirLaFoto(
+  foto: Blob,
+  senal?: AbortSignal,
+  contexto?: ContextoDePeticion,
+): Promise<Cuenta> {
+  const cuenta = await guardarLaFoto(foto, senal, contexto);
 
   sincronizarLaFoto(cuenta, foto);
 
   return cuenta;
 }
 
-/** Quita la foto y la deja de pintar. Devuelve la cuenta como quedo. */
-export async function retirarLaFoto(): Promise<Cuenta> {
-  const cuenta = await quitarLaFoto();
+/** Quita la foto y la deja de pintar. Devuelve la cuenta como quedo. Ver `subirLaFoto` sobre el contexto. */
+export async function retirarLaFoto(
+  senal?: AbortSignal,
+  contexto?: ContextoDePeticion,
+): Promise<Cuenta> {
+  const cuenta = await quitarLaFoto(senal, contexto);
 
   sincronizarLaFoto(cuenta);
 

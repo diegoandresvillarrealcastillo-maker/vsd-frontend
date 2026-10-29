@@ -25,6 +25,7 @@ import { useEntradaDeArchivo } from './useEntradaDeArchivo.ts';
 export function TuFoto({ actualizarCuenta }: { actualizarCuenta: (cuenta: Cuenta) => void }) {
   const foto = useFotoDePerfil();
   const {
+    iniciarLaOperacion,
     ocupado,
     setOcupado,
     aviso,
@@ -42,26 +43,40 @@ export function TuFoto({ actualizarCuenta }: { actualizarCuenta: (cuenta: Cuenta
       return;
     }
 
+    // De quien es la foto se anota antes de prepararla, que tarda: si la sesion cambia mientras
+    // tanto, la foto de A no se sube con la sesion de B (SCRUM-317).
+    const { senal, operacion } = iniciarLaOperacion();
+
     try {
-      actualizarCuenta(await subirLaFoto(await prepararLaFoto(elegido)));
+      // Con el contexto, la peticion no sale si la sesion cambio mientras se preparaba.
+      actualizarCuenta(
+        await subirLaFoto(await prepararLaFoto(elegido), senal, operacion?.peticion),
+      );
       setAviso({ tipo: 'bien', texto: 'Listo, esta es tu foto.' });
     } catch (error) {
-      setAviso({ tipo: 'fallo', texto: explicarLaFoto(error, 'guardar') });
+      // Lo que ya no es de esta sesion no se cuenta ni como hecho ni como fallido.
+      if (operacion === null || operacion.vigente()) {
+        setAviso({ tipo: 'fallo', texto: explicarLaFoto(error, 'guardar') });
+      }
     } finally {
       setOcupado(null);
     }
   }
 
   async function alQuitar() {
+    const { senal, operacion } = iniciarLaOperacion();
+
     setOcupado('quitando');
     setAviso(null);
 
     try {
-      actualizarCuenta(await retirarLaFoto());
+      actualizarCuenta(await retirarLaFoto(senal, operacion?.peticion));
       setAviso({ tipo: 'bien', texto: 'Quitaste tu foto.' });
       enfocarLaEntradaAlTerminar();
     } catch (error) {
-      setAviso({ tipo: 'fallo', texto: explicarLaFoto(error, 'quitar') });
+      if (operacion === null || operacion.vigente()) {
+        setAviso({ tipo: 'fallo', texto: explicarLaFoto(error, 'quitar') });
+      }
     } finally {
       setOcupado(null);
     }

@@ -143,7 +143,7 @@ describe('elegir una foto', () => {
     await usuario().upload(entrada(), ARCHIVO);
 
     expect(prepararLaFoto).toHaveBeenCalledWith(ARCHIVO);
-    expect(subirLaFoto).toHaveBeenCalledWith(LISTA);
+    expect(subirLaFoto).toHaveBeenCalledWith(LISTA, expect.any(AbortSignal), undefined);
     expect(actualizarCuenta).toHaveBeenCalledWith(CUENTA_CON_FOTO);
     expect(await screen.findByRole('status')).toHaveTextContent('Listo, esta es tu foto.');
   });

@@ -345,7 +345,7 @@ describe('la foto de perfil, lista para pintar (SCRUM-120)', () => {
       expect(await subirLaFoto(elegida)).toBe(cuenta);
       await esperar();
 
-      expect(guardarLaFoto).toHaveBeenCalledWith(elegida);
+      expect(guardarLaFoto).toHaveBeenCalledWith(elegida, undefined, undefined);
       expect(pedirLaFoto).not.toHaveBeenCalled();
       expect(creadas[0]?.blob).toBe(elegida);
       expect(result.current).toBe('blob:foto-1');

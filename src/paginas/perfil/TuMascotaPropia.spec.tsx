@@ -186,9 +186,12 @@ describe('subir la primera mascota propia', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(
       'Listo, tu mascota ya te acompaña.',
     );
-    expect(guardar).toHaveBeenCalledWith({
-      mascota: { forma: 'propia', nombre: 'Mi mascota' },
-    });
+    expect(guardar).toHaveBeenCalledWith(
+      {
+        mascota: { forma: 'propia', nombre: 'Mi mascota' },
+      },
+      undefined,
+    );
     // La pantalla se pinta con la cuenta que devuelve el guardado de la eleccion.
     expect(actualizarCuenta).not.toHaveBeenCalled();
   });
@@ -203,9 +206,12 @@ describe('subir la primera mascota propia', () => {
     await usuario().upload(entrada(), ARCHIVO);
     await screen.findByRole('status');
 
-    expect(guardar).toHaveBeenCalledWith({
-      mascota: { forma: 'propia', nombre: 'Mi mascota' },
-    });
+    expect(guardar).toHaveBeenCalledWith(
+      {
+        mascota: { forma: 'propia', nombre: 'Mi mascota' },
+      },
+      undefined,
+    );
   });
 
   it('quien le habia puesto su nombre a su mascota lo conserva', async () => {
@@ -218,9 +224,12 @@ describe('subir la primera mascota propia', () => {
     await usuario().upload(entrada(), ARCHIVO);
     await screen.findByRole('status');
 
-    expect(guardar).toHaveBeenCalledWith({
-      mascota: { forma: 'propia', nombre: 'Papelito' },
-    });
+    expect(guardar).toHaveBeenCalledWith(
+      {
+        mascota: { forma: 'propia', nombre: 'Papelito' },
+      },
+      undefined,
+    );
   });
 
   it('si no se pudo dejar como la elegida, el dibujo ya esta guardado: lo dice y pinta la cuenta', async () => {

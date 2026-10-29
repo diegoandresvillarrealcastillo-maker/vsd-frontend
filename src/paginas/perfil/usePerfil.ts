@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useAlVolverLaRed } from '../../conexion/useAlVolverLaRed.ts';
 import { consultarLaVersionDelAviso } from '../../infraestructura/api/aviso.ts';
+import type { ContextoDePeticion } from '../../infraestructura/api/clienteHttp.ts';
 import {
   cambiarPreferencias,
   darDeAltaLaCuenta,
@@ -58,7 +59,10 @@ function conLaCuenta(cuenta: Cuenta): (anterior: EstadoDelPerfil) => EstadoDelPe
 export function usePerfil(): {
   readonly estado: EstadoDelPerfil;
   readonly reintentar: () => void;
-  readonly guardar: (cambios: CambiosDePreferencias) => Promise<void>;
+  readonly guardar: (
+    cambios: CambiosDePreferencias,
+    contexto?: ContextoDePeticion,
+  ) => Promise<void>;
   /**
    * Pinta una cuenta que ya llego de la API por otro camino —la de la foto
    * (SCRUM-120), que no pasa por las preferencias—. No llama a nada.
@@ -127,12 +131,18 @@ export function usePerfil(): {
     };
   }, [intento]);
 
-  /** Guarda y pinta la cuenta como la devolvio la API. Si falla, lanza. */
-  const guardar = useCallback(async (cambios: CambiosDePreferencias): Promise<void> => {
-    const cuenta = await cambiarPreferencias(cambios);
+  /**
+   * Guarda y pinta la cuenta como la devolvio la API. Si falla, lanza. Con el `contexto` de quien
+   * empezo la operacion, no sale ni se aplica si la sesion cambio mientras tanto (SCRUM-317).
+   */
+  const guardar = useCallback(
+    async (cambios: CambiosDePreferencias, contexto?: ContextoDePeticion): Promise<void> => {
+      const cuenta = await cambiarPreferencias(cambios, undefined, contexto);
 
-    setEstado(conLaCuenta(cuenta));
-  }, []);
+      setEstado(conLaCuenta(cuenta));
+    },
+    [],
+  );
 
   const reemplazarCuenta = useCallback((cuenta: Cuenta): void => {
     setEstado(conLaCuenta(cuenta));
