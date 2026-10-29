@@ -25,30 +25,30 @@
    siendo iguales. */
 .app,
 .actividad {
-  --app-lienzo: #14161a;
-  --app-superficie: #1c1f25;
-  --app-superficie-alta: #23272e;
-  --app-borde: #2e333b;
-  --app-tinta: #e8e6e3;
-  --app-tenue: #9aa1ab;
-  --app-salvia: #94d2c1;
-  --app-primario: #7fc3b1;
-  --app-sobre-primario: #10221e;
-  --app-bienestar: #1f3b35;
-  --app-bienestar-acento: #94d2c1;
-  --app-cognicion: #1e2836;
-  --app-cognicion-acento: #8fb3e0;
-  --app-emociones: #3a2422;
-  --app-emociones-acento: #e8897a;
-  --app-avatar: #493b2e;
-  --app-avatar-tinta: #e7c9a5;
-  --app-descanso: #25443c;
+  --app-lienzo: #0d1517;
+  --app-superficie: #162124;
+  --app-superficie-alta: #1d2c30;
+  --app-borde: #25403f;
+  --app-tinta: #f1f3f0;
+  --app-tenue: #a9b8b4;
+  --app-salvia: #4ee8b0;
+  --app-primario: #35e0b4;
+  --app-sobre-primario: #04211a;
+  --app-bienestar: #0f3d33;
+  --app-bienestar-acento: #4ee8b0;
+  --app-cognicion: #14315f;
+  --app-cognicion-acento: #79b0ff;
+  --app-emociones: #521f1c;
+  --app-emociones-acento: #ff8a78;
+  --app-avatar: #5a3d12;
+  --app-avatar-tinta: #ffd08a;
+  --app-descanso: #0f4a3c;
 
   /* Capas sobre fondos de color: los adornos y el icono de la tarjeta
      recomendada, las cifras de los modulos y los carriles de progreso. */
   --app-trazo-sobre: rgb(255 255 255 / 0.1);
   --app-capa-sobre: rgb(255 255 255 / 0.12);
-  --app-tinta-suave: rgb(232 230 227 / 0.82);
+  --app-tinta-suave: rgb(241 243 240 / 0.82);
   --app-hundido: rgb(0 0 0 / 0.15);
   --app-carril: rgb(0 0 0 / 0.2);
 
@@ -75,33 +75,33 @@
 }
 
 /* ---------- Tema claro (SCRUM-112) ----------
-   Crema y verde, como la portada. Cada texto cumple 4,5:1 sobre su fondo:
+   Blanco fresco y verde vivo, como la portada (SCRUM-309). Cada texto cumple 4,5:1 sobre su fondo:
    la tinta y lo tenue sobre el lienzo y las superficies, el acento de cada
    modulo sobre su propio fondo, y el blanco sobre el primario. */
 :root[data-tema='claro'] .app,
 :root[data-tema='claro'] .actividad {
-  --app-lienzo: #f5f3ee;
+  --app-lienzo: #f3f9f6;
   --app-superficie: #ffffff;
-  --app-superficie-alta: #ebe7df;
-  --app-borde: #d9d3c8;
-  --app-tinta: #1d2420;
-  --app-tenue: #56635b;
-  --app-salvia: #2f6b55;
-  --app-primario: #3d7a6b;
+  --app-superficie-alta: #e1efe9;
+  --app-borde: #b9dccd;
+  --app-tinta: #14231e;
+  --app-tenue: #3f5a52;
+  --app-salvia: #0a6e55;
+  --app-primario: #0a7d62;
   --app-sobre-primario: #ffffff;
-  --app-bienestar: #e1efe6;
-  --app-bienestar-acento: #2c7350;
-  --app-cognicion: #e6e9f6;
-  --app-cognicion-acento: #4054a0;
-  --app-emociones: #f6e4dd;
-  --app-emociones-acento: #a04633;
-  --app-avatar: #efe2d1;
-  --app-avatar-tinta: #6e5132;
-  --app-descanso: #dceadf;
+  --app-bienestar: #d4f3e3;
+  --app-bienestar-acento: #0a7a4b;
+  --app-cognicion: #dce6ff;
+  --app-cognicion-acento: #2447c8;
+  --app-emociones: #ffe0d6;
+  --app-emociones-acento: #b83a22;
+  --app-avatar: #ffe8c2;
+  --app-avatar-tinta: #7a4a0a;
+  --app-descanso: #c8efdc;
 
   --app-trazo-sobre: rgb(0 0 0 / 0.07);
   --app-capa-sobre: rgb(255 255 255 / 0.7);
-  --app-tinta-suave: rgb(29 36 32 / 0.78);
+  --app-tinta-suave: rgb(20 35 30 / 0.78);
   --app-hundido: rgb(255 255 255 / 0.7);
   --app-carril: rgb(0 0 0 / 0.08);
 
