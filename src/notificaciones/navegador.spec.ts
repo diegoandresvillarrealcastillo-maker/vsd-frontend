@@ -3,6 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   capacidadDelNavegador,
   dejarDeAvisarAEsteNavegador,
+  permisoDeAvisos,
+  PermisoNegadoError,
+  soltarNavegador,
+  suscribirNavegador,
   suscripcionActual,
 } from './navegador.ts';
 
@@ -205,6 +209,190 @@ describe('al cerrar sesion', () => {
     await dejarDeAvisarAEsteNavegador();
 
     expect(soltarEsteNavegadorDelServidor).not.toHaveBeenCalled();
+    await expect(suscripcionActual()).resolves.toBeNull();
+  });
+});
+
+describe('permisoDeAvisos', () => {
+  it('es el permiso que tenga el navegador', () => {
+    vi.stubGlobal('Notification', { permission: 'denied' });
+
+    expect(permisoDeAvisos()).toBe('denied');
+  });
+
+  it('un navegador sin avisos nunca se pregunto', () => {
+    expect(permisoDeAvisos()).toBe('default');
+  });
+});
+
+describe('suscribirNavegador', () => {
+  // Con guion bajo, guion medio y sin relleno: lo que hace falta para comprobar la conversion a bytes.
+  const CLAVE = 'AQID_-8';
+  const BYTES_DE_LA_CLAVE = Uint8Array.from([1, 2, 3, 255, 239]);
+
+  type Suscripcion = ReturnType<typeof unaSuscripcion>;
+
+  function unaSuscripcion(
+    clave: Uint8Array | null,
+    json: { endpoint?: string; keys?: { p256dh?: string; auth?: string } } = {
+      endpoint: ENDPOINT,
+      keys: { p256dh: 'p256dh-de-prueba', auth: 'auth-de-prueba' },
+    },
+  ) {
+    return {
+      options: { applicationServerKey: clave === null ? null : clave.buffer },
+      toJSON: () => json,
+      unsubscribe: vi.fn(() => Promise.resolve(true)),
+    };
+  }
+
+  /** Un navegador que deja suscribirse, con espias para ver que hizo con el service worker. */
+  function conPermiso(permiso: NotificationPermission, previa: Suscripcion | null = null) {
+    const nueva = unaSuscripcion(BYTES_DE_LA_CLAVE);
+    const pushManager = {
+      getSubscription: vi.fn(() => Promise.resolve(previa)),
+      subscribe: vi.fn(() => Promise.resolve(nueva)),
+    };
+    const registro = { pushManager };
+    const register = vi.fn(() => Promise.resolve(registro));
+
+    vi.stubGlobal('Notification', {
+      permission: 'default',
+      requestPermission: vi.fn(() => Promise.resolve(permiso)),
+    });
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: { register, ready: Promise.resolve(registro) },
+    });
+
+    return { pushManager, register, nueva };
+  }
+
+  it('sin permiso no registra nada: la persona lo nego', async () => {
+    const { register } = conPermiso('denied');
+
+    const intento = suscribirNavegador(CLAVE);
+
+    await expect(intento).rejects.toBeInstanceOf(PermisoNegadoError);
+    await expect(intento).rejects.toMatchObject({ permiso: 'denied' });
+    expect(register).not.toHaveBeenCalled();
+  });
+
+  it('si cerro la pregunta sin contestar tampoco hay permiso', async () => {
+    conPermiso('default');
+
+    await expect(suscribirNavegador(CLAVE)).rejects.toMatchObject({ permiso: 'default' });
+  });
+
+  it('registra el service worker y se suscribe con la clave del servidor en bytes', async () => {
+    const { pushManager, register } = conPermiso('granted');
+
+    const suscripcion = await suscribirNavegador(CLAVE);
+
+    expect(register).toHaveBeenCalledWith('/sw.js');
+    expect(pushManager.subscribe).toHaveBeenCalledWith({
+      userVisibleOnly: true,
+      applicationServerKey: BYTES_DE_LA_CLAVE,
+    });
+    expect(suscripcion).toEqual({
+      endpoint: ENDPOINT,
+      keys: { p256dh: 'p256dh-de-prueba', auth: 'auth-de-prueba' },
+    });
+  });
+
+  it('si ya tenia una suscripcion con la misma clave, la deja como esta', async () => {
+    const previa = unaSuscripcion(BYTES_DE_LA_CLAVE);
+    const { pushManager } = conPermiso('granted', previa);
+
+    await suscribirNavegador(CLAVE);
+
+    expect(previa.unsubscribe).not.toHaveBeenCalled();
+    expect(pushManager.subscribe).not.toHaveBeenCalled();
+  });
+
+  it('si el servidor cambio de clave, suelta la vieja y se suscribe de nuevo', async () => {
+    const previa = unaSuscripcion(Uint8Array.from([9, 9, 9, 9, 9]));
+    const { pushManager } = conPermiso('granted', previa);
+
+    await suscribirNavegador(CLAVE);
+
+    expect(previa.unsubscribe).toHaveBeenCalledOnce();
+    expect(pushManager.subscribe).toHaveBeenCalledOnce();
+  });
+
+  it('una suscripcion sin clave guardada tampoco sirve: se renueva', async () => {
+    const previa = unaSuscripcion(null);
+    const { pushManager } = conPermiso('granted', previa);
+
+    await suscribirNavegador(CLAVE);
+
+    expect(previa.unsubscribe).toHaveBeenCalledOnce();
+    expect(pushManager.subscribe).toHaveBeenCalledOnce();
+  });
+
+  it('una clave mas corta que empieza igual no es la misma', async () => {
+    const previa = unaSuscripcion(BYTES_DE_LA_CLAVE.slice(0, 3));
+    const { pushManager } = conPermiso('granted', previa);
+
+    await suscribirNavegador(CLAVE);
+
+    expect(previa.unsubscribe).toHaveBeenCalledOnce();
+    expect(pushManager.subscribe).toHaveBeenCalledOnce();
+  });
+
+  it('una clave del mismo largo pero distinta tambien se renueva', async () => {
+    const otra = Uint8Array.from(BYTES_DE_LA_CLAVE);
+
+    otra[0] = (otra[0] ?? 0) + 1;
+
+    const previa = unaSuscripcion(otra);
+    const { pushManager } = conPermiso('granted', previa);
+
+    await suscribirNavegador(CLAVE);
+
+    expect(previa.unsubscribe).toHaveBeenCalledOnce();
+    expect(pushManager.subscribe).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ['sin direccion', { keys: { p256dh: 'a', auth: 'b' } }],
+    ['sin llaves', { endpoint: ENDPOINT }],
+    ['sin la llave p256dh', { endpoint: ENDPOINT, keys: { auth: 'b' } }],
+    ['sin la llave de autenticacion', { endpoint: ENDPOINT, keys: { p256dh: 'a' } }],
+  ])('una suscripcion %s no se manda al servidor', async (_caso, json) => {
+    const { pushManager, nueva } = conPermiso('granted');
+
+    pushManager.subscribe.mockResolvedValue(Object.assign(nueva, { toJSON: () => json }));
+
+    await expect(suscribirNavegador(CLAVE)).rejects.toThrow(
+      'El navegador no entrego una suscripcion completa.',
+    );
+  });
+});
+
+describe('soltarNavegador', () => {
+  it('suelta la suscripcion y devuelve su direccion', async () => {
+    const suscripcion = conWebPush(true);
+
+    await expect(soltarNavegador()).resolves.toBe(ENDPOINT);
+    expect(suscripcion.unsubscribe).toHaveBeenCalledOnce();
+  });
+
+  it('sin suscripcion no hay nada que soltar', async () => {
+    conWebPush(false);
+
+    await expect(soltarNavegador()).resolves.toBeNull();
+  });
+});
+
+describe('suscripcionActual', () => {
+  it('sin service worker registrado todavia, no hay suscripcion', async () => {
+    conWebPush(false);
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: { getRegistration: vi.fn(() => Promise.resolve(undefined)) },
+    });
+
     await expect(suscripcionActual()).resolves.toBeNull();
   });
 });
