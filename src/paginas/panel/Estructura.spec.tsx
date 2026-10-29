@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { abrirUnAlmacenDePrueba, cerrarElAlmacenDePrueba } from '../../pruebas/almacenDePrueba.ts';
 import { rachaDePrueba } from '../../pruebas/rachaDePrueba.ts';
+import { RUTAS } from '../../rutas/rutas.ts';
 import { cicloActual, encolar } from '../../sincronizacion/ciclo.ts';
 import type { EstadoDeOperacion } from '../../sincronizacion/cola.ts';
 
@@ -338,7 +339,7 @@ describe('la navegacion despues de entrar (SCRUM-182, SCRUM-296)', () => {
         within(menu)
           .getAllByRole('link')
           .map((enlace) => enlace.textContent.trim()),
-      ).toEqual(['Tu perfil', 'Ir a la página principal']);
+      ).toEqual(['Tu perfil', 'Ir al inicio']);
       expect(within(menu).getByRole('button', { name: 'Cerrar sesión' })).toBeInTheDocument();
       // El unico «Mi diario» que queda es el de la barra.
       expect(screen.getAllByRole('link', { name: 'Mi diario' })).toHaveLength(1);
@@ -500,5 +501,97 @@ describe('la llama de la racha en la barra (SCRUM-186)', () => {
     const cuenta = screen.getByRole('button', { name: 'Abrir el menú de tu cuenta' });
 
     expect(llama.compareDocumentPosition(cuenta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+/**
+ * Dentro del perfil, el menu de la cuenta no repite «Tu perfil» (SCRUM-314): esa opcion se
+ * reemplaza por la de volver al panel. La barra es fija, asi que quien baja mucho en el perfil la
+ * alcanza sin subir a mano.
+ */
+describe('el menu de la cuenta dentro del perfil (SCRUM-314)', () => {
+  const usuario = userEvent.setup({ delay: null });
+
+  beforeEach(() => {
+    foto.url = null;
+  });
+
+  async function abrirElMenuEn(ruta: string): Promise<HTMLElement> {
+    render(
+      <SesionContexto.Provider value={sesion()}>
+        <MemoryRouter initialEntries={[ruta]}>
+          <BarraSuperior conSecciones={false} />
+        </MemoryRouter>
+      </SesionContexto.Provider>,
+    );
+
+    await usuario.click(screen.getByRole('button', { name: 'Abrir el menú de tu cuenta' }));
+
+    return document.querySelector<HTMLElement>('.app__menu')!;
+  }
+
+  function textosDeLosEnlaces(menu: HTMLElement): string[] {
+    return within(menu)
+      .getAllByRole('link')
+      .map((enlace) => enlace.textContent.trim());
+  }
+
+  it('en el perfil, «Tu perfil» se reemplaza por «Ir a mi panel»', async () => {
+    const menu = await abrirElMenuEn(RUTAS.PERFIL);
+
+    expect(textosDeLosEnlaces(menu)).toEqual(['Ir a mi panel', 'Ir al inicio']);
+    expect(within(menu).queryByRole('link', { name: 'Tu perfil' })).toBeNull();
+  });
+
+  it('«Ir a mi panel» lleva al panel', async () => {
+    const menu = await abrirElMenuEn(RUTAS.PERFIL);
+
+    expect(within(menu).getByRole('link', { name: 'Ir a mi panel' })).toHaveAttribute(
+      'href',
+      RUTAS.PANEL,
+    );
+  });
+
+  it('en el perfil el menu conserva el correo, la pagina principal y «Cerrar sesión»', async () => {
+    const menu = await abrirElMenuEn(RUTAS.PERFIL);
+
+    expect(within(menu).getByText('ana@ejemplo.test')).toBeInTheDocument();
+    expect(within(menu).getByRole('link', { name: 'Ir al inicio' })).toHaveAttribute(
+      'href',
+      RUTAS.INICIO,
+    );
+    expect(within(menu).getByRole('button', { name: 'Cerrar sesión' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['con una barra al final', `${RUTAS.PERFIL}/`],
+    ['con mayusculas', '/Perfil'],
+  ])('se reconoce el perfil %s', async (_caso, ruta) => {
+    const menu = await abrirElMenuEn(ruta);
+
+    expect(within(menu).getByRole('link', { name: 'Ir a mi panel' })).toBeInTheDocument();
+    expect(within(menu).queryByRole('link', { name: 'Tu perfil' })).toBeNull();
+  });
+
+  it.each([
+    ['el panel', RUTAS.PANEL],
+    ['Mi actividad', RUTAS.MI_ACTIVIDAD],
+    ['Mi diario', RUTAS.DIARIO],
+    ['la portada', RUTAS.INICIO],
+  ])('en %s sigue ofreciendo «Tu perfil» y no «Ir a mi panel»', async (_pantalla, ruta) => {
+    const menu = await abrirElMenuEn(ruta);
+
+    expect(textosDeLosEnlaces(menu)).toEqual(['Tu perfil', 'Ir al inicio']);
+    expect(within(menu).getByRole('link', { name: 'Tu perfil' })).toHaveAttribute(
+      'href',
+      RUTAS.PERFIL,
+    );
+    expect(within(menu).queryByRole('link', { name: 'Ir a mi panel' })).toBeNull();
+  });
+
+  it('una ruta que solo empieza como el perfil no cuenta como el perfil', async () => {
+    const menu = await abrirElMenuEn('/perfiles');
+
+    expect(within(menu).getByRole('link', { name: 'Tu perfil' })).toBeInTheDocument();
   });
 });
