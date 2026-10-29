@@ -912,6 +912,150 @@
       }
     },
     {
+      "texto": "quiero mo\u200brirme",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "no aguan\u00adto mas",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "quiero\u200bmorirme",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "me kie\u00adro matar",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "ｑｕｉｅｒｏ ｍｏｒｉｒｍｅ",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "hola\u200b buenas noches",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "charla",
+        "intencion": "despedida",
+        "mensaje": "¡Buenas noches! Aquí estoy si quieres preguntarme algo. Y si ya vas a descansar, que sea una noche tranquila."
+      }
+    },
+    {
+      "texto": "quiero\u200bmo\u200brir",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "no\u00adaguan\u200dto\u2060mas",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0192c0de-0000-4000-8000-000000000192",
+          "0123c0de-0000-4000-8000-000000000123",
+          "0106c0de-0000-4000-8000-000000000106"
+        ]
+      }
+    },
+    {
+      "texto": "hoy me siento mal, quiero \u200bma\u200btarme",
+      "zona": "Europe/Madrid",
+      "esperado": {
+        "tipo": "riesgo",
+        "mensaje": "Lo que escribiste es importante y no deberías cargarlo en solitario. Estas líneas atienden ahora mismo y son gratuitas.",
+        "lineas": [
+          "0024c0de-0000-4000-8000-000000000024",
+          "0112c0de-0000-4000-8000-000000000112"
+        ]
+      }
+    },
+    {
+      "texto": "quieromorir",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "fallback",
+        "intencion": "no_reconocida",
+        "mensaje": "No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:",
+        "sugerencias": [
+          "¿Cómo puedo dormir mejor?",
+          "¿Qué significa mi resultado?",
+          "Me siento mal",
+          "¿Qué puedes hacer?",
+          "¿Dónde busco ayuda?"
+        ]
+      }
+    },
+    {
+      "texto": "ho\u200bla\u200bbuenas\u00adtardes",
+      "zona": "America/Bogota",
+      "esperado": {
+        "tipo": "fallback",
+        "intencion": "no_reconocida",
+        "mensaje": "No puedo ayudarte con ese tema en este momento, pero estas son algunas opciones con las que sí puedo orientarte:",
+        "sugerencias": [
+          "¿Cómo puedo dormir mejor?",
+          "¿Qué significa mi resultado?",
+          "Me siento mal",
+          "¿Qué puedes hacer?",
+          "¿Dónde busco ayuda?"
+        ]
+      }
+    },
+    {
       "texto": "a que hora abre la biblioteca",
       "zona": "America/Bogota",
       "esperado": {
