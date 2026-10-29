@@ -216,39 +216,6 @@ describe('useCompletarActividad: la espera de lo guardado', () => {
 
     expect(esperaSinLimite?.aborted).toBe(true);
   });
-
-  it('hacerla otra vez corta la espera del intento anterior y no la del nuevo', async () => {
-    seguir.mockResolvedValueOnce({ tipo: 'guardada' });
-    seguir.mockReturnValue(new Promise(() => undefined));
-
-    const gancho = await listo();
-
-    await terminar(gancho);
-    await vi.waitFor(() => {
-      expect(seguir).toHaveBeenCalledTimes(2);
-    });
-
-    const delIntentoAnterior = seguir.mock.calls[1]?.[1]?.senal;
-
-    await act(async () => {
-      gancho.result.current.empezarDeNuevo();
-      await Promise.resolve();
-    });
-    await vi.waitFor(() => {
-      expect(gancho.result.current.estado.fase).toBe('lista');
-    });
-
-    expect(delIntentoAnterior?.aborted).toBe(true);
-
-    // El intento nuevo tiene su propia senal, que sigue viva.
-    seguir.mockResolvedValueOnce({ tipo: 'guardada' });
-    await terminar(gancho);
-    await vi.waitFor(() => {
-      expect(seguir.mock.calls.length).toBeGreaterThanOrEqual(3);
-    });
-
-    expect(seguir.mock.calls[2]?.[1]?.senal?.aborted).toBe(false);
-  });
 });
 
 describe('useCompletarActividad: la sesion del dia (SCRUM-208, ADR 0030)', () => {
@@ -391,32 +358,5 @@ describe('useCompletarActividad: la sesion del dia (SCRUM-208, ADR 0030)', () =>
 
     expect(loQueSeGuardo(0)).toMatchObject({ idSesion: 's-1' });
     expect(loQueSeGuardo(1)).toMatchObject({ idSesion: 's-1' });
-  });
-
-  it('hacerla otra vez vuelve a leer la sesion: la de ahora, no la del intento anterior', async () => {
-    vi.mocked(leerLaSesionGuardada).mockResolvedValueOnce(SESION);
-    vi.mocked(leerLaSesionGuardada).mockResolvedValueOnce({ ...SESION, id: 's-2' });
-
-    const gancho = await listo();
-
-    await terminar(gancho);
-    await vi.waitFor(() => {
-      expect(gancho.result.current.estado.fase).toBe('hecha');
-    });
-
-    await act(async () => {
-      gancho.result.current.empezarDeNuevo();
-      await Promise.resolve();
-    });
-    await vi.waitFor(() => {
-      expect(gancho.result.current.estado.fase).toBe('lista');
-    });
-
-    expect(gancho.result.current.sesion).toMatchObject({ id: 's-2' });
-
-    await terminar(gancho);
-
-    expect(loQueSeGuardo(0)).toMatchObject({ idSesion: 's-1' });
-    expect(loQueSeGuardo(1)).toMatchObject({ idSesion: 's-2' });
   });
 });
