@@ -22,10 +22,23 @@
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
 
+    // Las pruebas importan los guardias de `scripts/*.mjs` para llamarlos en su propio
+    // proceso (si no, Vitest no puede medir cuanto de ellos se ejercita). `allowJs`
+    // les da tipos a partir de su JSDoc; no se revisan como TypeScript (`checkJs`
+    // sigue apagado), de eso se encarga ESLint.
+    "allowJs": true,
+
     "types": ["node"]
   },
   // `src/rutas/rutas.ts` entra porque las pruebas de los scripts la leen (para que una
   // ruta nueva no se quede sin reescritura ni sin clasificar). No tiene nada del
   // navegador: son cadenas.
-  "include": ["vite.config.ts", "scripts/**/*.spec.ts", "src/rutas/rutas.ts"]
+  "include": [
+    "vite.config.ts",
+    "scripts/**/*.spec.ts",
+    "scripts/comprobar-el-service-worker.mjs",
+    "scripts/comprobar-las-cabeceras.mjs",
+    "scripts/generar-los-archivos-de-busqueda.mjs",
+    "src/rutas/rutas.ts"
+  ]
 }

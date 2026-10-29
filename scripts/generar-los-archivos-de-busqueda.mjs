@@ -232,25 +232,38 @@ export function archivosPara(ambiente, urlPublica) {
   };
 }
 
-function principal() {
-  const ambiente = (process.env.VITE_APP_ENV ?? '').trim() || 'development';
-  const archivos = archivosPara(ambiente, process.env.VITE_URL_PUBLICA);
+/**
+ * Escribe los archivos del ambiente en `carpeta` y cuenta el resultado por `salida`. Recibe
+ * todo lo que lee o escribe para que las pruebas lo llamen en su propio proceso, y asi
+ * Vitest pueda medir cuanto de el ejercitan.
+ *
+ * @param {Record<string, string | undefined>} entorno Las variables de entorno.
+ * @param {string} carpeta Donde se escribe (al compilar, `dist`).
+ * @param {{ log: (texto: string) => void, error: (texto: string) => void }} salida
+ * @returns {number} El codigo de salida: 0 si se escribio todo, 1 si algo no cuadra.
+ */
+export function principal(entorno = process.env, carpeta = 'dist', salida = console) {
+  try {
+    const ambiente = (entorno.VITE_APP_ENV ?? '').trim() || 'development';
+    const archivos = archivosPara(ambiente, entorno.VITE_URL_PUBLICA);
 
-  mkdirSync('dist', { recursive: true });
+    mkdirSync(carpeta, { recursive: true });
 
-  for (const [nombre, texto] of Object.entries(archivos)) {
-    writeFileSync(join('dist', nombre), texto, 'utf8');
+    for (const [nombre, texto] of Object.entries(archivos)) {
+      writeFileSync(join(carpeta, nombre), texto, 'utf8');
+    }
+
+    salida.log(`Archivos para buscadores (${ambiente}): ${Object.keys(archivos).join(', ')}.`);
+
+    return 0;
+  } catch (error) {
+    salida.error(`\nNo se pudieron generar los archivos para buscadores:\n  x ${error.message}\n`);
+
+    return 1;
   }
-
-  console.log(`Archivos para buscadores (${ambiente}): ${Object.keys(archivos).join(', ')}.`);
 }
 
-try {
-  // Solo al ejecutarlo, no al importarlo.
-  if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-    principal();
-  }
-} catch (error) {
-  console.error(`\nNo se pudieron generar los archivos para buscadores:\n  x ${error.message}\n`);
-  process.exit(1);
+// Solo al ejecutarlo (`node scripts/...`), no al importarlo.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  process.exitCode = principal();
 }
