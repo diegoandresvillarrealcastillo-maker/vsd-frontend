@@ -38,6 +38,18 @@ export function ultimasActividades(
     .slice(0, cuantas);
 }
 
+/** Hasta cuantos minutos despues de hacerla una actividad cuenta como «recien hecha» (SCRUM-311). */
+export const MINUTOS_DE_LO_RECIENTE = 15;
+
+/**
+ * Si una actividad se hizo hace un momento. Solo sirve para dar un toque de color y movimiento en
+ * pantalla; no se muestra ni se cuenta. Se mira la distancia en los dos sentidos porque el reloj del
+ * aparato y el del servidor pueden diferir unos minutos; una fecha ilegible no es reciente.
+ */
+export function esReciente(hechaEn: string, ahora: Date): boolean {
+  return Math.abs(ahora.getTime() - Date.parse(hechaEn)) <= MINUTOS_DE_LO_RECIENTE * 60_000;
+}
+
 function dias(cuantos: number): string {
   return `${String(cuantos)} ${cuantos === 1 ? 'día' : 'días'}`;
 }

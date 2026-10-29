@@ -23,6 +23,7 @@ import { useLecturaDelPanel } from '../panel/useLecturaDelPanel.ts';
 import {
   actividadesDeLaSemana,
   diasConActividad,
+  esReciente,
   textoDelResumen,
   ultimasActividades,
 } from './resumenDeActividad.ts';
@@ -113,6 +114,10 @@ function Resumen({ progreso, ahora }: { progreso: readonly ProgresoDelModulo[]; 
   const ultima = ultimas[0];
   const hoy = diaDe(ahora);
   const siguiente = ruta.siguiente;
+  // Los modulos donde se hizo algo hace un momento (SCRUM-311). Sin historial no hay ninguno.
+  const modulosConLoReciente = new Set(
+    hechos.filter(({ hechaEn }) => esReciente(hechaEn, ahora)).map(({ modulo }) => modulo),
+  );
 
   return (
     <>
@@ -167,7 +172,11 @@ function Resumen({ progreso, ahora }: { progreso: readonly ProgresoDelModulo[]; 
               return (
                 <li
                   key={modulo}
-                  className="mi-actividad__modulo"
+                  className={
+                    modulosConLoReciente.has(modulo)
+                      ? 'mi-actividad__modulo mi-actividad__modulo--reciente'
+                      : 'mi-actividad__modulo'
+                  }
                   style={
                     {
                       '--modulo-fondo': datos.fondo,
@@ -180,7 +189,8 @@ function Resumen({ progreso, ahora }: { progreso: readonly ProgresoDelModulo[]; 
                   </span>
                   <span className="mi-actividad__modulo-nombre">{datos.titulo}</span>
                   <span className="mi-actividad__modulo-cifra">
-                    {sesiones} {sesiones === 1 ? 'sesión' : 'sesiones'}
+                    <span className="mi-actividad__modulo-numero">{sesiones}</span>{' '}
+                    {sesiones === 1 ? 'sesión' : 'sesiones'}
                   </span>
                 </li>
               );
@@ -224,7 +234,11 @@ function Resumen({ progreso, ahora }: { progreso: readonly ProgresoDelModulo[]; 
               return (
                 <li
                   key={hecho.id}
-                  className="mi-actividad__hecho"
+                  className={
+                    esReciente(hecho.hechaEn, ahora)
+                      ? 'mi-actividad__hecho mi-actividad__hecho--reciente'
+                      : 'mi-actividad__hecho'
+                  }
                   style={
                     {
                       '--modulo-fondo': datos.fondo,
