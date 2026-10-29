@@ -170,7 +170,7 @@ export function Diario() {
 
   return (
     <div className="app">
-      <BarraSuperior conSecciones={false} enDiario />
+      <BarraSuperior conSecciones={false} pagina="diario" />
 
       <main id={ID_DEL_CONTENIDO} tabIndex={-1} className="app__contenido diario">
         <Link to={RUTAS.PANEL} className="perfil__volver">
@@ -308,7 +308,7 @@ export function Diario() {
 
       {/* El dock del movil tambien vive aqui (SCRUM-182): desde el diario se vuelve al
           panel sin tener que subir a la barra de arriba. */}
-      <NavegacionInferior enDiario />
+      <NavegacionInferior pagina="diario" />
 
       {diagramaParaVer !== null && (
         <Suspense

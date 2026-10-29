@@ -12,13 +12,16 @@ import type { SesionDeLaActividad } from '../../infraestructura/api/progreso.ts'
 import type { ResultadoRegistrado } from '../../infraestructura/api/resultados.ts';
 import { RachaDelDia } from '../../racha/RachaDelDia.tsx';
 import { useRachaAlEntrar } from '../../racha/useRachaAlEntrar.ts';
-import { RUTAS } from '../../rutas/rutas.ts';
+import { RUTAS, rutaDeActividad } from '../../rutas/rutas.ts';
 import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
+import { MODULOS } from '../panel/modulos.ts';
 import { LineasDeAtencion } from './LineasDeAtencion.tsx';
 import { LogroDeLaActividad } from './LogroDeLaActividad.tsx';
 import { mecanicaDe } from './mecanicas/registro.tsx';
+import type { SiguienteActividad } from './siguienteActividad.ts';
 import { textoDelNivel } from './textoDelNivel.ts';
 import { useCompletarActividad, type LoQueProduceLaActividad } from './useCompletarActividad.ts';
+import { useSiguienteActividad } from './useSiguienteActividad.ts';
 import { FondoVivo } from './viva/FondoVivo.tsx';
 import { HeroeDeLaActividad } from './viva/HeroeDeLaActividad.tsx';
 import { moduloDeLaCategoria } from './viva/moduloDeLaCategoria.ts';
@@ -34,7 +37,19 @@ import { ProveedorDeLaMascota } from './viva/ProveedorDeLaMascota.tsx';
  */
 export function Actividad() {
   const { id } = useParams<{ id: string }>();
-  const { estado, sesion, completar, reintentar, empezarDeNuevo } = useCompletarActividad(id);
+
+  // Cada actividad es una pantalla nueva (SCRUM-295): al pasar a la siguiente desde «Siguiente
+  // actividad» la ruta es la misma y solo cambia el id. Con `key` no queda nada de la anterior,
+  // y en particular su identificador de operacion: dos actividades no pueden compartirlo.
+  return <PantallaDeLaActividad key={id} id={id} />;
+}
+
+function PantallaDeLaActividad({ id }: { id: string | undefined }) {
+  const { estado, sesion, completar, reintentar } = useCompletarActividad(id);
+  const siguiente = useSiguienteActividad(
+    id,
+    estado.fase === 'hecha' || estado.fase === 'guardada',
+  );
 
   // La racha se pide al empezar (SCRUM-243): lo que se recordaba puede ser de ayer, y la celebracion
   // compara contra lo recordado.
@@ -127,13 +142,13 @@ export function Actividad() {
             )}
 
             {estado.fase === 'guardada' && (
-              <GuardadaEnEsteEquipo ficha={estado.ficha} alRepetir={empezarDeNuevo} />
+              <GuardadaEnEsteEquipo ficha={estado.ficha} siguiente={siguiente} />
             )}
 
             {estado.fase === 'hecha' && (
               <Terminada
                 resultado={estado.resultado}
-                alRepetir={empezarDeNuevo}
+                siguiente={siguiente}
                 salioDeLaCola={salioDeLaCola}
               />
             )}
@@ -210,10 +225,10 @@ function Mecanica({
  */
 function GuardadaEnEsteEquipo({
   ficha,
-  alRepetir,
+  siguiente,
 }: {
   ficha: ActividadConSuCategoria;
-  alRepetir: () => void;
+  siguiente: SiguienteActividad | undefined;
 }) {
   return (
     <>
@@ -226,15 +241,7 @@ function GuardadaEnEsteEquipo({
           : 'Se enviará cuando te conectes.'}
       </p>
 
-      <div className="actividad__acciones">
-        <button type="button" className="pildora pildora--fantasma" onClick={alRepetir}>
-          Hacerla otra vez
-        </button>
-
-        <Link className="pildora" to={RUTAS.PANEL}>
-          Volver al panel
-        </Link>
-      </div>
+      <AccionesAlTerminar siguiente={siguiente} />
     </>
   );
 }
@@ -253,11 +260,11 @@ function GuardadaEnEsteEquipo({
  */
 function Terminada({
   resultado,
-  alRepetir,
+  siguiente,
   salioDeLaCola,
 }: {
   resultado: ResultadoRegistrado;
-  alRepetir: () => void;
+  siguiente: SiguienteActividad | undefined;
   salioDeLaCola: boolean;
 }) {
   // Se celebra con confeti solo si el resultado no pide acompanar: ver LogroDeLaActividad.
@@ -308,15 +315,34 @@ function Terminada({
           la celebra, aunque el resultado en si no lleve confeti. */}
       <RachaDelDia celebrar={!resultado.sugiereAcompanamiento} silenciosa={salioDeLaCola} />
 
-      <div className="actividad__acciones">
-        <button type="button" className="pildora pildora--fantasma" onClick={alRepetir}>
-          Hacerla otra vez
-        </button>
-
-        <Link className="pildora" to={RUTAS.PANEL}>
-          Volver al panel
-        </Link>
-      </div>
+      <AccionesAlTerminar siguiente={siguiente} />
     </>
+  );
+}
+
+/**
+ * Lo que se ofrece al terminar (SCRUM-295): seguir con la siguiente actividad de hoy, o volver al
+ * panel. Si el modulo cambia, el boton lo dice debajo; sin nada pendiente, solo queda volver.
+ * Repetir una actividad ya no esta aqui: se hace desde «Tu ruta de hoy».
+ */
+function AccionesAlTerminar({ siguiente }: { siguiente: SiguienteActividad | undefined }) {
+  return (
+    <div className="actividad__acciones">
+      {siguiente !== undefined && (
+        <Link className="pildora pildora--con-subtitulo" to={rutaDeActividad(siguiente.id)}>
+          Siguiente actividad
+          {siguiente.cambiaDeModulo && (
+            <span className="pildora__subtitulo">{MODULOS[siguiente.modulo].titulo}</span>
+          )}
+        </Link>
+      )}
+
+      <Link
+        className={siguiente === undefined ? 'pildora' : 'pildora pildora--fantasma'}
+        to={RUTAS.PANEL}
+      >
+        Volver al panel
+      </Link>
+    </div>
   );
 }

@@ -150,7 +150,12 @@ function pintar(sesion: Partial<EstadoDeSesion> = {}, ruta = '/') {
   );
 }
 
-/** El encabezado desplegable de un modulo activo (SCRUM-293). */
+/** La tarjeta de un modulo en «Elige donde enfocarte»: un enlace a su sendero (SCRUM-92). */
+function tarjeta(nombre: RegExp) {
+  return screen.getByRole('link', { name: nombre });
+}
+
+/** La pestaña desplegable de un modulo activo, dentro de «Tu ruta de hoy» (SCRUM-293). */
 function acordeon(nombre: RegExp) {
   return screen.getByRole('button', { name: nombre, expanded: false });
 }
@@ -196,8 +201,86 @@ describe('Dashboard, accesibilidad (C-03)', () => {
   });
 });
 
-describe('Dashboard, la ruta de 365 dias desplegable (SCRUM-293)', () => {
+describe('Dashboard, la ruta de 365 dias dentro de «Tu ruta de hoy» (SCRUM-293, SCRUM-294)', () => {
   const RUTA = /Ruta de 365 días de/;
+
+  it('las pestañas viven en «Tu ruta de hoy» y las tarjetas siguen en «Elige donde enfocarte»', async () => {
+    pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    const ruta = screen.getByRole('heading', { name: 'Tu ruta de hoy' }).closest('section')!;
+    const modulos = document.getElementById('programas')!;
+
+    expect(within(ruta).getAllByRole('button', { expanded: false })).toHaveLength(2);
+    expect(within(ruta).queryByRole('link', { name: /Etapa/ })).not.toBeInTheDocument();
+    // Las tarjetas no se despliegan: llevan al detalle del modulo.
+    expect(within(modulos).queryByRole('button', { expanded: false })).not.toBeInTheDocument();
+    expect(within(modulos).getByRole('link', { name: /Cognición/ })).toHaveAttribute(
+      'href',
+      '/modulo/cognicion',
+    );
+  });
+
+  it('cada pestaña dice lo que toca hoy en su modulo', async () => {
+    pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    expect(acordeon(/Cognición/)).toHaveTextContent('Hoy ya hiciste lo tuyo');
+    expect(acordeon(/Bienestar/)).toHaveTextContent('Hoy: Cómo dormiste anoche');
+    expect(screen.getByText('1 de 3')).toBeInTheDocument();
+  });
+
+  it('lo de hoy se abre desde el punto «Hoy» de la ruta, con lo hecho marcado', async () => {
+    pintar();
+
+    await screen.findByRole('heading', { name: 'Tu ruta de hoy' });
+    await userEvent.click(acordeon(/Bienestar/));
+    await userEvent.click(screen.getByRole('button', { name: /Ver lo de hoy/ }));
+
+    const hoja = screen.getByRole('dialog', { name: 'Lo de hoy' });
+
+    expect(
+      within(hoja).getByRole('link', { name: 'Empezar Cómo dormiste anoche' }),
+    ).toHaveAttribute('href', '/actividad/0acd0000-0000-4000-8000-000000000002');
+    expect(
+      within(hoja).getByRole('link', { name: 'Empezar Movimiento del día' }),
+    ).toBeInTheDocument();
+  });
+
+  it('la meta del dia son unas tres actividades, aunque el servidor mande muchas', async () => {
+    const seis = (modulo: ProgresoDelModulo['modulo'], inicial: string): ProgresoDelModulo => ({
+      modulo,
+      sesiones: 10,
+      etapa: { numero: 1, esTemporada: false, sesionesHechas: 1, sesionesDeLaEtapa: 5 },
+      hoy: Array.from({ length: 6 }, (_, i) => ({
+        id: `0acd0000-0000-4000-8000-0000000000${inicial}${i}`,
+        nombre: `Actividad ${inicial}${i}`,
+        hecha: false,
+      })),
+    });
+
+    consultarElProgreso.mockResolvedValue([
+      seis('cognicion', '1'),
+      seis('bienestar', '2'),
+      seis('emociones', '3'),
+    ]);
+    darDeAltaLaCuenta.mockResolvedValue({
+      ...CUENTA,
+      modulosActivos: ['cognicion', 'bienestar', 'emociones'],
+    });
+    pintar();
+
+    await screen.findByRole('heading', { name: 'Tu ruta de hoy' });
+
+    expect(screen.getByText('0 de 3')).toBeInTheDocument();
+    expect(screen.getByRole('complementary')).toHaveTextContent('Actividad 10');
+    // Lo que no entra en la meta sigue al alcance, como sugerencia.
+    await userEvent.click(acordeon(/Cognición/));
+    await userEvent.click(screen.getByRole('button', { name: /Ver lo de hoy/ }));
+    expect(screen.getByRole('link', { name: 'Empezar Actividad 15' })).toBeInTheDocument();
+  });
 
   it('al entrar todos los modulos estan cerrados y ninguna ruta pesa en la pantalla', async () => {
     pintar();
@@ -407,20 +490,24 @@ describe('Dashboard', () => {
       Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 });
     });
 
-    it('marca la seccion en la que se esta, y cambia al pulsar otra', async () => {
+    it('marca Inicio como la ubicacion y lleva a Mi actividad y a Mi diario (SCRUM-296)', async () => {
       pintar();
 
       await screen.findByRole('heading', { name: /Hola, Marina/ });
 
-      const inicio = within(dock()).getByRole('link', { name: 'Inicio' });
-      const progreso = within(dock()).getByRole('link', { name: 'Progreso' });
+      expect(within(dock()).getByRole('link', { name: 'Inicio' })).toHaveAttribute(
+        'aria-current',
+        'location',
+      );
 
-      expect(inicio).toHaveAttribute('aria-current', 'location');
+      const actividad = within(dock()).getByRole('link', { name: 'Mi actividad' });
 
-      await userEvent.click(progreso);
-
-      expect(progreso).toHaveAttribute('aria-current', 'location');
-      expect(inicio).not.toHaveAttribute('aria-current');
+      expect(actividad).toHaveAttribute('href', '/mi-actividad');
+      expect(actividad).not.toHaveAttribute('aria-current');
+      expect(within(dock()).getByRole('link', { name: 'Mi diario' })).toHaveAttribute(
+        'href',
+        '/diario',
+      );
     });
 
     it('se aparta al bajar y vuelve al subir', async () => {
@@ -442,7 +529,7 @@ describe('Dashboard', () => {
       desplazarA(400);
       expect(dock()).toHaveClass('app__nav-inferior--oculto');
 
-      fireEvent.focus(within(dock()).getByRole('link', { name: 'Progreso' }));
+      fireEvent.focus(within(dock()).getByRole('link', { name: 'Mi actividad' }));
       expect(dock()).not.toHaveClass('app__nav-inferior--oculto');
     });
   });
@@ -560,7 +647,7 @@ describe('Dashboard', () => {
       expect(textos).not.toContain('Explorar');
     });
 
-    it('la barra de arriba lleva Inicio, Progreso y Mi diario (SCRUM-249)', async () => {
+    it('la barra de arriba lleva Inicio, Mi actividad y Mi diario (SCRUM-249, SCRUM-296)', async () => {
       pintar();
 
       await screen.findByRole('heading', { name: /Hola, Marina/ });
@@ -572,7 +659,7 @@ describe('Dashboard', () => {
       // media queries de escritorio) y las consultas por rol la dan por inaccesible.
       const textos = [...barra!.querySelectorAll('a')].map((enlace) => enlace.textContent.trim());
 
-      expect(textos).toEqual(['Inicio', 'Progreso', 'Mi diario']);
+      expect(textos).toEqual(['Inicio', 'Mi actividad', 'Mi diario']);
     });
 
     it('al llegar con #progreso desde otra pagina, baja a esa seccion', async () => {
@@ -655,7 +742,17 @@ describe('Dashboard', () => {
       ).toHaveAttribute('aria-valuenow', '1');
     });
 
-    it('cada modulo activo dice en que dia de sus 365 va, con lo que dice la API', async () => {
+    it('cada modulo activo muestra su etapa real', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      expect(tarjeta(/Cognición/)).toHaveTextContent('Etapa 2 · 2 de 10 sesiones');
+      expect(tarjeta(/Cognición/)).toHaveTextContent('20%');
+      expect(tarjeta(/Bienestar/)).toHaveTextContent('Etapa 1 · 3 de 5 sesiones');
+    });
+
+    it('cada pestaña dice en que dia de sus 365 va, con lo que dice la API', async () => {
       pintar();
 
       await screen.findByRole('heading', { name: /Hola, Marina/ });
@@ -671,16 +768,13 @@ describe('Dashboard', () => {
       expect(await screen.findByRole('button', { name: /Añadir Emociones/ })).toBeInTheDocument();
     });
 
-    it('la ruta del día lista lo que toca hoy, con lo hecho marcado', async () => {
+    it('la ruta del día lista lo que toca hoy en cada modulo', async () => {
       pintar();
 
       await screen.findByRole('heading', { name: 'Tu ruta de hoy' });
 
-      expect(screen.getByText('Hecha hoy')).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: 'Empezar Cómo dormiste anoche' })).toHaveAttribute(
-        'href',
-        '/actividad/0acd0000-0000-4000-8000-000000000002',
-      );
+      expect(acordeon(/Cognición/)).toHaveTextContent('Hoy ya hiciste lo tuyo');
+      expect(acordeon(/Bienestar/)).toHaveTextContent('Hoy: Cómo dormiste anoche');
     });
 
     it('recomienda la siguiente actividad pendiente, no un texto fijo', async () => {
@@ -877,31 +971,19 @@ describe('Dashboard', () => {
   });
 
   describe('lo que se puede hacer', () => {
-    it('cada modulo activo, al desplegarlo, lleva a su sendero (SCRUM-92)', async () => {
+    it('cada modulo activo lleva a su sendero (SCRUM-92), desde su tarjeta y desde su pestaña', async () => {
       pintar();
 
       await screen.findByRole('heading', { name: 'Tu ruta de hoy' });
 
-      await userEvent.click(acordeon(/Cognición/));
-      expect(screen.getByRole('link', { name: /Ver el detalle de Cognición/ })).toHaveAttribute(
-        'href',
-        '/modulo/cognicion',
-      );
+      expect(tarjeta(/Cognición/)).toHaveAttribute('href', '/modulo/cognicion');
+      expect(tarjeta(/Bienestar/)).toHaveAttribute('href', '/modulo/bienestar');
 
       await userEvent.click(acordeon(/Bienestar/));
       expect(screen.getByRole('link', { name: /Ver el detalle de Bienestar/ })).toHaveAttribute(
         'href',
         '/modulo/bienestar',
       );
-      // La ruta del día sigue mostrando lo de todos los modulos.
-      // Hay mas de una lista en la pantalla (el pie lleva la de los documentos
-      // legales), asi que se mira que cada actividad este dentro de alguna.
-      const listas = screen.getAllByRole('list');
-
-      expect(listas.some((lista) => within(lista).queryByText('Parejas') !== null)).toBe(true);
-      expect(
-        listas.some((lista) => within(lista).queryByText('Cómo dormiste anoche') !== null),
-      ).toBe(true);
     });
 
     it('lleva el pie con lo que no es y para quien es, y el camino a los documentos (L-03)', async () => {
@@ -948,9 +1030,12 @@ describe('Dashboard', () => {
       expect(cambiarPreferencias).toHaveBeenCalledWith({
         modulosActivos: ['cognicion', 'bienestar', 'emociones'],
       });
-      expect(
-        await screen.findByRole('button', { name: /Emociones/, expanded: false }),
-      ).toHaveTextContent('Día 1 de 365 · 0%');
+      expect(await screen.findByRole('link', { name: /Emociones/ })).toHaveTextContent(
+        'Etapa 1 · 0 de 5 sesiones',
+      );
+      expect(screen.getByRole('button', { name: /Emociones/, expanded: false })).toHaveTextContent(
+        'Día 1 de 365 · 0%',
+      );
       expect(screen.queryByRole('button', { name: /Añadir Emociones/ })).not.toBeInTheDocument();
     });
 

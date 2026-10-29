@@ -374,3 +374,16 @@ html:has(.actividad) {
   gap: 12px;
   align-items: center;
 }
+
+/* «Siguiente actividad» (SCRUM-295): si cambia el modulo, su nombre va debajo, mas pequeno. Sin
+   `opacity`: el texto chico tiene que conservar el contraste de la pildora. */
+.pildora--con-subtitulo {
+  flex-direction: column;
+  gap: 0;
+  line-height: 1.25;
+}
+
+.pildora__subtitulo {
+  font-size: 0.75rem;
+  font-weight: 500;
+}

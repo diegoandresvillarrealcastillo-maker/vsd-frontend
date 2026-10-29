@@ -247,7 +247,7 @@ describe('Mi diario, la navegacion (SCRUM-182)', () => {
     );
   });
 
-  it('desde el dock se vuelve al inicio y al progreso del panel', async () => {
+  it('desde el dock se vuelve al inicio y se llega a Mi actividad (SCRUM-296)', async () => {
     pintar();
     await within(historial()).findByRole('heading', { name: 'Hoy' });
 
@@ -257,9 +257,9 @@ describe('Mi diario, la navegacion (SCRUM-182)', () => {
       'href',
       '/panel#inicio',
     );
-    expect(within(dock).getByRole('link', { name: 'Progreso' })).toHaveAttribute(
+    expect(within(dock).getByRole('link', { name: 'Mi actividad' })).toHaveAttribute(
       'href',
-      '/panel#progreso',
+      '/mi-actividad',
     );
   });
 

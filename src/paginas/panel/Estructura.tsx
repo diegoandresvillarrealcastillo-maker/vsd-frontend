@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from 'framer-motion';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
 import { AvisoDeAcompanamiento } from '../../acompanamiento/AvisoDeAcompanamiento.tsx';
@@ -24,58 +24,37 @@ import { Icono, type NombreDeIcono } from './Icono.tsx';
  */
 
 /**
- * Las secciones del dashboard a las que lleva la navegacion.
+ * Las tres paginas de la navegacion (SCRUM-296): Inicio es el panel, «Mi actividad» lo que la
+ * persona ha hecho y «Mi diario» lo que escribe. «Progreso» ya no es un enlace: era un ancla del
+ * panel y su lugar es ahora una pantalla propia.
  *
- * «Explorar» ya no esta (SCRUM-182): era un enlace a `#programas`, y esa seccion
- * **sigue en el panel** porque tiene las tarjetas de los modulos, que son la
- * entrada a cada sendero. Lo que se quito es el enlace, no el contenido; a las
- * tarjetas se llega bajando, y el boton «Ver los modulos» sigue apuntando a ellas.
+ * «Explorar» tampoco esta (SCRUM-182): era un enlace a `#programas`, y esa seccion **sigue en el
+ * panel** porque tiene las tarjetas de los modulos, que son la entrada a cada sendero. Lo que se
+ * quito es el enlace, no el contenido; el boton «Ver los modulos» sigue apuntando a ellas.
  */
-const SECCIONES: readonly { href: string; texto: string; icono: NombreDeIcono }[] = [
-  { href: '#inicio', texto: 'Inicio', icono: 'home' },
-  { href: '#progreso', texto: 'Progreso', icono: 'activity' },
+export type PaginaDeLaNavegacion = 'inicio' | 'actividad' | 'diario';
+
+/** Las paginas que no son el panel: las que se pasan a la barra y al dock para marcar donde se esta. */
+export type OtraPagina = Exclude<PaginaDeLaNavegacion, 'inicio'>;
+
+const ENLACES: readonly { pagina: PaginaDeLaNavegacion; texto: string; icono: NombreDeIcono }[] = [
+  { pagina: 'inicio', texto: 'Inicio', icono: 'home' },
+  { pagina: 'actividad', texto: 'Mi actividad', icono: 'activity' },
+  { pagina: 'diario', texto: 'Mi diario', icono: 'calendar' },
 ];
 
-/** La seccion del dashboard que esta a la vista, la que cruza el centro. */
-function useSeccionALaVista(ids: readonly string[]): [string, (id: string) => void] {
-  const [activa, setActiva] = useState(ids[0] ?? '');
-
-  useEffect(() => {
-    const secciones = ids
-      .map((id) => document.getElementById(id))
-      .filter((seccion): seccion is HTMLElement => seccion !== null);
-
-    if (secciones.length === 0) {
-      return undefined;
-    }
-
-    const observador = new IntersectionObserver(
-      (entradas) => {
-        const visible = entradas.find((entrada) => entrada.isIntersecting);
-
-        if (visible !== undefined) {
-          setActiva(visible.target.id);
-        }
-      },
-      // Una franja en el centro de la pantalla: cuenta la seccion que la cruza.
-      { rootMargin: '-45% 0px -50% 0px' },
-    );
-
-    secciones.forEach((seccion) => observador.observe(seccion));
-
-    return () => observador.disconnect();
-  }, [ids]);
-
-  return [activa, setActiva];
-}
-
-const IDS_DE_SECCIONES = SECCIONES.map((seccion) => seccion.href.slice(1));
+/** Desde otra pagina, Inicio lleva al panel y el panel baja solo a su ancla al llegar. */
+const DESTINOS = {
+  inicio: { pathname: RUTAS.PANEL, hash: '#inicio' },
+  actividad: RUTAS.MI_ACTIVIDAD,
+  diario: RUTAS.DIARIO,
+} as const;
 
 /** El resorte de la pastilla: el mismo en la barra de arriba y en el dock del movil (SCRUM-284). */
 const RESORTE_DE_LA_PASTILLA = { type: 'spring', stiffness: 420, damping: 34 } as const;
 
 /**
- * La pastilla que se desliza hasta la seccion a la vista. **Una sola pieza para la barra de arriba y para el
+ * La pastilla que se desliza hasta la pagina de ahora. **Una sola pieza para la barra de arriba y para el
  * dock** (SCRUM-284): antes solo el dock la tenia, y en el computador la marca era fija. Cada una lleva su
  * `id` porque las dos estan en el documento a la vez (una se esconde con CSS segun el ancho), y con el mismo
  * `layoutId` la pastilla de una intentaria viajar a la de la otra.
@@ -95,25 +74,64 @@ function PastillaDeLaNavegacion({ id }: { id: string }) {
 }
 
 /**
- * La barra de arriba. `conSecciones` muestra los enlaces a las secciones del
- * dashboard; en cualquier otra pantalla no llevarian a ningun sitio.
+ * Un enlace de la barra o del dock: la pagina de ahora lleva la pastilla y se anuncia como tal.
  *
- * **«Mi diario» va aqui, junto a Inicio y Progreso** (SCRUM-249): SCRUM-182 lo habia sacado de la
- * barra, y en las pruebas con personas quien usa el computador solo lo encontraba al abrir el menu
- * de su cuenta. Sigue tambien en ese menu.
+ * Inicio, estando en el panel, es un ancla del mismo documento (`location`); todo lo demas es un enlace
+ * del enrutador (`page`). **«Mi diario» lleva la marca del tutorial** (SCRUM-201, SCRUM-249): se senala
+ * donde se ve, en la barra de arriba en el computador y en el dock del movil.
+ */
+function EnlaceDeLaNavegacion({
+  pagina,
+  actual,
+  clase,
+  pastilla,
+  children,
+}: {
+  pagina: PaginaDeLaNavegacion;
+  actual: PaginaDeLaNavegacion | undefined;
+  clase: string;
+  pastilla: ReactNode;
+  children: ReactNode;
+}) {
+  const esLaActual = pagina === actual;
+  const propiedades = {
+    className: `${clase}${esLaActual ? ` ${clase}--activo` : ''}`,
+    'aria-current': esLaActual ? (pagina === 'inicio' ? 'location' : 'page') : undefined,
+    ...(pagina === 'diario' ? { 'data-tutorial': 'diario' } : {}),
+  } as const;
+  const contenido = (
+    <>
+      {esLaActual && pastilla}
+      {children}
+    </>
+  );
+
+  return pagina === 'inicio' && esLaActual ? (
+    <a {...propiedades} href="#inicio">
+      {contenido}
+    </a>
+  ) : (
+    <Link {...propiedades} to={DESTINOS[pagina]}>
+      {contenido}
+    </Link>
+  );
+}
+
+/**
+ * La barra de arriba. `conSecciones` es el panel: Inicio es la pagina de ahora. `pagina` es «Mi
+ * actividad» o «Mi diario»: los mismos tres enlaces, con esa como pagina actual, igual que el dock del
+ * movil. En cualquier otra pantalla no lleva navegacion, porque no llevaria a ningun sitio.
  *
- * `enDiario` es la barra de Mi diario: los mismos tres enlaces, con «Mi diario» como pagina actual
- * e Inicio y Progreso llevando al panel con su ancla, igual que el dock del movil.
+ * **«Mi diario» ya no esta en el menu de la cuenta** (SCRUM-296): vive aqui y en el dock.
  */
 export function BarraSuperior({
   conSecciones,
-  enDiario = false,
+  pagina,
 }: {
   conSecciones: boolean;
-  enDiario?: boolean;
+  pagina?: OtraPagina;
 }) {
-  // La seccion a la vista, como en el dock: la pastilla la sigue, y el primero ya no esta fijo (SCRUM-284).
-  const [activa, setActiva] = useSeccionALaVista(IDS_DE_SECCIONES);
+  const actual = pagina ?? (conSecciones ? 'inicio' : undefined);
 
   return (
     <>
@@ -121,56 +139,20 @@ export function BarraSuperior({
         <div className="app__barra-interior">
           <MarcaDeLaApp />
 
-          {conSecciones || enDiario ? (
+          {actual !== undefined ? (
             <nav className="app__nav" aria-label="Secciones">
-              {SECCIONES.map((seccion) => {
-                const id = seccion.href.slice(1);
-                const contenido = (
-                  <>
-                    <Icono nombre={seccion.icono} tamano={18} />
-                    <span className="app__enlace-texto">{seccion.texto}</span>
-                  </>
-                );
-
-                if (enDiario) {
-                  // Otra pagina: un enlace del enrutador, y ninguna seccion esta «a la vista».
-                  return (
-                    <Link
-                      key={seccion.href}
-                      className="app__enlace"
-                      to={{ pathname: RUTAS.PANEL, hash: seccion.href }}
-                    >
-                      {contenido}
-                    </Link>
-                  );
-                }
-
-                const esLaActiva = id === activa;
-
-                return (
-                  <a
-                    key={seccion.href}
-                    className={`app__enlace${esLaActiva ? ' app__enlace--activo' : ''}`}
-                    href={seccion.href}
-                    aria-current={esLaActiva ? 'location' : undefined}
-                    onClick={() => setActiva(id)}
-                  >
-                    {esLaActiva && <PastillaDeLaNavegacion id="pastilla-de-la-barra" />}
-                    {contenido}
-                  </a>
-                );
-              })}
-              <Link
-                className={`app__enlace${enDiario ? ' app__enlace--activo' : ''}`}
-                to={RUTAS.DIARIO}
-                aria-current={enDiario ? 'page' : undefined}
-                // El tutorial senala el diario donde se ve: aqui en el computador y en el dock del movil.
-                data-tutorial="diario"
-              >
-                {enDiario && <PastillaDeLaNavegacion id="pastilla-de-la-barra" />}
-                <Icono nombre="calendar" tamano={18} />
-                <span className="app__enlace-texto">Mi diario</span>
-              </Link>
+              {ENLACES.map(({ pagina: destino, texto, icono }) => (
+                <EnlaceDeLaNavegacion
+                  key={destino}
+                  pagina={destino}
+                  actual={actual}
+                  clase="app__enlace"
+                  pastilla={<PastillaDeLaNavegacion id="pastilla-de-la-barra" />}
+                >
+                  <Icono nombre={icono} tamano={18} />
+                  <span className="app__enlace-texto">{texto}</span>
+                </EnlaceDeLaNavegacion>
+              ))}
             </nav>
           ) : (
             // Mantiene la marca a la izquierda y la cuenta a la derecha.
@@ -307,9 +289,6 @@ function MenuDeCuenta() {
           <Link className="app__menu-opcion" to={RUTAS.PERFIL}>
             Tu perfil
           </Link>
-          <Link className="app__menu-opcion" to={RUTAS.DIARIO}>
-            Mi diario
-          </Link>
           <Link className="app__menu-opcion" to={RUTAS.INICIO}>
             Ir a la página principal
           </Link>
@@ -387,25 +366,21 @@ function useOcultarAlBajar(): [boolean, (oculto: boolean) => void] {
 }
 
 /**
- * El dock flotante del movil (SCRUM-114). Vive en el dashboard y, desde SCRUM-182,
- * tambien dentro de Mi diario.
+ * El dock flotante del movil (SCRUM-114). Vive en el dashboard y, desde SCRUM-182, tambien dentro de
+ * Mi diario y de Mi actividad (SCRUM-296).
  *
  * - Una pildora compacta y centrada, despegada del borde y de la zona segura
  *   del iPhone, de vidrio como lo demas que flota (SCRUM-113).
- * - La seccion a la vista se marca con una pastilla que se desliza de una a
- *   otra.
+ * - La pagina de ahora se marca con una pastilla que se desliza de una a otra.
  * - Al bajar se aparta, y vuelve al subir, al detenerse o si recibe el foco.
  * - Con `prefers-reduced-motion`, sin deslizamientos.
  *
- * **En el dashboard** las secciones son anclas de la misma pagina y se marca la que
- * cruza el centro. **Dentro del Diario** no hay secciones que mirar: «Mi diario» es
- * la pagina actual, y Inicio y Progreso son enlaces al panel con su ancla (el panel
- * baja solo a ella al llegar).
+ * **En el panel** Inicio es la pagina de ahora. **Dentro de Mi actividad o de Mi diario** lo es esa
+ * pagina, e Inicio es un enlace al panel con su ancla (el panel baja solo a ella al llegar).
  */
-export function NavegacionInferior({ enDiario = false }: { enDiario?: boolean }) {
-  const [activa, setActiva] = useSeccionALaVista(IDS_DE_SECCIONES);
+export function NavegacionInferior({ pagina }: { pagina?: OtraPagina }) {
+  const actual = pagina ?? 'inicio';
   const [oculto, setOculto] = useOcultarAlBajar();
-  const pastilla = <PastillaDeLaNavegacion id="pastilla-del-dock" />;
 
   return (
     <nav
@@ -414,60 +389,20 @@ export function NavegacionInferior({ enDiario = false }: { enDiario?: boolean })
       // Quien llega con el teclado no tiene que desplazarse para verlo.
       onFocus={() => setOculto(false)}
     >
-      {SECCIONES.map((seccion) => {
-        const id = seccion.href.slice(1);
-        const contenido = (
-          <>
-            <span className="app__nav-inferior-icono">
-              <Icono nombre={seccion.icono} tamano={19} />
-            </span>
-            <span className="app__nav-inferior-texto">{seccion.texto}</span>
-          </>
-        );
-
-        if (enDiario) {
-          // Otra pagina: un enlace del enrutador, no un ancla, y ninguna seccion
-          // esta «a la vista».
-          return (
-            <Link
-              key={seccion.href}
-              className="app__nav-inferior-enlace"
-              to={{ pathname: RUTAS.PANEL, hash: seccion.href }}
-            >
-              {contenido}
-            </Link>
-          );
-        }
-
-        const esLaActiva = id === activa;
-
-        return (
-          <a
-            key={seccion.href}
-            className={`app__nav-inferior-enlace${esLaActiva ? ' app__nav-inferior-enlace--activo' : ''}`}
-            href={seccion.href}
-            aria-current={esLaActiva ? 'location' : undefined}
-            onClick={() => setActiva(id)}
-          >
-            {esLaActiva && pastilla}
-            {contenido}
-          </a>
-        );
-      })}
-      <Link
-        className={`app__nav-inferior-enlace${enDiario ? ' app__nav-inferior-enlace--activo' : ''}`}
-        to={RUTAS.DIARIO}
-        aria-current={enDiario ? 'page' : undefined}
-        // El tutorial senala el diario donde se ve: en el movil, en el dock (SCRUM-201). En
-        // escritorio se ve el de la barra de arriba, y este no (SCRUM-249).
-        data-tutorial="diario"
-      >
-        {enDiario && pastilla}
-        <span className="app__nav-inferior-icono">
-          <Icono nombre="calendar" tamano={19} />
-        </span>
-        <span className="app__nav-inferior-texto">Mi diario</span>
-      </Link>
+      {ENLACES.map(({ pagina: destino, texto, icono }) => (
+        <EnlaceDeLaNavegacion
+          key={destino}
+          pagina={destino}
+          actual={actual}
+          clase="app__nav-inferior-enlace"
+          pastilla={<PastillaDeLaNavegacion id="pastilla-del-dock" />}
+        >
+          <span className="app__nav-inferior-icono">
+            <Icono nombre={icono} tamano={19} />
+          </span>
+          <span className="app__nav-inferior-texto">{texto}</span>
+        </EnlaceDeLaNavegacion>
+      ))}
     </nav>
   );
 }

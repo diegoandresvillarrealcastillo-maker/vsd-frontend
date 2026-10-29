@@ -1,20 +1,10 @@
 /*
- * La ruta del dia del panel (SCRUM-170).
+ * La ruta del dia del panel (SCRUM-170, SCRUM-294).
  *
- * Un camino que serpentea con un punto por actividad, agrupado por modulo. Los puntos son
- * redondos y con "peldano" (una sombra solida debajo) para que se vean pulsables, y el
- * estado se distingue por forma e icono ademas del color:
- *
- * - hecha: llena, con una marca;
- * - siguiente: mas grande, con halo y un globo que invita;
- * - pendiente: blanca, con el borde del modulo;
- * - meta: con candado hasta que se hace todo, con estrella al lograrla.
- *
- * Los colores salen de los tokens `--app-*` y de `--modulo-*`, asi que sirve igual en los
- * dos temas. Todo movimiento se apaga con `prefers-reduced-motion`.
- *
- * Las medidas de fila y de centro (`--ruta-fila`, `--ruta-centro`) las pone `RutaDelDia.tsx`
- * en la propia seccion: es el que dibuja los hilos y necesita los numeros.
+ * Una caja con los modulos activos juntos, como pestañas que se despliegan (`.acordeon-modulo`,
+ * en `aplicacion.css`), y al lograr el dia, un aviso con una estrella. Los colores salen de los
+ * tokens `--app-*` y de `--modulo-*`, asi que sirve igual en los dos temas. Todo movimiento se
+ * apaga con `prefers-reduced-motion`.
  */
 
 .ruta {
@@ -32,497 +22,46 @@
   gap: 1rem;
 }
 
-/* El camino entero mide mas de 1.500 px con las actividades del dia, y alargaba toda la pantalla
-   (SCRUM-250). Ahora se desplaza dentro de su recuadro y el titulo, el contador y el resto de la
-   pagina se quedan donde estan.
-
-   - El alto maximo sigue a la ventana visible: `dvh` y no `vh`, que en el celular cuenta la barra del
-     navegador aunque este desplegada. Entre 18 y 40 rem; si el camino es mas corto, el recuadro
-     mide lo que mide el camino.
-   - Sin `overscroll-behavior`: al llegar al final del recuadro el gesto sigue con la pagina, que es
-     lo que espera quien baja a ver el progreso. Con `contain` se quedaba atrapado.
-   - Se nota que hay mas camino: una sombra en el borde de arriba o de abajo que se esconde sola
-     al llegar a ese extremo (las "tapas" del color de la tarjeta se mueven con el contenido).
-   - Un poco de aire arriba y abajo para que la sombra y el halo de los puntos no se recorten. */
-.ruta__recorrido {
-  max-height: clamp(18rem, 70dvh, 40rem);
-  margin-top: 1.25rem;
-  padding: 0.5rem 0;
-  overflow-y: auto;
-  scrollbar-color: color-mix(in srgb, var(--app-tinta) 35%, transparent) transparent;
-  scrollbar-width: thin;
-  background:
-    linear-gradient(var(--app-superficie) 30%, transparent) 0 0 / 100% 2.5rem no-repeat local,
-    linear-gradient(transparent, var(--app-superficie) 70%) 0 100% / 100% 2.5rem no-repeat local,
-    linear-gradient(color-mix(in srgb, var(--app-tinta) 14%, transparent), transparent) 0 0 / 100%
-      0.875rem no-repeat scroll,
-    linear-gradient(transparent, color-mix(in srgb, var(--app-tinta) 14%, transparent)) 0 100% /
-      100% 0.875rem no-repeat scroll;
-}
-
-.ruta__camino {
+.ruta__modulos {
   display: grid;
-  gap: 1.75rem;
-  max-width: 26rem;
-  margin: 0 auto;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
 }
 
-/* ---------- El titulo de cada modulo ---------- */
+/* ---------- Lo logrado hoy ---------- */
 
-.ruta__unidad {
+.ruta__logro {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 0.875rem;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem 1.25rem;
   border-radius: 20px;
-  background: var(--modulo-fondo);
-  color: var(--modulo-acento);
-  box-shadow: 0 4px 0 color-mix(in srgb, var(--modulo-acento) 28%, transparent);
+  background: var(--app-superficie-alta);
 }
 
-.ruta__unidad-icono {
+.ruta__logro-icono {
+  position: relative;
   display: grid;
   flex: none;
-  width: 2.5rem;
-  height: 2.5rem;
   place-items: center;
+  width: 3.25rem;
+  height: 3.25rem;
   border-radius: 50%;
-  background: var(--app-superficie);
-}
-
-.ruta__unidad-texto {
-  min-width: 0;
-}
-
-.ruta__unidad-titulo {
-  margin: 0;
-  color: var(--app-tinta);
-  font-family: var(--app-fuente-titulos);
-  font-size: 1.25rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-
-.ruta__unidad-etapa {
-  color: var(--app-tinta-suave);
-  font-size: 0.75rem;
-  line-height: 1.3;
-}
-
-/* ---------- El camino ---------- */
-
-.ruta__tramo {
-  --ruta-base: color-mix(in srgb, var(--modulo-acento) 58%, #000);
-}
-
-.ruta__tramo--meta {
-  --modulo-acento: var(--app-avatar-tinta);
-  --modulo-fondo: var(--app-avatar);
-}
-
-.ruta__nodos {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.ruta__fila {
-  position: relative;
-  display: flex;
-  height: var(--ruta-fila);
-  justify-content: center;
-  /* Entran de a poco, pero las de mas abajo no se hacen esperar: el escalonado se corta en 6. */
-  animation: ruta-entra 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
-  animation-delay: calc(min(var(--i, 0), 6) * 70ms);
-}
-
-.ruta__nodo-envoltura {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  transform: translateX(var(--x, 0));
-}
-
-.ruta__punto {
-  position: relative;
-  display: grid;
-  width: 88px;
-  height: 88px;
-  margin-top: calc(var(--ruta-centro) - 44px);
-  place-items: center;
-}
-
-/* El hilo entre dos puntos: de puntitos en lo que falta, lleno entre dos hechos. */
-.ruta__hilo {
-  position: absolute;
-  top: var(--ruta-centro);
-  left: 50%;
-  z-index: 0;
-  overflow: visible;
-  pointer-events: none;
-}
-
-.ruta__hilo path {
-  stroke: var(--modulo-acento);
-  stroke-width: 6;
-  stroke-linecap: round;
-  stroke-dasharray: 0.1 14;
-  opacity: 0.5;
-}
-
-.ruta__hilo--hecho path {
-  stroke-width: 8;
-  stroke-dasharray: none;
-  opacity: 0.4;
-}
-
-/* El hilo que lleva a lo que toca ahora: los puntitos avanzan hacia el, y se ve mas. */
-.ruta__hilo--hacia path {
-  opacity: 0.85;
-  animation: ruta-fluye 1.1s linear infinite;
-}
-
-/* ---------- Los puntos ---------- */
-
-.ruta__nodo {
-  position: relative;
-  display: grid;
-  width: 72px;
-  height: 72px;
-  place-items: center;
-  border: 0;
-  border-radius: 50%;
-  background: var(--modulo-acento);
-  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.22), transparent 55%);
-  box-shadow:
-    0 6px 0 var(--ruta-base),
-    0 12px 20px -8px rgb(0 0 0 / 0.3);
-  color: var(--app-sobre-primario);
-  text-decoration: none;
-  transition:
-    transform 0.14s ease,
-    box-shadow 0.14s ease;
-}
-
-a.ruta__nodo {
-  cursor: pointer;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  a.ruta__nodo:hover {
-    transform: translateY(-2px);
-  }
-}
-
-a.ruta__nodo:active {
-  transform: translateY(5px);
-  box-shadow:
-    0 1px 0 var(--ruta-base),
-    0 4px 8px -6px rgb(0 0 0 / 0.3);
-}
-
-.ruta__nodo--pendiente {
-  border: 4px solid var(--modulo-acento);
-  background: var(--app-superficie);
-  background-image: none;
-  box-shadow:
-    0 6px 0 color-mix(in srgb, var(--modulo-acento) 38%, var(--app-borde)),
-    0 12px 20px -8px rgb(0 0 0 / 0.18);
-  color: var(--modulo-acento);
-}
-
-.ruta__nodo--pendiente:active {
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--modulo-acento) 38%, var(--app-borde));
-}
-
-.ruta__nodo--siguiente {
-  width: 88px;
-  height: 88px;
-}
-
-/* El halo de lo que toca ahora: dos ondas que se abren y se apagan, una tras otra. */
-.ruta__nodo--siguiente::before,
-.ruta__nodo--siguiente::after {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border: 3px solid var(--modulo-acento);
-  border-radius: 50%;
-  content: '';
-  opacity: 0;
-  /* Tres ondas y descansa: un latido que no para nunca mantiene la pantalla despierta. */
-  animation: ruta-halo 2.6s ease-out 3;
-}
-
-.ruta__nodo--siguiente::after {
-  animation-delay: 1.3s;
-}
-
-/* La que toca ahora flota despacio, y dos destellos titilan a su alrededor. */
-.ruta__punto:has(.ruta__nodo--siguiente) {
-  animation: ruta-flota 3.4s ease-in-out infinite;
-}
-
-.ruta__punto:has(.ruta__nodo--siguiente)::before,
-.ruta__punto:has(.ruta__nodo--siguiente)::after {
-  position: absolute;
-  z-index: 2;
-  width: 14px;
-  height: 14px;
-  background: #ffc83d;
-  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
-  content: '';
-  opacity: 0;
-  animation: ruta-titila 2.4s ease-in-out infinite;
-  pointer-events: none;
-}
-
-.ruta__punto:has(.ruta__nodo--siguiente)::before {
-  top: 2px;
-  left: 4px;
-}
-
-.ruta__punto:has(.ruta__nodo--siguiente)::after {
-  right: 2px;
-  bottom: 10px;
-  width: 10px;
-  height: 10px;
-  animation-delay: 1.2s;
-}
-
-/* Las hechas brillan: un reflejo las cruza cada pocos segundos. */
-.ruta__nodo--hecha {
-  overflow: hidden;
-}
-
-.ruta__nodo--hecha::after {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    115deg,
-    transparent 38%,
-    rgb(255 255 255 / 0.45) 50%,
-    transparent 62%
-  );
-  content: '';
-  animation: ruta-brillo 5.5s ease-in-out infinite;
-  pointer-events: none;
-}
-
-/* La que se acaba de hacer: salta al llenarse y suelta una onda. */
-.ruta__nodo--recien {
-  animation: ruta-salta 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-.ruta__destello {
-  position: absolute;
-  top: calc(var(--ruta-centro) - 36px);
-  left: 50%;
-  width: 72px;
-  height: 72px;
-  margin-left: -36px;
-  border: 4px solid var(--modulo-acento);
-  border-radius: 50%;
-  opacity: 0;
-  animation: ruta-onda 1s ease-out backwards;
-  pointer-events: none;
-}
-
-/* El globo que invita a empezar, a un lado del punto para no tapar nada. */
-.ruta__globo {
-  position: absolute;
-  top: calc(var(--ruta-centro) - 17px);
-  left: calc(50% + 62px);
-  z-index: 2;
-  padding: 0.3rem 0.7rem;
-  border: 2px solid var(--modulo-acento);
-  border-radius: 14px;
-  background: var(--app-superficie);
-  color: var(--modulo-acento);
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  animation: ruta-invita 1.6s ease-in-out 6;
-}
-
-.ruta__globo::before {
-  position: absolute;
-  top: 50%;
-  left: -7px;
-  width: 10px;
-  height: 10px;
-  border-bottom: 2px solid var(--modulo-acento);
-  border-left: 2px solid var(--modulo-acento);
-  background: var(--app-superficie);
-  content: '';
-  transform: translateY(-50%) rotate(45deg);
-}
-
-/* Si el punto cae a la derecha, el globo pasa a la izquierda. */
-.ruta__fila[data-lado='derecha'] .ruta__globo {
-  right: calc(50% + 62px);
-  left: auto;
-}
-
-.ruta__fila[data-lado='derecha'] .ruta__globo::before {
-  right: -7px;
-  left: auto;
-  border-top: 2px solid var(--modulo-acento);
-  border-right: 2px solid var(--modulo-acento);
-  border-bottom: 0;
-  border-left: 0;
-}
-
-/* ---------- El nombre de cada punto ---------- */
-
-.ruta__etiqueta {
-  display: grid;
-  max-width: 11rem;
-  margin-top: 0.5rem;
-  padding: 0.125rem 0.5rem;
-  border-radius: 12px;
-  background: var(--app-superficie);
-  text-align: center;
-}
-
-.ruta__nombre {
-  color: var(--app-tinta);
-  font-size: 0.875rem;
-  font-weight: 700;
-  line-height: 1.25;
-}
-
-.ruta__sello {
-  color: var(--app-tenue);
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-/* ---------- La meta del dia ---------- */
-
-.ruta__nodo--meta {
-  width: 80px;
-  height: 80px;
-  border: 3px dashed var(--app-borde);
-  background: var(--app-superficie-alta);
-  background-image: none;
-  box-shadow: 0 6px 0 var(--app-borde);
-  color: var(--app-tenue);
-}
-
-.ruta__nodo--meta:not(.ruta__nodo--lograda) svg {
-  animation: ruta-candado 5s ease-in-out infinite;
-  transform-origin: 50% 20%;
-}
-
-.ruta__nodo--lograda {
-  border: 0;
   background: var(--app-avatar);
-  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.3), transparent 55%);
-  box-shadow:
-    0 6px 0 color-mix(in srgb, var(--app-avatar-tinta) 55%, var(--app-avatar)),
-    0 0 0 8px color-mix(in srgb, var(--app-avatar-tinta) 16%, transparent),
-    0 14px 26px -8px rgb(0 0 0 / 0.3);
   color: var(--app-avatar-tinta);
   animation: ruta-salta 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
-/* ---------- Movimiento ---------- */
-
-@keyframes ruta-entra {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
+.ruta__logro-titulo {
+  font-family: var(--app-fuente-titulos);
+  font-size: 1.125rem;
+  font-weight: 600;
 }
 
-@keyframes ruta-halo {
-  0% {
-    opacity: 0.55;
-    transform: scale(1);
-  }
-
-  100% {
-    opacity: 0;
-    transform: scale(1.55);
-  }
-}
-
-@keyframes ruta-invita {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-
-  50% {
-    transform: translateX(4px);
-  }
-}
-
-@keyframes ruta-fluye {
-  to {
-    stroke-dashoffset: -14;
-  }
-}
-
-@keyframes ruta-flota {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-5px);
-  }
-}
-
-@keyframes ruta-titila {
-  0%,
-  100% {
-    opacity: 0;
-    transform: scale(0.4) rotate(0deg);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1) rotate(45deg);
-  }
-}
-
-@keyframes ruta-brillo {
-  0%,
-  60% {
-    transform: translateX(-130%);
-  }
-
-  100% {
-    transform: translateX(130%);
-  }
-}
-
-@keyframes ruta-candado {
-  0%,
-  86%,
-  100% {
-    transform: rotate(0deg);
-  }
-
-  90% {
-    transform: rotate(-9deg);
-  }
-
-  94% {
-    transform: rotate(8deg);
-  }
-
-  97% {
-    transform: rotate(-4deg);
-  }
+.ruta__logro-texto {
+  color: var(--app-tenue);
+  font-size: 0.875rem;
 }
 
 @keyframes ruta-salta {
@@ -536,18 +75,6 @@ a.ruta__nodo:active {
 
   100% {
     transform: scale(1);
-  }
-}
-
-@keyframes ruta-onda {
-  0% {
-    opacity: 0.8;
-    transform: scale(0.9);
-  }
-
-  100% {
-    opacity: 0;
-    transform: scale(2);
   }
 }
 

@@ -92,8 +92,8 @@ describe('los pasos', () => {
 
     expect(diario?.texto).toMatch(/celular/);
     expect(diario?.texto).toMatch(/computador/);
-    // En el computador esta en la barra de arriba, junto a Inicio y Progreso (SCRUM-249).
-    expect(diario?.texto).toMatch(/junto a Inicio y Progreso/);
+    // En el computador esta en la barra de arriba, junto a Inicio y Mi actividad (SCRUM-249, SCRUM-296).
+    expect(diario?.texto).toMatch(/junto a Inicio y Mi actividad/);
     expect(diario?.texto).not.toMatch(/menú de tu cuenta/);
   });
 
@@ -387,7 +387,8 @@ describe('el spotlight (SCRUM-201)', () => {
     for (const paso of PASOS_DEL_TUTORIAL) {
       if (paso.ancla !== undefined) {
         expect(todo, `nadie marca data-tutorial="${paso.ancla}"`).toMatch(
-          new RegExp(`data-tutorial=["']${paso.ancla}["']`),
+          // Como atributo (`data-tutorial="diario"`) o como propiedad (`'data-tutorial': 'diario'`).
+          new RegExp(`data-tutorial["']?\\s*[=:]\\s*["']${paso.ancla}["']`),
         );
       }
     }

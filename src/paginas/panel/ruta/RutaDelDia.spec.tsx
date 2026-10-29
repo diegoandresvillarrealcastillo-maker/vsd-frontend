@@ -1,7 +1,9 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
+import type { Modulo } from '../../../infraestructura/api/cuenta.ts';
 import type { ProgresoDelModulo } from '../../../infraestructura/api/progreso.ts';
 import { fallosDeAccesibilidad } from '../../../pruebas/axe.ts';
 import { construirLaRuta } from './construirLaRuta.ts';
@@ -25,10 +27,26 @@ const PROGRESO: ProgresoDelModulo[] = [
   },
 ];
 
-function pintar(progreso: readonly ProgresoDelModulo[], nuevas: readonly string[] = []) {
+function pintar(
+  progreso: readonly ProgresoDelModulo[],
+  {
+    nuevas = [],
+    desplegado = null,
+    alAlternar = vi.fn(),
+  }: {
+    nuevas?: readonly string[];
+    desplegado?: Modulo | null;
+    alAlternar?: (m: Modulo) => void;
+  } = {},
+) {
   return render(
     <MemoryRouter>
-      <RutaDelDia ruta={construirLaRuta(progreso)} nuevas={new Set(nuevas)} />
+      <RutaDelDia
+        ruta={construirLaRuta(progreso)}
+        nuevas={new Set(nuevas)}
+        desplegado={desplegado}
+        alAlternar={alAlternar}
+      />
     </MemoryRouter>,
   );
 }
@@ -40,8 +58,12 @@ function completo(): ProgresoDelModulo[] {
   }));
 }
 
+function pestana(nombre: RegExp) {
+  return screen.getByRole('button', { name: nombre });
+}
+
 describe('RutaDelDia', () => {
-  it('sin actividades dice donde aparecera lo de cada dia', () => {
+  it('sin modulos activos dice donde aparecera lo de cada dia', () => {
     pintar([]);
 
     expect(screen.getByRole('heading', { name: 'Tu ruta de hoy' })).toBeInTheDocument();
@@ -50,93 +72,87 @@ describe('RutaDelDia', () => {
     expect(
       screen.getByText('Todavía no hay nada para hoy').closest('.estado-vacio'),
     ).not.toBeNull();
-    expect(screen.queryByRole('list')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('agrupa las actividades por modulo, con su etapa', () => {
+  it('muestra juntos los modulos activos, cada uno con lo que le toca hoy', () => {
     pintar(PROGRESO);
 
-    const cognicion = screen.getByRole('list', { name: 'Actividades de hoy en Cognición' });
-    const bienestar = screen.getByRole('list', { name: 'Actividades de hoy en Bienestar' });
-
-    expect(within(cognicion).getAllByRole('listitem')).toHaveLength(2);
-    expect(within(bienestar).getAllByRole('listitem')).toHaveLength(1);
-    expect(screen.getByText(/Etapa 2 · 2 de 10 sesiones/)).toBeInTheDocument();
+    expect(pestana(/Cognición/)).toHaveTextContent('Hoy: Secuencia de números');
+    expect(pestana(/Bienestar/)).toHaveTextContent('Hoy: Cómo dormiste anoche');
+    expect(screen.getAllByRole('button')).toHaveLength(2);
     expect(screen.getByText('1 de 3')).toBeInTheDocument();
   });
 
-  it('lo hecho dice que esta hecho y se puede volver a hacer: no hay tope diario (SCRUM-184)', () => {
+  it('cada modulo dice en que dia de sus 365 va', () => {
     pintar(PROGRESO);
 
-    expect(screen.getByText('Hecha hoy')).toBeInTheDocument();
+    // Cognicion ya hizo algo hoy: las 7 sesiones incluyen a hoy, que es el dia 7.
+    expect(pestana(/Cognición/)).toHaveTextContent('Día 7 de 365');
+    expect(pestana(/Bienestar/)).toHaveTextContent('Día 4 de 365');
+  });
+
+  it('un modulo con todo hecho lo dice sin presionar', () => {
+    pintar(completo());
+
+    expect(pestana(/Cognición/)).toHaveTextContent('Hoy ya hiciste lo tuyo');
+  });
+
+  it('un modulo activo sin nada hoy sigue teniendo su ruta', () => {
+    pintar([
+      { ...PROGRESO[0]!, hoy: [] },
+      { ...PROGRESO[1]!, hoy: [{ id: 'a3', nombre: 'Cómo dormiste anoche', hecha: false }] },
+    ]);
+
+    expect(pestana(/Cognición/)).toHaveTextContent('Hoy no te toca nada aquí');
+  });
+
+  it('pulsar un modulo avisa cual, y no abre nada por su cuenta', async () => {
+    const alAlternar = vi.fn();
+
+    pintar(PROGRESO, { alAlternar });
+    await userEvent.click(pestana(/Bienestar/));
+
+    expect(alAlternar).toHaveBeenCalledWith('bienestar');
+    expect(pestana(/Bienestar/)).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('region', { name: /Ruta de 365 días/ })).not.toBeInTheDocument();
+  });
+
+  it('el modulo desplegado muestra su ruta de 365 dias, y los demas siguen cerrados', () => {
+    pintar(PROGRESO, { desplegado: 'cognicion' });
+
+    expect(pestana(/Cognición/)).toHaveAttribute('aria-expanded', 'true');
+    expect(pestana(/Bienestar/)).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('region', { name: 'Ruta de 365 días de Cognición' })).toBeVisible();
     expect(
-      screen.getByRole('link', { name: 'Hecha hoy: Parejas de cartas. Hacer otra vez' }),
-    ).toHaveAttribute('href', '/actividad/a1');
-    // Repetirla no cambia lo que cuenta el plan: sigue siendo 1 de 3.
-    expect(screen.getByText('1 de 3')).toBeInTheDocument();
-    // «Empezar» sigue siendo solo de lo que falta.
-    expect(
-      screen.queryByRole('link', { name: 'Empezar Parejas de cartas' }),
+      screen.queryByRole('region', { name: 'Ruta de 365 días de Bienestar' }),
     ).not.toBeInTheDocument();
   });
 
-  it('lo que falta lleva a su actividad, y la siguiente se anuncia con un globo', () => {
-    pintar(PROGRESO);
+  it('la ruta desplegada cuenta lo de hoy con la misma meta que el contador', async () => {
+    pintar(PROGRESO, { desplegado: 'cognicion' });
 
-    expect(screen.getByRole('link', { name: 'Empezar Secuencia de números' })).toHaveAttribute(
-      'href',
-      '/actividad/a2',
-    );
-    expect(screen.getByRole('link', { name: 'Empezar Cómo dormiste anoche' })).toHaveAttribute(
-      'href',
-      '/actividad/a3',
-    );
-    // Solo una es la siguiente: un solo globo.
-    expect(screen.getAllByText('Empezar', { selector: '.ruta__globo' })).toHaveLength(1);
+    await userEvent.click(screen.getByRole('button', { name: /Ver lo de hoy/ }));
+
+    // Cognicion tiene dos de las tres de hoy y una esta hecha.
+    expect(screen.getByRole('dialog')).toHaveTextContent('1 de 2');
   });
 
-  it('cada estado se distingue por algo mas que el color', () => {
+  it('sin completar no hay logro, ni aviso', () => {
     pintar(PROGRESO);
 
-    const lista = screen.getByRole('list', { name: 'Actividades de hoy en Cognición' });
-    const hecha = lista.querySelector('.ruta__nodo--hecha');
-    const siguiente = lista.querySelector('.ruta__nodo--siguiente');
-
-    // Un icono distinto en cada uno (marca de hecho / triangulo de empezar).
-    expect(hecha?.querySelector('svg path')?.getAttribute('d')).not.toBe(
-      siguiente?.querySelector('svg path')?.getAttribute('d'),
-    );
-    // Y un texto: lo hecho lo dice, lo que toca ahora lo dice el globo.
-    expect(hecha).toHaveTextContent('Hecha hoy');
-  });
-
-  it('la meta esta cerrada hasta que se hace todo, y lo dice sin presionar', () => {
-    pintar(PROGRESO);
-
-    const meta = screen.getByRole('list', { name: 'Meta del día' });
-
-    expect(within(meta).getByText('Meta de hoy')).toBeInTheDocument();
-    expect(within(meta).getByText('Se abre al terminar tu ruta')).toBeInTheDocument();
+    expect(screen.queryByText('¡Lo lograste hoy!')).not.toBeInTheDocument();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
-  it('con todo hecho la meta se logra, se anuncia sin interrumpir y no queda nada por empezar', () => {
+  it('con todo hecho se logra el dia, se anuncia sin interrumpir', () => {
     pintar(completo());
 
     expect(screen.getByText('¡Lo lograste hoy!')).toBeInTheDocument();
     expect(screen.getByText('Descansar también es cuidarte')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Terminaste tu ruta de hoy.');
-    expect(screen.queryByRole('link', { name: /Empezar/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-  });
-
-  it('lo que se acaba de hacer suelta una onda; lo de antes, no', () => {
-    const { container } = pintar(completo(), ['a2']);
-
-    // Solo a2 es nuevo: una sola onda, en una sola fila.
-    expect(container.querySelectorAll('.ruta__destello')).toHaveLength(1);
-    expect(container.querySelectorAll('.ruta__nodo--recien')).toHaveLength(1);
   });
 
   it('el confeti sale solo cuando el plan se completa ahora, no al abrir uno ya completo', () => {
@@ -145,7 +161,7 @@ describe('RutaDelDia', () => {
     expect(sinNuevas.container.querySelector('.confeti')).toBeNull();
     sinNuevas.unmount();
 
-    const conNuevas = pintar(completo(), ['a3']);
+    const conNuevas = pintar(completo(), { nuevas: ['a3'] });
 
     expect(conNuevas.container.querySelector('.confeti')).not.toBeNull();
   });
@@ -156,139 +172,14 @@ describe('RutaDelDia', () => {
     expect(container.textContent).not.toMatch(/falt[ao]|no has|perdiste|racha|último día|ya casi/i);
   });
 
-  it('no tiene fallos de accesibilidad', async () => {
-    const { container } = pintar(PROGRESO);
+  it('no tiene fallos de accesibilidad, cerrada ni abierta', async () => {
+    const cerrada = pintar(PROGRESO);
 
-    expect(await fallosDeAccesibilidad(container)).toEqual([]);
-  });
-});
+    expect(await fallosDeAccesibilidad(cerrada.container)).toEqual([]);
+    cerrada.unmount();
 
-/**
- * El camino se desplaza dentro de su recuadro (SCRUM-250).
- *
- * jsdom no calcula el diseno: ni el alto de nada ni el desplazamiento. Lo que se vigila aqui es la
- * estructura (que el titulo quede fuera de lo que se desplaza) y la decision de a donde se lleva
- * el recuadro al abrir; el alto maximo y las sombras viven en `ruta.css` y se miden en el navegador.
- */
-describe('RutaDelDia: el camino se desplaza dentro de su recuadro (SCRUM-250)', () => {
-  const ALTO_DEL_RECUADRO = 400;
-  const ALTO_DEL_CONTENIDO = 1500;
-  const ALTO_DE_LA_FILA = 150;
-  // Donde empieza cada fila dentro del contenido: 150 px de cada una mas el titulo del modulo.
-  const ARRIBA_DE_LA_SIGUIENTE = 700;
+    const abierta = pintar(PROGRESO, { desplegado: 'bienestar' });
 
-  /** Lo que el recuadro lleva desplazado: el que lee y el que escribe el componente. */
-  let desplazamiento = 0;
-
-  function rectangulo(top: number, height: number): DOMRect {
-    return {
-      top,
-      height,
-      bottom: top + height,
-      left: 0,
-      right: 0,
-      width: 0,
-      x: 0,
-      y: top,
-    } as DOMRect;
-  }
-
-  beforeEach(() => {
-    desplazamiento = 0;
-
-    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
-      this: Element,
-    ) {
-      if (this.classList.contains('ruta__recorrido')) {
-        return rectangulo(0, ALTO_DEL_RECUADRO);
-      }
-
-      if (this.classList.contains('ruta__fila')) {
-        // La fila de la actividad que toca (o la de la meta) empieza en 700 del contenido, y el
-        // contenido se mueve con el desplazamiento: en la ventana esta en 700 menos lo desplazado.
-        const laDeAhora = this.querySelector('.ruta__nodo--siguiente, .ruta__nodo--meta') !== null;
-
-        return rectangulo(
-          (laDeAhora ? ARRIBA_DE_LA_SIGUIENTE : 0) - desplazamiento,
-          ALTO_DE_LA_FILA,
-        );
-      }
-
-      return rectangulo(0, 0);
-    });
-    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockImplementation(function (this: Element) {
-      return this.classList.contains('ruta__recorrido') ? ALTO_DEL_RECUADRO : 0;
-    });
-    vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(function (this: Element) {
-      return this.classList.contains('ruta__recorrido') ? ALTO_DEL_CONTENIDO : 0;
-    });
-    vi.spyOn(Element.prototype, 'scrollTop', 'get').mockImplementation(() => desplazamiento);
-    vi.spyOn(Element.prototype, 'scrollTop', 'set').mockImplementation((valor: number) => {
-      desplazamiento = valor;
-    });
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('el camino va dentro del recuadro y el titulo y el contador, fuera', () => {
-    const { container } = pintar(PROGRESO);
-
-    const recuadro = container.querySelector('.ruta__recorrido');
-
-    expect(recuadro).not.toBeNull();
-    expect(recuadro?.querySelector('.ruta__camino')).not.toBeNull();
-    expect(recuadro?.querySelector('.ruta__cabecera')).toBeNull();
-    expect(container.querySelector('.ruta__cabecera')?.closest('.ruta__recorrido')).toBeNull();
-  });
-
-  it('sin actividades no hay recuadro que desplazar', () => {
-    const { container } = pintar([]);
-
-    expect(container.querySelector('.ruta__recorrido')).toBeNull();
-  });
-
-  it('al abrir, lleva el recuadro hasta la actividad que toca, centrada', () => {
-    pintar(PROGRESO);
-
-    // Su mitad esta en 700 + 75 = 775; con 200 px de cada lado, el recuadro arranca en 575.
-    expect(desplazamiento).toBe(575);
-  });
-
-  it('con todo hecho, no hay nada que empezar y lleva el recuadro hasta la meta', () => {
-    pintar(completo());
-
-    // En este montaje la fila de la meta tambien empieza en 700: se centra igual que la otra.
-    expect(desplazamiento).toBe(575);
-  });
-
-  it('no mueve la pagina: no usa scrollIntoView', () => {
-    const alVer = vi.fn();
-    const original = Element.prototype.scrollIntoView;
-
-    Element.prototype.scrollIntoView = alVer;
-
-    try {
-      pintar(PROGRESO);
-
-      expect(alVer).not.toHaveBeenCalled();
-    } finally {
-      Element.prototype.scrollIntoView = original;
-    }
-  });
-
-  it('si la actividad que toca esta arriba, el recuadro se queda arriba', () => {
-    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
-      this: Element,
-    ) {
-      return this.classList.contains('ruta__recorrido')
-        ? rectangulo(0, ALTO_DEL_RECUADRO)
-        : rectangulo(20, ALTO_DE_LA_FILA);
-    });
-
-    pintar(PROGRESO);
-
-    expect(desplazamiento).toBe(0);
+    expect(await fallosDeAccesibilidad(abierta.container)).toEqual([]);
   });
 });

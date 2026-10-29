@@ -413,8 +413,8 @@
   outline: none;
 }
 
-/* Las secciones del panel son destino de anclas: Inicio y Progreso desde la barra, el dock
-   y Mi diario (SCRUM-182), y los modulos desde «Ver los modulos». La barra de arriba es
+/* Las secciones del panel son destino de anclas: Inicio desde la barra, el dock y las demas
+   paginas (SCRUM-182, SCRUM-296), y los modulos desde «Ver los modulos». La barra de arriba es
    pegajosa y mide 76 px; sin este margen el titulo quedaba debajo de ella. */
 .app__portada,
 .app__seccion {
@@ -729,7 +729,7 @@
   font-size: 0.75rem;
 }
 
-/* ---------- Ruta de 365 dias, desplegable por modulo (SCRUM-293) ---------- */
+/* ---------- Ruta de 365 dias, desplegable por modulo, dentro de «Tu ruta de hoy» (SCRUM-293) ---------- */
 
 .acordeon-modulo {
   border: 1px solid var(--app-borde);
@@ -2657,12 +2657,6 @@
 
   .app__modulos {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    align-items: start;
-  }
-
-  /* El modulo desplegado ocupa toda la fila: 365 dias no caben en un tercio. */
-  .acordeon-modulo--abierto {
-    grid-column: 1 / -1;
   }
 
   .tarjeta-modulo {
