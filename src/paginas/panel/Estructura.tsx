@@ -1,6 +1,6 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useMatch } from 'react-router-dom';
 
 import { AvisoDeAcompanamiento } from '../../acompanamiento/AvisoDeAcompanamiento.tsx';
 import { ConfirmarSalida } from '../../componentes/ConfirmarSalida.tsx';
@@ -178,8 +178,8 @@ export function BarraSuperior({
 }
 
 /**
- * El boton redondo de la derecha: con que correo se entro, el perfil, la
- * portada y salir.
+ * El boton redondo de la derecha: con que correo se entro, el perfil (o, estando en el perfil,
+ * «Ir a mi panel»), el inicio (la portada) y salir.
  *
  * **Salir pregunta si hay cambios sin enviar** (SCRUM-142): cerrar sesion olvida todo lo
  * guardado en este equipo, y eso incluye lo que todavia no llego al servidor. Sin nada
@@ -187,6 +187,7 @@ export function BarraSuperior({
  */
 function MenuDeCuenta() {
   const { correo, salir } = useSesion();
+  const enElPerfil = useMatch(RUTAS.PERFIL) !== null;
   // La foto de la persona, si la tiene (SCRUM-120). Es decorativa: el boton ya
   // se llama «Abrir el menu de tu cuenta».
   const foto = useFotoDePerfil();
@@ -286,11 +287,19 @@ function MenuDeCuenta() {
       {abierto && (
         <div id={idDelMenu} className="app__menu">
           <p className="app__menu-correo">{correo}</p>
-          <Link className="app__menu-opcion" to={RUTAS.PERFIL}>
-            Tu perfil
-          </Link>
+          {/* Dentro del perfil «Tu perfil» no llevaria a ningun sitio: se ofrece volver al panel
+              (SCRUM-314). La barra es fija, asi que se alcanza sin subir a mano. */}
+          {enElPerfil ? (
+            <Link className="app__menu-opcion" to={RUTAS.PANEL}>
+              Ir a mi panel
+            </Link>
+          ) : (
+            <Link className="app__menu-opcion" to={RUTAS.PERFIL}>
+              Tu perfil
+            </Link>
+          )}
           <Link className="app__menu-opcion" to={RUTAS.INICIO}>
-            Ir a la página principal
+            Ir al inicio
           </Link>
           <button
             type="button"

@@ -147,7 +147,7 @@ describe('Volver a la portada', () => {
     // registro, que va antes de ensenar nada de la cuenta.
     await userEvent.click(await screen.findByRole('button', { name: /menú de tu cuenta/ }));
 
-    expect(screen.getByRole('link', { name: /página principal/ })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Ir al inicio' })).toHaveAttribute(
       'href',
       RUTAS.INICIO,
     );
