@@ -127,7 +127,7 @@ export function TuMascotaPropia({
   return (
     <Apartado
       titulo="Tu propia mascota"
-      ayuda="Sube un dibujo tuyo en SVG y te acompañará como tu mascota. Solo lo ves tú. Antes de guardarlo lo revisamos y lo rehacemos solo con formas y colores."
+      ayuda="Sube un dibujo tuyo en SVG y será tu mascota. Solo lo ves tú. Antes de guardarlo lo revisamos y lo rehacemos solo con formas y colores."
     >
       <div className="perfil__foto">
         <div className="perfil__mascota-marco">

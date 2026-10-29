@@ -70,7 +70,7 @@ export function TuFoto({ actualizarCuenta }: { actualizarCuenta: (cuenta: Cuenta
   return (
     <Apartado
       titulo="Tu foto"
-      ayuda="Es opcional y solo la ves tú. La recortamos en cuadrado y la reducimos aquí, en tu dispositivo, antes de guardarla: tu foto original no sale de él."
+      ayuda="Es opcional y solo la ves tú. La recortamos en cuadrado y la reducimos en tu dispositivo antes de guardarla: tu foto original no sale de él."
     >
       <div className="perfil__foto">
         <div className="perfil__foto-marco">

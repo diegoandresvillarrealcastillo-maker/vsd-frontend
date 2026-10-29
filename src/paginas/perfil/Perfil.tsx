@@ -274,7 +274,7 @@ function Modulos({
   return (
     <Apartado
       titulo="Tus módulos"
-      ayuda="Los que tengas activos aparecen en tu panel con lo que te toca cada día. Desactivar uno no borra lo que ya hiciste en él."
+      ayuda="Los activos aparecen en tu panel con lo que te toca cada día. Desactivar uno no borra lo que ya hiciste."
     >
       <div className="perfil__modulos">
         {ORDEN.map((modulo) => {
@@ -540,7 +540,7 @@ function TuDiario({
   return (
     <Apartado
       titulo="Tu diario"
-      ayuda="Lo que escribes en tu diario es tuyo. Mientras esto esté apagado, se guarda tal cual y nada lo revisa."
+      ayuda="Tu diario es tuyo. Mientras esto esté apagado, se guarda tal cual y nada lo revisa."
     >
       <button
         type="button"
@@ -561,9 +561,9 @@ function TuDiario({
       </button>
 
       <p id={idDeLaExplicacion} className="app__nota perfil__ayuda">
-        Si lo enciendes, la aplicación revisa de forma automática lo que escribes y, si algo suena a
-        que lo estás pasando mal, te muestra líneas de atención a las que puedes acudir. Encenderlo
-        no hace que ninguna persona lo lea. Puedes apagarlo cuando quieras.
+        Si lo enciendes, la aplicación revisa automáticamente lo que escribes y, si suena a que lo
+        estás pasando mal, te muestra líneas de atención. Encenderlo no hace que nadie lo lea.
+        Puedes apagarlo cuando quieras.
       </p>
       <MensajeDeAviso aviso={aviso} />
     </Apartado>
@@ -639,11 +639,10 @@ function TuAcompanamiento({
       </button>
 
       <p id={idDeLaExplicacion} className="app__nota perfil__ayuda">
-        Si lo enciendes, la aplicación mira si llevas varios días seguidos con resultados en carga o
-        emociones que piden atención y, si es así, te acompaña y te muestra a dónde acudir. Si pasas
-        varios días así y luego dejas de registrar, al volver también te lo recuerda con un aviso
-        que puedes cerrar. No se lo cuenta a nadie, no muestra ningún puntaje y no te avisa fuera de
-        la aplicación. Puedes apagarlo cuando quieras.
+        Si llevas varios días seguidos con resultados de carga o emociones que piden atención, te
+        acompañamos y te mostramos a dónde acudir. Si luego dejas de registrar, al volver te lo
+        recordamos con un aviso que puedes cerrar. No se lo contamos a nadie, no hay puntajes y no
+        avisamos fuera de la aplicación. Puedes apagarlo cuando quieras.
       </p>
       <MensajeDeAviso aviso={aviso} />
     </Apartado>
@@ -745,7 +744,7 @@ function Contrasena({ correo }: { correo: string }) {
   return (
     <Apartado
       titulo="Contraseña"
-      ayuda="Para cambiarla te enviamos un código a tu correo. Así nadie puede cambiarla con solo encontrar tu sesión abierta."
+      ayuda="Para cambiarla te enviamos un código a tu correo: así nadie puede hacerlo solo con tu sesión abierta."
     >
       {paso === 'inicio' ? (
         <button
@@ -893,7 +892,7 @@ function TusDatos() {
   return (
     <Apartado
       titulo="Tus datos"
-      ayuda="Descarga todo lo que VSD Health guarda de ti: tu cuenta, tus resultados y tu diario. El PDF se lee fácil; el JSON es el archivo completo, con tu foto y tu mascota, para llevártelo a otro sitio. Si este equipo todavía guarda cambios que no se han enviado, también van."
+      ayuda="Descarga lo que VSD Health guarda de ti: tu cuenta, tus resultados y tu diario. El PDF se lee fácil; el JSON es el archivo completo, con tu foto y tu mascota, para llevarlo a otro sitio. Si este equipo guarda cambios sin enviar, también van."
     >
       <div className="perfil__acciones">
         <button

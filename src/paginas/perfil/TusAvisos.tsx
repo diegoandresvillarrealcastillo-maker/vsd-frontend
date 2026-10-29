@@ -207,7 +207,7 @@ export function TusAvisos() {
   return (
     <Apartado
       titulo="Avisos"
-      ayuda="Te avisamos aunque no tengas la aplicación abierta. Nunca dicen nada de tu salud: solo cuántos pendientes tienes, o una invitación a tu momento del día."
+      ayuda="Te avisamos aunque no tengas la aplicación abierta. Nunca dicen nada de tu salud: solo cuántos pendientes tienes o una invitación a tu momento del día."
     >
       {estado.fase === 'cargando' && (
         <p className="app__nota" role="status">
@@ -281,7 +281,7 @@ export function TusAvisos() {
             !enEsteDispositivo && (
               <p className="app__nota">
                 Este dispositivo todavía no recibe avisos, así que aquí no llegarán. Actívalos
-                arriba para recibirlos.
+                arriba.
               </p>
             )}
         </>
@@ -312,8 +312,8 @@ function EsteDispositivo({
     return (
       <p className="app__nota">
         En iPhone y iPad los avisos llegan solo si instalas VSD Health en tu pantalla de inicio (iOS
-        16.4 o más reciente): en Safari, toca Compartir y después «Agregar a inicio». Ábrela desde
-        ahí y vuelve a esta pantalla.
+        16.4 o más reciente): en Safari, toca Compartir y «Agregar a inicio». Ábrela desde ahí y
+        vuelve aquí.
       </p>
     );
   }
@@ -345,8 +345,8 @@ function EsteDispositivo({
   if (permiso === 'denied') {
     return (
       <p className="app__nota">
-        Bloqueaste los avisos para VSD Health en este navegador. Para recibirlos, permite las
-        notificaciones en la configuración del sitio y vuelve aquí.
+        Bloqueaste los avisos en este navegador. Para recibirlos, permite las notificaciones en la
+        configuración del sitio y vuelve aquí.
       </p>
     );
   }
@@ -480,7 +480,7 @@ function TarjetaDeActividades({
   return (
     <TarjetaDeAviso
       nombre="Actividades y bienestar"
-      explicacion="Invitaciones para empezar el día, para tomarte un momento o para cerrarlo. La de la mañana llega siempre; las demás, solo si ese día aún no hiciste ninguna actividad."
+      explicacion="Invitaciones para empezar el día, tomarte un momento o cerrarlo. La de la mañana llega siempre; las demás, solo si ese día aún no hiciste ninguna actividad."
       icono="leaf"
       encendida={encendida}
       alAlternar={() => void alternarLaTarjeta()}
