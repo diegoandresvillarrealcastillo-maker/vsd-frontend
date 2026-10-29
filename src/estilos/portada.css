@@ -311,17 +311,21 @@
 }
 
 /* ============================================================
-   Tarjetas de metrica
-   ============================================================ */
+   Tarjetas de modulo (SCRUM-313)
+   ============================================================
+   Una por modulo de la aplicacion, con el color que ese modulo tiene dentro de la cuenta: verde para
+   Bienestar, azul para Cognicion y coral para Emociones (los tres colores con significado de la
+   paleta: vital, dato y pulso). El fondo no se tine: el texto conserva el contraste de siempre y el
+   color vive en el borde de arriba, el icono y las actividades. */
 
-.metricas {
+.modulos {
   display: grid;
   gap: 16px;
   grid-template-columns: 1fr;
 }
 
 @media (width >= 760px) {
-  .metricas {
+  .modulos {
     grid-template-columns: repeat(3, 1fr);
   }
 }
@@ -329,18 +333,21 @@
 /* Cada tarjeta esta envuelta en el animador de entrada, asi que es ese
    envoltorio el que ocupa la celda de la rejilla. Sin estirarlo primero, las
    tres tarjetas acaban con alturas distintas segun lo que diga su texto. */
-.metricas > *,
+.modulos > *,
 .pasos > * {
   height: 100%;
 }
 
-.metrica {
+.modulo-portada {
+  --modulo: var(--acento);
+
   display: flex;
   flex-direction: column;
   height: 100%;
   padding: 24px;
   background: var(--fondo-elevado);
   border: 1px solid var(--borde);
+  border-top: 4px solid var(--modulo);
   border-radius: var(--radio-grande);
   box-shadow: var(--sombra);
   transition:
@@ -348,79 +355,76 @@
     box-shadow var(--medio) var(--curva);
 }
 
+.modulo-portada--bienestar {
+  --modulo: var(--vital);
+}
+
+.modulo-portada--cognicion {
+  --modulo: var(--dato);
+}
+
+.modulo-portada--emociones {
+  --modulo: var(--pulso);
+}
+
 /* El desplazamiento y la escala los lleva Framer Motion; aqui solo el borde y
    la sombra, que son propiedades que el CSS resuelve mejor. */
-.metrica--activa {
-  border-color: var(--acento);
+.modulo-portada--activa {
+  border-color: var(--modulo);
   box-shadow:
     var(--sombra),
-    0 0 0 1px color-mix(in srgb, var(--acento) 40%, transparent);
+    0 0 0 1px color-mix(in srgb, var(--modulo) 40%, transparent);
 }
 
-.metrica__lienzo {
+.modulo-portada__icono {
   display: grid;
   place-items: center;
-  min-height: 168px;
-  margin-bottom: 20px;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 16px;
+  color: var(--modulo);
+  background: color-mix(in srgb, var(--modulo) 16%, var(--fondo-elevado));
+  border-radius: var(--radio-pildora);
 }
 
-.metrica__etiqueta {
+.modulo-portada__titulo {
   margin: 0 0 6px;
-  color: var(--texto-apagado);
-  font-size: 0.75rem;
-  font-weight: var(--peso-titulo);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.metrica__titulo {
-  margin: 0 0 8px;
   font-size: 1.3125rem;
   line-height: 1.2;
   letter-spacing: -0.025em;
 }
 
-.metrica__texto {
-  margin: 0;
+.modulo-portada__texto {
+  margin: 0 0 20px;
   color: var(--texto-tenue);
   font-size: 0.9375rem;
 }
 
-/* El dato grande de cada tarjeta. Nunca es un puntaje: son horas,
-   veces o dias, cosas que la persona reconoce porque las vivio. */
-.metrica__cifra {
-  font-size: 2.75rem;
-  font-weight: var(--peso-titulo);
-  line-height: 1;
-  letter-spacing: -0.04em;
-  font-variant-numeric: tabular-nums;
-}
-
-.metrica__unidad {
-  margin-left: 4px;
-  color: var(--texto-apagado);
-  font-size: 1rem;
-  font-weight: var(--peso-texto);
-  letter-spacing: -0.01em;
-}
-
-/* ---------- Sueno: las barras ---------- */
-.sueno {
+/* Pegadas al fondo de la tarjeta: asi las tres empiezan sus actividades a la misma altura aunque
+   la frase de un modulo ocupe dos renglones y la de otro uno. */
+.modulo-portada__actividades {
   display: flex;
-  align-items: flex-end;
-  gap: 7px;
-  height: 92px;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: auto 0 0;
+  padding: 0;
+  list-style: none;
 }
 
-.sueno__barra {
-  width: 15px;
-  border-radius: var(--radio-chico);
-  background: linear-gradient(
-    180deg,
-    var(--vital) 0%,
-    color-mix(in srgb, var(--vital) 28%, transparent) 100%
-  );
-  transform-origin: bottom;
+.modulo-portada__actividades li {
+  padding: 5px 12px;
+  color: var(--texto);
+  font-size: 0.8125rem;
+  background: color-mix(in srgb, var(--modulo) 9%, var(--fondo-elevado));
+  border: 1px solid color-mix(in srgb, var(--modulo) 35%, var(--borde));
+  border-radius: var(--radio-pildora);
+}
+
+.modulos__resto {
+  max-width: 62ch;
+  margin: 32px 0 0;
+  color: var(--texto-tenue);
+  font-size: 1rem;
 }
 
 /* ============================================================
