@@ -1,5 +1,5 @@
 import { MAXIMO_DE_RONDAS } from './cognicion.ts';
-import { esEntero, esObjeto, esTexto } from './parametrosDeLaSesion.ts';
+import { esEntero, esObjeto, esTexto, leerLista, sinRepetir } from './parametrosDeLaSesion.ts';
 
 /**
  * Lo que el servidor manda en `sesion.parametros` para los motores de Cognicion que suma SCRUM-225 (ADR 0030),
@@ -18,36 +18,6 @@ import { esEntero, esObjeto, esTexto } from './parametrosDeLaSesion.ts';
  */
 
 const claveDe = (valor: unknown): valor is string => esTexto(valor);
-
-/** Una lista de objetos leidos uno a uno; `null` si falla alguno o si no tiene el largo pedido. */
-function leerLista<T>(
-  valor: unknown,
-  minimo: number,
-  maximo: number,
-  leer: (item: unknown) => T | null,
-): T[] | null {
-  if (!Array.isArray(valor) || valor.length < minimo || valor.length > maximo) {
-    return null;
-  }
-
-  const resultado: T[] = [];
-
-  for (const item of valor as unknown[]) {
-    const leido = leer(item);
-
-    if (leido === null) {
-      return null;
-    }
-
-    resultado.push(leido);
-  }
-
-  return resultado;
-}
-
-function sinRepetir(valores: readonly string[]): boolean {
-  return new Set(valores.map((valor) => valor.trim().toLowerCase())).size === valores.length;
-}
 
 // ---------------------------------------------------------------------------
 // tocar_el_objetivo · flujo (COG-05)

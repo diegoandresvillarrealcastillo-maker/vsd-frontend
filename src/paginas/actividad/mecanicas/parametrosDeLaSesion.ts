@@ -31,6 +31,39 @@ export function esTexto(valor: unknown): valor is string {
   return typeof valor === 'string' && valor.trim() !== '';
 }
 
+export const igualSinMayusculas = (texto: string): string => texto.trim().toLowerCase();
+
+/** Una lista de objetos leidos uno a uno; `null` si falla alguno o si no tiene el largo pedido. */
+export function leerLista<T>(
+  valor: unknown,
+  minimo: number,
+  maximo: number,
+  leer: (item: unknown) => T | null,
+): T[] | null {
+  if (!Array.isArray(valor) || valor.length < minimo || valor.length > maximo) {
+    return null;
+  }
+
+  const resultado: T[] = [];
+
+  for (const item of valor as unknown[]) {
+    const leido = leer(item);
+
+    if (leido === null) {
+      return null;
+    }
+
+    resultado.push(leido);
+  }
+
+  return resultado;
+}
+
+/** Que ningun texto de la lista se repita, sin contar mayusculas ni espacios de los bordes. */
+export function sinRepetir(valores: readonly string[]): boolean {
+  return new Set(valores.map(igualSinMayusculas)).size === valores.length;
+}
+
 // ---------------------------------------------------------------------------
 // Secuencia de numeros (motor `secuencia`)
 // ---------------------------------------------------------------------------
@@ -103,8 +136,6 @@ export interface ParametrosDeSecuenciaDeCasillas {
   /** Cuanto tiempo se queda iluminada cada casilla. */
   readonly msDestello: number;
 }
-
-const igualSinMayusculas = (texto: string): string => texto.trim().toLowerCase();
 
 function leerLasCasillas(valor: unknown): CasillaDeLaSesion[] | null {
   if (!Array.isArray(valor) || valor.length < 2 || valor.length > 12) {

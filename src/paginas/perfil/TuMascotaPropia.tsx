@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
+import type { ChangeEvent } from 'react';
 
 import { comprobarElSvg } from '../../foto/comprobarElSvg.ts';
 import {
@@ -16,7 +16,8 @@ import {
 import { Icono } from '../panel/Icono.tsx';
 import { GuiaDeLaMascotaPropia } from './GuiaDeLaMascotaPropia.tsx';
 import { explicarLaMascotaPropia } from './mensajesDeLaMascotaPropia.ts';
-import { Apartado, MensajeDeAviso, type Aviso } from './piezas.tsx';
+import { Apartado, MensajeDeAviso } from './piezas.tsx';
+import { useEntradaDeArchivo } from './useEntradaDeArchivo.ts';
 
 /**
  * La mascota propia (SCRUM-122): un dibujo SVG que sube la persona.
@@ -44,34 +45,23 @@ export function TuMascotaPropia({
 }) {
   const dibujo = useMascotaPropia();
   const tiene = cuenta.mascotaPropia != null;
-  const [ocupado, setOcupado] = useState<'guardando' | 'quitando' | null>(null);
-  const [aviso, setAviso] = useState<Aviso>(null);
-  const entrada = useRef<HTMLInputElement>(null);
-  const enfocarAlTerminar = useRef(false);
-  const idDeLaEntrada = useId();
-
-  // El boton de quitar desaparece con la mascota, y con el se iria el foco de
-  // quien navega con teclado. Se lleva al de subir, pero solo cuando ya no esta
-  // deshabilitado: una entrada deshabilitada no recibe el foco.
-  useEffect(() => {
-    if (ocupado === null && enfocarAlTerminar.current) {
-      enfocarAlTerminar.current = false;
-      entrada.current?.focus();
-    }
-  }, [ocupado]);
+  const {
+    ocupado,
+    setOcupado,
+    aviso,
+    setAviso,
+    entrada,
+    enfocarLaEntradaAlTerminar,
+    idDeLaEntrada,
+    tomarElArchivo,
+  } = useEntradaDeArchivo();
 
   async function alElegir(evento: ChangeEvent<HTMLInputElement>) {
-    const elegido = evento.target.files?.[0];
-
-    // Se vacia para que elegir el mismo archivo otra vez cuente como un cambio.
-    evento.target.value = '';
+    const elegido = tomarElArchivo(evento);
 
     if (elegido === undefined) {
       return;
     }
-
-    setOcupado('guardando');
-    setAviso(null);
 
     try {
       comprobarElSvg(elegido);
@@ -126,7 +116,7 @@ export function TuMascotaPropia({
           ? `Quitaste tu mascota propia. Tu acompañante vuelve a ser ${PERSONAJES[mascotaParaMostrar(quedo.mascota).personaje].nombre}.`
           : 'Quitaste tu mascota propia.',
       });
-      enfocarAlTerminar.current = true;
+      enfocarLaEntradaAlTerminar();
     } catch (error) {
       setAviso({ tipo: 'fallo', texto: explicarLaMascotaPropia(error, 'quitar') });
     } finally {
