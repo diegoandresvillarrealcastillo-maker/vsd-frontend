@@ -142,6 +142,41 @@ function textoDe(pdf: string): string {
 
 const ACTIVIDADES = new Map([['act-memoria', 'Memoria de trabajo']]);
 
+/** Donde empieza una palabra suelta del PDF: la columna (x) y la linea (y) de su `Tm`. */
+function lugarDe(pdf: string, palabra: string): { x: number; y: number } {
+  const hallado = new RegExp(`1 0 0 1 ([\\d.]+) ([\\d.]+) Tm \\(${palabra}\\) Tj`).exec(pdf);
+
+  if (hallado === null) {
+    throw new Error(`«${palabra}» no esta en el PDF.`);
+  }
+
+  return { x: Number(hallado[1]), y: Number(hallado[2]) };
+}
+
+function parrafo(texto: string) {
+  return { type: 'paragraph', content: [{ type: 'text', text: texto }] };
+}
+
+/** Un diario de una sola anotacion con el contenido que se le pase. */
+function conDiario(contenido: unknown, adjuntos: unknown[] = [], titulo: unknown = null) {
+  return exportacion({
+    entradasDeDiario: [
+      { dia: '2026-10-03', titulo, contenido, adjuntos, creadaEn: '2026-10-03T20:15:00.000Z' },
+    ],
+  });
+}
+
+/** `veces` envolturas sin significado alrededor de `interior`: solo gastan profundidad. */
+function envolver(interior: unknown, veces: number): unknown {
+  let actual = interior;
+
+  for (let i = 0; i < veces; i += 1) {
+    actual = { type: 'caja', content: [actual] };
+  }
+
+  return actual;
+}
+
 describe('generarLaExportacionEnPdf', () => {
   describe('el documento', () => {
     it('es un PDF con la banda de marca y el nombre de la app', () => {
@@ -369,6 +404,593 @@ describe('generarLaExportacionEnPdf', () => {
       const texto = textoDe(generarLaExportacionEnPdf(exportacion()));
 
       expect(texto).not.toMatch(/no se han enviado/i);
+    });
+  });
+
+  describe('el diario, bloque por bloque', () => {
+    const item = (...hijos: unknown[]) => ({ type: 'listItem', content: hijos });
+
+    it('una lista numerada cuenta desde 1, o desde donde diga el editor', () => {
+      const desde1 = generarLaExportacionEnPdf(
+        conDiario({
+          type: 'doc',
+          content: [{ type: 'orderedList', content: [item(parrafo('uno')), item(parrafo('dos'))] }],
+        }),
+      );
+      const desde5 = generarLaExportacionEnPdf(
+        conDiario({
+          type: 'doc',
+          content: [
+            {
+              type: 'orderedList',
+              attrs: { start: 5 },
+              content: [item(parrafo('uno')), item(parrafo('dos'))],
+            },
+          ],
+        }),
+      );
+
+      expect(desde1).toMatch(/Tm \(1\.\) Tj/);
+      expect(desde1).toMatch(/Tm \(2\.\) Tj/);
+      expect(desde5).toMatch(/Tm \(5\.\) Tj/);
+      expect(desde5).toMatch(/Tm \(6\.\) Tj/);
+      expect(desde5).not.toMatch(/Tm \(1\.\) Tj/);
+    });
+
+    it.each([
+      ['un decimal', 2.5],
+      ['un texto', '7'],
+      ['nada', null],
+    ])('si el inicio de la lista es %s, cuenta desde 1', (_nombre, inicio) => {
+      const pdf = generarLaExportacionEnPdf(
+        conDiario({
+          type: 'doc',
+          content: [
+            {
+              type: 'orderedList',
+              attrs: { start: inicio },
+              content: [item(parrafo('uno'))],
+            },
+          ],
+        }),
+      );
+
+      expect(pdf).toMatch(/Tm \(1\.\) Tj/);
+    });
+
+    it('un elemento sin texto no se pinta, pero ocupa su numero', () => {
+      const pdf = generarLaExportacionEnPdf(
+        conDiario({
+          type: 'doc',
+          content: [{ type: 'orderedList', content: [item(), item(parrafo('segundo'))] }],
+        }),
+      );
+
+      expect(pdf).toMatch(/Tm \(2\.\) Tj/);
+      expect(pdf).not.toMatch(/Tm \(1\.\) Tj/);
+    });
+
+    it('las vinetas no usan el numero de inicio', () => {
+      const pdf = generarLaExportacionEnPdf(
+        conDiario({
+          type: 'doc',
+          content: [{ type: 'bulletList', attrs: { start: 9 }, content: [item(parrafo('uno'))] }],
+        }),
+      );
+
+      expect(pdf).toMatch(/Tm \(\\225\) Tj/);
+      expect(pdf).not.toMatch(/Tm \(9\.\) Tj/);
+    });
+
+    it('las citas y las listas se corren hacia la derecha, y cada nivel un poco mas', () => {
+      const pdf = generarLaExportacionEnPdf(
+        conDiario({
+          type: 'doc',
+          content: [
+            parrafo('afuera'),
+            { type: 'blockquote', content: [parrafo('cita')] },
+            {
+              type: 'bulletList',
+              content: [
+                item(parrafo('padre'), {
+                  type: 'bulletList',
+                  content: [item(parrafo('hijo'))],
+                }),
+              ],
+            },
+          ],
+        }),
+      );
+      const afuera = lugarDe(pdf, 'afuera').x;
+      const padre = lugarDe(pdf, 'padre').x;
+
+      expect(lugarDe(pdf, 'cita').x - afuera).toBe(16);
+      expect(padre - afuera).toBe(22);
+      expect(lugarDe(pdf, 'hijo').x - padre).toBe(22);
+    });
+
+    it('un titulo dentro del texto sale en negrita; un parrafo, no', () => {
+      const pdf = generarLaExportacionEnPdf(
+        conDiario({
+          type: 'doc',
+          content: [
+            { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'titular' }] },
+            parrafo('corriente'),
+          ],
+        }),
+      );
+
+      expect(pdf).toMatch(/\/F2 [\d.]+ Tf 1 0 0 1 [\d.]+ [\d.]+ Tm \(titular\) Tj/);
+      expect(pdf).not.toMatch(/\/F2 [\d.]+ Tf 1 0 0 1 [\d.]+ [\d.]+ Tm \(corriente\) Tj/);
+    });
+
+    it('un bloque de codigo se lee como texto', () => {
+      const texto = textoDe(
+        generarLaExportacionEnPdf(
+          conDiario({
+            type: 'doc',
+            content: [{ type: 'codeBlock', content: [{ type: 'text', text: 'let a = 1;' }] }],
+          }),
+        ),
+      );
+
+      expect(texto).toContain('let a = 1;');
+    });
+
+    it('un salto de linea baja a otra linea', () => {
+      const conSalto = generarLaExportacionEnPdf(
+        conDiario({
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                { type: 'text', text: 'arriba' },
+                { type: 'hardBreak' },
+                { type: 'text', text: 'abajo' },
+              ],
+            },
+          ],
+        }),
+      );
+      const sinSalto = generarLaExportacionEnPdf(
+        conDiario({
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                { type: 'text', text: 'arriba ' },
+                { type: 'text', text: 'abajo' },
+              ],
+            },
+          ],
+        }),
+      );
+
+      expect(lugarDe(conSalto, 'abajo').y).toBeLessThan(lugarDe(conSalto, 'arriba').y);
+      expect(lugarDe(sinSalto, 'abajo').y).toBe(lugarDe(sinSalto, 'arriba').y);
+    });
+
+    it('una linea en blanco no deja hueco', () => {
+      const conBlanco = generarLaExportacionEnPdf(
+        conDiario({
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'hardBreak' }, { type: 'text', text: '  ' }, { type: 'hardBreak' }],
+            },
+            parrafo('suelta'),
+          ],
+        }),
+      );
+      const sinBlanco = generarLaExportacionEnPdf(conDiario(documento('suelta')));
+
+      expect(lugarDe(conBlanco, 'suelta').y).toBe(lugarDe(sinBlanco, 'suelta').y);
+    });
+
+    it('las lineas horizontales, los diagramas y los saltos sueltos no dejan texto', () => {
+      const texto = textoDe(
+        generarLaExportacionEnPdf(
+          conDiario({
+            type: 'doc',
+            content: [
+              { type: 'horizontalRule', content: [{ type: 'text', text: 'REGLA' }] },
+              { type: 'diagrama', content: [{ type: 'text', text: 'DIBUJO' }] },
+              { type: 'hardBreak', content: [{ type: 'text', text: 'SALTO' }] },
+              parrafo('Si sale'),
+            ],
+          }),
+        ),
+      );
+
+      expect(texto).toContain('Si sale');
+      expect(texto).not.toMatch(/REGLA|DIBUJO|SALTO/);
+    });
+
+    it('un bloque que no se conoce deja el texto que lleve dentro', () => {
+      const texto = textoDe(
+        generarLaExportacionEnPdf(
+          conDiario({
+            type: 'doc',
+            content: [
+              { type: 'seccion-nueva', content: [parrafo('dentro de algo nuevo')] },
+              { type: 'text', text: 'texto suelto' },
+            ],
+          }),
+        ),
+      );
+
+      expect(texto).toContain('dentro de algo nuevo');
+      expect(texto).toContain('texto suelto');
+    });
+
+    // Un diario real no llega ni cerca: el limite solo frena lo que llegue a modo de ataque.
+    it('los bloques hasta 40 niveles de hondo se leen; los de mas abajo, no', () => {
+      const hasta = generarLaExportacionEnPdf(
+        conDiario({ type: 'doc', content: [envolver(parrafo('hondo'), 39)] }),
+      );
+      const mas = generarLaExportacionEnPdf(
+        conDiario({ type: 'doc', content: [envolver(parrafo('hondo'), 40)] }),
+      );
+
+      expect(textoDe(hasta)).toContain('hondo');
+      expect(textoDe(mas)).not.toContain('hondo');
+    });
+
+    it('el texto en linea hasta 40 niveles de hondo se lee; el de mas abajo, no', () => {
+      const hasta = generarLaExportacionEnPdf(
+        conDiario({
+          type: 'doc',
+          content: [
+            { type: 'paragraph', content: [envolver({ type: 'text', text: 'hondo' }, 39)] },
+          ],
+        }),
+      );
+      const mas = generarLaExportacionEnPdf(
+        conDiario({
+          type: 'doc',
+          content: [
+            { type: 'paragraph', content: [envolver({ type: 'text', text: 'hondo' }, 40)] },
+          ],
+        }),
+      );
+
+      expect(textoDe(hasta)).toContain('hondo');
+      expect(textoDe(mas)).not.toContain('hondo');
+    });
+  });
+
+  describe('cada anotacion del diario', () => {
+    it('con mas de un diagrama dice cuantos son', () => {
+      const texto = textoDe(
+        generarLaExportacionEnPdf(conDiario(documento('hola'), [{ tipo: 'diagrama' }, {}, 3])),
+      );
+
+      expect(texto).toContain('Esta anotación tiene 3 diagramas; están en el archivo JSON.');
+    });
+
+    it('con un solo diagrama lo dice en singular', () => {
+      const texto = textoDe(generarLaExportacionEnPdf(conDiario(documento('hola'), [{}])));
+
+      expect(texto).toContain('Esta anotación tiene 1 diagrama; está en el archivo JSON.');
+    });
+
+    it('sin diagramas no dice nada de ellos', () => {
+      const texto = textoDe(generarLaExportacionEnPdf(conDiario(documento('hola'))));
+
+      expect(texto).not.toContain('Esta anotación tiene');
+    });
+
+    it('sin titulo, la cabecera es solo el dia', () => {
+      const texto = textoDe(generarLaExportacionEnPdf(conDiario(documento('hola'))));
+
+      expect(texto).toContain('03/10/2026 Escrita el');
+    });
+
+    it('sin texto lo dice, en vez de dejar un hueco', () => {
+      const texto = textoDe(generarLaExportacionEnPdf(conDiario({ type: 'doc', content: [] })));
+
+      expect(texto).toContain('Sin texto.');
+    });
+
+    it('con texto no dice «Sin texto»', () => {
+      const texto = textoDe(generarLaExportacionEnPdf(conDiario(documento('hola'))));
+
+      expect(texto).not.toContain('Sin texto.');
+    });
+  });
+
+  describe('lo que aceptaste cuando falta el registro nuevo', () => {
+    function sinRegistro(consentimiento: unknown) {
+      const base = exportacion();
+
+      return exportacion({
+        consentimientos: [],
+        cuenta: { ...(base.cuenta as object), consentimiento },
+      });
+    }
+
+    it('la version del aviso que guarda la cuenta sale como aceptada', () => {
+      const texto = textoDe(
+        generarLaExportacionEnPdf(
+          sinRegistro({ versionPolitica: '2026-09-1', aceptadoEn: '2026-09-01T15:00:00.000Z' }),
+        ),
+      );
+
+      expect(texto).toContain('Aviso de privacidad 2026-09-1 01/09/2026 10:00');
+      expect(texto).not.toContain('No hay aceptaciones registradas.');
+    });
+
+    it.each([
+      ['la cuenta no guarda nada', null],
+      ['la cuenta no tiene version', { aceptadoEn: '2026-09-01T15:00:00.000Z' }],
+    ])('si %s, dice que no hay aceptaciones', (_nombre, consentimiento) => {
+      const texto = textoDe(generarLaExportacionEnPdf(sinRegistro(consentimiento)));
+
+      expect(texto).toContain('No hay aceptaciones registradas.');
+    });
+
+    it('con el registro nuevo, la version vieja de la cuenta no se repite', () => {
+      const base = exportacion();
+      const texto = textoDe(
+        generarLaExportacionEnPdf({
+          ...base,
+          cuenta: {
+            ...(base.cuenta as object),
+            consentimiento: { versionPolitica: 'vieja-9', aceptadoEn: '2026-01-01T00:00:00.000Z' },
+          },
+        }),
+      );
+
+      expect(texto).not.toContain('vieja-9');
+    });
+  });
+
+  describe('los pendientes y los avisos, con todas sus variantes', () => {
+    it('un pendiente hecho, uno pospuesto y uno por hacer sin limite', () => {
+      const texto = textoDe(
+        generarLaExportacionEnPdf(
+          exportacion({
+            pendientes: [
+              { texto: 'Pagar', nivel: 'prioridad', hecho: true, fechaLimite: null },
+              {
+                texto: 'Barrer',
+                nivel: 'aplazable',
+                hecho: false,
+                posponerHasta: '2026-10-20T14:00:00.000Z',
+                fechaLimite: '2026-11-02',
+              },
+              { texto: 'Cocinar', nivel: 'urgente', hecho: false, posponerHasta: null },
+            ],
+          }),
+        ),
+      );
+
+      expect(texto).toContain('Pagar Prioridad Hecho');
+      // El estado largo baja a otra linea de su celda, despues del limite de la fila.
+      expect(texto).toContain('Barrer Aplazable Pospuesto hasta');
+      expect(texto).toContain('02/11/2026');
+      expect(texto).toContain('20/10/2026 09:00');
+      expect(texto).toContain('Cocinar Urgente Por hacer');
+    });
+
+    it('un pendiente hecho no dice que este pospuesto', () => {
+      const texto = textoDe(
+        generarLaExportacionEnPdf(
+          exportacion({
+            pendientes: [
+              {
+                texto: 'Pagar',
+                nivel: 'urgente',
+                hecho: true,
+                posponerHasta: '2026-10-20T14:00:00.000Z',
+              },
+            ],
+          }),
+        ),
+      );
+
+      expect(texto).not.toContain('Pospuesto');
+    });
+
+    it('sin pendientes lo dice con calma', () => {
+      const texto = textoDe(generarLaExportacionEnPdf(exportacion({ pendientes: [] })));
+
+      expect(texto).toContain('No tienes pendientes anotados.');
+    });
+
+    it('los avisos encendidos, con su hora', () => {
+      const texto = textoDe(
+        generarLaExportacionEnPdf(
+          exportacion({
+            avisos: {
+              horaSemaforo: '07:30',
+              frecuenciaSemaforo: 'manana',
+              horaRacha: '21:15',
+              recordatorioManana: true,
+              recordatorioNoche: true,
+              navegadores: 2,
+            },
+          }),
+        ),
+      );
+
+      expect(texto).toContain('Semáforo 07:30');
+      expect(texto).toContain('Solo en la mañana');
+      expect(texto).toContain('Racha 21:15');
+      expect(texto).toContain('Recordatorio de la mañana Activado');
+      expect(texto).toContain('Recordatorio de la noche Activado');
+      expect(texto).toContain('Navegadores con avisos 2');
+    });
+
+    it('los avisos apagados y sin hora', () => {
+      const texto = textoDe(
+        generarLaExportacionEnPdf(
+          exportacion({
+            avisos: {
+              horaSemaforo: null,
+              frecuenciaSemaforo: 'noche',
+              horaRacha: null,
+              recordatorioManana: false,
+              recordatorioNoche: false,
+              navegadores: 0,
+            },
+          }),
+        ),
+      );
+
+      expect(texto).toContain('Semáforo Sin hora');
+      expect(texto).toContain('Solo en la noche');
+      expect(texto).toContain('Racha Sin hora');
+      expect(texto).toContain('Recordatorio de la mañana Apagado');
+      expect(texto).toContain('Recordatorio de la noche Apagado');
+      expect(texto).toContain('Navegadores con avisos 0');
+    });
+
+    it('unos avisos que no dicen cuantos navegadores hay no inventan el numero', () => {
+      const texto = textoDe(generarLaExportacionEnPdf(exportacion({ avisos: {} })));
+
+      expect(texto).toContain('Navegadores con avisos');
+      expect(texto).not.toContain('undefined');
+    });
+
+    it('un dato curioso sin texto no abre su seccion', () => {
+      const texto = textoDe(
+        generarLaExportacionEnPdf(exportacion({ datoCurioso: { dia: '2026-10-13' } })),
+      );
+
+      expect(texto).not.toContain('El último dato curioso que viste');
+    });
+  });
+
+  describe('cada cambio que sigue sin enviarse', () => {
+    const creadaEn = '2026-10-13T12:00:00.000Z';
+
+    function sinEnviar(...cambios: Record<string, unknown>[]) {
+      return textoDe(generarLaExportacionEnPdf(exportacion({ sinEnviarDesdeEsteEquipo: cambios })));
+    }
+
+    it('una correccion del diario lleva su titulo y su texto', () => {
+      const pdf = generarLaExportacionEnPdf(
+        exportacion({
+          sinEnviarDesdeEsteEquipo: [
+            {
+              tipo: 'diario.editar',
+              estado: 'enviando',
+              creadaEn,
+              contenido: { titulo: 'Mi titulo', contenido: documento('Texto corregido') },
+            },
+          ],
+        }),
+      );
+      const texto = textoDe(pdf);
+
+      expect(texto).toContain('Corrección de una anotación del diario');
+      expect(texto).toContain('Enviándose');
+      expect(texto).toContain('Texto corregido');
+      expect(pdf).toMatch(/\/F2 [\d.]+ Tf 1 0 0 1 [\d.]+ [\d.]+ Tm \(titulo\) Tj/);
+    });
+
+    it('una anotacion sin titulo solo lleva su texto', () => {
+      const pdf = generarLaExportacionEnPdf(
+        exportacion({
+          sinEnviarDesdeEsteEquipo: [
+            {
+              tipo: 'diario.escribir',
+              estado: 'pendiente',
+              creadaEn,
+              contenido: { contenido: documento('Solo texto') },
+            },
+          ],
+        }),
+      );
+
+      expect(textoDe(pdf)).toContain('Solo texto');
+      expect(textoDe(pdf)).not.toContain('undefined');
+    });
+
+    it('un pendiente editado lleva su texto', () => {
+      const texto = sinEnviar({
+        tipo: 'pendiente.editar',
+        estado: 'conflicto',
+        creadaEn,
+        contenido: { texto: 'Comprar leche' },
+      });
+
+      expect(texto).toContain('Cambio en un pendiente');
+      expect(texto).toContain('Chocó con un cambio de otro dispositivo');
+      expect(texto).toContain('Comprar leche');
+    });
+
+    it('el nombre del cambio va en negrita y lo escrito, corrido bajo el', () => {
+      const pdf = generarLaExportacionEnPdf(
+        exportacion({
+          sinEnviarDesdeEsteEquipo: [
+            {
+              tipo: 'pendiente.editar',
+              estado: 'pendiente',
+              creadaEn,
+              contenido: { texto: 'Comprar' },
+            },
+            {
+              tipo: 'diario.escribir',
+              estado: 'pendiente',
+              creadaEn,
+              contenido: { titulo: 'Titulito', contenido: documento('Parrafito') },
+            },
+          ],
+        }),
+      );
+      const delPendiente = lugarDe(pdf, 'Cambio').x;
+      // «Anotación» lleva la o con tilde, que en el PDF se escribe \363.
+      const delDiario = lugarDe(pdf, String.raw`Anotaci\\363n`).x;
+
+      expect(pdf).toMatch(/\/F2 [\d.]+ Tf 1 0 0 1 [\d.]+ [\d.]+ Tm \(Cambio\) Tj/);
+      expect(lugarDe(pdf, 'Comprar').x - delPendiente).toBe(14);
+      expect(lugarDe(pdf, 'Titulito').x - delDiario).toBe(14);
+      expect(lugarDe(pdf, 'Parrafito').x - delDiario).toBe(14);
+    });
+
+    it('un pendiente sin texto solo dice que existe', () => {
+      const texto = sinEnviar({
+        tipo: 'pendiente.crear',
+        estado: 'pendiente',
+        creadaEn,
+        contenido: {},
+      });
+
+      expect(texto).toContain('Pendiente nuevo');
+      expect(texto).toContain('Pendiente de enviar');
+    });
+
+    it('de lo demas solo se dice que hay un cambio, nunca su contenido', () => {
+      const texto = sinEnviar(
+        {
+          tipo: 'resultado.registrar',
+          estado: 'pendiente',
+          creadaEn,
+          contenido: { metadata: { respuesta: 'confidencial' }, texto: 'tampoco esto' },
+        },
+        {
+          tipo: 'pendiente.borrar',
+          estado: 'pendiente',
+          creadaEn,
+          contenido: { texto: 'ni esto' },
+        },
+      );
+
+      expect(texto).toContain('Resultado de una actividad');
+      expect(texto).toContain('Pendiente borrado');
+      expect(texto).not.toMatch(/confidencial|tampoco esto|ni esto/);
+    });
+
+    it('un tipo o un estado que no se conocen salen con su nombre, saneado', () => {
+      const texto = sinEnviar({ tipo: 'inventado', estado: 'raro 😀', creadaEn });
+
+      expect(texto).toContain('Un cambio guardado en este equipo');
+      expect(texto).toContain('raro [emoji]');
     });
   });
 
