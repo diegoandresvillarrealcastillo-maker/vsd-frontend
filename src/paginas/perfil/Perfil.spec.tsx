@@ -1779,7 +1779,12 @@ describe('sin conexion (SCRUM-142)', () => {
       await usuario.type(within(seccion).getByRole('textbox', { name: 'Nombre' }), 'Mari');
       await usuario.click(within(seccion).getByRole('button', { name: 'Guardar nombre' }));
 
-      expect(cambiarPreferencias).toHaveBeenCalledWith({ nombre: 'Mari' }, undefined, undefined);
+      // Con la sesion de la copia, el guardado lleva el contexto de quien lo pidio (SCRUM-320).
+      expect(cambiarPreferencias).toHaveBeenCalledWith(
+        { nombre: 'Mari' },
+        undefined,
+        expect.anything(),
+      );
       expect(await within(seccion).findByRole('status')).toHaveTextContent('Listo');
       expect(screen.queryByText(HAY_COPIA)).not.toBeInTheDocument();
     });
