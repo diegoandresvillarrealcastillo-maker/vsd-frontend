@@ -74,7 +74,7 @@ export const PASOS_DEL_TUTORIAL: readonly PasoDelTutorial[] = [
     id: 'diario',
     titulo: 'Tu diario',
     texto:
-      'Escribe lo que quieras, a tu ritmo. Es solo tuyo: solo se usa para recomendarte algo si tú lo permites. Lo abres en «Mi diario»: abajo en el celular, o arriba, junto a Inicio y Progreso, en el computador.',
+      'Escribe lo que quieras, a tu ritmo. Es solo tuyo: solo se usa para recomendarte algo si tú lo permites. Lo abres en «Mi diario»: abajo en el celular, o arriba, junto a Inicio y Mi actividad, en el computador.',
     expresion: 'normal',
     ancla: 'diario',
     alProbar: 'Ahí está. Lo abres cuando termine el recorrido: por ahora, sigamos.',

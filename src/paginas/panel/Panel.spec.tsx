@@ -490,20 +490,24 @@ describe('Dashboard', () => {
       Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 });
     });
 
-    it('marca la seccion en la que se esta, y cambia al pulsar otra', async () => {
+    it('marca Inicio como la ubicacion y lleva a Mi actividad y a Mi diario (SCRUM-296)', async () => {
       pintar();
 
       await screen.findByRole('heading', { name: /Hola, Marina/ });
 
-      const inicio = within(dock()).getByRole('link', { name: 'Inicio' });
-      const progreso = within(dock()).getByRole('link', { name: 'Progreso' });
+      expect(within(dock()).getByRole('link', { name: 'Inicio' })).toHaveAttribute(
+        'aria-current',
+        'location',
+      );
 
-      expect(inicio).toHaveAttribute('aria-current', 'location');
+      const actividad = within(dock()).getByRole('link', { name: 'Mi actividad' });
 
-      await userEvent.click(progreso);
-
-      expect(progreso).toHaveAttribute('aria-current', 'location');
-      expect(inicio).not.toHaveAttribute('aria-current');
+      expect(actividad).toHaveAttribute('href', '/mi-actividad');
+      expect(actividad).not.toHaveAttribute('aria-current');
+      expect(within(dock()).getByRole('link', { name: 'Mi diario' })).toHaveAttribute(
+        'href',
+        '/diario',
+      );
     });
 
     it('se aparta al bajar y vuelve al subir', async () => {
@@ -525,7 +529,7 @@ describe('Dashboard', () => {
       desplazarA(400);
       expect(dock()).toHaveClass('app__nav-inferior--oculto');
 
-      fireEvent.focus(within(dock()).getByRole('link', { name: 'Progreso' }));
+      fireEvent.focus(within(dock()).getByRole('link', { name: 'Mi actividad' }));
       expect(dock()).not.toHaveClass('app__nav-inferior--oculto');
     });
   });
@@ -643,7 +647,7 @@ describe('Dashboard', () => {
       expect(textos).not.toContain('Explorar');
     });
 
-    it('la barra de arriba lleva Inicio, Progreso y Mi diario (SCRUM-249)', async () => {
+    it('la barra de arriba lleva Inicio, Mi actividad y Mi diario (SCRUM-249, SCRUM-296)', async () => {
       pintar();
 
       await screen.findByRole('heading', { name: /Hola, Marina/ });
@@ -655,7 +659,7 @@ describe('Dashboard', () => {
       // media queries de escritorio) y las consultas por rol la dan por inaccesible.
       const textos = [...barra!.querySelectorAll('a')].map((enlace) => enlace.textContent.trim());
 
-      expect(textos).toEqual(['Inicio', 'Progreso', 'Mi diario']);
+      expect(textos).toEqual(['Inicio', 'Mi actividad', 'Mi diario']);
     });
 
     it('al llegar con #progreso desde otra pagina, baja a esa seccion', async () => {

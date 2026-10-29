@@ -170,6 +170,7 @@ describe('Guardas de ruta', () => {
   it.each([
     ['el panel', RUTAS.PANEL],
     ['el perfil', RUTAS.PERFIL],
+    ['Mi actividad', RUTAS.MI_ACTIVIDAD],
     ['el sendero de un modulo', rutaDeModulo('cognicion')],
   ])('manda al acceso a quien pide %s sin sesion', (_nombre, ruta) => {
     pintar(ruta);
@@ -239,5 +240,13 @@ describe('Navegar entre pantallas', () => {
     await waitFor(() => {
       expect(document.querySelectorAll('main')).toHaveLength(1);
     });
+  });
+
+  it('con sesion, /mi-actividad abre «Mi actividad» (SCRUM-296)', async () => {
+    pintar(RUTAS.MI_ACTIVIDAD, estado({ sesion: SESION }));
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Mi actividad' }),
+    ).toBeInTheDocument();
   });
 });

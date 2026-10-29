@@ -256,19 +256,31 @@ describe('cerrar sesion con cambios sin enviar (SCRUM-142)', () => {
   });
 });
 
-describe('la navegacion despues de entrar (SCRUM-182)', () => {
+describe('la navegacion despues de entrar (SCRUM-182, SCRUM-296)', () => {
   function nombresDe(navegacion: HTMLElement): (string | undefined)[] {
     return within(navegacion)
       .getAllByRole('link')
       .map((enlace) => enlace.textContent?.trim());
   }
 
+  /** Los enlaces que llevan la pastilla que se desliza: la ubicacion de ahora. */
+  function conPastilla(navegacion: HTMLElement): (string | undefined)[] {
+    return within(navegacion)
+      .getAllByRole('link')
+      .filter((enlace) => enlace.querySelector('.app__pastilla') !== null)
+      .map((enlace) => enlace.textContent.trim());
+  }
+
   describe('la barra de arriba', () => {
-    function pintarLaBarra() {
+    function pintarLaBarra(pagina?: 'actividad' | 'diario') {
       render(
         <SesionContexto.Provider value={sesion()}>
           <MemoryRouter>
-            <BarraSuperior conSecciones />
+            {pagina === undefined ? (
+              <BarraSuperior conSecciones />
+            ) : (
+              <BarraSuperior conSecciones={false} pagina={pagina} />
+            )}
           </MemoryRouter>
         </SesionContexto.Provider>,
       );
@@ -276,76 +288,71 @@ describe('la navegacion despues de entrar (SCRUM-182)', () => {
       return screen.getByRole('navigation', { name: 'Secciones' });
     }
 
-    it('lleva Inicio, Progreso y Mi diario, en ese orden y sin «Explorar» (SCRUM-249)', () => {
-      expect(nombresDe(pintarLaBarra())).toEqual(['Inicio', 'Progreso', 'Mi diario']);
+    it('lleva Inicio, Mi actividad y Mi diario, en ese orden y sin «Progreso» (SCRUM-296)', () => {
+      expect(nombresDe(pintarLaBarra())).toEqual(['Inicio', 'Mi actividad', 'Mi diario']);
+    });
+
+    it('en el panel, Inicio es la ubicacion: lleva la pastilla y se anuncia como tal', () => {
+      const barra = pintarLaBarra();
+
+      expect(conPastilla(barra)).toEqual(['Inicio']);
+      expect(within(barra).getByRole('link', { name: 'Inicio' })).toHaveAttribute(
+        'aria-current',
+        'location',
+      );
+      expect(within(barra).getByRole('link', { name: 'Inicio' })).toHaveAttribute(
+        'href',
+        '#inicio',
+      );
+    });
+
+    it('«Mi actividad» lleva a /mi-actividad, sin marcarse como la pagina actual', () => {
+      const actividad = within(pintarLaBarra()).getByRole('link', { name: 'Mi actividad' });
+
+      expect(actividad).toHaveAttribute('href', '/mi-actividad');
+      expect(actividad).not.toHaveAttribute('aria-current');
     });
 
     it('«Mi diario» esta a la vista y lleva a /diario, sin marcarse como la pagina actual', () => {
-      const barra = pintarLaBarra();
-      const diario = within(barra).getByRole('link', { name: 'Mi diario' });
+      const diario = within(pintarLaBarra()).getByRole('link', { name: 'Mi diario' });
 
       expect(diario).toHaveAttribute('href', '/diario');
       expect(diario).not.toHaveAttribute('aria-current');
     });
 
     it('«Mi diario» lleva la marca para que el tutorial lo senale', () => {
-      const barra = pintarLaBarra();
-
-      expect(within(barra).getByRole('link', { name: 'Mi diario' })).toHaveAttribute(
+      expect(within(pintarLaBarra()).getByRole('link', { name: 'Mi diario' })).toHaveAttribute(
         'data-tutorial',
         'diario',
       );
     });
 
-    it('«Mi diario» sigue a un toque tambien en el menu de la cuenta', async () => {
+    it('el menu de la cuenta ya no lleva «Mi diario»: quedan perfil, pagina principal y salir (SCRUM-296)', async () => {
       pintarLaBarra();
 
       await userEvent.click(screen.getByRole('button', { name: 'Abrir el menú de tu cuenta' }));
 
-      // Dos enlaces con ese nombre: el de la barra y el del menu.
-      const enlaces = screen.getAllByRole('link', { name: 'Mi diario' });
+      const menu = document.querySelector<HTMLElement>('.app__menu')!;
 
-      expect(enlaces).toHaveLength(2);
-      expect(enlaces.map((enlace) => enlace.getAttribute('href'))).toEqual(['/diario', '/diario']);
-    });
-
-    it('marca la seccion a la vista con la misma pastilla que el dock del movil (SCRUM-284)', async () => {
-      const barra = pintarLaBarra();
-      const marcada = () =>
-        within(barra)
+      expect(
+        within(menu)
           .getAllByRole('link')
-          .filter((enlace) => enlace.querySelector('.app__pastilla') !== null);
-
-      // Al abrir, la que esta a la vista es Inicio: lleva la pastilla y se anuncia como ubicacion.
-      expect(marcada().map((enlace) => enlace.textContent.trim())).toEqual(['Inicio']);
-      expect(within(barra).getByRole('link', { name: 'Inicio' })).toHaveAttribute(
-        'aria-current',
-        'location',
-      );
-
-      // Al pulsar otra seccion la pastilla viaja alli, igual que en el dock.
-      await userEvent.click(within(barra).getByRole('link', { name: 'Progreso' }));
-
-      expect(marcada().map((enlace) => enlace.textContent.trim())).toEqual(['Progreso']);
-      expect(within(barra).getByRole('link', { name: 'Inicio' })).not.toHaveAttribute(
-        'aria-current',
-      );
-      expect(within(barra).getByRole('link', { name: 'Progreso' })).toHaveAttribute(
-        'aria-current',
-        'location',
-      );
+          .map((enlace) => enlace.textContent.trim()),
+      ).toEqual(['Tu perfil', 'Ir a la página principal']);
+      expect(within(menu).getByRole('button', { name: 'Cerrar sesión' })).toBeInTheDocument();
+      // El unico «Mi diario» que queda es el de la barra.
+      expect(screen.getAllByRole('link', { name: 'Mi diario' })).toHaveLength(1);
     });
 
-    it('las pastillas de la barra y del dock son la misma pieza', () => {
-      const barra = pintarLaBarra();
-      const pastilla = barra.querySelector('.app__pastilla');
+    it('las pastillas de la barra y del dock son la misma pieza (SCRUM-284)', () => {
+      const pastilla = pintarLaBarra().querySelector('.app__pastilla');
 
       expect(pastilla).not.toBeNull();
       // El mismo elemento y la misma clase que usa el dock: un solo estilo para las dos.
       expect(pastilla?.tagName).toBe('SPAN');
     });
 
-    it('sin secciones y fuera del diario no lleva ninguna navegacion', () => {
+    it('sin secciones y fuera de las paginas de la navegacion no lleva ninguna', () => {
       render(
         <SesionContexto.Provider value={sesion()}>
           <MemoryRouter>
@@ -356,112 +363,106 @@ describe('la navegacion despues de entrar (SCRUM-182)', () => {
 
       expect(screen.queryByRole('navigation', { name: 'Secciones' })).toBeNull();
     });
-  });
 
-  describe('la barra de arriba dentro de Mi diario (SCRUM-249)', () => {
-    function pintarLaBarraDelDiario() {
-      render(
-        <SesionContexto.Provider value={sesion()}>
-          <MemoryRouter>
-            <BarraSuperior conSecciones={false} enDiario />
-          </MemoryRouter>
-        </SesionContexto.Provider>,
-      );
+    describe.each([
+      { pagina: 'actividad', nombre: 'Mi actividad' },
+      { pagina: 'diario', nombre: 'Mi diario' },
+    ] as const)('dentro de $nombre', ({ pagina, nombre }) => {
+      it('lleva los mismos tres enlaces', () => {
+        expect(nombresDe(pintarLaBarra(pagina))).toEqual(['Inicio', 'Mi actividad', 'Mi diario']);
+      });
 
-      return screen.getByRole('navigation', { name: 'Secciones' });
-    }
+      it(`solo «${nombre}» lleva la pastilla (igual que el dock)`, () => {
+        expect(conPastilla(pintarLaBarra(pagina))).toEqual([nombre]);
+      });
 
-    it('lleva los mismos tres enlaces', () => {
-      expect(nombresDe(pintarLaBarraDelDiario())).toEqual(['Inicio', 'Progreso', 'Mi diario']);
-    });
+      it(`marca «${nombre}» como la pagina actual y lleva a las otras por su direccion`, () => {
+        const barra = pintarLaBarra(pagina);
 
-    it('«Mi diario» lleva la pastilla y las otras dos no (igual que el dock)', () => {
-      const barra = pintarLaBarraDelDiario();
-      const conPastilla = within(barra)
-        .getAllByRole('link')
-        .filter((enlace) => enlace.querySelector('.app__pastilla') !== null);
-
-      expect(conPastilla.map((enlace) => enlace.textContent.trim())).toEqual(['Mi diario']);
-    });
-
-    it('marca «Mi diario» como la pagina actual y lleva al panel por las otras dos', () => {
-      const barra = pintarLaBarraDelDiario();
-
-      expect(within(barra).getByRole('link', { name: 'Mi diario' })).toHaveAttribute(
-        'aria-current',
-        'page',
-      );
-      expect(within(barra).getByRole('link', { name: 'Inicio' })).toHaveAttribute(
-        'href',
-        '/panel#inicio',
-      );
-      expect(within(barra).getByRole('link', { name: 'Progreso' })).toHaveAttribute(
-        'href',
-        '/panel#progreso',
-      );
-      // Ninguna otra esta marcada: solo se esta en una pagina.
-      expect(
-        within(barra)
-          .getAllByRole('link')
-          .filter((enlace) => enlace.getAttribute('aria-current') === 'page'),
-      ).toHaveLength(1);
+        expect(within(barra).getByRole('link', { name: nombre })).toHaveAttribute(
+          'aria-current',
+          'page',
+        );
+        expect(within(barra).getByRole('link', { name: 'Inicio' })).toHaveAttribute(
+          'href',
+          '/panel#inicio',
+        );
+        // Ninguna otra esta marcada: solo se esta en una pagina.
+        expect(
+          within(barra)
+            .getAllByRole('link')
+            .filter((enlace) => enlace.hasAttribute('aria-current')),
+        ).toHaveLength(1);
+      });
     });
   });
 
   describe('el dock del movil', () => {
-    function pintarElDock(enDiario?: boolean) {
+    function pintarElDock(pagina?: 'actividad' | 'diario') {
       render(
         <MemoryRouter>
-          {enDiario === undefined ? (
-            <NavegacionInferior />
-          ) : (
-            <NavegacionInferior enDiario={enDiario} />
-          )}
+          {pagina === undefined ? <NavegacionInferior /> : <NavegacionInferior pagina={pagina} />}
         </MemoryRouter>,
       );
 
       return screen.getByRole('navigation', { name: 'Secciones' });
     }
 
-    it('lleva Inicio, Progreso y Mi diario, sin «Explorar»', () => {
-      expect(nombresDe(pintarElDock())).toEqual(['Inicio', 'Progreso', 'Mi diario']);
+    it('lleva Inicio, Mi actividad y Mi diario, sin «Progreso» ni «Explorar»', () => {
+      expect(nombresDe(pintarElDock())).toEqual(['Inicio', 'Mi actividad', 'Mi diario']);
     });
 
     it('su pastilla es la misma pieza que la de la barra de arriba (SCRUM-284)', () => {
-      const dock = pintarElDock();
-
-      expect(dock.querySelector('.app__pastilla')).not.toBeNull();
+      expect(pintarElDock().querySelector('.app__pastilla')).not.toBeNull();
     });
 
-    it('en el panel, «Mi diario» no esta marcado como la pagina actual', () => {
+    it('en el panel, Inicio es la ubicacion y las otras dos no estan marcadas', () => {
       const dock = pintarElDock();
 
+      expect(conPastilla(dock)).toEqual(['Inicio']);
+      expect(within(dock).getByRole('link', { name: 'Inicio' })).toHaveAttribute(
+        'aria-current',
+        'location',
+      );
+      expect(within(dock).getByRole('link', { name: 'Mi actividad' })).not.toHaveAttribute(
+        'aria-current',
+      );
       expect(within(dock).getByRole('link', { name: 'Mi diario' })).not.toHaveAttribute(
         'aria-current',
       );
     });
 
-    it('dentro del Diario marca «Mi diario» y lleva al panel por las otras dos', () => {
-      const dock = pintarElDock(true);
+    it('«Mi diario» lleva la marca para que el tutorial lo senale en el movil (SCRUM-201)', () => {
+      expect(within(pintarElDock()).getByRole('link', { name: 'Mi diario' })).toHaveAttribute(
+        'data-tutorial',
+        'diario',
+      );
+    });
 
-      expect(within(dock).getByRole('link', { name: 'Mi diario' })).toHaveAttribute(
-        'aria-current',
-        'page',
-      );
-      expect(within(dock).getByRole('link', { name: 'Inicio' })).toHaveAttribute(
-        'href',
-        '/panel#inicio',
-      );
-      expect(within(dock).getByRole('link', { name: 'Progreso' })).toHaveAttribute(
-        'href',
-        '/panel#progreso',
-      );
-      // Ninguna seccion del panel esta «a la vista» desde otra pagina.
-      expect(
-        within(dock)
-          .getAllByRole('link')
-          .filter((enlace) => enlace.getAttribute('aria-current') === 'location'),
-      ).toEqual([]);
+    describe.each([
+      { pagina: 'actividad', nombre: 'Mi actividad', ruta: '/mi-actividad' },
+      { pagina: 'diario', nombre: 'Mi diario', ruta: '/diario' },
+    ] as const)('dentro de $nombre', ({ pagina, nombre, ruta }) => {
+      it(`marca «${nombre}» y lleva al panel por Inicio`, () => {
+        const dock = pintarElDock(pagina);
+
+        expect(within(dock).getByRole('link', { name: nombre })).toHaveAttribute(
+          'aria-current',
+          'page',
+        );
+        expect(within(dock).getByRole('link', { name: nombre })).toHaveAttribute('href', ruta);
+        expect(within(dock).getByRole('link', { name: 'Inicio' })).toHaveAttribute(
+          'href',
+          '/panel#inicio',
+        );
+        expect(conPastilla(dock)).toEqual([nombre]);
+        // Ninguna seccion del panel esta «a la vista» desde otra pagina.
+        expect(
+          within(dock)
+            .getAllByRole('link')
+            .filter((enlace) => enlace.getAttribute('aria-current') === 'location'),
+        ).toEqual([]);
+      });
     });
   });
 });

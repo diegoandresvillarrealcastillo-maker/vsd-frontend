@@ -14,6 +14,7 @@ import {
   ContrasenaNueva,
   Cookies,
   Diario,
+  MiActividad,
   Panel,
   Perfil,
   Privacidad,
@@ -171,6 +172,14 @@ export function App() {
               element={
                 <RutaProtegida>
                   <Diario />
+                </RutaProtegida>
+              }
+            />
+            <Route
+              path={RUTAS.MI_ACTIVIDAD}
+              element={
+                <RutaProtegida>
+                  <MiActividad />
                 </RutaProtegida>
               }
             />

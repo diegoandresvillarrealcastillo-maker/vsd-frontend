@@ -1,0 +1,200 @@
+/*
+ * «Mi actividad» (SCRUM-296): la semana, las sesiones por modulo, lo ultimo que se hizo y lo que sigue.
+ *
+ * Una columna de cajas que usa los mismos tokens `--app-*` del panel, asi que sirve igual en claro y en
+ * oscuro, y el color de cada modulo sale de `--modulo-fondo` y `--modulo-acento` (los mismos de las
+ * tarjetas del panel). Nada se pinta de alarma: aqui solo se cuenta lo que se hizo.
+ */
+
+.mi-actividad {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 46rem;
+  align-content: start;
+}
+
+.mi-actividad__cabecera {
+  margin-bottom: 0.25rem;
+}
+
+.mi-actividad__bloque {
+  padding: 1.25rem;
+  border-radius: 24px;
+}
+
+.mi-actividad__bloque > .app__nota {
+  margin-top: 0.5rem;
+}
+
+.mi-actividad__bloque > .estado-vacio,
+.mi-actividad__bloque > .app__aviso,
+.mi-actividad__bloque > .racha-semana,
+.mi-actividad__bloque > ul {
+  margin-top: 1rem;
+}
+
+.mi-actividad__resumen {
+  margin-top: 0.75rem;
+  font-size: 1.0625rem;
+  line-height: 1.5;
+}
+
+/* ---------- Sesiones por modulo y ultimas actividades ---------- */
+
+.mi-actividad__modulos,
+.mi-actividad__ultimas {
+  display: grid;
+  gap: 0.625rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mi-actividad__modulo {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.75rem 0.875rem;
+  border-radius: 18px;
+  background: var(--app-superficie-alta);
+}
+
+/* En un telefono angosto el nombre se quedaba en una columna de tres palabras por linea: «Repetir» baja
+   debajo del texto y, desde 520 px, se queda a la derecha. */
+.mi-actividad__hecho {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    'icono texto'
+    'icono repetir';
+  align-items: center;
+  column-gap: 0.875rem;
+  row-gap: 0.625rem;
+  padding: 0.75rem 0.875rem;
+  border-radius: 18px;
+  background: var(--app-superficie-alta);
+}
+
+.mi-actividad__hecho > .mi-actividad__icono {
+  grid-area: icono;
+  align-self: start;
+}
+
+.mi-actividad__icono {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: var(--modulo-fondo);
+  color: var(--modulo-acento);
+}
+
+.mi-actividad__modulo-nombre {
+  flex: 1;
+  font-weight: 600;
+}
+
+.mi-actividad__modulo-cifra {
+  color: var(--app-tenue);
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mi-actividad__hecho-texto {
+  display: grid;
+  grid-area: texto;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.mi-actividad__hecho-nombre {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.mi-actividad__hecho-cuando {
+  color: var(--app-tenue);
+  font-size: 0.8125rem;
+}
+
+.mi-actividad__repetir {
+  grid-area: repetir;
+  justify-self: start;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+/* ---------- Lo que sigue ---------- */
+
+.mi-actividad__sigue {
+  padding: 1.5rem;
+  border-radius: 28px;
+  background: var(--app-descanso);
+  color: var(--app-tinta);
+}
+
+.mi-actividad__sigue-ceja {
+  margin-bottom: 0.25rem;
+  color: var(--app-salvia);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.mi-actividad__siguiente-nombre {
+  font-family: var(--app-fuente-titulos);
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.mi-actividad__sigue-texto {
+  margin-top: 0.375rem;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.mi-actividad__sigue .pildora {
+  margin-top: 1.25rem;
+  background: var(--app-salvia);
+  box-shadow: none;
+  color: var(--app-sobre-primario);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mi-actividad__sigue .pildora:hover {
+    background: var(--app-salvia);
+    filter: brightness(1.08);
+  }
+}
+
+@media (min-width: 520px) {
+  .mi-actividad__hecho {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: 'icono texto repetir';
+  }
+
+  .mi-actividad__hecho > .mi-actividad__icono {
+    align-self: center;
+  }
+
+  .mi-actividad__repetir {
+    justify-self: end;
+  }
+}
+
+@media (min-width: 640px) {
+  .mi-actividad__bloque {
+    padding: 1.5rem 1.75rem;
+  }
+
+  .mi-actividad__sigue {
+    padding: 1.75rem;
+  }
+}

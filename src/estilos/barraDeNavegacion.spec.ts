@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import APLICACION from './aplicacion.css?raw';
 
 /**
- * Inicio, Progreso y Mi diario se ven y se sienten igual en el computador y en el telefono (SCRUM-284).
+ * Inicio, Mi actividad y Mi diario se ven y se sienten igual en el computador y en el telefono (SCRUM-284).
  *
  * Son dos piezas distintas (la barra de arriba y el dock de abajo) porque el espacio no es el mismo, pero lo
  * que se **siente** al usarlas tiene que ser una sola cosa. Para que no vuelvan a separarse sin que nadie lo
