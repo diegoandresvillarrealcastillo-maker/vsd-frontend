@@ -50,6 +50,101 @@ export function normalizar(texto: string): string {
     .trim();
 }
 
+/** Lo que no se dibuja pero esta en el texto (`Default_Ignorable_Code_Point`). */
+const INVISIBLES = /\p{Default_Ignorable_Code_Point}/gu;
+
+/**
+ * Donde habia invisibles, en un texto leido con `leerConInvisibles`. Es un caracter de control que
+ * `normalizar` no toca; si ya venia uno en lo escrito, se lee igual: como un invisible mas.
+ */
+const MARCA_DE_INVISIBLE = '\u{1}';
+
+/**
+ * El texto comparable (como `normalizar`) pero **dejando una marca donde habia invisibles**, en
+ * lugar de decidir por adelantado que eran (SCRUM-319, igual que el servidor).
+ *
+ * Quitarlos todos cierra «mo» + U+200B + «rir» y convertirlos todos en espacio cierra «quiero» +
+ * U+200B + «morir», pero una sola frase puede llevar los dos usos a la vez, y ninguna de las dos
+ * lecturas globales la ve. Con la marca, `contieneLaExpresion` decide en cada sitio: dentro de una
+ * palabra no cuenta, y entre dos palabras hace de separacion.
+ */
+export function leerConInvisibles(texto: string): string {
+  return texto
+    .normalize('NFKD')
+    .replace(INVISIBLES, MARCA_DE_INVISIBLE)
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/\s+/gu, ' ')
+    .trim();
+}
+
+/**
+ * Cierto si `leido` (de `leerConInvisibles`) contiene `expresion`, una expresion de riesgo ya
+ * normalizada: palabras en minuscula y sin tildes separadas por un espacio.
+ *
+ * - Entre dos letras de una misma palabra puede haber invisibles: no cuentan.
+ * - El espacio de la expresion coincide con **uno o mas** espacios o invisibles, mezclados como
+ *   sea. Tiene que haber al menos uno: «quieromorir» no es «quiero morir».
+ * - Se busca como subcadena, como siempre: no pide limites de palabra.
+ *
+ * La expresion es un dato del paquete y **lo escrito por la persona no se convierte en expresion
+ * regular ni se enumeran variantes**: se recorre el texto una vez por cada aparicion de la primera
+ * letra, sin retroceder. El coste es, como mucho, el largo del texto por el de la expresion.
+ */
+export function contieneLaExpresion(leido: string, expresion: string): boolean {
+  const primera = expresion[0];
+
+  if (primera === undefined) {
+    return false;
+  }
+
+  for (
+    let inicio = leido.indexOf(primera);
+    inicio !== -1;
+    inicio = leido.indexOf(primera, inicio + 1)
+  ) {
+    if (coincideDesde(leido, inicio, expresion)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function coincideDesde(leido: string, inicio: number, expresion: string): boolean {
+  let posicion = inicio;
+
+  for (let i = 0; i < expresion.length; i += 1) {
+    if (expresion[i] === ' ') {
+      const desde = posicion;
+
+      while (leido[posicion] === ' ' || leido[posicion] === MARCA_DE_INVISIBLE) {
+        posicion += 1;
+      }
+
+      // Sin ningun espacio ni invisible no hay separacion entre las palabras.
+      if (posicion === desde) {
+        return false;
+      }
+
+      continue;
+    }
+
+    // Dentro de una palabra, un invisible entre dos letras no cuenta.
+    while (i > 0 && leido[posicion] === MARCA_DE_INVISIBLE) {
+      posicion += 1;
+    }
+
+    if (leido[posicion] !== expresion[i]) {
+      return false;
+    }
+
+    posicion += 1;
+  }
+
+  return true;
+}
+
 /**
  * Las palabras de un texto: enteras, sin tildes, sin signos y en minuscula. Tres letras
  * iguales seguidas se leen como una ("holaaaa"): en espanol ninguna palabra las lleva.
@@ -320,17 +415,22 @@ export function responderSinConexion(
   const dichas = palabrasDe(consulta.texto);
   const erratas = reglas.erratas ?? {};
   const vocabulario = vocabularioDe([reglas.riesgo.expresiones]);
-  const variantes = [
-    consulta.texto,
-    consulta.texto.replace(/\p{Default_Ignorable_Code_Point}/gu, ' '),
-  ];
-  const riesgo = variantes.some((texto) => {
-    const limpio = normalizar(texto);
+  // Tal cual, con los invisibles leidos en cada sitio como lo que sean: una misma frase puede llevar
+  // uno en lugar del espacio y otro escondido dentro de una palabra (SCRUM-258, SCRUM-319).
+  const leido = leerConInvisibles(consulta.texto);
+  // Con erratas las palabras se leen enteras y no hay donde marcar: se mira con los invisibles
+  // quitados y con los invisibles como espacio, y solo suma. Una errata junto con los dos usos de un
+  // invisible en la misma frase queda fuera: la lista es un suelo, no un techo.
+  const conErratas = (texto: string): boolean => {
     const corregido = corregirPalabras(palabrasDe(texto), vocabulario, erratas).join(' ');
-    return reglas.riesgo.expresiones.some(
-      (expresion) => limpio.includes(expresion) || corregido.includes(expresion),
-    );
-  });
+
+    return reglas.riesgo.expresiones.some((expresion) => corregido.includes(expresion));
+  };
+  const comoSeparador = consulta.texto.replace(INVISIBLES, ' ');
+  const riesgo =
+    reglas.riesgo.expresiones.some((expresion) => contieneLaExpresion(leido, expresion)) ||
+    conErratas(consulta.texto) ||
+    (comoSeparador !== consulta.texto && conErratas(comoSeparador));
 
   if (riesgo) {
     return {
