@@ -4,6 +4,7 @@ import { useAlVolverLaRed } from '../../conexion/useAlVolverLaRed.ts';
 import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
 import type { ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { clasificarFallo } from '../../sincronizacion/clasificarFallo.ts';
+import type { OperacionDeLaSesion } from '../../sincronizacion/ciclo.ts';
 import type { Operacion } from '../../sincronizacion/cola.ts';
 import {
   cuantosResultadosSinEnviar,
@@ -52,8 +53,11 @@ function explicarLaLectura(error: unknown): string {
 export function useLecturaDelPanel(): {
   readonly estado: LecturaDelPanel;
   readonly reintentar: () => void;
-  /** Lo que la persona cambio y el servidor confirmo: se muestra y se deja guardado. */
-  readonly actualizar: (datos: DatosDelPanel) => void;
+  /**
+   * Lo que la persona cambio y el servidor confirmo: se muestra y se deja guardado. Con la
+   * `operacion` que lo empezo, solo si sigue siendo vigente.
+   */
+  readonly actualizar: (datos: DatosDelPanel, operacion?: OperacionDeLaSesion | null) => void;
 } {
   const [fase, setFase] = useState<'cargando' | 'listo' | { readonly error: string }>('cargando');
   const [datos, setDatos] = useState<DatosDelPanel | null>(null);
@@ -135,11 +139,19 @@ export function useLecturaDelPanel(): {
 
   useAlVolverLaRed(deLaCopia !== null, preguntarDeNuevo);
 
-  const actualizar = useCallback((nuevos: DatosDelPanel) => {
-    setDatos(nuevos);
-    setDeLaCopia(null);
-    void guardarElPanel(nuevos);
-  }, []);
+  const actualizar = useCallback(
+    (nuevos: DatosDelPanel, operacion?: OperacionDeLaSesion | null) => {
+      // Lo que empezo otra sesion, o una pantalla que ya no esta, no se muestra ni se guarda (SCRUM-315).
+      if (operacion && !operacion.vigente()) {
+        return;
+      }
+
+      setDatos(nuevos);
+      setDeLaCopia(null);
+      void guardarElPanel(nuevos);
+    },
+    [],
+  );
 
   const progreso = useMemo(
     () =>

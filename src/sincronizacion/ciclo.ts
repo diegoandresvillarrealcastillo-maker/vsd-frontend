@@ -1,5 +1,6 @@
 import { deleteDB } from 'idb';
 
+import type { ContextoDePeticion } from '../infraestructura/api/clienteHttp.ts';
 import { hayConexionConLaApi } from '../infraestructura/api/conexion.ts';
 import { motivoDelUltimoFallo } from '../infraestructura/api/motivoDelFallo.ts';
 import {
@@ -168,6 +169,61 @@ export function exigirLaMismaSesion(generacionInicial: number): void {
   if (generacionInicial !== generacion) {
     throw new DOMException('La sesión cambió', 'AbortError');
   }
+}
+
+/**
+ * Una operacion de quien tiene la sesion ahora, para lo que tarda y puede terminar cuando la sesion
+ * ya es otra (SCRUM-315, SCRUM-316 y SCRUM-317).
+ *
+ * `generacionDeSesion` y `exigirLaMismaSesion` resuelven lo que se lee y se guarda dentro de
+ * `sincronizacion/`. Esto es lo mismo para quien esta fuera: una pantalla que pide algo al servidor,
+ * prepara un archivo o arma una descarga. **Se anota antes del primer `await`** y se lleva hasta
+ * donde algo cambia o sale:
+ *
+ * - `peticion` va a las llamadas HTTP (`ContextoDePeticion`): la cabecera solo sale si la sesion de
+ *   ahora es la que empezo la operacion, y una respuesta tardia no se entrega a nadie.
+ * - `generacion` va a lo que se guarda en este equipo, para que no entre en el almacen de otra
+ *   persona. Comparar solo la persona no basta: A que sale y vuelve a entrar es la misma persona
+ *   con otra sesion, y lo que A empezo antes de salir ya no es suyo (la generacion cambia al salir).
+ * - `vigente` / `exigir` se comprueban **despues de cada espera** y antes de mostrar, guardar o
+ *   entregar algo.
+ *
+ * Con `senal` la operacion tambien deja de ser vigente cuando se cancela (al desmontar la pantalla).
+ *
+ * `null` si no hay sesion anotada, por ejemplo en una pantalla probada sola: ahi no hay a quien
+ * proteger ni almacen del que cuidarse, y se sigue como siempre.
+ */
+export interface OperacionDeLaSesion {
+  readonly persona: string;
+  readonly generacion: number;
+  readonly vigente: () => boolean;
+  /** @throws {DOMException} `AbortError` si la operacion dejo de ser vigente. */
+  readonly exigir: () => void;
+  readonly peticion: ContextoDePeticion;
+}
+
+export function iniciarUnaOperacionDeLaSesion(senal?: AbortSignal): OperacionDeLaSesion | null {
+  const persona = personaDeLaSesion;
+
+  if (persona === null) {
+    return null;
+  }
+
+  const generacionInicial = generacion;
+  // La generacion sube con cada cambio de persona (A a B, A a nadie), por eso basta con ella.
+  const vigente = (): boolean => generacion === generacionInicial && senal?.aborted !== true;
+
+  return {
+    persona,
+    generacion: generacionInicial,
+    vigente,
+    exigir: () => {
+      if (!vigente()) {
+        throw new DOMException('La sesión cambió o la operación se canceló', 'AbortError');
+      }
+    },
+    peticion: { persona, vigente },
+  };
 }
 
 export function suscribirAlCiclo(oyente: () => void): () => void {

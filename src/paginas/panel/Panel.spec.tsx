@@ -923,10 +923,11 @@ describe('Dashboard', () => {
       await userEvent.click(screen.getByRole('checkbox', { name: /Bienestar/ }));
       await userEvent.click(screen.getByRole('button', { name: /Empezar/ }));
 
-      expect(cambiarPreferencias).toHaveBeenCalledWith({
-        nombre: 'Marina',
-        modulosActivos: ['bienestar', 'emociones'],
-      });
+      expect(cambiarPreferencias).toHaveBeenCalledWith(
+        { nombre: 'Marina', modulosActivos: ['bienestar', 'emociones'] },
+        expect.any(AbortSignal),
+        undefined,
+      );
       expect(await screen.findByRole('heading', { name: /Hola, Marina/ })).toBeInTheDocument();
     });
 
@@ -938,7 +939,11 @@ describe('Dashboard', () => {
       await userEvent.click(await screen.findByRole('checkbox', { name: /Cognición/ }));
       await userEvent.click(screen.getByRole('button', { name: /Empezar/ }));
 
-      expect(cambiarPreferencias).toHaveBeenCalledWith({ modulosActivos: ['cognicion'] });
+      expect(cambiarPreferencias).toHaveBeenCalledWith(
+        { modulosActivos: ['cognicion'] },
+        expect.any(AbortSignal),
+        undefined,
+      );
     });
 
     it('marcar y desmarcar un modulo se refleja en la casilla', async () => {
@@ -1053,9 +1058,11 @@ describe('Dashboard', () => {
 
       await userEvent.click(await screen.findByRole('button', { name: /Añadir Emociones/ }));
 
-      expect(cambiarPreferencias).toHaveBeenCalledWith({
-        modulosActivos: ['cognicion', 'bienestar', 'emociones'],
-      });
+      expect(cambiarPreferencias).toHaveBeenCalledWith(
+        { modulosActivos: ['cognicion', 'bienestar', 'emociones'] },
+        expect.any(AbortSignal),
+        undefined,
+      );
       expect(await screen.findByRole('link', { name: /Emociones/ })).toHaveTextContent(
         'Etapa 1 · 0 de 5 sesiones',
       );
