@@ -342,6 +342,96 @@ describe('Mi actividad, la pantalla (SCRUM-296)', () => {
   });
 });
 
+describe('Mi actividad, color y vida por modulo (SCRUM-311)', () => {
+  /** Una actividad de Bienestar hecha hace un instante, junto a lo antiguo de la semana de ejemplo. */
+  function conUnaRecienHecha() {
+    conHistorial({
+      bienestar: [
+        {
+          id: 'reciente',
+          actividad: { id: SUENO, nombre: 'Respirar' },
+          dia: diaEnLaZona(new Date()),
+          hechaEn: new Date().toISOString(),
+        },
+        hecho(2, '2026-10-20', 'Estiramientos'),
+      ],
+      cognicion: [hecho(5, '2026-10-20', 'Atención sostenida', ATENCION)],
+    });
+  }
+
+  function tarjetaDe(nombre: 'Bienestar' | 'Cognición'): HTMLElement {
+    const sesiones = screen.getByRole('list', { name: 'Sesiones completadas' });
+
+    return within(sesiones)
+      .getAllByRole('listitem')
+      .find((uno) => uno.textContent.includes(nombre))!;
+  }
+
+  it('cada modulo pinta su cifra de sesiones en grande, con su color', async () => {
+    pintar();
+
+    const sesiones = await screen.findByRole('list', { name: 'Sesiones completadas' });
+    const [bienestar, cognicion] = within(sesiones).getAllByRole('listitem');
+
+    expect(bienestar!.querySelector('.mi-actividad__modulo-numero')).toHaveTextContent(/^12$/);
+    expect(cognicion!.querySelector('.mi-actividad__modulo-numero')).toHaveTextContent(/^1$/);
+    // El color del modulo llega a la tarjeta por las variables que ya usaba el icono.
+    expect(bienestar!.style.getPropertyValue('--modulo-acento')).toBe(
+      'var(--app-bienestar-acento)',
+    );
+    expect(cognicion!.style.getPropertyValue('--modulo-acento')).toBe(
+      'var(--app-cognicion-acento)',
+    );
+  });
+
+  it('lo que se hizo hace un momento marca la tarjeta del modulo y su fila', async () => {
+    conUnaRecienHecha();
+
+    pintar();
+
+    const ultimas = await screen.findByRole('list', { name: 'Últimas actividades' });
+    const filas = within(ultimas).getAllByRole('listitem');
+
+    expect(filas[0]).toHaveClass('mi-actividad__hecho--reciente');
+    expect(filas[0]).toHaveTextContent('Respirar');
+    expect(filas[1]).not.toHaveClass('mi-actividad__hecho--reciente');
+    // Solo el modulo donde se hizo se marca: Cognicion no tiene nada reciente.
+    expect(tarjetaDe('Bienestar')).toHaveClass('mi-actividad__modulo--reciente');
+    expect(tarjetaDe('Cognición')).not.toHaveClass('mi-actividad__modulo--reciente');
+  });
+
+  it('lo que se hizo hace horas o dias no lleva la marca', async () => {
+    pintar();
+
+    await screen.findByRole('list', { name: 'Últimas actividades' });
+
+    expect(document.querySelector('.mi-actividad__hecho--reciente')).toBeNull();
+    expect(document.querySelector('.mi-actividad__modulo--reciente')).toBeNull();
+  });
+
+  it('sin poder leer el historial no se marca nada como reciente', async () => {
+    consultarElHistorial.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    pintar();
+
+    await screen.findByText(/Para ver tus últimas actividades hace falta conexión/);
+
+    expect(document.querySelector('.mi-actividad__modulo--reciente')).toBeNull();
+    expect(document.querySelector('.mi-actividad__hecho--reciente')).toBeNull();
+  });
+
+  it('lo reciente es solo color y movimiento: no agrega texto ni califica', async () => {
+    conUnaRecienHecha();
+
+    pintar();
+
+    await screen.findByText(/Participaste/);
+
+    expect(document.querySelector('main')?.textContent).not.toMatch(/puntaje|puntos|%|nivel|nuev/i);
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+  });
+});
+
 describe('Mi actividad, lo que falta por leer (SCRUM-296)', () => {
   it('un historial vacio invita y no reclama', async () => {
     conHistorial({});
