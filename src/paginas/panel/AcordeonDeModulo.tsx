@@ -1,7 +1,7 @@
 import { useId, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 
-import type { ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
+import type { ActividadDeHoy, ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { rutaDeModulo } from '../../rutas/rutas.ts';
 import { MapaDelPlan } from '../sendero/MapaDelPlan.tsx';
 import { DIAS_DEL_PLAN, planDelAnio } from '../sendero/planDelAnio.ts';
@@ -9,13 +9,24 @@ import { Icono } from './Icono.tsx';
 import { MODULOS } from './modulos.ts';
 import { porcentaje } from './porcentaje.ts';
 
+/** Lo que dice la pestaña de lo de hoy: la que toca ahora, o que ya esta. Nunca reprocha. */
+function lineaDeHoy(hoy: readonly ActividadDeHoy[]): string {
+  if (hoy.length === 0) {
+    return 'Hoy no te toca nada aquí';
+  }
+
+  const siguiente = hoy.find((actividad) => !actividad.hecha);
+
+  return siguiente === undefined ? 'Hoy ya hiciste lo tuyo' : `Hoy: ${siguiente.nombre}`;
+}
+
 /**
- * Un modulo activo del panel, como una pestaña que se despliega (SCRUM-293).
+ * Un modulo activo dentro de «Tu ruta de hoy», como una pestaña que se despliega (SCRUM-293).
  *
- * Cerrado, solo se ve el nombre y en que dia de los 365 va. La ruta con todos sus dias **solo se
- * monta al abrirlo**: son 365 puntos por modulo y no hace falta pintar los de tres a la vez, ni hacer
- * bajar a nadie por una pantalla larguisima para llegar a lo que busca. Al abrirlo, la vista va sola
- * al dia activo (`MapaDelPlan`).
+ * Cerrado, se ve el nombre, lo que toca hoy y en que dia de los 365 va. La ruta con todos sus dias
+ * **solo se monta al abrirlo**: son 365 puntos por modulo y no hace falta pintar los de tres a la
+ * vez. Al abrirlo, la vista va sola al dia activo (`MapaDelPlan`), y lo de hoy se abre desde el
+ * punto «Hoy» de esa ruta.
  *
  * El boton es un encabezado: lo abre y lo cierra con teclado como cualquier acordeon. Lo abierto lo
  * decide quien lo usa (solo uno a la vez, y se recuerda el ultimo).
@@ -58,7 +69,7 @@ export function AcordeonDeModulo({
 
           <span className="acordeon-modulo__texto">
             <span className="acordeon-modulo__titulo">{datos.titulo}</span>
-            <span className="acordeon-modulo__descripcion">{datos.descripcion}</span>
+            <span className="acordeon-modulo__descripcion">{lineaDeHoy(progreso.hoy)}</span>
             <span className="acordeon-modulo__pie">
               Día {plan.indiceDeHoy + 1} de {DIAS_DEL_PLAN} · {avance}%
             </span>
