@@ -86,7 +86,10 @@
     "eslint-plugin-jsx-a11y": {
       "eslint": "$eslint"
     },
-    "lodash-es": "^4.18.1"
+    "lodash-es": "^4.18.1",
+    "mermaid": {
+      "katex": "^0.18.2"
+    }
   },
   "lint-staged": {
     "*.{ts,tsx}": [

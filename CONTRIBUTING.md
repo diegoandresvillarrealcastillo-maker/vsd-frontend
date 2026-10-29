@@ -167,7 +167,15 @@ paquete que descarga el navegador. Ademas de Gitleaks hay tres controles:
   graves. Se fuerzan versiones corregidas de la misma linea (o, para el
   `nanoid` de `@excalidraw/mermaid-to-excalidraw`, de la 5). Dependabot no
   actualiza lo que esta en `overrides`: al subir Excalidraw hay que revisar si
-  siguen haciendo falta, y quitar las que ya no.
+  siguen haciendo falta, y quitar las que ya no. El de `mermaid` fuerza
+  `katex ^0.18.2` (aviso GHSA-238p-pmpm-9mq7); se quita cuando el `mermaid` de
+  Excalidraw ya pida esa linea (SCRUM-297).
+- **Avisos sin version corregida.** `npm audit` no los ve todos (el de
+  `picomatch` y los de `uri-js` estan sin revisar en GitHub) y SonarQube si. Los
+  que hoy no tienen arreglo (`deepmerge`, `picomatch`, `uri-js`) se llevan, con
+  su alcance y su riesgo, en `docs/avisos-de-dependencias.md`: ahi se actualiza
+  cada vez que cambian. Un aviso solo se da por resuelto cuando un nuevo analisis
+  de SonarQube ya no lo muestra.
 - **Solo produccion.** `npm audit --omit=dev`. Va aparte de `ci.yml` para que un
   aviso publicado hoy no ponga en rojo un Pull Request que no toca las
   dependencias: corre en los que si las tocan, al entrar a una rama de
