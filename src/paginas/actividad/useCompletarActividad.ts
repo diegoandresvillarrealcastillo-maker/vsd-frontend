@@ -192,8 +192,8 @@ export function mostrarLoQuePaso(
  * Si se generara al pulsar el boton, cada reintento seria una operacion nueva y
  * un intento se registraria tres veces.
  *
- * Se renueva solo cuando la persona empieza otra vez de cero: dos intentos distintos
- * nunca se mezclan.
+ * Cada pantalla de actividad trae el suyo (`Actividad` se monta de nuevo con cada `id`): dos
+ * actividades, o dos veces la misma, nunca se mezclan.
  *
  * ## La sesion del dia (SCRUM-208, ADR 0030)
  *
@@ -204,7 +204,7 @@ export function mostrarLoQuePaso(
  *
  * La lectura nunca rompe la pantalla: si falla o no hay sesion, la actividad carga igual, sin ella.
  * La sesion queda fija para ese intento, y el resultado lleva su `idSesion`, tambien el que se hace
- * sin conexion y queda en la cola. Al hacerla otra vez se vuelve a leer.
+ * sin conexion y queda en la cola. Cada vez que se abre la actividad se vuelve a leer.
  */
 export function useCompletarActividad(id: string | undefined): {
   readonly estado: EstadoDeLaActividad;
@@ -212,7 +212,6 @@ export function useCompletarActividad(id: string | undefined): {
   readonly sesion: SesionDeLaActividad | undefined;
   readonly completar: (produjo: LoQueProduceLaActividad) => void;
   readonly reintentar: () => void;
-  readonly empezarDeNuevo: () => void;
 } {
   // El estado inicial se deriva aqui y no dentro del efecto. Sin `id` no hay
   // nada que cargar, y decirlo en el primer render evita pintar "cargando" un
@@ -222,13 +221,13 @@ export function useCompletarActividad(id: string | undefined): {
   );
   const [sesion, setSesion] = useState<SesionDeLaActividad | undefined>(undefined);
   const [intento, setIntento] = useState(0);
-  const [operacion, setOperacion] = useState(() => globalThis.crypto.randomUUID());
+  const [operacion] = useState(() => globalThis.crypto.randomUUID());
 
   // Lo ultimo que produjo la mecanica, para poder reintentar el guardado sin
   // pedirle a la persona que lo repita.
   const [ultimo, setUltimo] = useState<LoQueProduceLaActividad | null>(null);
 
-  /** Cancela los seguimientos de lo guardado cuando la pantalla se cierra o se empieza de nuevo. */
+  /** Cancela los seguimientos de lo guardado cuando la pantalla se cierra. */
   const seguimientos = useRef<AbortController>(new AbortController());
 
   useEffect(() => {
@@ -370,17 +369,5 @@ export function useCompletarActividad(id: string | undefined): {
     setIntento((anterior) => anterior + 1);
   }, [estado, ultimo, operacion, guardar]);
 
-  const empezarDeNuevo = useCallback(() => {
-    // Otro intento de verdad, asi que otra operacion. Sin esto, el servidor
-    // devolveria el resultado anterior y pareceria que no se guardo nada. Lo que se
-    // estaba esperando del intento anterior ya no le toca a esta pantalla.
-    seguimientos.current.abort();
-    seguimientos.current = new AbortController();
-    setOperacion(globalThis.crypto.randomUUID());
-    setUltimo(null);
-    setEstado({ fase: 'cargando' });
-    setIntento((anterior) => anterior + 1);
-  }, []);
-
-  return { estado, sesion, completar, reintentar, empezarDeNuevo };
+  return { estado, sesion, completar, reintentar };
 }

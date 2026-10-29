@@ -24,12 +24,14 @@ const {
   hayConexionConLaApi,
   consultarLaCuentaPropia,
   consultarLaRacha,
+  leerElPanelConCopia,
 } = vi.hoisted(() => ({
   buscarActividad: vi.fn(),
   registrarResultado: vi.fn(),
   hayConexionConLaApi: vi.fn(),
   consultarLaCuentaPropia: vi.fn(),
   consultarLaRacha: vi.fn(),
+  leerElPanelConCopia: vi.fn(),
 }));
 
 vi.mock('../../sincronizacion/catalogoLocal.ts', () => ({
@@ -42,6 +44,12 @@ vi.mock('../../infraestructura/api/racha.ts', () => ({ consultarLaRacha }));
 vi.mock('../../infraestructura/api/cuenta.ts', async (importarOriginal) => ({
   ...(await importarOriginal<typeof import('../../infraestructura/api/cuenta.ts')>()),
   consultarLaCuentaPropia,
+}));
+// Al terminar, «Siguiente actividad» lee el panel (SCRUM-295), que tambien pide la cuenta. Aqui se
+// cuenta lo de la mascota: esa lectura es un doble que no llega a la cuenta.
+vi.mock('../../sincronizacion/panelLocal.ts', async (importarOriginal) => ({
+  ...(await importarOriginal<typeof import('../../sincronizacion/panelLocal.ts')>()),
+  leerElPanelConCopia,
 }));
 
 /** «Como dormiste anoche»: se puede terminar con lo que trae por defecto. */
@@ -102,6 +110,7 @@ const carasDeLaMascota = (): (string | null)[] =>
   );
 
 beforeEach(async () => {
+  leerElPanelConCopia.mockRejectedValue(new Error('sin panel'));
   olvidarLaRacha();
   consultarLaRacha.mockResolvedValue(rachaDePrueba());
   hayConexionConLaApi.mockResolvedValue(true);

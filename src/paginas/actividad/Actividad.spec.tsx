@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TEXTO_DEL_AVISO_ORIENTATIVO } from '../../componentes/AvisoOrientativo.tsx';
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
 import { cuantosH1, fallosDeAccesibilidad } from '../../pruebas/axe.ts';
+import type { ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { rutaDeActividad, RUTAS } from '../../rutas/rutas.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { fijarLaZonaDeLaCuenta } from '../../tiempo/zonaHoraria.ts';
@@ -23,14 +24,19 @@ import { abrirUnAlmacenDePrueba, cerrarElAlmacenDePrueba } from '../../pruebas/a
  * lo que puede fallar de verdad —cargar, completar, enviar, reintentar— en vez
  * de comprobar que un doble devuelve lo que se le dijo.
  */
-const { buscarActividad, registrarResultado, hayConexionConLaApi, consultarLaRacha } = vi.hoisted(
-  () => ({
-    buscarActividad: vi.fn(),
-    registrarResultado: vi.fn(),
-    hayConexionConLaApi: vi.fn(),
-    consultarLaRacha: vi.fn(),
-  }),
-);
+const {
+  buscarActividad,
+  registrarResultado,
+  hayConexionConLaApi,
+  consultarLaRacha,
+  leerElPanelConCopia,
+} = vi.hoisted(() => ({
+  buscarActividad: vi.fn(),
+  registrarResultado: vi.fn(),
+  hayConexionConLaApi: vi.fn(),
+  consultarLaRacha: vi.fn(),
+  leerElPanelConCopia: vi.fn(),
+}));
 
 // El catalogo sale de la copia local cuando no hay conexion (SCRUM-138); aqui es un doble.
 vi.mock('../../sincronizacion/catalogoLocal.ts', () => ({
@@ -42,6 +48,12 @@ vi.mock('../../infraestructura/api/conexion.ts', () => ({ hayConexionConLaApi })
 vi.mock('../../infraestructura/api/resultados.ts', () => ({ registrarResultado }));
 // La racha (SCRUM-243) se pide al empezar y al terminar; aqui solo importa lo que se hace con ella.
 vi.mock('../../infraestructura/api/racha.ts', () => ({ consultarLaRacha }));
+// «Siguiente actividad» (SCRUM-295) sale del progreso del panel: solo esa lectura es un doble, y lo
+// demas de este archivo (la sesion guardada, la cola) sigue siendo de verdad.
+vi.mock('../../sincronizacion/panelLocal.ts', async () => ({
+  ...(await vi.importActual<Record<string, unknown>>('../../sincronizacion/panelLocal.ts')),
+  leerElPanelConCopia,
+}));
 
 /** "Como dormiste anoche": una bitacora que si puntua. */
 const SUENO = '0acd0000-0000-4000-8000-000000000004';
@@ -94,6 +106,34 @@ function pintar(id: string, cuenta?: string) {
   );
 }
 
+const OTRA_DE_BIENESTAR = '0acd0000-0000-4000-8000-000000000005';
+const DE_COGNICION = '0acd0000-0000-4000-8000-000000000006';
+
+function delModulo(
+  modulo: ProgresoDelModulo['modulo'],
+  hoy: readonly { id: string; hecha: boolean }[],
+): ProgresoDelModulo {
+  return {
+    modulo,
+    sesiones: 3,
+    etapa: { numero: 1, esTemporada: false, sesionesHechas: 3, sesionesDeLaEtapa: 5 },
+    hoy: hoy.map((una) => ({
+      id: una.id,
+      nombre: `Actividad ${una.id.slice(-1)}`,
+      hecha: una.hecha,
+    })),
+  };
+}
+
+/** Lo que el panel dice que toca hoy, para decidir cual es la siguiente al terminar. */
+function elPanelDice(progreso: readonly ProgresoDelModulo[]) {
+  leerElPanelConCopia.mockResolvedValue({
+    valor: { cuenta: {}, progreso },
+    deLaCopia: false,
+    guardadoEn: null,
+  });
+}
+
 /** Completa el formulario de sueño tal como lo haria una persona. */
 async function terminarLaActividad() {
   await userEvent.click(await screen.findByRole('button', { name: 'Terminar' }));
@@ -112,6 +152,8 @@ beforeEach(() => {
 });
 
 beforeEach(async () => {
+  // Sin definir lo contrario, no hay panel que leer y al terminar solo se ofrece volver.
+  leerElPanelConCopia.mockRejectedValue(new Error('sin panel'));
   olvidarLaRacha();
   consultarLaRacha.mockResolvedValue(rachaDePrueba());
   hayConexionConLaApi.mockResolvedValue(true);
@@ -404,11 +446,18 @@ describe('Actividad, sin conexion (SCRUM-138)', () => {
     expect(await laCola()).toHaveLength(1);
   });
 
-  it('dos intentos distintos no se mezclan: cada uno es su operacion', async () => {
+  it('dos actividades seguidas no se mezclan: cada una es su operacion', async () => {
+    elPanelDice([
+      delModulo('bienestar', [
+        { id: SUENO, hecha: false },
+        { id: OTRA_DE_BIENESTAR, hecha: false },
+      ]),
+    ]);
     pintar(SUENO);
     await terminarLaActividad();
     await screen.findByText(/Guardado en este equipo/);
-    await userEvent.click(screen.getByRole('button', { name: 'Hacerla otra vez' }));
+    // La ruta es la misma y solo cambia el id: la pantalla tiene que ser una nueva, con su operacion.
+    await userEvent.click(await screen.findByRole('link', { name: /Siguiente actividad/ }));
     await terminarLaActividad();
     await screen.findByText(/Guardado en este equipo/);
 
@@ -458,21 +507,6 @@ describe('Actividad, sin conexion (SCRUM-138)', () => {
     unmount();
 
     await expect(volverLaConexion()).resolves.toBeUndefined();
-  });
-
-  it('hacerla otra vez deja de esperar el envio anterior: sale igual, pero ya no le toca a esta pantalla', async () => {
-    pintar(SUENO);
-    await terminarLaActividad();
-    await screen.findByText(/Guardado en este equipo/);
-    await userEvent.click(screen.getByRole('button', { name: 'Hacerla otra vez' }));
-    await screen.findByRole('button', { name: 'Terminar' });
-
-    await volverLaConexion();
-
-    // El intento anterior salio, pero la pantalla esta en el nuevo.
-    expect(registrarResultado).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('button', { name: 'Terminar' })).toBeInTheDocument();
-    expect(screen.queryByText('Vas bien. Sigue así.')).toBeNull();
   });
 });
 
@@ -588,12 +622,18 @@ describe('Actividad, cuando algo falla', () => {
     );
   });
 
-  it('hacerla otra vez usa una operacion NUEVA', async () => {
+  it('pasar a la siguiente actividad usa una operacion NUEVA', async () => {
+    elPanelDice([
+      delModulo('bienestar', [
+        { id: SUENO, hecha: false },
+        { id: OTRA_DE_BIENESTAR, hecha: false },
+      ]),
+    ]);
     pintar(SUENO);
     await terminarLaActividad();
 
     await screen.findByRole('heading', { name: 'Listo' });
-    await userEvent.click(screen.getByRole('button', { name: 'Hacerla otra vez' }));
+    await userEvent.click(await screen.findByRole('link', { name: /Siguiente actividad/ }));
     await terminarLaActividad();
 
     await waitFor(() => expect(registrarResultado).toHaveBeenCalledTimes(2));
@@ -956,5 +996,103 @@ describe('Actividad: el logro al terminar (SCRUM-170)', () => {
     expect(screen.getByText('Gracias por tomarte este momento.')).toBeInTheDocument();
     expect(screen.queryByText('¡Lo hiciste!')).not.toBeInTheDocument();
     expect(container.querySelector('.confeti')).toBeNull();
+  });
+});
+
+describe('Actividad, al terminar: siguiente actividad (SCRUM-295)', () => {
+  async function terminarYEsperar() {
+    await terminarLaActividad();
+    await screen.findByRole('heading', { name: 'Listo' });
+  }
+
+  it('ofrece la siguiente del mismo modulo y volver al panel, sin repetir la actividad', async () => {
+    elPanelDice([
+      delModulo('bienestar', [
+        { id: SUENO, hecha: false },
+        { id: OTRA_DE_BIENESTAR, hecha: false },
+      ]),
+      delModulo('cognicion', [{ id: DE_COGNICION, hecha: false }]),
+    ]);
+    pintar(SUENO);
+    await terminarYEsperar();
+
+    const siguiente = await screen.findByRole('link', { name: /Siguiente actividad/ });
+
+    expect(siguiente).toHaveAttribute('href', rutaDeActividad(OTRA_DE_BIENESTAR));
+    // Es del mismo modulo: no hay nada que avisar debajo.
+    expect(siguiente).toHaveTextContent(/^Siguiente actividad$/);
+    // Uno en la barra de arriba y otro al final, que es el que ya no es el principal.
+    expect(screen.getAllByRole('link', { name: 'Volver al panel' })).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: 'Hacerla otra vez' })).not.toBeInTheDocument();
+  });
+
+  it('si la siguiente es de otro modulo, el boton dice cual', async () => {
+    elPanelDice([
+      delModulo('bienestar', [{ id: SUENO, hecha: false }]),
+      delModulo('cognicion', [{ id: DE_COGNICION, hecha: false }]),
+    ]);
+    pintar(SUENO);
+    await terminarYEsperar();
+
+    const siguiente = await screen.findByRole('link', { name: /Siguiente actividad/ });
+
+    expect(siguiente).toHaveAttribute('href', rutaDeActividad(DE_COGNICION));
+    expect(siguiente).toHaveTextContent('Cognición');
+  });
+
+  it('sin nada pendiente queda un solo boton: volver al panel', async () => {
+    elPanelDice([
+      delModulo('bienestar', [
+        { id: SUENO, hecha: false },
+        { id: OTRA_DE_BIENESTAR, hecha: true },
+      ]),
+    ]);
+    pintar(SUENO);
+    await terminarYEsperar();
+
+    await waitFor(() => expect(leerElPanelConCopia).toHaveBeenCalled());
+
+    expect(screen.queryByRole('link', { name: /Siguiente actividad/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Volver al panel' })).toHaveLength(2);
+  });
+
+  it('si no se puede leer el panel, no inventa una siguiente: solo volver', async () => {
+    pintar(SUENO);
+    await terminarYEsperar();
+
+    await waitFor(() => expect(leerElPanelConCopia).toHaveBeenCalled());
+
+    expect(screen.queryByRole('link', { name: /Siguiente actividad/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Volver al panel' })).toHaveLength(2);
+  });
+
+  it('sin conexion, con el resultado guardado, tambien ofrece la siguiente', async () => {
+    registrarResultado.mockRejectedValue(new TypeError('Failed to fetch'));
+    elPanelDice([
+      delModulo('bienestar', [
+        { id: SUENO, hecha: false },
+        { id: OTRA_DE_BIENESTAR, hecha: false },
+      ]),
+    ]);
+    pintar(SUENO);
+    await terminarLaActividad();
+    await screen.findByText(/Guardado en este equipo/);
+
+    expect(await screen.findByRole('link', { name: /Siguiente actividad/ })).toHaveAttribute(
+      'href',
+      rutaDeActividad(OTRA_DE_BIENESTAR),
+    );
+  });
+
+  it('el resultado con el boton nuevo no tiene fallos de accesibilidad', async () => {
+    elPanelDice([
+      delModulo('bienestar', [{ id: SUENO, hecha: false }]),
+      delModulo('cognicion', [{ id: DE_COGNICION, hecha: false }]),
+    ]);
+    pintar(SUENO);
+    await terminarYEsperar();
+    await screen.findByRole('link', { name: /Siguiente actividad/ });
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
   });
 });
