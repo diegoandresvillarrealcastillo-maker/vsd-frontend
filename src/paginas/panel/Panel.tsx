@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -10,6 +11,7 @@ import { tutorialVisto } from '../../tutorial/memoriaDelTutorial.ts';
 import { TutorialDeFungito } from '../../tutorial/TutorialDeFungito.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
 import '../../estilos/aplicacion.css';
+import '../../estilos/panelVivo.css';
 import type { Cuenta, Modulo } from '../../infraestructura/api/cuenta.ts';
 import type { ActividadDeHoy, ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { MascotaFlotante } from '../../mascota/MascotaFlotante.tsx';
@@ -30,6 +32,7 @@ import { recordarLaRutaAbierta, rutaAbierta } from './ruta/memoriaDeLaRuta.ts';
 import { RutaDelDia } from './ruta/RutaDelDia.tsx';
 import { useAvanceCelebrable } from './ruta/useAvanceCelebrable.ts';
 import { useDatosDelPanel } from './useDatosDelPanel.ts';
+import { useEntradaDelPanel } from './useEntradaDelPanel.ts';
 
 /**
  * El dashboard, con el diseño de Figma Make "Aplicación de salud integral"
@@ -157,6 +160,11 @@ function Dashboard({
   // Si el tutorial ya se vio, la oferta de avisos no tiene nada que esperar.
   const [tutorialTerminado, setTutorialTerminado] = useState(() => tutorialVisto(cuenta.id));
 
+  // Las secciones entran escalonadas (SCRUM-310), salvo que el tutorial este por abrirse: mide el panel
+  // al montar y la entrada lo desplazaria. Se decide al llegar y no cambia cuando el tutorial se cierra.
+  const [conEntrada] = useState(tutorialTerminado);
+  const entrada = useEntradaDelPanel(conEntrada);
+
   // El modulo cuya ruta de 365 dias esta desplegada en «Tu ruta de hoy» (SCRUM-293): uno solo a la
   // vez, y se recuerda el ultimo en este equipo. Sin nada guardado, todos cerrados.
   const [desplegado, setDesplegado] = useState<Modulo | null>(() => rutaAbierta(cuenta.id));
@@ -193,7 +201,7 @@ function Dashboard({
       <TutorialDeFungito cuenta={cuenta.id} alCerrar={() => setTutorialTerminado(true)} />
       {tutorialTerminado && <PermisoDeAvisos key={cuenta.id} cuenta={cuenta.id} />}
 
-      <section id="inicio" className="app__portada" aria-labelledby="saludo">
+      <motion.section id="inicio" className="app__portada" aria-labelledby="saludo" {...entrada(0)}>
         <div>
           <p className="app__fecha">{hoyEnCastellano()}</p>
           <h1 id="saludo" className="app__saludo">
@@ -207,9 +215,13 @@ function Dashboard({
           <AvanceDeHoy hechas={ruta.hechas} total={ruta.total} recienHechas={nuevas.size} />
           <DatoCuriosoDelDia />
         </div>
-      </section>
+      </motion.section>
 
-      <section id="progreso" className="app__seccion app__ruta-y-recomendado">
+      <motion.section
+        id="progreso"
+        className="app__seccion app__ruta-y-recomendado"
+        {...entrada(1)}
+      >
         <RutaDelDia
           ruta={ruta}
           nuevas={nuevas}
@@ -217,9 +229,14 @@ function Dashboard({
           alAlternar={alternarLaRuta}
         />
         <Recomendado siguiente={ruta.siguiente} hayPlan={ruta.total > 0} />
-      </section>
+      </motion.section>
 
-      <section id="programas" className="app__seccion" aria-labelledby="titulo-modulos">
+      <motion.section
+        id="programas"
+        className="app__seccion"
+        aria-labelledby="titulo-modulos"
+        {...entrada(2)}
+      >
         <div className="app__seccion-cabecera">
           <div>
             <p className="app__antetitulo">Tu espacio de salud</p>
@@ -240,7 +257,7 @@ function Dashboard({
             );
           })}
         </div>
-      </section>
+      </motion.section>
 
       {celebracion !== null && (
         <Celebracion
