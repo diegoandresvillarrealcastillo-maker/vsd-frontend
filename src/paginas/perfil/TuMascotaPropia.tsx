@@ -6,6 +6,7 @@ import {
   subirLaMascotaPropia,
   useMascotaPropia,
 } from '../../foto/mascotaPropia.ts';
+import type { ContextoDePeticion } from '../../infraestructura/api/clienteHttp.ts';
 import type { CambiosDePreferencias, Cuenta } from '../../infraestructura/api/cuenta.ts';
 import {
   FORMA_DE_LA_MASCOTA_PROPIA,
@@ -40,12 +41,13 @@ export function TuMascotaPropia({
   actualizarCuenta,
 }: {
   cuenta: Cuenta;
-  guardar: (cambios: CambiosDePreferencias) => Promise<void>;
+  guardar: (cambios: CambiosDePreferencias, contexto?: ContextoDePeticion) => Promise<void>;
   actualizarCuenta: (cuenta: Cuenta) => void;
 }) {
   const dibujo = useMascotaPropia();
   const tiene = cuenta.mascotaPropia != null;
   const {
+    iniciarLaOperacion,
     ocupado,
     setOcupado,
     aviso,
@@ -63,10 +65,15 @@ export function TuMascotaPropia({
       return;
     }
 
+    // Las dos peticiones (subir el dibujo y dejarlo como acompanante) son de quien lo eligio: si la
+    // sesion cambia entre una y otra, la segunda no sale con la sesion de otra persona (SCRUM-317).
+    const { senal, operacion } = iniciarLaOperacion();
+    const siguenSiendoDeEstaSesion = () => operacion === null || operacion.vigente();
+
     try {
       comprobarElSvg(elegido);
 
-      const conLaMascota = await subirLaMascotaPropia(elegido);
+      const conLaMascota = await subirLaMascotaPropia(elegido, senal, operacion?.peticion);
 
       if (tiene) {
         actualizarCuenta(conLaMascota);
@@ -79,35 +86,44 @@ export function TuMascotaPropia({
       const { personaje, nombre } = mascotaParaMostrar(conLaMascota.mascota);
 
       try {
-        await guardar({
-          mascota: {
-            forma: FORMA_DE_LA_MASCOTA_PROPIA,
-            nombre: nombreAlElegir(nombre, personaje, FORMA_DE_LA_MASCOTA_PROPIA),
+        await guardar(
+          {
+            mascota: {
+              forma: FORMA_DE_LA_MASCOTA_PROPIA,
+              nombre: nombreAlElegir(nombre, personaje, FORMA_DE_LA_MASCOTA_PROPIA),
+            },
           },
-        });
+          operacion?.peticion,
+        );
         setAviso({ tipo: 'bien', texto: 'Listo, tu mascota ya te acompaña.' });
       } catch {
-        actualizarCuenta(conLaMascota);
-        setAviso({
-          tipo: 'fallo',
-          texto:
-            'Tu dibujo se guardó, pero no pudimos dejarlo como tu acompañante. Elígelo en «Tu mascota».',
-        });
+        if (siguenSiendoDeEstaSesion()) {
+          actualizarCuenta(conLaMascota);
+          setAviso({
+            tipo: 'fallo',
+            texto:
+              'Tu dibujo se guardó, pero no pudimos dejarlo como tu acompañante. Elígelo en «Tu mascota».',
+          });
+        }
       }
     } catch (error) {
-      setAviso({ tipo: 'fallo', texto: explicarLaMascotaPropia(error, 'guardar') });
+      if (siguenSiendoDeEstaSesion()) {
+        setAviso({ tipo: 'fallo', texto: explicarLaMascotaPropia(error, 'guardar') });
+      }
     } finally {
       setOcupado(null);
     }
   }
 
   async function alQuitar() {
+    const { senal, operacion } = iniciarLaOperacion();
+
     setOcupado('quitando');
     setAviso(null);
 
     try {
       const eraLaElegida = mascotaParaMostrar(cuenta.mascota).propia;
-      const quedo = await retirarLaMascotaPropia();
+      const quedo = await retirarLaMascotaPropia(senal, operacion?.peticion);
 
       actualizarCuenta(quedo);
       setAviso({
@@ -118,7 +134,9 @@ export function TuMascotaPropia({
       });
       enfocarLaEntradaAlTerminar();
     } catch (error) {
-      setAviso({ tipo: 'fallo', texto: explicarLaMascotaPropia(error, 'quitar') });
+      if (operacion === null || operacion.vigente()) {
+        setAviso({ tipo: 'fallo', texto: explicarLaMascotaPropia(error, 'quitar') });
+      }
     } finally {
       setOcupado(null);
     }
