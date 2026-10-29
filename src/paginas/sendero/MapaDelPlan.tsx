@@ -7,9 +7,14 @@ import { useDialogo } from '../../componentes/useDialogo.ts';
 import type { ActividadDeHoy, ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { rutaDeActividad } from '../../rutas/rutas.ts';
 import { Icono } from '../panel/Icono.tsx';
+import { MODULOS } from '../panel/modulos.ts';
 import { Anillo } from './Anillo.tsx';
+import { FondoDelMapa } from './FondoDelMapa.tsx';
 import { HojaDeHoy } from './HojaDeHoy.tsx';
 import { DIAS_DEL_PLAN, filasDelMapa, planDelAnio } from './planDelAnio.ts';
+
+/** Cada cuantos dias hay un hito: ese dia hecho lleva el icono del modulo y no el check. */
+const DIAS_POR_HITO = 7;
 
 /**
  * El mapa de los 365 dias de un modulo (SCRUM-293).
@@ -23,9 +28,17 @@ import { DIAS_DEL_PLAN, filasDelMapa, planDelAnio } from './planDelAnio.ts';
  * suma dias, porque un dia cuenta una sola vez; lo unico que mueve el plan es hacer algo en un dia
  * nuevo.
  *
+ * Cada 7.º dia hecho es un hito (SCRUM-310): lleva el icono del modulo y un brillo suave. Lo demas
+ * queda quieto: se mueven solo hoy, la meta y los hitos, porque son 365 puntos y animarlos todos
+ * pesaria. Detras va un fondo animado del modulo (`FondoDelMapa`), fuera de la ventana que se
+ * desplaza.
+ *
  * Los colores del modulo los hereda de quien lo pinta (`--modulo-fondo` y `--modulo-acento`).
  */
 type Dialogo = { readonly tipo: 'hoy' } | { readonly tipo: 'dia'; readonly dia: number };
+
+/** La meta ya tiene su propio icono: un hito es un dia hecho cualquiera, cada `DIAS_POR_HITO`. */
+const esHito = (numero: number, meta: boolean): boolean => !meta && numero % DIAS_POR_HITO === 0;
 
 export function MapaDelPlan({ progreso, titulo }: { progreso: ProgresoDelModulo; titulo: string }) {
   const { hoy, sugeridas = [] } = progreso;
@@ -79,78 +92,88 @@ export function MapaDelPlan({ progreso, titulo }: { progreso: ProgresoDelModulo;
         {hoy.length > 0 && ` · ${hechasHoy} de ${hoy.length}`}
       </button>
 
-      <div
-        ref={ventana}
-        className="mapa__ventana"
-        role="region"
-        aria-label={`Ruta de ${DIAS_DEL_PLAN} días de ${titulo}`}
-        // Una region con barra de desplazamiento debe poder recibir el foco para recorrerla con las flechas (WCAG 2.1.1; axe: scrollable-region-focusable).
-        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
-        tabIndex={0}
-      >
-        <div className="sendero__tramo">
-          <svg
-            className="sendero__traza"
-            width="1"
-            height={mapa.alto}
-            viewBox={`0 0 1 ${mapa.alto}`}
-            aria-hidden="true"
-            focusable="false"
-          >
-            <path className="sendero__tramo--pendiente" d={mapa.trazoPendiente} />
-            <path className="sendero__tramo--hecho" d={mapa.trazoHecho} />
-          </svg>
+      <div className="mapa__escena">
+        <FondoDelMapa modulo={progreso.modulo} />
 
-          <ol className="sendero__puntos" aria-label={`Días de la ruta de ${titulo}`}>
-            {mapa.filas.map(({ indice, x, hecha, meta }) => {
-              const esHoy = indice === plan.indiceDeHoy;
-              const numero = indice + 1;
+        <div
+          ref={ventana}
+          className="mapa__ventana"
+          role="region"
+          aria-label={`Ruta de ${DIAS_DEL_PLAN} días de ${titulo}`}
+          // Una region con barra de desplazamiento debe poder recibir el foco para recorrerla con las flechas (WCAG 2.1.1; axe: scrollable-region-focusable).
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+          tabIndex={0}
+        >
+          <div className="sendero__tramo">
+            <svg
+              className="sendero__traza"
+              width="1"
+              height={mapa.alto}
+              viewBox={`0 0 1 ${mapa.alto}`}
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path className="sendero__tramo--pendiente" d={mapa.trazoPendiente} />
+              <path className="sendero__tramo--hecho" d={mapa.trazoHecho} />
+            </svg>
 
-              return (
-                <li
-                  key={indice}
-                  className={`sendero__fila${esHoy ? ' sendero__fila--hoy' : ''}`}
-                  style={{ '--x': `${x}px` } as CSSProperties}
-                >
-                  {esHoy ? (
-                    <span className="sendero__envoltura">
-                      <Anillo avance={hoy.length === 0 ? 0 : hechasHoy / hoy.length} />
+            <ol className="sendero__puntos" aria-label={`Días de la ruta de ${titulo}`}>
+              {mapa.filas.map(({ indice, x, hecha, meta }) => {
+                const esHoy = indice === plan.indiceDeHoy;
+                const numero = indice + 1;
+
+                return (
+                  <li
+                    key={indice}
+                    className={`sendero__fila${esHoy ? ' sendero__fila--hoy' : ''}`}
+                    style={{ '--x': `${x}px` } as CSSProperties}
+                  >
+                    {esHoy ? (
+                      <span className="sendero__envoltura">
+                        <Anillo avance={hoy.length === 0 ? 0 : hechasHoy / hoy.length} />
+                        <button
+                          type="button"
+                          className={`sendero__punto sendero__punto--hoy${completoHoy ? ' sendero__punto--completo' : ''}${!plan.hoyCuenta && !sinMovimiento ? ' sendero__punto--respira' : ''}`}
+                          aria-haspopup="dialog"
+                          aria-label={`Hoy, día ${numero}: ${hechasHoy} de ${hoy.length} actividades hechas. Ver lo que te toca`}
+                          onClick={() => setDialogo({ tipo: 'hoy' })}
+                        >
+                          <Icono nombre={completoHoy ? 'check' : 'play'} tamano={34} />
+                        </button>
+                        <span className="sendero__etiqueta" aria-hidden="true">
+                          Hoy
+                        </span>
+                      </span>
+                    ) : hecha ? (
                       <button
                         type="button"
-                        className={`sendero__punto sendero__punto--hoy${completoHoy ? ' sendero__punto--completo' : ''}${!plan.hoyCuenta && !sinMovimiento ? ' sendero__punto--respira' : ''}`}
+                        className={`sendero__punto sendero__punto--hecho mapa__punto-hecho${meta ? ' sendero__punto--meta' : ''}${esHito(numero, meta) ? ' sendero__punto--hito' : ''}`}
                         aria-haspopup="dialog"
-                        aria-label={`Hoy, día ${numero}: ${hechasHoy} de ${hoy.length} actividades hechas. Ver lo que te toca`}
-                        onClick={() => setDialogo({ tipo: 'hoy' })}
+                        aria-label={`Día ${numero}${meta ? ', la meta del plan' : ''}, hecho. Ver y repetir`}
+                        onClick={() => setDialogo({ tipo: 'dia', dia: numero })}
                       >
-                        <Icono nombre={completoHoy ? 'check' : 'play'} tamano={28} />
+                        {meta ? (
+                          <Icono nombre="sparkles" tamano={30} />
+                        ) : esHito(numero, meta) ? (
+                          <Icono nombre={MODULOS[progreso.modulo].icono} tamano={30} />
+                        ) : (
+                          <Icono nombre="check" tamano={26} />
+                        )}
                       </button>
-                      <span className="sendero__etiqueta" aria-hidden="true">
-                        Hoy
+                    ) : (
+                      <span
+                        role="img"
+                        className={`sendero__punto sendero__punto--futuro${meta ? ' sendero__punto--meta' : ''}`}
+                        aria-label={`Día ${numero}${meta ? ', la meta del plan' : ''}, por hacer`}
+                      >
+                        {meta ? <Icono nombre="sparkles" tamano={30} /> : numero}
                       </span>
-                    </span>
-                  ) : hecha ? (
-                    <button
-                      type="button"
-                      className={`sendero__punto sendero__punto--hecho mapa__punto-hecho${meta ? ' sendero__punto--meta' : ''}`}
-                      aria-haspopup="dialog"
-                      aria-label={`Día ${numero}${meta ? ', la meta del plan' : ''}, hecho. Ver y repetir`}
-                      onClick={() => setDialogo({ tipo: 'dia', dia: numero })}
-                    >
-                      <Icono nombre={meta ? 'sparkles' : 'check'} tamano={meta ? 24 : 22} />
-                    </button>
-                  ) : (
-                    <span
-                      role="img"
-                      className={`sendero__punto sendero__punto--futuro${meta ? ' sendero__punto--meta' : ''}`}
-                      aria-label={`Día ${numero}${meta ? ', la meta del plan' : ''}, por hacer`}
-                    >
-                      {meta ? <Icono nombre="sparkles" tamano={24} /> : numero}
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
         </div>
       </div>
 

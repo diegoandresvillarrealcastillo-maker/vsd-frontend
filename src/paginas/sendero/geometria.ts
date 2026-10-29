@@ -7,8 +7,8 @@
  */
 
 /** Alto de cada fila del camino. */
-export const ALTO_DE_FILA = 96;
-export const ALTO_DE_FILA_DE_HOY = 132;
+export const ALTO_DE_FILA = 112;
+export const ALTO_DE_FILA_DE_HOY = 156;
 
 /** Desplazamiento lateral de cada punto, para que el camino serpentee. */
 export function desplazamiento(indice: number): number {
