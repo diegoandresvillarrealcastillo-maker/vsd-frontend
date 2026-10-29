@@ -2,9 +2,10 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RUTAS } from '../src/rutas/rutas.ts';
+import { principal } from './generar-los-archivos-de-busqueda.mjs';
 
 /**
  * Los archivos para buscadores (SEO-02 de la auditoria 360), probados.
@@ -13,7 +14,9 @@ import { RUTAS } from '../src/rutas/rutas.ts';
  * llms.txt y la pagina 404 al final de cada compilacion. Lo que sale depende del
  * ambiente, y equivocarse en un sentido es grave: dejar PRE abierto a los
  * buscadores, o cerrar produccion. Se ejecuta de verdad, en una carpeta temporal,
- * con las variables que tendria cada ambiente.
+ * con las variables que tendria cada ambiente: llamando a `principal` en este mismo
+ * proceso (que es lo que deja a Vitest medir cuanto se ejercita) y, al final del
+ * archivo, lanzandolo como lo lanza `npm run build`.
  */
 const SCRIPT = resolve('scripts/generar-los-archivos-de-busqueda.mjs');
 const DOMINIO = 'https://vsdhealth.example';
@@ -28,20 +31,34 @@ afterEach(() => {
   rmSync(carpeta, { recursive: true, force: true });
 });
 
+/**
+ * Corre el generador en este proceso, con las variables que se le den y nada mas: ni
+ * VITE_APP_ENV ni VITE_URL_PUBLICA de quien corre la prueba.
+ */
 function correr(variables: Record<string, string>): { aprobo: boolean; salida: string } {
+  const dicho: string[] = [];
+  const codigo = principal(variables, join(carpeta, 'dist'), {
+    log: (texto) => dicho.push(texto),
+    error: (texto) => dicho.push(texto),
+  });
+
+  return { aprobo: codigo === 0, salida: dicho.join('\n') };
+}
+
+/** Lo mismo, lanzando `node scripts/generar-los-archivos-de-busqueda.mjs` como lo hace `npm run build`. */
+function correrDeVerdad(variables: Record<string, string>): { codigo: number; salida: string } {
   try {
     const salida = execFileSync(process.execPath, [SCRIPT], {
       cwd: carpeta,
       encoding: 'utf8',
-      // Un entorno limpio: ni VITE_APP_ENV ni VITE_URL_PUBLICA de quien corre la prueba.
       env: { PATH: process.env.PATH ?? '', ...variables },
     });
 
-    return { aprobo: true, salida };
+    return { codigo: 0, salida };
   } catch (error) {
-    const fallo = error as { stderr?: string; stdout?: string };
+    const fallo = error as { status?: number; stderr?: string; stdout?: string };
 
-    return { aprobo: false, salida: `${fallo.stderr ?? ''}${fallo.stdout ?? ''}` };
+    return { codigo: fallo.status ?? -1, salida: `${fallo.stderr ?? ''}${fallo.stdout ?? ''}` };
   }
 }
 
@@ -219,6 +236,12 @@ describe('en produccion', () => {
     expect(leer('sitemap.xml')).not.toContain('//privacidad');
   });
 
+  it('quita todas las barras del final, no solo una', () => {
+    correr({ ...produccion, VITE_URL_PUBLICA: `${DOMINIO}///` });
+
+    expect(leer('robots.txt')).toContain(`Sitemap: ${DOMINIO}/sitemap.xml`);
+  });
+
   it('falla, y lo dice, si falta el dominio', () => {
     const { aprobo, salida } = correr({ VITE_APP_ENV: 'production' });
 
@@ -284,5 +307,58 @@ describe('el ambiente', () => {
     expect(aprobo).toBe(false);
     expect(salida).toMatch(/no es ninguno de/);
     expect(hay('robots.txt')).toBe(false);
+  });
+
+  it('un valor en blanco se trata como desarrollo, igual que si faltara', () => {
+    const { aprobo, salida } = correr({ VITE_APP_ENV: '   ' });
+
+    expect(aprobo).toBe(true);
+    expect(salida).toContain('(development)');
+    expect(leer('robots.txt')).toBe('User-agent: *\nDisallow: /\n');
+  });
+
+  it('dice que ambiente uso y que archivos escribio', () => {
+    const { salida } = correr({ VITE_APP_ENV: 'production', VITE_URL_PUBLICA: DOMINIO });
+
+    expect(salida).toBe(
+      'Archivos para buscadores (production): robots.txt, sitemap.xml, llms.txt, 404.html.',
+    );
+  });
+});
+
+describe('lanzado como lo lanza `npm run build`', () => {
+  // Las unicas que arrancan el archivo de verdad: vigilan que el arranque protegido siga
+  // arrancando, que escriba en `dist/` de la carpeta de trabajo y que el codigo de salida
+  // llegue a quien lo lanza (sin eso, un generador que falla no pararia la compilacion).
+  it('escribe en dist/ y sale con 0', () => {
+    const { codigo, salida } = correrDeVerdad({
+      VITE_APP_ENV: 'production',
+      VITE_URL_PUBLICA: DOMINIO,
+    });
+
+    expect(codigo).toBe(0);
+    expect(salida).toContain('Archivos para buscadores (production)');
+    expect(hay('sitemap.xml')).toBe(true);
+  });
+
+  it('sale con 1 y lo dice si el ambiente no existe', () => {
+    const { codigo, salida } = correrDeVerdad({ VITE_APP_ENV: 'produccion' });
+
+    expect(codigo).toBe(1);
+    expect(salida).toMatch(/no es ninguno de/);
+    expect(hay('robots.txt')).toBe(false);
+  });
+});
+
+describe('importarlo no ejecuta nada', () => {
+  it('traer el archivo no cambia el codigo de salida del proceso', async () => {
+    // Sin el arranque protegido, importar el generador escribiria en `dist/` de la carpeta
+    // de trabajo (la del repositorio) al cargar la prueba.
+    const antes = process.exitCode;
+
+    vi.resetModules();
+    await import('./generar-los-archivos-de-busqueda.mjs');
+
+    expect(process.exitCode).toBe(antes);
   });
 });

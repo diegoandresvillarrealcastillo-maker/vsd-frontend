@@ -3,7 +3,9 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { principal } from './comprobar-las-cabeceras.mjs';
 
 /**
  * El guardia de las cabeceras de seguridad (S-05 de la auditoria 360), probado.
@@ -15,7 +17,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
  * cada uno de esos casos.
  *
  * Se ejecuta sobre una copia en una carpeta temporal: nunca toca `dist/` ni los
- * archivos de verdad.
+ * archivos de verdad. Casi todo se prueba llamando a `principal` en este mismo
+ * proceso, que es lo que deja a Vitest medir cuanto del guardia se ejercita; el
+ * final del archivo lo lanza de verdad, para vigilar el arranque y el codigo de
+ * salida.
  */
 const SCRIPT = resolve('scripts/comprobar-las-cabeceras.mjs');
 const VERCEL = readFileSync(resolve('vercel.json'), 'utf8');
@@ -51,16 +56,27 @@ function escribir(archivos: Archivos): void {
   writeFileSync(join(carpeta, 'dist', 'index.html'), archivos.html);
 }
 
-/** Corre el guardia y devuelve si aprobo y lo que dijo. */
+/** Corre el guardia en este proceso y devuelve si aprobo y todo lo que dijo. */
 function correr(): { aprobo: boolean; salida: string } {
+  const dicho: string[] = [];
+  const codigo = principal(carpeta, {
+    log: (texto) => dicho.push(texto),
+    error: (texto) => dicho.push(texto),
+  });
+
+  return { aprobo: codigo === 0, salida: dicho.join('\n') };
+}
+
+/** Lo mismo, pero lanzando `node scripts/comprobar-las-cabeceras.mjs` como lo hace `npm run build`. */
+function correrDeVerdad(): { codigo: number; salida: string } {
   try {
     const salida = execFileSync(process.execPath, [SCRIPT], { cwd: carpeta, encoding: 'utf8' });
 
-    return { aprobo: true, salida };
+    return { codigo: 0, salida };
   } catch (error) {
     const fallo = error as { status?: number; stderr?: string; stdout?: string };
 
-    return { aprobo: false, salida: `${fallo.stderr ?? ''}${fallo.stdout ?? ''}` };
+    return { codigo: fallo.status ?? -1, salida: `${fallo.stderr ?? ''}${fallo.stdout ?? ''}` };
   }
 }
 
@@ -98,6 +114,27 @@ describe('el guardia de las cabeceras de seguridad', () => {
     }
   });
 
+  it('un vercel.json sin cabeceras falla con mensajes claros, no con un error', () => {
+    escribir({ ...buenos(), vercel: '{}' });
+
+    const { aprobo, salida } = correr();
+
+    expect(aprobo).toBe(false);
+    expect(salida).toMatch(/vercel\.json tiene una regla de cabeceras para todas las rutas/);
+    expect(salida).toMatch(/Vercel manda X-Frame-Options/);
+    expect(salida).toMatch(/la politica dice default-src/);
+  });
+
+  it('falla si falta el archivo de nginx', () => {
+    escribir(buenos());
+    rmSync(join(carpeta, 'nginx'), { recursive: true, force: true });
+
+    const { aprobo, salida } = correr();
+
+    expect(aprobo).toBe(false);
+    expect(salida).toMatch(/existe nginx\/cabeceras-de-seguridad\.conf/);
+  });
+
   it('falla si nginx y Vercel dejan de decir lo mismo', () => {
     const archivos = buenos();
 
@@ -107,6 +144,58 @@ describe('el guardia de las cabeceras de seguridad', () => {
 
     expect(aprobo).toBe(false);
     expect(salida).toMatch(/X-Frame-Options vale lo mismo en Vercel y en nginx/);
+  });
+
+  it('falla si nginx manda una cabecera que Vercel no manda', () => {
+    const archivos = buenos();
+
+    escribir({ ...archivos, nginx: `${archivos.nginx}\nadd_header X-Extra "1" always;\n` });
+
+    const { aprobo, salida } = correr();
+
+    expect(aprobo).toBe(false);
+    expect(salida).toMatch(/exactamente las mismas cabeceras/);
+  });
+
+  it('falla si Vercel manda una cabecera que nginx no manda', () => {
+    const archivos = buenos();
+    const configuracion = JSON.parse(archivos.vercel) as {
+      headers: { source: string; has?: unknown; headers: { key: string; value: string }[] }[];
+    };
+    const deTodas = configuracion.headers.find(
+      (regla) => regla.source === '/(.*)' && regla.has === undefined,
+    );
+
+    if (deTodas === undefined) {
+      throw new Error('vercel.json ya no tiene la regla de cabeceras para todas las rutas');
+    }
+
+    deTodas.headers.push({ key: 'X-Extra', value: '1' });
+    escribir({ ...archivos, vercel: JSON.stringify(configuracion) });
+
+    const { aprobo, salida } = correr();
+
+    expect(aprobo).toBe(false);
+    expect(salida).toMatch(/exactamente las mismas cabeceras/);
+  });
+
+  it.each([
+    ['X-Frame-Options', '"DENY"', '"SAMEORIGIN"', /X-Frame-Options es DENY/],
+    ['X-Content-Type-Options', '"nosniff"', '"sniff"', /X-Content-Type-Options es nosniff/],
+  ])('falla si %s se afloja en las dos copias', (_nombre, antes, despues, mensaje) => {
+    const archivos = buenos();
+
+    // En las dos copias a la vez: lo que se prueba es el valor, no la diferencia entre ellas.
+    escribir({
+      ...archivos,
+      vercel: archivos.vercel.replace(antes, despues),
+      nginx: archivos.nginx.replace(antes, despues),
+    });
+
+    const { aprobo, salida } = correr();
+
+    expect(aprobo).toBe(false);
+    expect(salida).toMatch(mensaje);
   });
 
   it('falla si falta una cabecera en nginx', () => {
@@ -230,6 +319,15 @@ describe('el guardia de las cabeceras de seguridad', () => {
 
       expect(aprobo).toBe(false);
       expect(salida).toMatch(/cubre las vistas previas de las ramas/);
+    });
+
+    it('falla si la regla del host no es una expresion valida, en vez de romperse', () => {
+      escribir({ ...buenos(), vercel: conHost('(vercel') });
+
+      const { aprobo, salida } = correr();
+
+      expect(aprobo).toBe(false);
+      expect(salida).toMatch(/cubre PRE \(vsd-health-pre\.vercel\.app\)/);
     });
 
     it('falla si nginx deja de mandar noindex', () => {
@@ -512,5 +610,43 @@ describe('el guardia de las cabeceras de seguridad', () => {
 
     expect(aprobo).toBe(false);
     expect(salida).toMatch(/hay que compilar antes/);
+  });
+});
+
+describe('lanzado como lo lanza `npm run build`', () => {
+  // Estas dos son las unicas que arrancan el archivo de verdad: vigilan que el arranque
+  // protegido siga arrancando y que el codigo de salida llegue a quien lo lanza (sin eso,
+  // un guardia que falla no pararia la compilacion).
+  it('sale con 0 y lo cuenta cuando todo cuadra', () => {
+    escribir(buenos());
+
+    const { codigo, salida } = correrDeVerdad();
+
+    expect(codigo).toBe(0);
+    expect(salida).toMatch(/Cabeceras de seguridad comprobadas: \d+ comprobaciones/);
+  });
+
+  it('sale con 1 y dice que no cuadra cuando algo falla', () => {
+    const archivos = buenos();
+
+    escribir({ ...archivos, nginx: archivos.nginx.replace('"DENY"', '"SAMEORIGIN"') });
+
+    const { codigo, salida } = correrDeVerdad();
+
+    expect(codigo).toBe(1);
+    expect(salida).toMatch(/X-Frame-Options vale lo mismo en Vercel y en nginx/);
+  });
+});
+
+describe('importarlo no ejecuta nada', () => {
+  it('traer el archivo no cambia el codigo de salida del proceso', async () => {
+    // Sin el arranque protegido, importar el guardia correria las comprobaciones sobre la
+    // carpeta de trabajo y dejaria un codigo de salida puesto.
+    const antes = process.exitCode;
+
+    vi.resetModules();
+    await import('./comprobar-las-cabeceras.mjs');
+
+    expect(process.exitCode).toBe(antes);
   });
 });
