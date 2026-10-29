@@ -53,6 +53,12 @@ export const RUTAS = {
   DIARIO: '/diario',
 
   /**
+   * Mi actividad: la semana, las sesiones por modulo y lo ultimo que se hizo (SCRUM-296). No choca con
+   * `ACTIVIDAD` (`/actividad/:id`): esa es una actividad concreta y esta es el resumen de la persona.
+   */
+  MI_ACTIVIDAD: '/mi-actividad',
+
+  /**
    * El sendero de un modulo (SCRUM-92). Lleva parametro: se usa
    * `rutaDeModulo`.
    */

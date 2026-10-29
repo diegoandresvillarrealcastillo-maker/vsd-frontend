@@ -73,6 +73,7 @@ const CLASIFICACION: Readonly<Record<string, 'publica' | 'privada' | 'de-acceso'
   [RUTAS.PANEL]: 'privada',
   [RUTAS.PERFIL]: 'privada',
   [RUTAS.DIARIO]: 'privada',
+  [RUTAS.MI_ACTIVIDAD]: 'privada',
   [RUTAS.MODULO]: 'privada',
   [RUTAS.ACTIVIDAD]: 'privada',
 };

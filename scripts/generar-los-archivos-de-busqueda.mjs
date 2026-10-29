@@ -51,6 +51,7 @@ export const RUTAS_PRIVADAS = [
   '/panel',
   '/perfil',
   '/diario',
+  '/mi-actividad',
   '/modulo/',
   '/actividad/',
   '/contrasena-nueva',

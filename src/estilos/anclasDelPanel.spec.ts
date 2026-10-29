@@ -6,8 +6,8 @@ import APLICACION from './aplicacion.css?raw';
  * Las anclas del panel dejan sitio a la barra de arriba (SCRUM-182).
  *
  * La barra es pegajosa y mide 76 px. Sin un margen de anclaje, al llegar a «Inicio» o a
- * «Progreso» —desde la barra, desde el dock o desde Mi diario— el titulo de la seccion queda
- * justo debajo de ella y no se ve. jsdom no calcula el diseno, asi que lo que se vigila es la
+ * «Ver los modulos» —desde la barra, desde el dock o desde otra pagina— el titulo de la seccion
+ * queda justo debajo de ella y no se ve. jsdom no calcula el diseno, asi que lo que se vigila es la
  * regla: que exista y que sea mayor que el alto de la barra, para que cambiar uno sin el otro
  * se note.
  */
