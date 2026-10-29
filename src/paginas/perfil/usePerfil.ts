@@ -9,6 +9,7 @@ import {
   type CambiosDePreferencias,
   type Cuenta,
 } from '../../infraestructura/api/cuenta.ts';
+import { iniciarUnaOperacionDeLaSesion } from '../../sincronizacion/ciclo.ts';
 import { clasificarFallo } from '../../sincronizacion/clasificarFallo.ts';
 import { leerLaCuentaGuardada } from '../../sincronizacion/panelLocal.ts';
 import { explicar } from '../panel/useDatosDelPanel.ts';
@@ -133,11 +134,17 @@ export function usePerfil(): {
 
   /**
    * Guarda y pinta la cuenta como la devolvio la API. Si falla, lanza. Con el `contexto` de quien
-   * empezo la operacion, no sale ni se aplica si la sesion cambio mientras tanto (SCRUM-317).
+   * empezo la operacion (SCRUM-317), o con el de la sesion de cuando se pulso, la peticion no sale
+   * o su respuesta se descarta (lanza `AbortError`) si la sesion cambio mientras tanto: lo de una
+   * persona no llega a la que entro despues (SCRUM-320).
    */
   const guardar = useCallback(
     async (cambios: CambiosDePreferencias, contexto?: ContextoDePeticion): Promise<void> => {
-      const cuenta = await cambiarPreferencias(cambios, undefined, contexto);
+      const cuenta = await cambiarPreferencias(
+        cambios,
+        undefined,
+        contexto ?? iniciarUnaOperacionDeLaSesion()?.peticion,
+      );
 
       setEstado(conLaCuenta(cuenta));
     },
