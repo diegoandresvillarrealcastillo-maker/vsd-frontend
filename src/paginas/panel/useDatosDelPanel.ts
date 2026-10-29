@@ -1,7 +1,12 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
-import { cambiarPreferencias, type Modulo } from '../../infraestructura/api/cuenta.ts';
+import {
+  cambiarPreferencias,
+  type CambiosDePreferencias,
+  type Modulo,
+} from '../../infraestructura/api/cuenta.ts';
 import { consultarElProgreso } from '../../infraestructura/api/progreso.ts';
+import { iniciarUnaOperacionDeLaSesion } from '../../sincronizacion/ciclo.ts';
 import { useLecturaDelPanel, type LecturaDelPanel } from './useLecturaDelPanel.ts';
 
 export { explicar } from './explicar.ts';
@@ -45,6 +50,57 @@ export function useDatosDelPanel(): {
   }) => Promise<void>;
 } {
   const { estado, reintentar, actualizar } = useLecturaDelPanel();
+  const pendientes = useRef(new Set<AbortController>());
+
+  // Al salir de la pantalla se cancela lo que siga en camino: nadie espera ya el resultado.
+  useEffect(() => {
+    const enCamino = pendientes.current;
+
+    return () => {
+      enCamino.forEach((control) => {
+        control.abort();
+      });
+      enCamino.clear();
+    };
+  }, []);
+
+  /**
+   * Cambia las preferencias y vuelve a pedir el progreso, como una sola operacion **de quien tiene la
+   * sesion al empezar** (SCRUM-315): se anota antes del primer `await`, viaja a las dos peticiones
+   * y se comprueba despues de cada espera. Si la sesion cambio o la pantalla se fue, el resultado no
+   * se muestra, no se guarda y no se pide nada mas con la sesion de quien llego despues.
+   *
+   * Eso no es un fallo que contar: nadie espera ya la respuesta. Un fallo de verdad sale tal cual.
+   */
+  const cambiarYActualizar = useCallback(
+    async (cambios: CambiosDePreferencias): Promise<void> => {
+      const control = new AbortController();
+
+      pendientes.current.add(control);
+
+      const operacion = iniciarUnaOperacionDeLaSesion(control.signal);
+
+      try {
+        const cuenta = await cambiarPreferencias(cambios, control.signal, operacion?.peticion);
+
+        operacion?.exigir();
+
+        const progreso = await consultarElProgreso(control.signal, operacion?.peticion);
+
+        // `actualizar` comprueba una vez mas que la operacion sigue vigente antes de mostrar y guardar.
+        actualizar({ cuenta, progreso }, operacion);
+      } catch (error) {
+        if (operacion !== null && !operacion.vigente()) {
+          return;
+        }
+
+        throw error;
+      } finally {
+        pendientes.current.delete(control);
+      }
+    },
+    [actualizar],
+  );
 
   /**
    * Activa un modulo mas y vuelve a pedir el progreso.
@@ -60,14 +116,9 @@ export function useDatosDelPanel(): {
         return;
       }
 
-      const cuenta = await cambiarPreferencias({
-        modulosActivos: [...estado.cuenta.modulosActivos, modulo],
-      });
-      const progreso = await consultarElProgreso();
-
-      actualizar({ cuenta, progreso });
+      await cambiarYActualizar({ modulosActivos: [...estado.cuenta.modulosActivos, modulo] });
     },
-    [estado, actualizar],
+    [estado, cambiarYActualizar],
   );
 
   /**
@@ -79,15 +130,13 @@ export function useDatosDelPanel(): {
   const completarBienvenida = useCallback(
     async (eleccion: { nombre: string; modulos: readonly Modulo[] }): Promise<void> => {
       const nombre = eleccion.nombre.trim();
-      const cuenta = await cambiarPreferencias({
+
+      await cambiarYActualizar({
         ...(nombre === '' ? {} : { nombre }),
         modulosActivos: eleccion.modulos,
       });
-      const progreso = await consultarElProgreso();
-
-      actualizar({ cuenta, progreso });
     },
-    [actualizar],
+    [cambiarYActualizar],
   );
 
   return { estado, reintentar, activarModulo, completarBienvenida };

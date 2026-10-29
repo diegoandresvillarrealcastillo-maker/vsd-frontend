@@ -1,4 +1,4 @@
-import { llamarALaApi } from './clienteHttp.ts';
+import { llamarALaApi, type ContextoDePeticion } from './clienteHttp.ts';
 import type { Modulo } from './cuenta.ts';
 
 /**
@@ -92,6 +92,12 @@ export interface ProgresoDelModulo {
  * de los resultados y en hora de Colombia: el cliente no cuenta nada por su
  * cuenta, para que no haya dos versiones del mismo numero.
  */
-export function consultarElProgreso(senal?: AbortSignal): Promise<readonly ProgresoDelModulo[]> {
-  return llamarALaApi<readonly ProgresoDelModulo[]>('/api/progreso', senal ? { senal } : {});
+export function consultarElProgreso(
+  senal?: AbortSignal,
+  contexto?: ContextoDePeticion,
+): Promise<readonly ProgresoDelModulo[]> {
+  return llamarALaApi<readonly ProgresoDelModulo[]>('/api/progreso', {
+    ...(senal ? { senal } : {}),
+    ...(contexto ? { contexto } : {}),
+  });
 }
