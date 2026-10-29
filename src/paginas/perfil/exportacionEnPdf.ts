@@ -33,7 +33,7 @@ export const NOMBRE_DEL_PDF = 'vsd-health-mis-datos.pdf';
 
 const TITULO_DEL_DOCUMENTO = 'Tus datos en VSD Health';
 
-/** El verde de la marca (#3d7a6b), el mismo del primario de la app. */
+/** El verde de la marca en el PDF (#3d7a6b): el documento impreso no cambia con la paleta de la app. */
 const MARCA: Color = [0.24, 0.48, 0.42];
 const VERDE_OSCURO: Color = [0.14, 0.33, 0.28];
 const GRIS: Color = [0.4, 0.4, 0.4];

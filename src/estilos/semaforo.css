@@ -2,8 +2,8 @@
    El semaforo de pendientes, flotante (SCRUM-98)
 
    Los colores salen de la version 3 de la propuesta, en su variante oscura,
-   que es la de la aplicacion. Estan desaturados como los del resto: se
-   distinguen entre si sin gritar.
+   que es la de la aplicacion, y siguen la paleta viva de SCRUM-309: la luz
+   urgente y la aplazable valen lo mismo que el acento de Emociones y el primario.
 
    Las medidas del boton estan repetidas en `src/semaforo/medidas.ts`, que
    es lo que usa la mascota para no bajar hasta esta esquina. Si cambian
@@ -11,33 +11,33 @@
    ========================================================================== */
 
 .app {
-  --semaforo-urgente: #e8897a;
-  --semaforo-urgente-suave: #3a2521;
-  --semaforo-prioridad: #d8a95a;
-  --semaforo-prioridad-suave: #372c19;
-  --semaforo-aplazable: #7fc3b1;
-  --semaforo-aplazable-suave: #1f3b35;
-  --semaforo-caja: #0e1013;
+  --semaforo-urgente: #ff8a78;
+  --semaforo-urgente-suave: #3d1f1b;
+  --semaforo-prioridad: #ffc247;
+  --semaforo-prioridad-suave: #3a2d10;
+  --semaforo-aplazable: #35e0b4;
+  --semaforo-aplazable-suave: #0f3d33;
+  --semaforo-caja: #070c0d;
   /* La pareja de cada luz (SCRUM-183): el extremo del degradado que le da volumen, sin un
      color nuevo. En oscuro es la misma luz, mas clara. */
-  --semaforo-urgente-luz: #f4b3a7;
-  --semaforo-prioridad-luz: #efc983;
-  --semaforo-aplazable-luz: #a9dccd;
+  --semaforo-urgente-luz: #ffb8ac;
+  --semaforo-prioridad-luz: #ffd98a;
+  --semaforo-aplazable-luz: #8cf0d6;
 }
 
 /* El tema claro (SCRUM-112), con la variante clara de la misma propuesta. */
 :root[data-tema='claro'] .app {
-  --semaforo-urgente: #b8503f;
-  --semaforo-urgente-suave: #f5e1dc;
-  --semaforo-prioridad: #9a6b1c;
-  --semaforo-prioridad-suave: #f3e7cf;
-  --semaforo-aplazable: #3d7a6b;
-  --semaforo-aplazable-suave: #d8e8e3;
-  --semaforo-caja: #2a2f36;
+  --semaforo-urgente: #b83a22;
+  --semaforo-urgente-suave: #ffe0d6;
+  --semaforo-prioridad: #8a5a00;
+  --semaforo-prioridad-suave: #ffefc7;
+  --semaforo-aplazable: #0a7d62;
+  --semaforo-aplazable-suave: #d4f3e3;
+  --semaforo-caja: #1a2b27;
   /* En claro la pareja es la luz, mas viva, para que el degradado vaya de la luz a su sombra. */
-  --semaforo-urgente-luz: #d97a68;
-  --semaforo-prioridad-luz: #c4912f;
-  --semaforo-aplazable-luz: #5fa090;
+  --semaforo-urgente-luz: #e0583f;
+  --semaforo-prioridad-luz: #d9951a;
+  --semaforo-aplazable-luz: #1fb98f;
 }
 
 /* ---------- El dibujo ---------- */
