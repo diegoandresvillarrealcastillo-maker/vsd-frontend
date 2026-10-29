@@ -3,6 +3,7 @@ import { useEffect, useId, useRef } from 'react';
 import { Link } from 'react-router-dom';
 
 import { alPulsarElFondo } from '../../componentes/alPulsarElFondo.ts';
+import { useDialogo } from '../../componentes/useDialogo.ts';
 import type { ActividadDeHoy } from '../../infraestructura/api/progreso.ts';
 import { rutaDeActividad } from '../../rutas/rutas.ts';
 import { Icono } from '../panel/Icono.tsx';
@@ -11,8 +12,9 @@ import { etiquetaDeFrecuencia } from './frecuencia.ts';
 /**
  * Lo que toca hoy en un modulo, al pulsar el punto de hoy del sendero.
  *
- * Es un dialogo como el de la celebracion: el foco entra al abrirse y vuelve
- * al punto al cerrar, se cierra con Escape o pulsando fuera, y sin animacion
+ * Es un dialogo como el de la celebracion: el foco entra al abrirse, Tab no lo
+ * saca de la hoja y vuelve al punto al cerrar, se cierra con Escape o pulsando
+ * fuera, y sin animacion
  * con `prefers-reduced-motion`. Los colores del modulo los hereda de la
  * pantalla.
  *
@@ -35,35 +37,22 @@ export function HojaDeHoy({
   const idDelTitulo = useId();
   const idDeLasSugeridas = useId();
   const boton = useRef<HTMLButtonElement>(null);
-  const cerrar = useRef(alCerrar);
   const hechas = hoy.filter((actividad) => actividad.hecha).length;
 
-  useEffect(() => {
-    cerrar.current = alCerrar;
-  });
-
+  // El foco vuelve a donde estaba al cerrar. Va antes de `useDialogo`: sus efectos corren en orden,
+  // y este tiene que ver el foco antes de que el dialogo lo mueva adentro.
   useEffect(() => {
     const anterior = document.activeElement as HTMLElement | null;
 
-    boton.current?.focus();
-
-    function alPulsarTecla(evento: KeyboardEvent) {
-      if (evento.key === 'Escape') {
-        cerrar.current();
-      }
-    }
-
-    document.addEventListener('keydown', alPulsarTecla);
-
-    return () => {
-      document.removeEventListener('keydown', alPulsarTecla);
-      anterior?.focus?.();
-    };
+    return () => anterior?.focus?.();
   }, []);
+
+  const caja = useDialogo<HTMLDivElement>(alCerrar, boton);
 
   return (
     <div className="hoja" role="presentation" onClick={alPulsarElFondo(alCerrar)}>
       <motion.div
+        ref={caja}
         role="dialog"
         aria-modal="true"
         aria-labelledby={idDelTitulo}

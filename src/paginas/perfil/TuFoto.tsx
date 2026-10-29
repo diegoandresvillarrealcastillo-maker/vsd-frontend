@@ -1,11 +1,12 @@
-import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
+import type { ChangeEvent } from 'react';
 
 import { useFotoDePerfil, retirarLaFoto, subirLaFoto } from '../../foto/fotoDePerfil.ts';
 import { prepararLaFoto } from '../../foto/prepararLaFoto.ts';
 import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
 import { Icono } from '../panel/Icono.tsx';
 import { explicarLaFoto } from './mensajesDeLaFoto.ts';
-import { Apartado, MensajeDeAviso, type Aviso } from './piezas.tsx';
+import { Apartado, MensajeDeAviso } from './piezas.tsx';
+import { useEntradaDeArchivo } from './useEntradaDeArchivo.ts';
 
 /**
  * La foto de perfil (SCRUM-120).
@@ -23,34 +24,23 @@ import { Apartado, MensajeDeAviso, type Aviso } from './piezas.tsx';
  */
 export function TuFoto({ actualizarCuenta }: { actualizarCuenta: (cuenta: Cuenta) => void }) {
   const foto = useFotoDePerfil();
-  const [ocupado, setOcupado] = useState<'guardando' | 'quitando' | null>(null);
-  const [aviso, setAviso] = useState<Aviso>(null);
-  const entrada = useRef<HTMLInputElement>(null);
-  const enfocarAlTerminar = useRef(false);
-  const idDeLaEntrada = useId();
-
-  // El boton de quitar desaparece con la foto, y con el se iria el foco de quien
-  // navega con teclado. Se lleva al de elegir, pero solo cuando ya no esta
-  // deshabilitado: una entrada deshabilitada no recibe el foco.
-  useEffect(() => {
-    if (ocupado === null && enfocarAlTerminar.current) {
-      enfocarAlTerminar.current = false;
-      entrada.current?.focus();
-    }
-  }, [ocupado]);
+  const {
+    ocupado,
+    setOcupado,
+    aviso,
+    setAviso,
+    entrada,
+    enfocarLaEntradaAlTerminar,
+    idDeLaEntrada,
+    tomarElArchivo,
+  } = useEntradaDeArchivo();
 
   async function alElegir(evento: ChangeEvent<HTMLInputElement>) {
-    const elegido = evento.target.files?.[0];
-
-    // Se vacia para que elegir el mismo archivo otra vez cuente como un cambio.
-    evento.target.value = '';
+    const elegido = tomarElArchivo(evento);
 
     if (elegido === undefined) {
       return;
     }
-
-    setOcupado('guardando');
-    setAviso(null);
 
     try {
       actualizarCuenta(await subirLaFoto(await prepararLaFoto(elegido)));
@@ -69,7 +59,7 @@ export function TuFoto({ actualizarCuenta }: { actualizarCuenta: (cuenta: Cuenta
     try {
       actualizarCuenta(await retirarLaFoto());
       setAviso({ tipo: 'bien', texto: 'Quitaste tu foto.' });
-      enfocarAlTerminar.current = true;
+      enfocarLaEntradaAlTerminar();
     } catch (error) {
       setAviso({ tipo: 'fallo', texto: explicarLaFoto(error, 'quitar') });
     } finally {
