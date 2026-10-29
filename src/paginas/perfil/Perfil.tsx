@@ -1,4 +1,4 @@
-import { useId, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { EstadoDeCarga } from '../../componentes/EstadoDeCarga.tsx';
@@ -35,7 +35,10 @@ import { RUTAS } from '../../rutas/rutas.ts';
 import { volverAVerElTutorial } from '../../tutorial/memoriaDelTutorial.ts';
 import { Semaforo } from '../../semaforo/Semaforo.tsx';
 import { mensajeSiNoCumple } from '../../sesion/reglaDeContrasena.ts';
-import { olvidarLosDatosDeLaSesionActual } from '../../sincronizacion/ciclo.ts';
+import {
+  iniciarUnaOperacionDeLaSesion,
+  olvidarLosDatosDeLaSesionActual,
+} from '../../sincronizacion/ciclo.ts';
 import { exportarLoQueNoSeHaEnviado } from '../../sincronizacion/loGuardadoEnEsteEquipo.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { BarraSuperior } from '../panel/Estructura.tsx';
@@ -854,17 +857,32 @@ type Formato = 'pdf' | 'json';
 function TusDatos() {
   const [preparando, setPreparando] = useState<Formato | null>(null);
   const [aviso, setAviso] = useState<Aviso>(null);
+  const enMarcha = useRef<AbortController | null>(null);
+
+  // Al salir de la pantalla, la descarga que seguia en marcha se cancela (SCRUM-316).
+  useEffect(
+    () => () => {
+      enMarcha.current?.abort();
+    },
+    [],
+  );
 
   async function descargar(formato: Formato) {
+    const control = new AbortController();
+
+    enMarcha.current = control;
+    // De quien es la descarga se anota antes del primer `await`: si la sesion cambia mientras
+    // tanto (sale A, entra B), lo de A no se mezcla con lo de B ni se entrega (SCRUM-316).
+    const operacion = iniciarUnaOperacionDeLaSesion(control.signal);
+
     setPreparando(formato);
     setAviso(null);
 
     try {
-      // Lo que dice el servidor y, aparte, lo que este equipo todavia no le ha enviado.
-      const datos = armarLaExportacion(
-        await exportarMisDatos(),
-        await exportarLoQueNoSeHaEnviado(),
-      );
+      // Lo que dice el servidor y, aparte, lo que este equipo todavia no le ha enviado: las dos
+      // lecturas son de la misma sesion o no hay descarga.
+      const delServidor = await exportarMisDatos(control.signal, operacion?.peticion);
+      const datos = armarLaExportacion(delServidor, await exportarLoQueNoSeHaEnviado(operacion));
 
       if (formato === 'json') {
         guardarArchivo(
@@ -872,16 +890,24 @@ function TusDatos() {
           'vsd-health-mis-datos.json',
         );
       } else {
-        const pdf = generarLaExportacionEnPdf(datos, {
-          actividades: await nombresDeLasActividades(),
-        });
+        const actividades = await nombresDeLasActividades();
 
-        guardarArchivo(new Blob([pdf], { type: 'application/pdf' }), NOMBRE_DEL_PDF);
+        // El catalogo tambien se espera: la sesion pudo cambiar mientras llegaba.
+        operacion?.exigir();
+        guardarArchivo(
+          new Blob([generarLaExportacionEnPdf(datos, { actividades })], {
+            type: 'application/pdf',
+          }),
+          NOMBRE_DEL_PDF,
+        );
       }
 
       setAviso({ tipo: 'bien', texto: 'Tus datos se descargaron.' });
     } catch {
-      setAviso({ tipo: 'fallo', texto: 'No se pudieron descargar. Inténtalo de nuevo.' });
+      // Una descarga que ya no es de esta sesion no se cuenta ni como hecha ni como fallida.
+      if (operacion === null || operacion.vigente()) {
+        setAviso({ tipo: 'fallo', texto: 'No se pudieron descargar. Inténtalo de nuevo.' });
+      }
     } finally {
       setPreparando(null);
     }

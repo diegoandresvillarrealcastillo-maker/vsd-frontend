@@ -1,4 +1,4 @@
-import { cicloActual } from './ciclo.ts';
+import { cicloActual, type OperacionDeLaSesion } from './ciclo.ts';
 import type { EstadoDeOperacion, Operacion, TipoDeOperacion } from './cola.ts';
 import { textoDeLoEscrito, type TextoDeLoEscrito } from './textoDeLoEscrito.ts';
 
@@ -45,14 +45,27 @@ export interface CambioSinEnviar {
 /**
  * Lo que este equipo todavia tiene de la persona y el servidor no, para su exportacion:
  * si descarga "todo lo que VSD Health guarda de ti", eso incluye lo que aun no llego.
+ *
+ * Con la `operacion` que empezo la exportacion, solo se lee y se entrega si la sesion sigue siendo
+ * la suya: lo del servidor y lo de este equipo tienen que ser de la misma persona (SCRUM-316).
+ * @throws {DOMException} `AbortError` si la sesion cambio o la operacion se cancelo.
  */
-export async function exportarLoQueNoSeHaEnviado(): Promise<readonly CambioSinEnviar[]> {
-  return (await leerLoQueNoSeHaEnviado()).map((operacion) => ({
-    operationId: operacion.operationId,
-    tipo: operacion.tipo,
-    estado: operacion.estado,
-    creadaEn: operacion.creadaEn,
-    contenido: operacion.payload,
+export async function exportarLoQueNoSeHaEnviado(
+  operacion?: OperacionDeLaSesion | null,
+): Promise<readonly CambioSinEnviar[]> {
+  // Antes de leer, para no abrir la cola de quien llego despues; despues, por si cambio mientras se leia.
+  operacion?.exigir();
+
+  const sinEnviar = await leerLoQueNoSeHaEnviado();
+
+  operacion?.exigir();
+
+  return sinEnviar.map((una) => ({
+    operationId: una.operationId,
+    tipo: una.tipo,
+    estado: una.estado,
+    creadaEn: una.creadaEn,
+    contenido: una.payload,
   }));
 }
 
