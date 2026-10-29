@@ -2,14 +2,8 @@ import type { CSSProperties } from 'react';
 
 import '../../../estilos/viva.css';
 import type { Modulo } from '../../../infraestructura/api/cuenta.ts';
-import { Icono, type NombreDeIcono } from '../../panel/Icono.tsx';
-
-/** La forma que flota en el fondo de cada modulo: lo mismo que lo representa en el panel. */
-const FORMA_DE_CADA_MODULO: Readonly<Record<Modulo, NombreDeIcono>> = {
-  bienestar: 'leaf',
-  cognicion: 'sparkles',
-  emociones: 'heart',
-};
+import { Icono } from '../../panel/Icono.tsx';
+import { FORMA_QUE_FLOTA } from '../../panel/modulos.ts';
 
 /**
  * Donde sube cada forma y a que ritmo. Es una tabla fija y no azar: pintar dos veces lo mismo da
@@ -37,7 +31,7 @@ const FORMAS = [
  * `prefers-reduced-motion` todo se queda quieto.
  */
 export function FondoVivo({ modulo }: { modulo?: Modulo | undefined }) {
-  const forma = modulo === undefined ? 'sparkles' : FORMA_DE_CADA_MODULO[modulo];
+  const forma = modulo === undefined ? 'sparkles' : FORMA_QUE_FLOTA[modulo];
 
   return (
     <div className="viva-fondo" aria-hidden="true">
