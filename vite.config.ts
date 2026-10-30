@@ -166,8 +166,17 @@ export default defineConfig(({ mode }) => ({
       provider: 'v8',
       reportsDirectory: './coverage',
       reporter: ['text', 'lcov'],
-      include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/**/*.spec.{ts,tsx}', 'src/pruebas/**', 'src/main.tsx', 'src/vite-env.d.ts'],
+      // Los guardias de `scripts/` (cabeceras, service worker, buscadores, dependencias)
+      // tambien son codigo nuestro con decisiones dentro: se miden como el resto, y por eso
+      // sus pruebas los llaman en el mismo proceso en vez de lanzarlos aparte.
+      include: ['src/**/*.{ts,tsx}', 'scripts/**/*.mjs'],
+      exclude: [
+        'src/**/*.spec.{ts,tsx}',
+        'scripts/**/*.spec.{ts,mjs}',
+        'src/pruebas/**',
+        'src/main.tsx',
+        'src/vite-env.d.ts',
+      ],
       // Todavia sin umbral minimo. Ponerlo ahora, sobre un andamiaje de cuatro
       // archivos, daria un numero que no significa nada. El umbral entra con
       // SCRUM-73, cuando exista logica que merezca cubrirse.

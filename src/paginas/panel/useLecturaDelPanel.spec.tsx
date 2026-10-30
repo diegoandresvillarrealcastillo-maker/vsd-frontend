@@ -5,7 +5,12 @@ import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
 import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
 import type { ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { abrirUnAlmacenDePrueba, cerrarElAlmacenDePrueba } from '../../pruebas/almacenDePrueba.ts';
-import { cicloActual, encolar } from '../../sincronizacion/ciclo.ts';
+import {
+  alCambiarLaSesion,
+  cicloActual,
+  encolar,
+  iniciarUnaOperacionDeLaSesion,
+} from '../../sincronizacion/ciclo.ts';
 import { leerSoloLaCopia } from '../../sincronizacion/lecturas.ts';
 import { CLAVE_DEL_PANEL, leerLosResultadosDeLaCola } from '../../sincronizacion/panelLocal.ts';
 import { diasAntes } from '../../tiempo/dias.ts';
@@ -470,6 +475,13 @@ describe('useLecturaDelPanel: lo que se hizo y esta en la cola', () => {
   });
 });
 
+/** El guardado de la copia no se espera: sin esto "no se guardo nada" se cumpliria por mirar pronto. */
+async function dejarPasarLoPendiente(): Promise<void> {
+  for (let vuelta = 0; vuelta < 5; vuelta += 1) {
+    await new Promise<void>((seguir) => setTimeout(seguir, 10));
+  }
+}
+
 describe('useLecturaDelPanel: actualizar', () => {
   it('muestra lo que el servidor confirmo, deja de ser la copia y lo deja guardado', async () => {
     (await listo()).unmount();
@@ -490,6 +502,59 @@ describe('useLecturaDelPanel: actualizar', () => {
     expect(listoDe(gancho).deLaCopia).toBeNull();
     await waitFor(async () => {
       expect(await leerSoloLaCopia(CLAVE_DEL_PANEL)).toMatchObject({ cuenta: { nombre: 'Nuevo' } });
+    });
+  });
+
+  describe('con la operacion que lo empezo (SCRUM-315)', () => {
+    const NUEVOS = () => ({ cuenta: cuenta({ nombre: 'DeLaOtraSesion' }), progreso: progreso() });
+
+    it('vigente, lo muestra y lo guarda como siempre', async () => {
+      const gancho = await listo();
+      const operacion = iniciarUnaOperacionDeLaSesion();
+
+      act(() => {
+        gancho.result.current.actualizar(NUEVOS(), operacion);
+      });
+
+      expect(listoDe(gancho).cuenta).toMatchObject({ nombre: 'DeLaOtraSesion' });
+      await waitFor(async () => {
+        expect(await leerSoloLaCopia(CLAVE_DEL_PANEL)).toMatchObject({
+          cuenta: { nombre: 'DeLaOtraSesion' },
+        });
+      });
+    });
+
+    it('de otra sesion, no lo muestra ni lo guarda en el almacen de quien llego despues', async () => {
+      const gancho = await listo();
+      const operacion = iniciarUnaOperacionDeLaSesion();
+
+      await alCambiarLaSesion(null, { persistente: false });
+      await alCambiarLaSesion('otra-persona', { persistente: false });
+
+      act(() => {
+        gancho.result.current.actualizar(NUEVOS(), operacion);
+      });
+      await dejarPasarLoPendiente();
+
+      expect(listoDe(gancho).cuenta).toMatchObject({ nombre: 'Ana' });
+      expect(await leerSoloLaCopia(CLAVE_DEL_PANEL)).toBeNull();
+    });
+
+    it('cancelada, no lo muestra ni lo guarda', async () => {
+      const gancho = await listo();
+      const control = new AbortController();
+      const operacion = iniciarUnaOperacionDeLaSesion(control.signal);
+
+      control.abort();
+      act(() => {
+        gancho.result.current.actualizar(NUEVOS(), operacion);
+      });
+      await dejarPasarLoPendiente();
+
+      expect(listoDe(gancho).cuenta).toMatchObject({ nombre: 'Ana' });
+      expect(await leerSoloLaCopia(CLAVE_DEL_PANEL)).not.toMatchObject({
+        cuenta: { nombre: 'DeLaOtraSesion' },
+      });
     });
   });
 });

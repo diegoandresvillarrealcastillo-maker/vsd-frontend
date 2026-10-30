@@ -1,4 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   avisosGraves,
@@ -6,6 +11,8 @@ import {
   evaluar,
   idDelAviso,
   leerLasAceptadas,
+  pedirElInforme,
+  principal,
 } from './revisar-dependencias.mjs';
 
 /** Un aviso como lo escribe `npm audit --json` dentro de `via`. */
@@ -92,6 +99,10 @@ describe('avisosGraves', () => {
     expect(avisosGraves({})).toEqual([]);
     expect(avisosGraves({ vulnerabilities: {} })).toEqual([]);
   });
+
+  it('un paquete sin la lista via no rompe nada', () => {
+    expect(avisosGraves({ vulnerabilities: { raro: { name: 'raro' } } })).toEqual([]);
+  });
 });
 
 describe('evaluar', () => {
@@ -170,6 +181,183 @@ describe('describir', () => {
 
   it('si todo esta bien, lo dice', () => {
     expect(describir(evaluar(informe({}), [], HOY))).toContain('Sin avisos graves');
+  });
+
+  it('un aviso aceptado y vigente se anota con su fecha, sin ser un error', () => {
+    const texto = describir(
+      evaluar(informe({ mysql2: [aviso(MYSQL, 'mysql2')] }), [aceptada(MYSQL)], HOY),
+    );
+
+    expect(texto).toContain(`Aceptado hasta 2026-12-31: ${MYSQL} en mysql2.`);
+    expect(texto).not.toContain('::error::');
+  });
+
+  it('un aceptado que ya no aparece pide quitarlo de la lista', () => {
+    const texto = describir(evaluar(informe({}), [aceptada(DEEPMERGE)], HOY));
+
+    expect(texto).toContain(`::warning::${DEEPMERGE} esta en vulnerabilidades-aceptadas.json`);
+    expect(texto).toContain('quitalo');
+  });
+});
+
+describe('pedirElInforme', () => {
+  /** Un `spawnSync` de mentira: devuelve lo que se le diga y recuerda como lo llamaron. */
+  const npmDice = (stdout, stderr = '') => vi.fn(() => ({ stdout, stderr }));
+
+  it('devuelve el informe que imprime npm', () => {
+    const ejecutar = npmDice(JSON.stringify(informe({ mysql2: [aviso(MYSQL, 'mysql2')] })));
+
+    expect(avisosGraves(pedirElInforme(ejecutar))).toHaveLength(1);
+  });
+
+  it('lo pide como una sola orden y con shell (en Windows npm es un .cmd)', () => {
+    const ejecutar = npmDice(JSON.stringify(informe({})));
+
+    pedirElInforme(ejecutar);
+
+    expect(ejecutar).toHaveBeenCalledWith(
+      'npm audit --omit=dev --json',
+      expect.objectContaining({ shell: true, encoding: 'utf8' }),
+    );
+  });
+
+  it('si npm no imprime un informe, lanza con lo que dijo npm', () => {
+    expect(() => pedirElInforme(npmDice('esto no es json', 'se cayo el registro'))).toThrow(
+      /npm audit no devolvio un informe[\s\S]*se cayo el registro/,
+    );
+  });
+
+  it('si npm responde con un error en vez de un informe, no pasa en silencio', () => {
+    // Sin red, creer que no hay vulnerabilidades seria no haber mirado.
+    const sinRed = JSON.stringify({ error: { code: 'ENOTFOUND', summary: 'sin red' } });
+
+    expect(() => pedirElInforme(npmDice(sinRed))).toThrow(/npm audit no pudo revisar: sin red/);
+  });
+
+  it('si el error no trae resumen, dice el codigo', () => {
+    const solo = JSON.stringify({ error: { code: 'ENOTFOUND' } });
+
+    expect(() => pedirElInforme(npmDice(solo))).toThrow(/no pudo revisar: ENOTFOUND/);
+  });
+});
+
+describe('principal', () => {
+  const HOY = '2026-10-08';
+  const conMysql = informe({ mysql2: [aviso(MYSQL, 'mysql2')] });
+  const archivo = (...aceptadas) => JSON.stringify({ aceptadas });
+
+  /** Corre `principal` con todo lo del sistema reemplazado y devuelve el codigo y lo que dijo. */
+  function correr({ informeDeNpm = informe({}), aceptadas = archivo(), ...resto } = {}) {
+    const dicho = [];
+    const codigo = principal({
+      hoy: HOY,
+      pedir: () => informeDeNpm,
+      leer: () => aceptadas,
+      salida: { log: (texto) => dicho.push(texto), error: (texto) => dicho.push(texto) },
+      ...resto,
+    });
+
+    return { codigo, salida: dicho.join('\n') };
+  }
+
+  it('sin avisos graves sale con 0 y lo dice', () => {
+    const { codigo, salida } = correr();
+
+    expect(codigo).toBe(0);
+    expect(salida).toContain('Sin avisos graves');
+  });
+
+  it('con un aviso aceptado y vigente sale con 0', () => {
+    const { codigo, salida } = correr({
+      informeDeNpm: conMysql,
+      aceptadas: archivo(aceptada(MYSQL)),
+    });
+
+    expect(codigo).toBe(0);
+    expect(salida).toContain(`Aceptado hasta 2026-12-31: ${MYSQL}`);
+  });
+
+  it('con un aviso grave que nadie acepto sale con 1', () => {
+    const { codigo, salida } = correr({ informeDeNpm: conMysql });
+
+    expect(codigo).toBe(1);
+    expect(salida).toContain(`::error::${MYSQL} (high) en mysql2`);
+  });
+
+  it('con la aceptacion vencida sale con 1', () => {
+    const { codigo, salida } = correr({
+      informeDeNpm: conMysql,
+      aceptadas: archivo(aceptada(MYSQL, '2026-01-01')),
+    });
+
+    expect(codigo).toBe(1);
+    expect(salida).toContain('vencio el 2026-01-01');
+  });
+
+  it('lee las aceptadas de vulnerabilidades-aceptadas.json', () => {
+    const leer = vi.fn(() => archivo());
+
+    correr({ leer });
+
+    expect(leer).toHaveBeenCalledWith('vulnerabilidades-aceptadas.json', 'utf8');
+  });
+
+  it('si ese archivo esta mal escrito, sale con 1 y lo dice como error del CI', () => {
+    const { codigo, salida } = correr({ aceptadas: 'esto no es json' });
+
+    expect(codigo).toBe(1);
+    expect(salida).toBe('::error::vulnerabilidades-aceptadas.json no es un JSON valido.');
+  });
+
+  it('si npm no pudo revisar, sale con 1: no pasa en silencio', () => {
+    const { codigo, salida } = correr({
+      pedir: () => {
+        throw new Error('npm audit no pudo revisar: sin red');
+      },
+    });
+
+    expect(codigo).toBe(1);
+    expect(salida).toBe('::error::npm audit no pudo revisar: sin red');
+  });
+
+  it('sin otra fecha usa la de hoy: una aceptacion de 2020 ya vencio', () => {
+    const codigo = principal({
+      pedir: () => conMysql,
+      leer: () => archivo(aceptada(MYSQL, '2020-01-01')),
+      salida: { log: () => undefined, error: () => undefined },
+    });
+
+    expect(codigo).toBe(1);
+  });
+
+  it('lanzado de verdad, un archivo de aceptadas roto lo para con codigo 1', () => {
+    // Es la unica que arranca el archivo como lo hace el CI (`node scripts/...`) y
+    // vigila que el codigo de salida llegue a quien lo lanza. Con el archivo roto
+    // se detiene antes de llamar a npm, asi que no necesita red.
+    const carpeta = mkdtempSync(join(tmpdir(), 'dependencias-'));
+
+    try {
+      writeFileSync(join(carpeta, 'vulnerabilidades-aceptadas.json'), 'esto no es json');
+
+      const resultado = spawnSync(process.execPath, [resolve('scripts/revisar-dependencias.mjs')], {
+        cwd: carpeta,
+        encoding: 'utf8',
+      });
+
+      expect(resultado.status).toBe(1);
+      expect(resultado.stderr).toContain('::error::vulnerabilidades-aceptadas.json no es un JSON');
+    } finally {
+      rmSync(carpeta, { recursive: true, force: true });
+    }
+  });
+
+  it('el archivo de aceptadas del repositorio esta bien escrito', () => {
+    // Sin reemplazar `leer`: lee el de verdad, el que mira el CI. Un error de sintaxis
+    // ahi pararia el CI de todas las ramas.
+    const { codigo, salida } = correr({ leer: undefined });
+
+    expect(salida).not.toContain('::error::');
+    expect(codigo).toBe(0);
   });
 });
 

@@ -39,61 +39,56 @@
   color-scheme: light;
 
   /* ---------- Color ----------
-     La paleta es calida y de bajo contraste cromatico a proposito: es
-     una herramienta de bienestar, no un panel de control. */
-  --fondo: #f7f5f2;
+     La paleta es viva y fresca (SCRUM-309): colores saturados, no
+     grises. Lo que no se negocia es el contraste: cada texto llega a
+     4,5:1 sobre su fondo y cada linea de control a 3:1;
+     `paletaVivaYLegible.spec.ts` lo mide sobre estos valores. */
+  --fondo: #f3f9f6;
   --fondo-elevado: #ffffff;
-  --fondo-sutil: #efebe5;
+  --fondo-sutil: #e1efe9;
 
-  --texto: #1f2328;
-  --texto-tenue: #5c6470;
+  --texto: #14231e;
+  --texto-tenue: #3f5a52;
 
-  /* El tono mas bajo que se permite para texto. Se subio desde #868e99,
-     que daba 2,79:1 contra el fondo sutil y no llegaba al 4,5:1 que
-     pide la WCAG. Ahora el peor caso es 4,81:1. */
-  --texto-apagado: #5f6774;
+  /* El tono mas bajo que se permite para texto: 4,5:1 contra cualquiera
+     de los tres fondos. */
+  --texto-apagado: #4a6760;
 
   /* Linea decorativa: separadores y contornos de tarjeta. No identifica
      ningun control, asi que no tiene que llegar a 3:1. */
-  --borde: #ddd8d0;
+  --borde: #b9dccd;
 
   /* Linea de control: el borde de un campo, de un boton fantasma o del
      acceso con Google. Esa si es la unica senal de donde empieza y
      acaba el control, y por eso llega a 3:1 contra el fondo que tiene
-     detras. Venia de #c3bcb1, que daba 1,88:1. */
-  --borde-fuerte: #948c82;
+     detras. */
+  --borde-fuerte: #6f968a;
 
-  --acento: #3d7a6b;
-  --acento-claro: #4a8f7e;
-  --acento-suave: #d8e8e3;
+  --acento: #0a7d62;
+  --acento-claro: #139a78;
+  --acento-suave: #e0f6ec;
   --acento-contraste: #ffffff;
 
-  --error: #a33a32;
-  --error-suave: #f7e2e0;
+  --error: #b3261e;
+  --error-suave: #ffe0d6;
 
-  /* Un verde mas cerrado que el acento. No es un capricho: este color
-     solo se usa como texto sobre `--acento-suave`, y con el tono del
-     acento se quedaba en 3,95:1. */
-  --exito: #2f6153;
+  /* Un verde mas cerrado que el acento: solo se usa como texto sobre
+     `--acento-suave`, y necesita 4,5:1. */
+  --exito: #0a6a45;
 
   /* ---------- Colores con significado ----------
      Los tres que se permiten fuera de la paleta base. Cada uno tiene un
-     trabajo y no hace ningun otro.
-
-     Estan desaturados a proposito. Un rojo de semaforo y un verde de
-     neon funcionan en un tablero de control; aqui gritan. Lo que se
-     busca es que se distingan entre si, no que llamen la atencion. */
+     trabajo y no hace ningun otro. */
 
   /* El animo. Solo eso: nunca es un ritmo cardiaco. */
-  --pulso: #b8503f;
+  --pulso: #b83a22;
 
   /* Salud en positivo: descanso, constancia, racha cumplida. */
-  --vital: #3d7a6b;
+  --vital: #0a7d62;
 
-  /* Dato: cifras, trazos, enlaces dentro de una grafica. Se oscurecio
-     desde #4a6fa5, que sobre su propio fondo palido daba 4,07:1. */
-  --dato: #40608f;
-  --dato-suave: #dfe6f1;
+  /* Dato: cifras, trazos, enlaces dentro de una grafica. */
+  --dato: #2447c8;
+  --dato-suave: #dce6ff;
 
   /* ---------- La franja del limite ----------
      La seccion de lo que la aplicacion no hace invierte el fondo de
@@ -117,13 +112,13 @@
   --nav-texto-tenue: #b3bac3;
 
   /* Los dos tonos entre los que respira el fondo de la autenticacion. */
-  --respiro-a: #eef2ef;
-  --respiro-b: #f7f2ea;
+  --respiro-a: #e6f4ee;
+  --respiro-b: #f1f9f4;
 
   /* El resplandor que sigue al cursor sobre la tarjeta. Muy tenue: se
      tiene que percibir como que la superficie reacciona, no como una
      linterna. */
-  --resplandor: rgb(61 122 107 / 7%);
+  --resplandor: rgb(10 125 98 / 8%);
 
   --sombra: 0 1px 2px rgb(31 35 40 / 6%), 0 8px 24px rgb(31 35 40 / 6%);
 
@@ -171,35 +166,33 @@
 :root[data-tema='oscuro'] {
   color-scheme: dark;
 
-  --fondo: #14161a;
-  --fondo-elevado: #1c1f25;
-  --fondo-sutil: #23272e;
+  --fondo: #0d1517;
+  --fondo-elevado: #162124;
+  --fondo-sutil: #1d2c30;
 
-  --texto: #e8e6e3;
-  --texto-tenue: #9aa1ab;
+  --texto: #f1f3f0;
+  --texto-tenue: #a9b8b4;
 
-  /* Subido desde #767d87, que daba 3,97:1 sobre el fondo elevado. */
-  --texto-apagado: #8a919c;
+  --texto-apagado: #93a5a0;
 
-  --borde: #2e333b;
+  --borde: #25403f;
 
-  /* Subido desde #434a54, que daba 1,84:1. */
-  --borde-fuerte: #6c737d;
+  --borde-fuerte: #5f8580;
 
-  --acento: #7fc3b1;
-  --acento-claro: #94d2c1;
-  --acento-suave: #1f3b35;
-  --acento-contraste: #10221e;
+  --acento: #35e0b4;
+  --acento-claro: #4ee8b0;
+  --acento-suave: #0f3d33;
+  --acento-contraste: #04211a;
 
-  --error: #e8938b;
-  --error-suave: #3a2422;
+  --error: #ff9a8e;
+  --error-suave: #521f1c;
 
-  --exito: #7fc3b1;
+  --exito: #35e0b4;
 
-  --pulso: #e8897a;
-  --vital: #7fc3b1;
-  --dato: #8fb3e0;
-  --dato-suave: #1e2836;
+  --pulso: #ff8a78;
+  --vital: #35e0b4;
+  --dato: #79b0ff;
+  --dato-suave: #14315f;
 
   /* La inversion va al reves: aqui la franja del limite es la clara. */
   --limite-fondo: #f2efea;
@@ -209,16 +202,16 @@
   --limite-borde: #ddd8d0;
   --limite-cruz: #a33a32;
 
-  --nav-fondo: rgb(20 22 26 / 86%);
+  --nav-fondo: rgb(13 21 23 / 86%);
   --nav-borde: rgb(255 255 255 / 10%);
-  --nav-texto: #e8e6e3;
-  --nav-texto-tenue: #9aa1ab;
+  --nav-texto: #f1f3f0;
+  --nav-texto-tenue: #a9b8b4;
 
-  --respiro-a: #1d262a;
-  --respiro-b: #251f1a;
+  --respiro-a: #12272b;
+  --respiro-b: #1b2a28;
 
   /* En oscuro hace falta mas para que se note, pero sigue siendo poco. */
-  --resplandor: rgb(127 195 177 / 10%);
+  --resplandor: rgb(53 224 180 / 10%);
 
   --sombra: 0 1px 2px rgb(0 0 0 / 30%), 0 8px 24px rgb(0 0 0 / 28%);
 }

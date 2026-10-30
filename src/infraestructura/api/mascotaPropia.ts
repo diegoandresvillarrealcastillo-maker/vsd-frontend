@@ -1,5 +1,5 @@
 import type { Cuenta } from './cuenta.ts';
-import { llamarALaApi, pedirBytesALaApi } from './clienteHttp.ts';
+import { llamarALaApi, pedirBytesALaApi, type ContextoDePeticion } from './clienteHttp.ts';
 
 /**
  * La mascota propia, un SVG, por HTTP (SCRUM-122).
@@ -21,7 +21,11 @@ export const TIPO_DEL_SVG = 'image/svg+xml';
  * peligroso o lo que no admite, con un codigo por motivo. Por eso lo que despues
  * se pinta es lo que devuelve la API y no este archivo.
  */
-export function guardarLaMascotaPropia(svg: Blob, senal?: AbortSignal): Promise<Cuenta> {
+export function guardarLaMascotaPropia(
+  svg: Blob,
+  senal?: AbortSignal,
+  contexto?: ContextoDePeticion,
+): Promise<Cuenta> {
   // El tipo se pone aqui y no se deja al que traiga el archivo: un `.svg` suelto
   // llega a veces sin tipo, y la API exige `image/svg+xml`.
   const conTipo = svg.type === TIPO_DEL_SVG ? svg : new Blob([svg], { type: TIPO_DEL_SVG });
@@ -30,6 +34,7 @@ export function guardarLaMascotaPropia(svg: Blob, senal?: AbortSignal): Promise<
     metodo: 'PUT',
     bytes: conTipo,
     ...(senal ? { senal } : {}),
+    ...(contexto ? { contexto } : {}),
   });
 }
 
@@ -38,8 +43,15 @@ export function guardarLaMascotaPropia(svg: Blob, senal?: AbortSignal): Promise<
  * persona vuelve al personaje de siempre, con el nombre que le habia puesto.
  * Quitar la que no hay no es un error.
  */
-export function quitarLaMascotaPropia(senal?: AbortSignal): Promise<Cuenta> {
-  return llamarALaApi<Cuenta>(RUTA, { metodo: 'DELETE', ...(senal ? { senal } : {}) });
+export function quitarLaMascotaPropia(
+  senal?: AbortSignal,
+  contexto?: ContextoDePeticion,
+): Promise<Cuenta> {
+  return llamarALaApi<Cuenta>(RUTA, {
+    metodo: 'DELETE',
+    ...(senal ? { senal } : {}),
+    ...(contexto ? { contexto } : {}),
+  });
 }
 
 /**

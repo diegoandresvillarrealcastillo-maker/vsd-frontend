@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { fallosDeAccesibilidad } from '../../pruebas/axe.ts';
+import { Icono } from '../panel/Icono.tsx';
 import { ALTO_DE_FILA, ALTO_DE_FILA_DE_HOY } from './geometria.ts';
 import { MapaDelPlan } from './MapaDelPlan.tsx';
 
@@ -68,6 +69,67 @@ describe('MapaDelPlan', () => {
     expect(mapa.getAllByRole('img')).toHaveLength(361);
     expect(mapa.getByRole('button', { name: /Día 1, hecho/ })).toBeInTheDocument();
     expect(mapa.getByRole('button', { name: /^Hoy, día 4: 0 de 2/ })).toBeInTheDocument();
+  });
+
+  describe('un arbol con vida (SCRUM-310)', () => {
+    /** Dieciseis dias hechos y nada todavia hoy: hoy es el 17. */
+    const DIECISEIS: ProgresoDelModulo = { ...BIENESTAR, sesiones: 16 };
+
+    function dibujoDeUnIcono(nombre: Parameters<typeof Icono>[0]['nombre']): string {
+      return render(<Icono nombre={nombre} />).container.querySelector('svg')!.innerHTML;
+    }
+
+    it('cada 7.º dia hecho es un hito: lleva el icono del modulo y no el check', () => {
+      pintar(DIECISEIS);
+
+      const mapa = within(ventana());
+
+      for (const dia of [7, 14]) {
+        const hito = mapa.getByRole('button', { name: new RegExp(`^Día ${String(dia)}, hecho`) });
+
+        expect(hito).toHaveClass('sendero__punto--hito');
+        expect(hito.querySelector('svg')!.innerHTML).toBe(dibujoDeUnIcono('leaf'));
+      }
+    });
+
+    it('los demas dias hechos siguen con su check, y el hito dice lo mismo que cualquier dia hecho', () => {
+      pintar(DIECISEIS);
+
+      const mapa = within(ventana());
+      const normal = mapa.getByRole('button', { name: /^Día 6, hecho/ });
+
+      expect(normal).not.toHaveClass('sendero__punto--hito');
+      expect(normal.querySelector('svg')!.innerHTML).toBe(dibujoDeUnIcono('check'));
+      expect(mapa.getByRole('button', { name: 'Día 7, hecho. Ver y repetir' })).toBeInTheDocument();
+      expect(mapa.getAllByRole('button')).toHaveLength(17);
+    });
+
+    it('un hito aun por hacer no se adelanta: sigue siendo un numero quieto', () => {
+      pintar(DIECISEIS);
+
+      const futuro = within(ventana()).getByRole('img', { name: 'Día 21, por hacer' });
+
+      expect(futuro).not.toHaveClass('sendero__punto--hito');
+      expect(futuro).toHaveTextContent('21');
+    });
+
+    it('el icono del hito es el del modulo de cada pestaña', () => {
+      pintar({ ...DIECISEIS, modulo: 'cognicion' });
+
+      const hito = within(ventana()).getByRole('button', { name: /^Día 7, hecho/ });
+
+      expect(hito.querySelector('svg')!.innerHTML).toBe(dibujoDeUnIcono('brain'));
+    });
+
+    it('el fondo animado va fuera de la ventana que se desplaza, y es el del modulo', () => {
+      const { container } = pintar({ ...DIECISEIS, modulo: 'emociones' });
+
+      const fondo = container.querySelector('.mapa-fondo');
+
+      expect(fondo).toHaveClass('mapa-fondo--emociones');
+      expect(ventana().contains(fondo)).toBe(false);
+      expect(fondo?.parentElement).toBe(ventana().parentElement);
+    });
   });
 
   it('lleva la vista al dia activo sola, sin bajar desde el dia 1 (checkpoint)', () => {

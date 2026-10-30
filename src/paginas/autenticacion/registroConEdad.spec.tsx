@@ -318,6 +318,9 @@ describe('Completa tu registro', () => {
     pintarCompletar(estado());
 
     await formularioListo();
+
+    expect(screen.getByLabelText('Fecha de nacimiento')).toBeInTheDocument();
+    expect(screen.queryByText('Panel de prueba')).not.toBeInTheDocument();
   });
 
   it('no ensena el formulario mientras comprueba, y no lo ensena a quien ya esta completo', async () => {
@@ -344,6 +347,9 @@ describe('Completa tu registro', () => {
     pintarCompletar(estado());
 
     await formularioListo();
+
+    expect(screen.getByLabelText('Fecha de nacimiento')).toBeInTheDocument();
+    expect(screen.queryByText('Panel de prueba')).not.toBeInTheDocument();
   });
 
   it('con la fecha y las dos casillas crea la cuenta con las versiones de la API y sigue', async () => {

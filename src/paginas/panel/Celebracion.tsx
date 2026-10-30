@@ -2,6 +2,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useId, useRef, type CSSProperties } from 'react';
 
 import { alPulsarElFondo } from '../../componentes/alPulsarElFondo.ts';
+import { useDialogo } from '../../componentes/useDialogo.ts';
 import type { Modulo } from '../../infraestructura/api/cuenta.ts';
 import { Icono } from './Icono.tsx';
 import { MODULOS } from './modulos.ts';
@@ -12,15 +13,15 @@ import { MODULOS } from './modulos.ts';
  * El texto cambia segun sea el segundo o el tercero. Celebra el paso sin
  * convertirlo en una meta: aqui no se mide a nadie, se le acompana.
  *
- * Es un dialogo de verdad: el foco entra al boton al abrirse y vuelve a donde
- * estaba al cerrar, se cierra con Escape o pulsando fuera, y con
+ * Es un dialogo de verdad: el foco entra al boton al abrirse, Tab no lo saca de
+ * la ventana y vuelve a donde estaba al cerrar, se cierra con Escape o pulsando
+ * fuera, y con
  * `prefers-reduced-motion` aparece sin animacion.
  */
 const TEXTOS: Readonly<Record<number, { titulo: string; texto: string }>> = {
   2: {
     titulo: 'Desbloqueaste tu segundo módulo',
-    texto:
-      'Ahora tu plan de cada día suma un espacio más. Ve a tu ritmo: no hace falta hacerlo todo.',
+    texto: 'Tu plan diario suma un espacio más. Ve a tu ritmo: no hace falta hacerlo todo.',
   },
   3: {
     titulo: 'Ya tienes los tres módulos',
@@ -48,32 +49,16 @@ export function Celebracion({
   const idDelTitulo = useId();
   const idDelTexto = useId();
   const boton = useRef<HTMLButtonElement>(null);
-  // En una referencia para que el efecto corra una sola vez al abrir, aunque
-  // quien lo usa pase una funcion nueva en cada pintado.
-  const cerrar = useRef(alCerrar);
 
-  useEffect(() => {
-    cerrar.current = alCerrar;
-  });
-
+  // El foco vuelve a donde estaba al cerrar. Va antes de `useDialogo`: sus efectos corren en orden,
+  // y este tiene que ver el foco antes de que el dialogo lo mueva adentro.
   useEffect(() => {
     const anterior = document.activeElement as HTMLElement | null;
 
-    boton.current?.focus();
-
-    function alPulsarTecla(evento: KeyboardEvent) {
-      if (evento.key === 'Escape') {
-        cerrar.current();
-      }
-    }
-
-    document.addEventListener('keydown', alPulsarTecla);
-
-    return () => {
-      document.removeEventListener('keydown', alPulsarTecla);
-      anterior?.focus?.();
-    };
+    return () => anterior?.focus?.();
   }, []);
+
+  const caja = useDialogo<HTMLDivElement>(alCerrar, boton);
 
   return (
     // Los colores del modulo van en el fondo y la caja los hereda: las
@@ -85,6 +70,7 @@ export function Celebracion({
       onClick={alPulsarElFondo(alCerrar)}
     >
       <motion.div
+        ref={caja}
         role="dialog"
         aria-modal="true"
         aria-labelledby={idDelTitulo}

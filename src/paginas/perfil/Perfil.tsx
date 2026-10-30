@@ -1,4 +1,4 @@
-import { useId, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { EstadoDeCarga } from '../../componentes/EstadoDeCarga.tsx';
@@ -35,7 +35,10 @@ import { RUTAS } from '../../rutas/rutas.ts';
 import { volverAVerElTutorial } from '../../tutorial/memoriaDelTutorial.ts';
 import { Semaforo } from '../../semaforo/Semaforo.tsx';
 import { mensajeSiNoCumple } from '../../sesion/reglaDeContrasena.ts';
-import { olvidarLosDatosDeLaSesionActual } from '../../sincronizacion/ciclo.ts';
+import {
+  iniciarUnaOperacionDeLaSesion,
+  olvidarLosDatosDeLaSesionActual,
+} from '../../sincronizacion/ciclo.ts';
 import { exportarLoQueNoSeHaEnviado } from '../../sincronizacion/loGuardadoEnEsteEquipo.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { BarraSuperior } from '../panel/Estructura.tsx';
@@ -274,7 +277,7 @@ function Modulos({
   return (
     <Apartado
       titulo="Tus módulos"
-      ayuda="Los que tengas activos aparecen en tu panel con lo que te toca cada día. Desactivar uno no borra lo que ya hiciste en él."
+      ayuda="Los activos aparecen en tu panel con lo que te toca cada día. Desactivar uno no borra lo que ya hiciste."
     >
       <div className="perfil__modulos">
         {ORDEN.map((modulo) => {
@@ -540,7 +543,7 @@ function TuDiario({
   return (
     <Apartado
       titulo="Tu diario"
-      ayuda="Lo que escribes en tu diario es tuyo. Mientras esto esté apagado, se guarda tal cual y nada lo revisa."
+      ayuda="Tu diario es tuyo. Mientras esto esté apagado, se guarda tal cual y nada lo revisa."
     >
       <button
         type="button"
@@ -561,9 +564,9 @@ function TuDiario({
       </button>
 
       <p id={idDeLaExplicacion} className="app__nota perfil__ayuda">
-        Si lo enciendes, la aplicación revisa de forma automática lo que escribes y, si algo suena a
-        que lo estás pasando mal, te muestra líneas de atención a las que puedes acudir. Encenderlo
-        no hace que ninguna persona lo lea. Puedes apagarlo cuando quieras.
+        Si lo enciendes, la aplicación revisa automáticamente lo que escribes y, si suena a que lo
+        estás pasando mal, te muestra líneas de atención. Encenderlo no hace que nadie lo lea.
+        Puedes apagarlo cuando quieras.
       </p>
       <MensajeDeAviso aviso={aviso} />
     </Apartado>
@@ -639,11 +642,10 @@ function TuAcompanamiento({
       </button>
 
       <p id={idDeLaExplicacion} className="app__nota perfil__ayuda">
-        Si lo enciendes, la aplicación mira si llevas varios días seguidos con resultados en carga o
-        emociones que piden atención y, si es así, te acompaña y te muestra a dónde acudir. Si pasas
-        varios días así y luego dejas de registrar, al volver también te lo recuerda con un aviso
-        que puedes cerrar. No se lo cuenta a nadie, no muestra ningún puntaje y no te avisa fuera de
-        la aplicación. Puedes apagarlo cuando quieras.
+        Si llevas varios días seguidos con resultados de carga o emociones que piden atención, te
+        acompañamos y te mostramos a dónde acudir. Si luego dejas de registrar, al volver te lo
+        recordamos con un aviso que puedes cerrar. No se lo contamos a nadie, no hay puntajes y no
+        avisamos fuera de la aplicación. Puedes apagarlo cuando quieras.
       </p>
       <MensajeDeAviso aviso={aviso} />
     </Apartado>
@@ -745,7 +747,7 @@ function Contrasena({ correo }: { correo: string }) {
   return (
     <Apartado
       titulo="Contraseña"
-      ayuda="Para cambiarla te enviamos un código a tu correo. Así nadie puede cambiarla con solo encontrar tu sesión abierta."
+      ayuda="Para cambiarla te enviamos un código a tu correo: así nadie puede hacerlo solo con tu sesión abierta."
     >
       {paso === 'inicio' ? (
         <button
@@ -855,17 +857,32 @@ type Formato = 'pdf' | 'json';
 function TusDatos() {
   const [preparando, setPreparando] = useState<Formato | null>(null);
   const [aviso, setAviso] = useState<Aviso>(null);
+  const enMarcha = useRef<AbortController | null>(null);
+
+  // Al salir de la pantalla, la descarga que seguia en marcha se cancela (SCRUM-316).
+  useEffect(
+    () => () => {
+      enMarcha.current?.abort();
+    },
+    [],
+  );
 
   async function descargar(formato: Formato) {
+    const control = new AbortController();
+
+    enMarcha.current = control;
+    // De quien es la descarga se anota antes del primer `await`: si la sesion cambia mientras
+    // tanto (sale A, entra B), lo de A no se mezcla con lo de B ni se entrega (SCRUM-316).
+    const operacion = iniciarUnaOperacionDeLaSesion(control.signal);
+
     setPreparando(formato);
     setAviso(null);
 
     try {
-      // Lo que dice el servidor y, aparte, lo que este equipo todavia no le ha enviado.
-      const datos = armarLaExportacion(
-        await exportarMisDatos(),
-        await exportarLoQueNoSeHaEnviado(),
-      );
+      // Lo que dice el servidor y, aparte, lo que este equipo todavia no le ha enviado: las dos
+      // lecturas son de la misma sesion o no hay descarga.
+      const delServidor = await exportarMisDatos(control.signal, operacion?.peticion);
+      const datos = armarLaExportacion(delServidor, await exportarLoQueNoSeHaEnviado(operacion));
 
       if (formato === 'json') {
         guardarArchivo(
@@ -873,16 +890,24 @@ function TusDatos() {
           'vsd-health-mis-datos.json',
         );
       } else {
-        const pdf = generarLaExportacionEnPdf(datos, {
-          actividades: await nombresDeLasActividades(),
-        });
+        const actividades = await nombresDeLasActividades();
 
-        guardarArchivo(new Blob([pdf], { type: 'application/pdf' }), NOMBRE_DEL_PDF);
+        // El catalogo tambien se espera: la sesion pudo cambiar mientras llegaba.
+        operacion?.exigir();
+        guardarArchivo(
+          new Blob([generarLaExportacionEnPdf(datos, { actividades })], {
+            type: 'application/pdf',
+          }),
+          NOMBRE_DEL_PDF,
+        );
       }
 
       setAviso({ tipo: 'bien', texto: 'Tus datos se descargaron.' });
     } catch {
-      setAviso({ tipo: 'fallo', texto: 'No se pudieron descargar. Inténtalo de nuevo.' });
+      // Una descarga que ya no es de esta sesion no se cuenta ni como hecha ni como fallida.
+      if (operacion === null || operacion.vigente()) {
+        setAviso({ tipo: 'fallo', texto: 'No se pudieron descargar. Inténtalo de nuevo.' });
+      }
     } finally {
       setPreparando(null);
     }
@@ -893,7 +918,7 @@ function TusDatos() {
   return (
     <Apartado
       titulo="Tus datos"
-      ayuda="Descarga todo lo que VSD Health guarda de ti: tu cuenta, tus resultados y tu diario. El PDF se lee fácil; el JSON es el archivo completo, con tu foto y tu mascota, para llevártelo a otro sitio. Si este equipo todavía guarda cambios que no se han enviado, también van."
+      ayuda="Descarga lo que VSD Health guarda de ti: tu cuenta, tus resultados y tu diario. El PDF se lee fácil; el JSON es el archivo completo, con tu foto y tu mascota, para llevarlo a otro sitio. Si este equipo guarda cambios sin enviar, también van."
     >
       <div className="perfil__acciones">
         <button

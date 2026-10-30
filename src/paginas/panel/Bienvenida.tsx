@@ -87,7 +87,7 @@ export function Bienvenida({
         <fieldset className="bienvenida__modulos" aria-describedby={idDeLaAyuda}>
           <legend className="bienvenida__etiqueta">Elige uno, dos o los tres</legend>
           <p id={idDeLaAyuda} className="app__nota">
-            Puedes empezar con poco: los demás se desbloquean después desde tu panel.
+            Empieza con poco: los demás se desbloquean después desde tu panel.
           </p>
 
           <div className="app__modulos">

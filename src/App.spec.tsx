@@ -69,7 +69,9 @@ describe('Portada', () => {
   it('se ve en la raiz', () => {
     pintar(RUTAS.INICIO);
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/lo que sientes/i);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      /cuerpo, mente y emociones/i,
+    );
   });
 
   it('ofrece entrar y registrarse desde la propia portada', () => {
@@ -91,7 +93,9 @@ describe('Portada', () => {
   it('devuelve a la portada cualquier direccion que no existe', () => {
     pintar('/esta-ruta-no-existe');
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/lo que sientes/i);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      /cuerpo, mente y emociones/i,
+    );
   });
 });
 
@@ -147,7 +151,7 @@ describe('Volver a la portada', () => {
     // registro, que va antes de ensenar nada de la cuenta.
     await userEvent.click(await screen.findByRole('button', { name: /menú de tu cuenta/ }));
 
-    expect(screen.getByRole('link', { name: /página principal/ })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Ir al inicio' })).toHaveAttribute(
       'href',
       RUTAS.INICIO,
     );

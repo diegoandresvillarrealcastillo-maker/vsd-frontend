@@ -1,3 +1,4 @@
+import type { ContextoDePeticion } from '../infraestructura/api/clienteHttp.ts';
 import type { Cuenta } from '../infraestructura/api/cuenta.ts';
 import {
   guardarLaMascotaPropia,
@@ -44,18 +45,29 @@ export function olvidarLaMascotaPropia(): void {
  * Guarda el SVG y deja lista para pintar la version que guardo el servidor.
  * Devuelve la cuenta como quedo. Si la API lo rechaza, lanza y lo que se veia se
  * queda como estaba.
+ *
+ * Con el `contexto` de quien empezo la operacion, si la sesion cambio mientras tanto no sale la
+ * peticion o su respuesta se descarta (lanza `AbortError`): lo de una persona no llega a la que ve
+ * la siguiente (SCRUM-317).
  */
-export async function subirLaMascotaPropia(svg: Blob): Promise<Cuenta> {
-  const cuenta = await guardarLaMascotaPropia(svg);
+export async function subirLaMascotaPropia(
+  svg: Blob,
+  senal?: AbortSignal,
+  contexto?: ContextoDePeticion,
+): Promise<Cuenta> {
+  const cuenta = await guardarLaMascotaPropia(svg, senal, contexto);
 
   sincronizarLaMascotaPropia(cuenta);
 
   return cuenta;
 }
 
-/** La quita y la deja de pintar. Devuelve la cuenta como quedo. */
-export async function retirarLaMascotaPropia(): Promise<Cuenta> {
-  const cuenta = await quitarLaMascotaPropia();
+/** La quita y la deja de pintar. Devuelve la cuenta como quedo. Ver `subirLaMascotaPropia` sobre el contexto. */
+export async function retirarLaMascotaPropia(
+  senal?: AbortSignal,
+  contexto?: ContextoDePeticion,
+): Promise<Cuenta> {
+  const cuenta = await quitarLaMascotaPropia(senal, contexto);
 
   sincronizarLaMascotaPropia(cuenta);
 

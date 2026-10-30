@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useAlVolverLaRed } from '../../conexion/useAlVolverLaRed.ts';
 import { consultarLaVersionDelAviso } from '../../infraestructura/api/aviso.ts';
+import type { ContextoDePeticion } from '../../infraestructura/api/clienteHttp.ts';
 import {
   cambiarPreferencias,
   darDeAltaLaCuenta,
   type CambiosDePreferencias,
   type Cuenta,
 } from '../../infraestructura/api/cuenta.ts';
+import { iniciarUnaOperacionDeLaSesion } from '../../sincronizacion/ciclo.ts';
 import { clasificarFallo } from '../../sincronizacion/clasificarFallo.ts';
 import { leerLaCuentaGuardada } from '../../sincronizacion/panelLocal.ts';
 import { explicar } from '../panel/useDatosDelPanel.ts';
@@ -58,7 +60,10 @@ function conLaCuenta(cuenta: Cuenta): (anterior: EstadoDelPerfil) => EstadoDelPe
 export function usePerfil(): {
   readonly estado: EstadoDelPerfil;
   readonly reintentar: () => void;
-  readonly guardar: (cambios: CambiosDePreferencias) => Promise<void>;
+  readonly guardar: (
+    cambios: CambiosDePreferencias,
+    contexto?: ContextoDePeticion,
+  ) => Promise<void>;
   /**
    * Pinta una cuenta que ya llego de la API por otro camino —la de la foto
    * (SCRUM-120), que no pasa por las preferencias—. No llama a nada.
@@ -127,12 +132,24 @@ export function usePerfil(): {
     };
   }, [intento]);
 
-  /** Guarda y pinta la cuenta como la devolvio la API. Si falla, lanza. */
-  const guardar = useCallback(async (cambios: CambiosDePreferencias): Promise<void> => {
-    const cuenta = await cambiarPreferencias(cambios);
+  /**
+   * Guarda y pinta la cuenta como la devolvio la API. Si falla, lanza. Con el `contexto` de quien
+   * empezo la operacion (SCRUM-317), o con el de la sesion de cuando se pulso, la peticion no sale
+   * o su respuesta se descarta (lanza `AbortError`) si la sesion cambio mientras tanto: lo de una
+   * persona no llega a la que entro despues (SCRUM-320).
+   */
+  const guardar = useCallback(
+    async (cambios: CambiosDePreferencias, contexto?: ContextoDePeticion): Promise<void> => {
+      const cuenta = await cambiarPreferencias(
+        cambios,
+        undefined,
+        contexto ?? iniciarUnaOperacionDeLaSesion()?.peticion,
+      );
 
-    setEstado(conLaCuenta(cuenta));
-  }, []);
+      setEstado(conLaCuenta(cuenta));
+    },
+    [],
+  );
 
   const reemplazarCuenta = useCallback((cuenta: Cuenta): void => {
     setEstado(conLaCuenta(cuenta));

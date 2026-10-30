@@ -1,4 +1,12 @@
-import { esEntero, esObjeto, esTexto, type Objeto } from './parametrosDeLaSesion.ts';
+import {
+  esEntero,
+  esObjeto,
+  esTexto,
+  igualSinMayusculas,
+  leerLista,
+  sinRepetir,
+  type Objeto,
+} from './parametrosDeLaSesion.ts';
 
 /**
  * Lo que el servidor manda en `sesion.parametros` para el cuestionario corto **sin puntaje** (SCRUM-227, ADR
@@ -18,37 +26,6 @@ import { esEntero, esObjeto, esTexto, type Objeto } from './parametrosDeLaSesion
 export interface OpcionSinValor {
   readonly clave: string;
   readonly texto: string;
-}
-
-function leerLista<T>(
-  valor: unknown,
-  minimo: number,
-  maximo: number,
-  leer: (item: unknown) => T | null,
-): T[] | null {
-  if (!Array.isArray(valor) || valor.length < minimo || valor.length > maximo) {
-    return null;
-  }
-
-  const resultado: T[] = [];
-
-  for (const item of valor as unknown[]) {
-    const leido = leer(item);
-
-    if (leido === null) {
-      return null;
-    }
-
-    resultado.push(leido);
-  }
-
-  return resultado;
-}
-
-const normal = (texto: string): string => texto.trim().toLowerCase();
-
-function sinRepetir(valores: readonly string[]): boolean {
-  return new Set(valores.map(normal)).size === valores.length;
 }
 
 function leerOpcion(item: unknown): OpcionSinValor | null {
@@ -287,7 +264,7 @@ function leerNodo(item: unknown, profundidad: number, claves: Set<string>): Nodo
     return null;
   }
 
-  const clave = normal(item.clave);
+  const clave = igualSinMayusculas(item.clave);
 
   // Las claves son unicas en toda la rueda, no solo entre hermanas.
   if (claves.has(clave)) {

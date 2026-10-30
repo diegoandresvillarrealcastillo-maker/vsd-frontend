@@ -4,6 +4,8 @@ import type { DiaDeLaSemana } from '../../infraestructura/api/racha.ts';
 import {
   actividadesDeLaSemana,
   diasConActividad,
+  esReciente,
+  MINUTOS_DE_LO_RECIENTE,
   textoDelResumen,
   ultimasActividades,
   type HechoConModulo,
@@ -99,6 +101,38 @@ describe('ultimasActividades (SCRUM-296)', () => {
     ultimasActividades(original, 5);
 
     expect(original.map((uno) => uno.id)).toEqual(['h1', 'h2']);
+  });
+});
+
+describe('esReciente (SCRUM-311)', () => {
+  const AHORA = new Date('2026-10-21T20:00:00.000Z');
+
+  function haceMinutos(minutos: number): string {
+    return new Date(AHORA.getTime() - minutos * 60_000).toISOString();
+  }
+
+  it('lo hecho hace pocos minutos es reciente', () => {
+    expect(esReciente(haceMinutos(0), AHORA)).toBe(true);
+    expect(esReciente(haceMinutos(14), AHORA)).toBe(true);
+  });
+
+  it('el limite son quince minutos, y pasado el limite ya no', () => {
+    expect(MINUTOS_DE_LO_RECIENTE).toBe(15);
+    expect(esReciente(haceMinutos(15), AHORA)).toBe(true);
+    expect(esReciente(haceMinutos(16), AHORA)).toBe(false);
+    expect(esReciente(haceMinutos(60 * 24), AHORA)).toBe(false);
+  });
+
+  it('un reloj adelantado unos minutos no le quita lo reciente', () => {
+    expect(esReciente(haceMinutos(-5), AHORA)).toBe(true);
+  });
+
+  it('lo que dice venir del futuro lejano no es reciente', () => {
+    expect(esReciente(haceMinutos(-120), AHORA)).toBe(false);
+  });
+
+  it('una fecha que no se entiende no es reciente', () => {
+    expect(esReciente('no es una fecha', AHORA)).toBe(false);
   });
 });
 

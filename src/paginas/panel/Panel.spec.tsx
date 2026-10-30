@@ -345,7 +345,10 @@ describe('Dashboard, la ruta de 365 dias dentro de «Tu ruta de hoy» (SCRUM-293
     await screen.findByRole('heading', { name: /Hola, Marina/ });
 
     expect(acordeonAbierto(/Cognición/)).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Ruta de 365 días de Cognición' })).toBeVisible();
+    // Las secciones entran con un fundido (SCRUM-310): al montar nacen transparentes.
+    await waitFor(() =>
+      expect(screen.getByRole('region', { name: 'Ruta de 365 días de Cognición' })).toBeVisible(),
+    );
   });
 
   it('se maneja con teclado y no tiene fallos de accesibilidad con un modulo abierto', async () => {
@@ -628,6 +631,29 @@ describe('Dashboard', () => {
     });
   });
 
+  describe('la entrada de las secciones (SCRUM-310)', () => {
+    const SECCIONES = ['inicio', 'progreso', 'programas'];
+
+    it('con el tutorial ya visto, las tres secciones entran escalonadas', async () => {
+      pintar();
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      for (const id of SECCIONES) {
+        expect(document.getElementById(id)?.style.opacity, id).not.toBe('');
+      }
+    });
+
+    it('con el tutorial por abrirse no hay entrada: mide el panel al montar y lo veria desplazado', async () => {
+      volverAVerElTutorial(CUENTA.id);
+      pintar();
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      for (const id of SECCIONES) {
+        expect(document.getElementById(id)?.getAttribute('style'), id).toBeNull();
+      }
+    });
+  });
+
   describe('la navegacion sin «Explorar» (SCRUM-182)', () => {
     it('las tarjetas de los modulos siguen en el panel: sin ellas no hay como entrar a un sendero', async () => {
       pintar();
@@ -897,10 +923,11 @@ describe('Dashboard', () => {
       await userEvent.click(screen.getByRole('checkbox', { name: /Bienestar/ }));
       await userEvent.click(screen.getByRole('button', { name: /Empezar/ }));
 
-      expect(cambiarPreferencias).toHaveBeenCalledWith({
-        nombre: 'Marina',
-        modulosActivos: ['bienestar', 'emociones'],
-      });
+      expect(cambiarPreferencias).toHaveBeenCalledWith(
+        { nombre: 'Marina', modulosActivos: ['bienestar', 'emociones'] },
+        expect.any(AbortSignal),
+        undefined,
+      );
       expect(await screen.findByRole('heading', { name: /Hola, Marina/ })).toBeInTheDocument();
     });
 
@@ -912,7 +939,11 @@ describe('Dashboard', () => {
       await userEvent.click(await screen.findByRole('checkbox', { name: /Cognición/ }));
       await userEvent.click(screen.getByRole('button', { name: /Empezar/ }));
 
-      expect(cambiarPreferencias).toHaveBeenCalledWith({ modulosActivos: ['cognicion'] });
+      expect(cambiarPreferencias).toHaveBeenCalledWith(
+        { modulosActivos: ['cognicion'] },
+        expect.any(AbortSignal),
+        undefined,
+      );
     });
 
     it('marcar y desmarcar un modulo se refleja en la casilla', async () => {
@@ -1027,9 +1058,11 @@ describe('Dashboard', () => {
 
       await userEvent.click(await screen.findByRole('button', { name: /Añadir Emociones/ }));
 
-      expect(cambiarPreferencias).toHaveBeenCalledWith({
-        modulosActivos: ['cognicion', 'bienestar', 'emociones'],
-      });
+      expect(cambiarPreferencias).toHaveBeenCalledWith(
+        { modulosActivos: ['cognicion', 'bienestar', 'emociones'] },
+        expect.any(AbortSignal),
+        undefined,
+      );
       expect(await screen.findByRole('link', { name: /Emociones/ })).toHaveTextContent(
         'Etapa 1 · 0 de 5 sesiones',
       );

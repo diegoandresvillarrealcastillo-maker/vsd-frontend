@@ -16,6 +16,16 @@ export interface DatosDeModulo {
   readonly acento: string;
 }
 
+/**
+ * La forma que flota en los fondos de cada modulo (el de las actividades y el del arbol): lo mismo
+ * que lo representa en el panel, salvo Cognicion, que flota destellos y no el cerebro.
+ */
+export const FORMA_QUE_FLOTA: Readonly<Record<Modulo, NombreDeIcono>> = {
+  bienestar: 'leaf',
+  cognicion: 'sparkles',
+  emociones: 'heart',
+};
+
 /** El orden del diseño. */
 export const ORDEN: readonly Modulo[] = ['bienestar', 'cognicion', 'emociones'];
 

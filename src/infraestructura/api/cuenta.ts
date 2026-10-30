@@ -1,6 +1,6 @@
 import { sincronizarLosArchivosDeLaPersona } from '../../foto/archivosDeLaPersona.ts';
 import { fijarLaZonaDeLaCuenta, zonaDelDispositivo } from '../../tiempo/zonaHoraria.ts';
-import { ErrorDeLaApi, llamarALaApi } from './clienteHttp.ts';
+import { ErrorDeLaApi, llamarALaApi, type ContextoDePeticion } from './clienteHttp.ts';
 
 /**
  * La cuenta de VSD Health, por HTTP.
@@ -234,8 +234,14 @@ export const FRASE_PARA_BORRAR = 'BORRAR MI CUENTA';
  * Se trata como datos opacos: esta pantalla no los interpreta, solo los
  * entrega a la persona en un archivo.
  */
-export function exportarMisDatos(senal?: AbortSignal): Promise<unknown> {
-  return llamarALaApi<unknown>(`${RUTA}/exportacion`, senal ? { senal } : {});
+export function exportarMisDatos(
+  senal?: AbortSignal,
+  contexto?: ContextoDePeticion,
+): Promise<unknown> {
+  return llamarALaApi<unknown>(`${RUTA}/exportacion`, {
+    ...(senal ? { senal } : {}),
+    ...(contexto ? { contexto } : {}),
+  });
 }
 
 /**
@@ -260,13 +266,16 @@ export function borrarMiCuenta(confirmacion: string): Promise<void> {
 export async function cambiarPreferencias(
   cambios: CambiosDePreferencias,
   senal?: AbortSignal,
+  contexto?: ContextoDePeticion,
 ): Promise<Cuenta> {
   const cuenta = await llamarALaApi<Cuenta>(`${RUTA}/preferencias`, {
     metodo: 'PATCH',
     cuerpo: cambios,
     ...(senal ? { senal } : {}),
+    ...(contexto ? { contexto } : {}),
   });
 
+  // Una respuesta que llega con otra sesion ya lanzo arriba: lo de esta cuenta no toca lo de la otra.
   sincronizarLosArchivosDeLaPersona(cuenta);
 
   return cuenta;

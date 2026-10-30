@@ -224,7 +224,7 @@ describe('Perfil', () => {
       await usuario.type(campo, 'Mari');
       await usuario.click(screen.getByRole('button', { name: 'Guardar nombre' }));
 
-      expect(cambiarPreferencias).toHaveBeenCalledWith({ nombre: 'Mari' });
+      expect(cambiarPreferencias).toHaveBeenCalledWith({ nombre: 'Mari' }, undefined, undefined);
       expect(within(apartado('Cómo te llamamos')).getByRole('status')).toHaveTextContent('Listo');
     });
 
@@ -256,7 +256,11 @@ describe('Perfil', () => {
       await usuario.click(bienestar);
       await usuario.click(screen.getByRole('button', { name: 'Guardar módulos' }));
 
-      expect(cambiarPreferencias).toHaveBeenCalledWith({ modulosActivos: ['cognicion'] });
+      expect(cambiarPreferencias).toHaveBeenCalledWith(
+        { modulosActivos: ['cognicion'] },
+        undefined,
+        undefined,
+      );
     });
 
     it('sin cambios no hay nada que guardar', async () => {
@@ -309,9 +313,13 @@ describe('Perfil', () => {
 
       await usuario.click(within(seccion).getByRole('button', { name: 'Guardar mascota' }));
 
-      expect(cambiarPreferencias).toHaveBeenCalledWith({
-        mascota: { forma: 'sparky', nombre: 'Sparky' },
-      });
+      expect(cambiarPreferencias).toHaveBeenCalledWith(
+        {
+          mascota: { forma: 'sparky', nombre: 'Sparky' },
+        },
+        undefined,
+        undefined,
+      );
       expect(within(seccion).getByRole('status')).toHaveTextContent('Sparky te acompaña');
       // La que flota cambia sin recargar.
       expect(screen.getByRole('button', { name: 'Sparky, tu mascota' })).toBeInTheDocument();
@@ -416,7 +424,11 @@ describe('Perfil', () => {
 
       await usuario.click(boton);
 
-      expect(cambiarPreferencias).toHaveBeenCalledWith({ diarioConRecomendaciones: true });
+      expect(cambiarPreferencias).toHaveBeenCalledWith(
+        { diarioConRecomendaciones: true },
+        undefined,
+        undefined,
+      );
       expect(boton).toHaveAttribute('aria-checked', 'true');
       expect(within(seccion).getByRole('status')).toHaveTextContent('a dónde acudir');
     });
@@ -433,7 +445,11 @@ describe('Perfil', () => {
 
       await usuario.click(boton);
 
-      expect(cambiarPreferencias).toHaveBeenCalledWith({ diarioConRecomendaciones: false });
+      expect(cambiarPreferencias).toHaveBeenCalledWith(
+        { diarioConRecomendaciones: false },
+        undefined,
+        undefined,
+      );
       expect(boton).toHaveAttribute('aria-checked', 'false');
       expect(within(seccion).getByRole('status')).toHaveTextContent('ya no se revisa');
     });
@@ -477,9 +493,9 @@ describe('Perfil', () => {
       const { boton } = await interruptor();
 
       expect(boton).toHaveAccessibleDescription(
-        /dejas de registrar, al volver también te lo recuerda con un aviso que puedes cerrar/,
+        /dejas de registrar, al volver te lo recordamos con un aviso que puedes cerrar/,
       );
-      expect(boton).toHaveAccessibleDescription(/no te avisa fuera de la aplicación/);
+      expect(boton).toHaveAccessibleDescription(/no avisamos fuera de la aplicación/);
     });
 
     it('se enciende al pulsarlo, sin boton de guardar', async () => {
@@ -491,7 +507,11 @@ describe('Perfil', () => {
 
       await usuario.click(boton);
 
-      expect(cambiarPreferencias).toHaveBeenCalledWith({ acompanamientoPorDias: true });
+      expect(cambiarPreferencias).toHaveBeenCalledWith(
+        { acompanamientoPorDias: true },
+        undefined,
+        undefined,
+      );
       expect(boton).toHaveAttribute('aria-checked', 'true');
       expect(within(seccion).getByRole('status')).toHaveTextContent('Listo');
     });
@@ -508,7 +528,11 @@ describe('Perfil', () => {
 
       await usuario.click(boton);
 
-      expect(cambiarPreferencias).toHaveBeenCalledWith({ acompanamientoPorDias: false });
+      expect(cambiarPreferencias).toHaveBeenCalledWith(
+        { acompanamientoPorDias: false },
+        undefined,
+        undefined,
+      );
       expect(boton).toHaveAttribute('aria-checked', 'false');
       expect(within(seccion).getByRole('status')).toHaveTextContent('ya no se revisa');
     });
@@ -1127,7 +1151,7 @@ describe('la foto de perfil en el perfil (SCRUM-120)', () => {
     await usuario.upload(within(seccion).getByLabelText('Elegir una foto'), ELEGIDA);
 
     expect(prepararLaFoto).toHaveBeenCalledWith(ELEGIDA);
-    expect(guardarLaFoto).toHaveBeenCalledWith(LISTA);
+    expect(guardarLaFoto).toHaveBeenCalledWith(LISTA, expect.any(AbortSignal), undefined);
     expect(await within(seccion).findByRole('status')).toHaveTextContent('Listo, esta es tu foto.');
     expect(within(seccion).getByRole('img', { name: 'Tu foto de perfil' })).toHaveAttribute(
       'src',
@@ -1333,9 +1357,13 @@ describe('la mascota propia en el perfil (SCRUM-122)', () => {
 
       await usuario.click(within(mascotas()).getByRole('button', { name: 'Guardar mascota' }));
 
-      expect(cambiarPreferencias).toHaveBeenCalledWith({
-        mascota: { forma: 'obsidian', nombre: 'Luma' },
-      });
+      expect(cambiarPreferencias).toHaveBeenCalledWith(
+        {
+          mascota: { forma: 'obsidian', nombre: 'Luma' },
+        },
+        undefined,
+        undefined,
+      );
     });
 
     it('guardar la eleccion no pierde su aviso: la mascota propia no cambio', async () => {
@@ -1373,9 +1401,13 @@ describe('la mascota propia en el perfil (SCRUM-122)', () => {
 
       await usuario.click(within(mascotas()).getByRole('button', { name: 'Guardar mascota' }));
 
-      expect(cambiarPreferencias).toHaveBeenCalledWith({
-        mascota: { forma: 'propia', nombre: 'Mi mascota' },
-      });
+      expect(cambiarPreferencias).toHaveBeenCalledWith(
+        {
+          mascota: { forma: 'propia', nombre: 'Mi mascota' },
+        },
+        undefined,
+        undefined,
+      );
     });
 
     it('cambiar el dibujo no cambia cual esta elegida ni su nombre', async () => {
@@ -1447,10 +1479,18 @@ describe('la mascota propia en el perfil (SCRUM-122)', () => {
       expect(await within(propia()).findByRole('status')).toHaveTextContent(
         'Listo, tu mascota ya te acompaña.',
       );
-      expect(guardarLaMascotaPropia).toHaveBeenCalledWith(DIBUJO);
-      expect(cambiarPreferencias).toHaveBeenCalledWith({
-        mascota: { forma: 'propia', nombre: 'Mi mascota' },
-      });
+      expect(guardarLaMascotaPropia).toHaveBeenCalledWith(
+        DIBUJO,
+        expect.any(AbortSignal),
+        undefined,
+      );
+      expect(cambiarPreferencias).toHaveBeenCalledWith(
+        {
+          mascota: { forma: 'propia', nombre: 'Mi mascota' },
+        },
+        undefined,
+        undefined,
+      );
       expect(within(mascotas()).getAllByRole('radio')).toHaveLength(6);
       expect(within(mascotas()).getByRole('radio', { name: /Mi mascota/ })).toBeChecked();
       expect(screen.getByRole('button', { name: 'Mi mascota, tu mascota' })).toBeInTheDocument();
@@ -1640,7 +1680,11 @@ describe('sin conexion (SCRUM-142)', () => {
     });
     await usuario.click(within(apartado('Cómo te llamamos')).getByRole('button'));
 
-    expect(cambiarPreferencias).toHaveBeenCalledWith({ nombre: 'Marina Isabel' });
+    expect(cambiarPreferencias).toHaveBeenCalledWith(
+      { nombre: 'Marina Isabel' },
+      undefined,
+      undefined,
+    );
   });
 
   it('el codigo y la contrasena que se escribian no se pierden al irse la red', async () => {
@@ -1735,7 +1779,12 @@ describe('sin conexion (SCRUM-142)', () => {
       await usuario.type(within(seccion).getByRole('textbox', { name: 'Nombre' }), 'Mari');
       await usuario.click(within(seccion).getByRole('button', { name: 'Guardar nombre' }));
 
-      expect(cambiarPreferencias).toHaveBeenCalledWith({ nombre: 'Mari' });
+      // Con la sesion de la copia, el guardado lleva el contexto de quien lo pidio (SCRUM-320).
+      expect(cambiarPreferencias).toHaveBeenCalledWith(
+        { nombre: 'Mari' },
+        undefined,
+        expect.anything(),
+      );
       expect(await within(seccion).findByRole('status')).toHaveTextContent('Listo');
       expect(screen.queryByText(HAY_COPIA)).not.toBeInTheDocument();
     });
@@ -1902,5 +1951,72 @@ describe('sin conexion (SCRUM-142)', () => {
       expect(darDeAltaLaCuenta).toHaveBeenCalledTimes(1);
       expect(screen.queryByText(HAY_COPIA)).not.toBeInTheDocument();
     });
+  });
+});
+
+/**
+ * Los textos explicativos de Perfil, mas cortos y con todos sus hechos (SCRUM-312).
+ *
+ * Acortar una frase legal o de seguridad no puede quitarle un dato: cada prueba fija lo que el texto
+ * tiene que seguir diciendo, no cuantas palabras usa.
+ */
+describe('los textos explicativos de Perfil (SCRUM-312)', () => {
+  it('«Tus módulos» dice que los activos van al panel y que desactivar no borra lo hecho', async () => {
+    pintar();
+
+    const seccion = await screen.findByRole('region', { name: 'Tus módulos' });
+
+    expect(seccion).toHaveTextContent(
+      /Los activos aparecen en tu panel con lo que te toca cada día/,
+    );
+    expect(seccion).toHaveTextContent(/Desactivar uno no borra lo que ya hiciste/);
+  });
+
+  it('el diario dice que la revision es automatica, que nadie lo lee y que se puede apagar', async () => {
+    pintar();
+
+    const seccion = await screen.findByRole('region', { name: 'Tu diario' });
+    const boton = within(seccion).getByRole('switch', { name: 'Recomendaciones según mi diario' });
+
+    expect(seccion).toHaveTextContent(/Tu diario es tuyo\. Mientras esto esté apagado/);
+    expect(boton).toHaveAccessibleDescription(/revisa automáticamente lo que escribes/);
+    expect(boton).toHaveAccessibleDescription(/líneas de atención/);
+    expect(boton).toHaveAccessibleDescription(/Encenderlo no hace que nadie lo lea/);
+    expect(boton).toHaveAccessibleDescription(/Puedes apagarlo cuando quieras/);
+  });
+
+  it('el acompañamiento conserva lo que mira, que no se cuenta a nadie y que no hay puntajes', async () => {
+    pintar();
+
+    const seccion = await screen.findByRole('region', { name: 'Tu acompañamiento' });
+    const boton = within(seccion).getByRole('switch', {
+      name: 'Acompañarme si varios días van mal',
+    });
+
+    expect(boton).toHaveAccessibleDescription(
+      /varios días seguidos con resultados de carga o emociones que piden atención/,
+    );
+    expect(boton).toHaveAccessibleDescription(/No se lo contamos a nadie, no hay puntajes/);
+    expect(boton).toHaveAccessibleDescription(/Puedes apagarlo cuando quieras/);
+  });
+
+  it('«Contraseña» dice que el cambio pasa por un codigo al correo y por que', async () => {
+    pintar();
+
+    const seccion = await screen.findByRole('region', { name: 'Contraseña' });
+
+    expect(seccion).toHaveTextContent(/te enviamos un código a tu correo/);
+    expect(seccion).toHaveTextContent(/nadie puede hacerlo solo con tu sesión abierta/);
+  });
+
+  it('«Tus datos» sigue diciendo que son tres cosas, que formato es cual y que van los cambios sin enviar', async () => {
+    pintar();
+
+    const seccion = await screen.findByRole('region', { name: 'Tus datos' });
+
+    expect(seccion).toHaveTextContent(/tu cuenta, tus resultados y tu diario/);
+    expect(seccion).toHaveTextContent(/El PDF se lee fácil/);
+    expect(seccion).toHaveTextContent(/el JSON es el archivo completo, con tu foto y tu mascota/);
+    expect(seccion).toHaveTextContent(/Si este equipo guarda cambios sin enviar, también van/);
   });
 });

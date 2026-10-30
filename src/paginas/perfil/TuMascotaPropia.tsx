@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
+import type { ChangeEvent } from 'react';
 
 import { comprobarElSvg } from '../../foto/comprobarElSvg.ts';
 import {
@@ -6,6 +6,7 @@ import {
   subirLaMascotaPropia,
   useMascotaPropia,
 } from '../../foto/mascotaPropia.ts';
+import type { ContextoDePeticion } from '../../infraestructura/api/clienteHttp.ts';
 import type { CambiosDePreferencias, Cuenta } from '../../infraestructura/api/cuenta.ts';
 import {
   FORMA_DE_LA_MASCOTA_PROPIA,
@@ -16,7 +17,8 @@ import {
 import { Icono } from '../panel/Icono.tsx';
 import { GuiaDeLaMascotaPropia } from './GuiaDeLaMascotaPropia.tsx';
 import { explicarLaMascotaPropia } from './mensajesDeLaMascotaPropia.ts';
-import { Apartado, MensajeDeAviso, type Aviso } from './piezas.tsx';
+import { Apartado, MensajeDeAviso } from './piezas.tsx';
+import { useEntradaDeArchivo } from './useEntradaDeArchivo.ts';
 
 /**
  * La mascota propia (SCRUM-122): un dibujo SVG que sube la persona.
@@ -39,44 +41,39 @@ export function TuMascotaPropia({
   actualizarCuenta,
 }: {
   cuenta: Cuenta;
-  guardar: (cambios: CambiosDePreferencias) => Promise<void>;
+  guardar: (cambios: CambiosDePreferencias, contexto?: ContextoDePeticion) => Promise<void>;
   actualizarCuenta: (cuenta: Cuenta) => void;
 }) {
   const dibujo = useMascotaPropia();
   const tiene = cuenta.mascotaPropia != null;
-  const [ocupado, setOcupado] = useState<'guardando' | 'quitando' | null>(null);
-  const [aviso, setAviso] = useState<Aviso>(null);
-  const entrada = useRef<HTMLInputElement>(null);
-  const enfocarAlTerminar = useRef(false);
-  const idDeLaEntrada = useId();
-
-  // El boton de quitar desaparece con la mascota, y con el se iria el foco de
-  // quien navega con teclado. Se lleva al de subir, pero solo cuando ya no esta
-  // deshabilitado: una entrada deshabilitada no recibe el foco.
-  useEffect(() => {
-    if (ocupado === null && enfocarAlTerminar.current) {
-      enfocarAlTerminar.current = false;
-      entrada.current?.focus();
-    }
-  }, [ocupado]);
+  const {
+    iniciarLaOperacion,
+    ocupado,
+    setOcupado,
+    aviso,
+    setAviso,
+    entrada,
+    enfocarLaEntradaAlTerminar,
+    idDeLaEntrada,
+    tomarElArchivo,
+  } = useEntradaDeArchivo();
 
   async function alElegir(evento: ChangeEvent<HTMLInputElement>) {
-    const elegido = evento.target.files?.[0];
-
-    // Se vacia para que elegir el mismo archivo otra vez cuente como un cambio.
-    evento.target.value = '';
+    const elegido = tomarElArchivo(evento);
 
     if (elegido === undefined) {
       return;
     }
 
-    setOcupado('guardando');
-    setAviso(null);
+    // Las dos peticiones (subir el dibujo y dejarlo como acompanante) son de quien lo eligio: si la
+    // sesion cambia entre una y otra, la segunda no sale con la sesion de otra persona (SCRUM-317).
+    const { senal, operacion } = iniciarLaOperacion();
+    const siguenSiendoDeEstaSesion = () => operacion === null || operacion.vigente();
 
     try {
       comprobarElSvg(elegido);
 
-      const conLaMascota = await subirLaMascotaPropia(elegido);
+      const conLaMascota = await subirLaMascotaPropia(elegido, senal, operacion?.peticion);
 
       if (tiene) {
         actualizarCuenta(conLaMascota);
@@ -89,35 +86,44 @@ export function TuMascotaPropia({
       const { personaje, nombre } = mascotaParaMostrar(conLaMascota.mascota);
 
       try {
-        await guardar({
-          mascota: {
-            forma: FORMA_DE_LA_MASCOTA_PROPIA,
-            nombre: nombreAlElegir(nombre, personaje, FORMA_DE_LA_MASCOTA_PROPIA),
+        await guardar(
+          {
+            mascota: {
+              forma: FORMA_DE_LA_MASCOTA_PROPIA,
+              nombre: nombreAlElegir(nombre, personaje, FORMA_DE_LA_MASCOTA_PROPIA),
+            },
           },
-        });
+          operacion?.peticion,
+        );
         setAviso({ tipo: 'bien', texto: 'Listo, tu mascota ya te acompaña.' });
       } catch {
-        actualizarCuenta(conLaMascota);
-        setAviso({
-          tipo: 'fallo',
-          texto:
-            'Tu dibujo se guardó, pero no pudimos dejarlo como tu acompañante. Elígelo en «Tu mascota».',
-        });
+        if (siguenSiendoDeEstaSesion()) {
+          actualizarCuenta(conLaMascota);
+          setAviso({
+            tipo: 'fallo',
+            texto:
+              'Tu dibujo se guardó, pero no pudimos dejarlo como tu acompañante. Elígelo en «Tu mascota».',
+          });
+        }
       }
     } catch (error) {
-      setAviso({ tipo: 'fallo', texto: explicarLaMascotaPropia(error, 'guardar') });
+      if (siguenSiendoDeEstaSesion()) {
+        setAviso({ tipo: 'fallo', texto: explicarLaMascotaPropia(error, 'guardar') });
+      }
     } finally {
       setOcupado(null);
     }
   }
 
   async function alQuitar() {
+    const { senal, operacion } = iniciarLaOperacion();
+
     setOcupado('quitando');
     setAviso(null);
 
     try {
       const eraLaElegida = mascotaParaMostrar(cuenta.mascota).propia;
-      const quedo = await retirarLaMascotaPropia();
+      const quedo = await retirarLaMascotaPropia(senal, operacion?.peticion);
 
       actualizarCuenta(quedo);
       setAviso({
@@ -126,9 +132,11 @@ export function TuMascotaPropia({
           ? `Quitaste tu mascota propia. Tu acompañante vuelve a ser ${PERSONAJES[mascotaParaMostrar(quedo.mascota).personaje].nombre}.`
           : 'Quitaste tu mascota propia.',
       });
-      enfocarAlTerminar.current = true;
+      enfocarLaEntradaAlTerminar();
     } catch (error) {
-      setAviso({ tipo: 'fallo', texto: explicarLaMascotaPropia(error, 'quitar') });
+      if (operacion === null || operacion.vigente()) {
+        setAviso({ tipo: 'fallo', texto: explicarLaMascotaPropia(error, 'quitar') });
+      }
     } finally {
       setOcupado(null);
     }
@@ -137,7 +145,7 @@ export function TuMascotaPropia({
   return (
     <Apartado
       titulo="Tu propia mascota"
-      ayuda="Sube un dibujo tuyo en SVG y te acompañará como tu mascota. Solo lo ves tú. Antes de guardarlo lo revisamos y lo rehacemos solo con formas y colores."
+      ayuda="Sube un dibujo tuyo en SVG y será tu mascota. Solo lo ves tú. Antes de guardarlo lo revisamos y lo rehacemos solo con formas y colores."
     >
       <div className="perfil__foto">
         <div className="perfil__mascota-marco">

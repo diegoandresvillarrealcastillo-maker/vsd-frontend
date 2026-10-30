@@ -22,327 +22,366 @@
 
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-const problemas = [];
-let comprobaciones = 0;
+/**
+ * Hace todas las comprobaciones sobre los archivos de una carpeta y devuelve lo que no cuadra.
+ * Es una funcion (y no codigo suelto) para que las pruebas la llamen en su propio proceso y
+ * Vitest pueda medir cuanto de ella ejercitan.
+ *
+ * @param {string} raiz Carpeta que tiene `vercel.json`, `nginx/` y `dist/`.
+ * @returns {{ problemas: string[], comprobaciones: number }}
+ */
+export function comprobarLasCabeceras(raiz = '.') {
+  const problemas = [];
+  let comprobaciones = 0;
 
-function comprobar(descripcion, cumple) {
-  comprobaciones += 1;
+  function comprobar(descripcion, cumple) {
+    comprobaciones += 1;
 
-  if (!cumple) {
-    problemas.push(descripcion);
-  }
-}
-
-// ----- lo que manda Vercel -----
-
-const vercel = JSON.parse(readFileSync('vercel.json', 'utf8'));
-// Las de seguridad, que salen en TODOS los ambientes. La regla que solo sale en
-// algunos (la de `has`, abajo) no cuenta para esto.
-const reglas = (vercel.headers ?? []).filter(
-  (regla) => regla.source === '/(.*)' && regla.has === undefined,
-);
-
-comprobar(
-  'vercel.json tiene una regla de cabeceras para todas las rutas (/(.*))',
-  reglas.length === 1,
-);
-
-const deVercel = new Map((reglas[0]?.headers ?? []).map(({ key, value }) => [key, value]));
-
-// ----- lo que Vercel manda solo fuera de produccion (SEO-02) -----
-
-const reglasDeLosVercelApp = (vercel.headers ?? []).filter(
-  (regla) =>
-    regla.source === '/(.*)' &&
-    (regla.has ?? []).some(
-      (condicion) => condicion.type === 'host' && /vercel/.test(condicion.value),
-    ),
-);
-const robotsDeVercel = reglasDeLosVercelApp
-  .flatMap((regla) => regla.headers)
-  .find(({ key }) => key === 'X-Robots-Tag');
-
-comprobar(
-  'vercel.json manda X-Robots-Tag noindex en PRE y en las vistas previas de las ramas',
-  robotsDeVercel !== undefined && /noindex/.test(robotsDeVercel.value),
-);
-
-// El dominio de produccion sera uno generico de Vercel (`algo.vercel.app`), asi que la
-// regla NO puede cubrir todo `vercel.app`: cerraria produccion a los buscadores. Se
-// comprueba con direcciones de ejemplo, una por cada cosa que tiene que pasar.
-const hostDeLaRegla = reglasDeLosVercelApp
-  .flatMap((regla) => regla.has ?? [])
-  .find((condicion) => condicion.type === 'host')?.value;
-
-function cubre(host) {
-  try {
-    return new RegExp(`^(?:${hostDeLaRegla})$`).test(host);
-  } catch {
-    return false;
-  }
-}
-
-comprobar(
-  'la regla del noindex cubre PRE (vsd-health-pre.vercel.app)',
-  cubre('vsd-health-pre.vercel.app'),
-);
-comprobar(
-  'la regla del noindex cubre las vistas previas de las ramas (-git-)',
-  cubre('vsd-health-git-feature-algo-vsd-company.vercel.app'),
-);
-for (const produccion of ['vsd-health.vercel.app', 'vsd-health-app.vercel.app', 'vsd.vercel.app']) {
-  comprobar(
-    `la regla del noindex NO cubre un posible dominio de produccion (${produccion}): lo cerraria`,
-    !cubre(produccion),
-  );
-}
-comprobar(
-  'la cabecera noindex NO sale en todas las rutas de todos los ambientes: cerraria produccion',
-  !deVercel.has('X-Robots-Tag'),
-);
-
-// ----- lo que manda nginx -----
-
-const rutaDeNginx = 'nginx/cabeceras-de-seguridad.conf';
-
-comprobar(`existe ${rutaDeNginx}`, existsSync(rutaDeNginx));
-
-const deNginx = new Map();
-
-if (existsSync(rutaDeNginx)) {
-  for (const linea of readFileSync(rutaDeNginx, 'utf8').split('\n')) {
-    const coincidencia = /^add_header\s+(\S+)\s+"(.*)"\s+always;\s*$/.exec(linea.trim());
-
-    if (coincidencia) {
-      deNginx.set(coincidencia[1], coincidencia[2]);
+    if (!cumple) {
+      problemas.push(descripcion);
     }
   }
-}
 
-// ----- lo que nginx manda de mas: la imagen nunca es publica -----
+  // ----- lo que manda Vercel -----
 
-const robotsDeNginx = deNginx.get('X-Robots-Tag');
+  const vercel = JSON.parse(readFileSync(join(raiz, 'vercel.json'), 'utf8'));
+  // Las de seguridad, que salen en TODOS los ambientes. La regla que solo sale en
+  // algunos (la de `has`, abajo) no cuenta para esto.
+  const reglas = (vercel.headers ?? []).filter(
+    (regla) => regla.source === '/(.*)' && regla.has === undefined,
+  );
 
-comprobar(
-  'nginx manda X-Robots-Tag noindex: la imagen es local y nunca se indexa',
-  robotsDeNginx !== undefined && /noindex/.test(robotsDeNginx),
-);
-
-// Se saca de la comparacion de abajo: en Vercel no sale en todos los ambientes.
-deNginx.delete('X-Robots-Tag');
-
-// ----- las mismas, con los mismos valores -----
-
-const OBLIGATORIAS = [
-  'X-Content-Type-Options',
-  'X-Frame-Options',
-  'Referrer-Policy',
-  'Permissions-Policy',
-  'Content-Security-Policy-Report-Only',
-];
-
-for (const nombre of OBLIGATORIAS) {
-  comprobar(`Vercel manda ${nombre}`, deVercel.has(nombre));
-  comprobar(`nginx manda ${nombre}`, deNginx.has(nombre));
   comprobar(
-    `${nombre} vale lo mismo en Vercel y en nginx`,
-    deVercel.get(nombre) === deNginx.get(nombre),
+    'vercel.json tiene una regla de cabeceras para todas las rutas (/(.*))',
+    reglas.length === 1,
   );
-}
 
-comprobar(
-  'Vercel y nginx mandan exactamente las mismas cabeceras',
-  [...deVercel.keys()].sort().join(',') === [...deNginx.keys()].sort().join(','),
-);
+  const deVercel = new Map((reglas[0]?.headers ?? []).map(({ key, value }) => [key, value]));
 
-comprobar(
-  'X-Content-Type-Options es nosniff',
-  deVercel.get('X-Content-Type-Options') === 'nosniff',
-);
-comprobar('X-Frame-Options es DENY', deVercel.get('X-Frame-Options') === 'DENY');
+  // ----- lo que Vercel manda solo fuera de produccion (SEO-02) -----
 
-// ----- la politica de contenido -----
+  const reglasDeLosVercelApp = (vercel.headers ?? []).filter(
+    (regla) =>
+      regla.source === '/(.*)' &&
+      (regla.has ?? []).some(
+        (condicion) => condicion.type === 'host' && /vercel/.test(condicion.value),
+      ),
+  );
+  const robotsDeVercel = reglasDeLosVercelApp
+    .flatMap((regla) => regla.headers)
+    .find(({ key }) => key === 'X-Robots-Tag');
 
-const politica = deVercel.get('Content-Security-Policy-Report-Only') ?? '';
-const directivas = new Map(
-  politica
-    .split(';')
-    .map((parte) => parte.trim())
-    .filter(Boolean)
-    .map((parte) => {
-      const [nombre, ...valores] = parte.split(/\s+/);
-
-      return [nombre, valores];
-    }),
-);
-
-const REQUERIDAS = {
-  'default-src': ["'self'"],
-  'object-src': ["'none'"],
-  'base-uri': ["'self'"],
-  'form-action': ["'self'"],
-  'frame-ancestors': ["'none'"],
-};
-
-for (const [nombre, esperados] of Object.entries(REQUERIDAS)) {
   comprobar(
-    `la politica dice ${nombre} ${esperados.join(' ')}`,
-    (directivas.get(nombre) ?? []).join(' ') === esperados.join(' '),
+    'vercel.json manda X-Robots-Tag noindex en PRE y en las vistas previas de las ramas',
+    robotsDeVercel !== undefined && /noindex/.test(robotsDeVercel.value),
   );
-}
 
-const scripts = directivas.get('script-src') ?? [];
+  // El dominio de produccion sera uno generico de Vercel (`algo.vercel.app`), asi que la
+  // regla NO puede cubrir todo `vercel.app`: cerraria produccion a los buscadores. Se
+  // comprueba con direcciones de ejemplo, una por cada cosa que tiene que pasar.
+  const hostDeLaRegla = reglasDeLosVercelApp
+    .flatMap((regla) => regla.has)
+    .find((condicion) => condicion.type === 'host')?.value;
 
-comprobar("script-src parte de 'self'", scripts.includes("'self'"));
-comprobar("script-src no admite 'unsafe-eval'", !scripts.includes("'unsafe-eval'"));
-comprobar("script-src no admite 'unsafe-inline'", !scripts.includes("'unsafe-inline'"));
-comprobar(
-  'script-src no admite comodines ni esquemas enteros (*, https:, http:, data:)',
-  !scripts.some((valor) => ['*', 'https:', 'http:', 'data:', 'blob:'].includes(valor)),
-);
-comprobar(
-  'la politica no abre la puerta a Google Fonts: las tipografias viajan con la aplicacion',
-  // Fuente por fuente y con la regex anclada: buscar el dominio suelto en toda la
-  // cadena es lo que CodeQL marca como «sin ancla», con razon cuando se usa para
-  // decidir sobre una direccion.
-  !politica
-    .split(/[\s;]+/)
-    .some((fuente) => /^(?:https?:\/\/)?fonts\.(?:googleapis|gstatic)\.com$/.test(fuente)),
-);
-
-// ----- el CAPTCHA (SCRUM-165) -----
-//
-// Cloudflare Turnstile necesita tres cosas en la politica: poder descargar su
-// script, poder pintar su iframe y poder hablar con su dominio. Si falta alguna,
-// el CAPTCHA no carga y, con la proteccion activada en Supabase, nadie puede
-// entrar. Y en el iframe es el unico dominio que se admite: autorizar otro es una
-// decision que se toma a proposito, no se cuela. En los scripts, el unico otro
-// dominio es el de la analitica (SCRUM-161), que tambien esta en la lista de mas
-// abajo.
-
-const TURNSTILE = 'https://challenges.cloudflare.com';
-const GOOGLE_TAG_MANAGER = 'https://www.googletagmanager.com';
-const conexiones = directivas.get('connect-src') ?? [];
-
-// Se compara fuente por fuente con `===`: `includes` sobre una direccion es la forma
-// que CodeQL marca como «subcadena en una URL», aunque aqui sea una lista de fuentes.
-const esTurnstile = (valor) => valor === TURNSTILE;
-
-comprobar(
-  `script-src autoriza ${TURNSTILE}: sin eso el CAPTCHA no se descarga`,
-  scripts.some(esTurnstile),
-);
-comprobar(
-  `script-src no autoriza ningun otro dominio de fuera: solo ${TURNSTILE} y ${GOOGLE_TAG_MANAGER}`,
-  scripts
-    .filter((valor) => /^https?:\/\//.test(valor))
-    .every((valor) => valor === TURNSTILE || valor === GOOGLE_TAG_MANAGER),
-);
-comprobar(
-  `frame-src es exactamente ${TURNSTILE}: el CAPTCHA es lo unico que se pinta en un iframe`,
-  (directivas.get('frame-src') ?? []).join(' ') === TURNSTILE,
-);
-comprobar(`connect-src autoriza ${TURNSTILE}`, conexiones.some(esTurnstile));
-
-// ----- los unicos dominios de fuera -----
-//
-// Cada dominio de otra parte que la politica autoriza es un tercero que puede ver
-// algo de quien usa la aplicacion, y que los documentos legales tienen que nombrar.
-// Por eso la lista esta aqui, a la vista, y no solo en la politica: agregar un
-// dominio hace fallar esta comprobacion hasta que se agregue tambien a esta lista, y
-// esa es la ocasion de preguntarse si hay que actualizar la pagina de cookies y el
-// aviso de privacidad (SCRUM-161).
-//
-// Y al reves: si falta uno de los de Google Analytics, la analitica dejaria de
-// funcionar sin que nada lo avise.
-const EXTERNOS_AUTORIZADOS = {
-  'script-src': [TURNSTILE, GOOGLE_TAG_MANAGER],
-  'img-src': ['https://*.google-analytics.com', 'https://*.googletagmanager.com'],
-  'font-src': ['https://esm.sh'],
-  'connect-src': [
-    'https://*.onrender.com',
-    'https://*.supabase.co',
-    'https://esm.sh',
-    'https://*.google-analytics.com',
-    'https://*.analytics.google.com',
-    'https://*.googletagmanager.com',
-    TURNSTILE,
-  ],
-  'frame-src': [TURNSTILE],
-};
-
-for (const [directiva, autorizados] of Object.entries(EXTERNOS_AUTORIZADOS)) {
-  const valores = directivas.get(directiva) ?? [];
-  const externos = valores.filter((valor) => valor.startsWith('https://'));
-
-  for (const externo of externos) {
-    comprobar(
-      `${directiva} autoriza ${externo}, que no esta en la lista de dominios de fuera: si es un tercero nuevo, hay que sumarlo a esta lista y a los documentos legales`,
-      autorizados.includes(externo),
-    );
+  function cubre(host) {
+    try {
+      return new RegExp(`^(?:${hostDeLaRegla})$`).test(host);
+    } catch {
+      return false;
+    }
   }
 
-  for (const autorizado of autorizados) {
-    comprobar(
-      `${directiva} tiene que autorizar ${autorizado}: sin el, algo que depende de el deja de funcionar`,
-      externos.includes(autorizado),
-    );
-  }
-}
-
-comprobar(
-  'ni img-src ni connect-src admiten https: entero ni comodines',
-  ['img-src', 'connect-src', 'font-src'].every(
-    (directiva) =>
-      !(directivas.get(directiva) ?? []).some((valor) => ['*', 'https:', 'http:'].includes(valor)),
-  ),
-);
-
-// ----- los scripts en linea de la compilacion -----
-
-const rutaDelHtml = 'dist/index.html';
-
-comprobar(`existe ${rutaDelHtml}: hay que compilar antes`, existsSync(rutaDelHtml));
-
-if (existsSync(rutaDelHtml)) {
-  const html = readFileSync(rutaDelHtml, 'utf8');
-  const enLinea = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(
-    ([, cuerpo]) => `sha256-${createHash('sha256').update(cuerpo, 'utf8').digest('base64')}`,
+  comprobar(
+    'la regla del noindex cubre PRE (vsd-health-pre.vercel.app)',
+    cubre('vsd-health-pre.vercel.app'),
   );
-  const autorizados = scripts
-    .filter((valor) => valor.startsWith("'sha256-"))
-    .map((valor) => valor.slice(1, -1));
-
-  for (const hash of enLinea) {
+  comprobar(
+    'la regla del noindex cubre las vistas previas de las ramas (-git-)',
+    cubre('vsd-health-git-feature-algo-vsd-company.vercel.app'),
+  );
+  for (const produccion of [
+    'vsd-health.vercel.app',
+    'vsd-health-app.vercel.app',
+    'vsd.vercel.app',
+  ]) {
     comprobar(
-      `el script en linea de index.html esta autorizado: falta '${hash}' en script-src (en vercel.json y en ${rutaDeNginx})`,
-      autorizados.includes(hash),
+      `la regla del noindex NO cubre un posible dominio de produccion (${produccion}): lo cerraria`,
+      !cubre(produccion),
     );
   }
+  comprobar(
+    'la cabecera noindex NO sale en todas las rutas de todos los ambientes: cerraria produccion',
+    !deVercel.has('X-Robots-Tag'),
+  );
 
-  for (const hash of autorizados) {
+  // ----- lo que manda nginx -----
+
+  const rutaDeNginx = 'nginx/cabeceras-de-seguridad.conf';
+
+  comprobar(`existe ${rutaDeNginx}`, existsSync(join(raiz, rutaDeNginx)));
+
+  const deNginx = new Map();
+
+  if (existsSync(join(raiz, rutaDeNginx))) {
+    for (const linea of readFileSync(join(raiz, rutaDeNginx), 'utf8').split('\n')) {
+      const coincidencia = /^add_header\s+(\S+)\s+"(.*)"\s+always;\s*$/.exec(linea.trim());
+
+      if (coincidencia) {
+        deNginx.set(coincidencia[1], coincidencia[2]);
+      }
+    }
+  }
+
+  // ----- lo que nginx manda de mas: la imagen nunca es publica -----
+
+  const robotsDeNginx = deNginx.get('X-Robots-Tag');
+
+  comprobar(
+    'nginx manda X-Robots-Tag noindex: la imagen es local y nunca se indexa',
+    robotsDeNginx !== undefined && /noindex/.test(robotsDeNginx),
+  );
+
+  // Se saca de la comparacion de abajo: en Vercel no sale en todos los ambientes.
+  deNginx.delete('X-Robots-Tag');
+
+  // ----- las mismas, con los mismos valores -----
+
+  const OBLIGATORIAS = [
+    'X-Content-Type-Options',
+    'X-Frame-Options',
+    'Referrer-Policy',
+    'Permissions-Policy',
+    'Content-Security-Policy-Report-Only',
+  ];
+
+  for (const nombre of OBLIGATORIAS) {
+    comprobar(`Vercel manda ${nombre}`, deVercel.has(nombre));
+    comprobar(`nginx manda ${nombre}`, deNginx.has(nombre));
     comprobar(
-      `'${hash}' autoriza un script que ya no existe en index.html: hay que quitarlo`,
-      enLinea.includes(hash),
+      `${nombre} vale lo mismo en Vercel y en nginx`,
+      deVercel.get(nombre) === deNginx.get(nombre),
     );
   }
 
   comprobar(
-    'index.html no carga nada de otro dominio',
-    !/(?:src|href)="https?:\/\/(?!www\.w3\.org)/.test(html),
+    'Vercel y nginx mandan exactamente las mismas cabeceras',
+    [...deVercel.keys()].sort().join(',') === [...deNginx.keys()].sort().join(','),
   );
-}
 
-if (problemas.length > 0) {
-  console.error('\nLas cabeceras de seguridad no cuadran:\n');
+  comprobar(
+    'X-Content-Type-Options es nosniff',
+    deVercel.get('X-Content-Type-Options') === 'nosniff',
+  );
+  comprobar('X-Frame-Options es DENY', deVercel.get('X-Frame-Options') === 'DENY');
 
-  for (const problema of problemas) {
-    console.error(`  x ${problema}`);
+  // ----- la politica de contenido -----
+
+  const politica = deVercel.get('Content-Security-Policy-Report-Only') ?? '';
+  const directivas = new Map(
+    politica
+      .split(';')
+      .map((parte) => parte.trim())
+      .filter(Boolean)
+      .map((parte) => {
+        const [nombre, ...valores] = parte.split(/\s+/);
+
+        return [nombre, valores];
+      }),
+  );
+
+  const REQUERIDAS = {
+    'default-src': ["'self'"],
+    'object-src': ["'none'"],
+    'base-uri': ["'self'"],
+    'form-action': ["'self'"],
+    'frame-ancestors': ["'none'"],
+  };
+
+  for (const [nombre, esperados] of Object.entries(REQUERIDAS)) {
+    comprobar(
+      `la politica dice ${nombre} ${esperados.join(' ')}`,
+      (directivas.get(nombre) ?? []).join(' ') === esperados.join(' '),
+    );
   }
 
-  console.error(`\n${problemas.length} de ${comprobaciones} comprobaciones fallaron.`);
-  process.exit(1);
+  const scripts = directivas.get('script-src') ?? [];
+
+  comprobar("script-src parte de 'self'", scripts.includes("'self'"));
+  comprobar("script-src no admite 'unsafe-eval'", !scripts.includes("'unsafe-eval'"));
+  comprobar("script-src no admite 'unsafe-inline'", !scripts.includes("'unsafe-inline'"));
+  comprobar(
+    'script-src no admite comodines ni esquemas enteros (*, https:, http:, data:)',
+    !scripts.some((valor) => ['*', 'https:', 'http:', 'data:', 'blob:'].includes(valor)),
+  );
+  comprobar(
+    'la politica no abre la puerta a Google Fonts: las tipografias viajan con la aplicacion',
+    // Fuente por fuente y con la regex anclada: buscar el dominio suelto en toda la
+    // cadena es lo que CodeQL marca como «sin ancla», con razon cuando se usa para
+    // decidir sobre una direccion.
+    !politica
+      .split(/[\s;]+/)
+      .some((fuente) => /^(?:https?:\/\/)?fonts\.(?:googleapis|gstatic)\.com$/.test(fuente)),
+  );
+
+  // ----- el CAPTCHA (SCRUM-165) -----
+  //
+  // Cloudflare Turnstile necesita tres cosas en la politica: poder descargar su
+  // script, poder pintar su iframe y poder hablar con su dominio. Si falta alguna,
+  // el CAPTCHA no carga y, con la proteccion activada en Supabase, nadie puede
+  // entrar. Y en el iframe es el unico dominio que se admite: autorizar otro es una
+  // decision que se toma a proposito, no se cuela. En los scripts, el unico otro
+  // dominio es el de la analitica (SCRUM-161), que tambien esta en la lista de mas
+  // abajo.
+
+  const TURNSTILE = 'https://challenges.cloudflare.com';
+  const GOOGLE_TAG_MANAGER = 'https://www.googletagmanager.com';
+  const conexiones = directivas.get('connect-src') ?? [];
+
+  // Se compara fuente por fuente con `===`: `includes` sobre una direccion es la forma
+  // que CodeQL marca como «subcadena en una URL», aunque aqui sea una lista de fuentes.
+  const esTurnstile = (valor) => valor === TURNSTILE;
+
+  comprobar(
+    `script-src autoriza ${TURNSTILE}: sin eso el CAPTCHA no se descarga`,
+    scripts.some(esTurnstile),
+  );
+  comprobar(
+    `script-src no autoriza ningun otro dominio de fuera: solo ${TURNSTILE} y ${GOOGLE_TAG_MANAGER}`,
+    scripts
+      .filter((valor) => /^https?:\/\//.test(valor))
+      .every((valor) => valor === TURNSTILE || valor === GOOGLE_TAG_MANAGER),
+  );
+  comprobar(
+    `frame-src es exactamente ${TURNSTILE}: el CAPTCHA es lo unico que se pinta en un iframe`,
+    (directivas.get('frame-src') ?? []).join(' ') === TURNSTILE,
+  );
+  comprobar(`connect-src autoriza ${TURNSTILE}`, conexiones.some(esTurnstile));
+
+  // ----- los unicos dominios de fuera -----
+  //
+  // Cada dominio de otra parte que la politica autoriza es un tercero que puede ver
+  // algo de quien usa la aplicacion, y que los documentos legales tienen que nombrar.
+  // Por eso la lista esta aqui, a la vista, y no solo en la politica: agregar un
+  // dominio hace fallar esta comprobacion hasta que se agregue tambien a esta lista, y
+  // esa es la ocasion de preguntarse si hay que actualizar la pagina de cookies y el
+  // aviso de privacidad (SCRUM-161).
+  //
+  // Y al reves: si falta uno de los de Google Analytics, la analitica dejaria de
+  // funcionar sin que nada lo avise.
+  const EXTERNOS_AUTORIZADOS = {
+    'script-src': [TURNSTILE, GOOGLE_TAG_MANAGER],
+    'img-src': ['https://*.google-analytics.com', 'https://*.googletagmanager.com'],
+    'font-src': ['https://esm.sh'],
+    'connect-src': [
+      'https://*.onrender.com',
+      'https://*.supabase.co',
+      'https://esm.sh',
+      'https://*.google-analytics.com',
+      'https://*.analytics.google.com',
+      'https://*.googletagmanager.com',
+      TURNSTILE,
+    ],
+    'frame-src': [TURNSTILE],
+  };
+
+  for (const [directiva, autorizados] of Object.entries(EXTERNOS_AUTORIZADOS)) {
+    const valores = directivas.get(directiva) ?? [];
+    const externos = valores.filter((valor) => valor.startsWith('https://'));
+
+    for (const externo of externos) {
+      comprobar(
+        `${directiva} autoriza ${externo}, que no esta en la lista de dominios de fuera: si es un tercero nuevo, hay que sumarlo a esta lista y a los documentos legales`,
+        autorizados.includes(externo),
+      );
+    }
+
+    for (const autorizado of autorizados) {
+      comprobar(
+        `${directiva} tiene que autorizar ${autorizado}: sin el, algo que depende de el deja de funcionar`,
+        externos.includes(autorizado),
+      );
+    }
+  }
+
+  comprobar(
+    'ni img-src ni connect-src admiten https: entero ni comodines',
+    ['img-src', 'connect-src', 'font-src'].every(
+      (directiva) =>
+        !(directivas.get(directiva) ?? []).some((valor) =>
+          ['*', 'https:', 'http:'].includes(valor),
+        ),
+    ),
+  );
+
+  // ----- los scripts en linea de la compilacion -----
+
+  const rutaDelHtml = 'dist/index.html';
+
+  comprobar(`existe ${rutaDelHtml}: hay que compilar antes`, existsSync(join(raiz, rutaDelHtml)));
+
+  if (existsSync(join(raiz, rutaDelHtml))) {
+    const html = readFileSync(join(raiz, rutaDelHtml), 'utf8');
+    const enLinea = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(
+      ([, cuerpo]) => `sha256-${createHash('sha256').update(cuerpo, 'utf8').digest('base64')}`,
+    );
+    const autorizados = scripts
+      .filter((valor) => valor.startsWith("'sha256-"))
+      .map((valor) => valor.slice(1, -1));
+
+    for (const hash of enLinea) {
+      comprobar(
+        `el script en linea de index.html esta autorizado: falta '${hash}' en script-src (en vercel.json y en ${rutaDeNginx})`,
+        autorizados.includes(hash),
+      );
+    }
+
+    for (const hash of autorizados) {
+      comprobar(
+        `'${hash}' autoriza un script que ya no existe en index.html: hay que quitarlo`,
+        enLinea.includes(hash),
+      );
+    }
+
+    comprobar(
+      'index.html no carga nada de otro dominio',
+      !/(?:src|href)="https?:\/\/(?!www\.w3\.org)/.test(html),
+    );
+  }
+
+  return { problemas, comprobaciones };
 }
 
-console.log(`Cabeceras de seguridad comprobadas: ${comprobaciones} comprobaciones.`);
+/**
+ * Corre las comprobaciones y cuenta el resultado por `salida`.
+ *
+ * @param {string} raiz
+ * @param {{ log: (texto: string) => void, error: (texto: string) => void }} salida
+ * @returns {number} El codigo de salida: 0 si todo cuadra, 1 si algo no.
+ */
+export function principal(raiz = '.', salida = console) {
+  const { problemas, comprobaciones } = comprobarLasCabeceras(raiz);
+
+  if (problemas.length > 0) {
+    salida.error('\nLas cabeceras de seguridad no cuadran:\n');
+
+    for (const problema of problemas) {
+      salida.error(`  x ${problema}`);
+    }
+
+    salida.error(`\n${problemas.length} de ${comprobaciones} comprobaciones fallaron.`);
+
+    return 1;
+  }
+
+  salida.log(`Cabeceras de seguridad comprobadas: ${comprobaciones} comprobaciones.`);
+
+  return 0;
+}
+
+// Solo al ejecutarlo (`node scripts/...`), no al importarlo desde una prueba.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  process.exitCode = principal();
+}

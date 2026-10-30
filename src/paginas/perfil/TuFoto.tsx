@@ -1,11 +1,12 @@
-import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
+import type { ChangeEvent } from 'react';
 
 import { useFotoDePerfil, retirarLaFoto, subirLaFoto } from '../../foto/fotoDePerfil.ts';
 import { prepararLaFoto } from '../../foto/prepararLaFoto.ts';
 import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
 import { Icono } from '../panel/Icono.tsx';
 import { explicarLaFoto } from './mensajesDeLaFoto.ts';
-import { Apartado, MensajeDeAviso, type Aviso } from './piezas.tsx';
+import { Apartado, MensajeDeAviso } from './piezas.tsx';
+import { useEntradaDeArchivo } from './useEntradaDeArchivo.ts';
 
 /**
  * La foto de perfil (SCRUM-120).
@@ -23,55 +24,59 @@ import { Apartado, MensajeDeAviso, type Aviso } from './piezas.tsx';
  */
 export function TuFoto({ actualizarCuenta }: { actualizarCuenta: (cuenta: Cuenta) => void }) {
   const foto = useFotoDePerfil();
-  const [ocupado, setOcupado] = useState<'guardando' | 'quitando' | null>(null);
-  const [aviso, setAviso] = useState<Aviso>(null);
-  const entrada = useRef<HTMLInputElement>(null);
-  const enfocarAlTerminar = useRef(false);
-  const idDeLaEntrada = useId();
-
-  // El boton de quitar desaparece con la foto, y con el se iria el foco de quien
-  // navega con teclado. Se lleva al de elegir, pero solo cuando ya no esta
-  // deshabilitado: una entrada deshabilitada no recibe el foco.
-  useEffect(() => {
-    if (ocupado === null && enfocarAlTerminar.current) {
-      enfocarAlTerminar.current = false;
-      entrada.current?.focus();
-    }
-  }, [ocupado]);
+  const {
+    iniciarLaOperacion,
+    ocupado,
+    setOcupado,
+    aviso,
+    setAviso,
+    entrada,
+    enfocarLaEntradaAlTerminar,
+    idDeLaEntrada,
+    tomarElArchivo,
+  } = useEntradaDeArchivo();
 
   async function alElegir(evento: ChangeEvent<HTMLInputElement>) {
-    const elegido = evento.target.files?.[0];
-
-    // Se vacia para que elegir el mismo archivo otra vez cuente como un cambio.
-    evento.target.value = '';
+    const elegido = tomarElArchivo(evento);
 
     if (elegido === undefined) {
       return;
     }
 
-    setOcupado('guardando');
-    setAviso(null);
+    // De quien es la foto se anota antes de prepararla, que tarda: si la sesion cambia mientras
+    // tanto, la foto de A no se sube con la sesion de B (SCRUM-317).
+    const { senal, operacion } = iniciarLaOperacion();
 
     try {
-      actualizarCuenta(await subirLaFoto(await prepararLaFoto(elegido)));
+      // Con el contexto, la peticion no sale si la sesion cambio mientras se preparaba.
+      actualizarCuenta(
+        await subirLaFoto(await prepararLaFoto(elegido), senal, operacion?.peticion),
+      );
       setAviso({ tipo: 'bien', texto: 'Listo, esta es tu foto.' });
     } catch (error) {
-      setAviso({ tipo: 'fallo', texto: explicarLaFoto(error, 'guardar') });
+      // Lo que ya no es de esta sesion no se cuenta ni como hecho ni como fallido.
+      if (operacion === null || operacion.vigente()) {
+        setAviso({ tipo: 'fallo', texto: explicarLaFoto(error, 'guardar') });
+      }
     } finally {
       setOcupado(null);
     }
   }
 
   async function alQuitar() {
+    const { senal, operacion } = iniciarLaOperacion();
+
     setOcupado('quitando');
     setAviso(null);
 
     try {
-      actualizarCuenta(await retirarLaFoto());
+      actualizarCuenta(await retirarLaFoto(senal, operacion?.peticion));
       setAviso({ tipo: 'bien', texto: 'Quitaste tu foto.' });
-      enfocarAlTerminar.current = true;
+      enfocarLaEntradaAlTerminar();
     } catch (error) {
-      setAviso({ tipo: 'fallo', texto: explicarLaFoto(error, 'quitar') });
+      if (operacion === null || operacion.vigente()) {
+        setAviso({ tipo: 'fallo', texto: explicarLaFoto(error, 'quitar') });
+      }
     } finally {
       setOcupado(null);
     }
@@ -80,7 +85,7 @@ export function TuFoto({ actualizarCuenta }: { actualizarCuenta: (cuenta: Cuenta
   return (
     <Apartado
       titulo="Tu foto"
-      ayuda="Es opcional y solo la ves tú. La recortamos en cuadrado y la reducimos aquí, en tu dispositivo, antes de guardarla: tu foto original no sale de él."
+      ayuda="Es opcional y solo la ves tú. La recortamos en cuadrado y la reducimos en tu dispositivo antes de guardarla: tu foto original no sale de él."
     >
       <div className="perfil__foto">
         <div className="perfil__foto-marco">

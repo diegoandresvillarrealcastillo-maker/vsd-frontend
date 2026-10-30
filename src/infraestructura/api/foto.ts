@@ -1,5 +1,5 @@
 import type { Cuenta } from './cuenta.ts';
-import { llamarALaApi, pedirBytesALaApi } from './clienteHttp.ts';
+import { llamarALaApi, pedirBytesALaApi, type ContextoDePeticion } from './clienteHttp.ts';
 
 /**
  * La foto de perfil, por HTTP (SCRUM-120).
@@ -19,13 +19,26 @@ const RUTA = '/api/cuenta/foto';
  * comprimirla. La API la comprueba otra vez —tipo, peso, que sea de verdad una
  * imagen y su tamano en pixeles— sin fiarse de que este lado lo haya hecho bien.
  */
-export function guardarLaFoto(foto: Blob, senal?: AbortSignal): Promise<Cuenta> {
-  return llamarALaApi<Cuenta>(RUTA, { metodo: 'PUT', bytes: foto, ...(senal ? { senal } : {}) });
+export function guardarLaFoto(
+  foto: Blob,
+  senal?: AbortSignal,
+  contexto?: ContextoDePeticion,
+): Promise<Cuenta> {
+  return llamarALaApi<Cuenta>(RUTA, {
+    metodo: 'PUT',
+    bytes: foto,
+    ...(senal ? { senal } : {}),
+    ...(contexto ? { contexto } : {}),
+  });
 }
 
 /** Quita la foto. Devuelve la cuenta como quedo; quitar la que no hay no es un error. */
-export function quitarLaFoto(senal?: AbortSignal): Promise<Cuenta> {
-  return llamarALaApi<Cuenta>(RUTA, { metodo: 'DELETE', ...(senal ? { senal } : {}) });
+export function quitarLaFoto(senal?: AbortSignal, contexto?: ContextoDePeticion): Promise<Cuenta> {
+  return llamarALaApi<Cuenta>(RUTA, {
+    metodo: 'DELETE',
+    ...(senal ? { senal } : {}),
+    ...(contexto ? { contexto } : {}),
+  });
 }
 
 /**

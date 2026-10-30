@@ -183,12 +183,16 @@ export function describir(resultado) {
   return lineas.join('\n');
 }
 
-/** Pregunta a npm y devuelve el informe. Lanza si npm no pudo responder. */
-function pedirElInforme() {
+/**
+ * Pregunta a npm y devuelve el informe. Lanza si npm no pudo responder.
+ *
+ * @param {typeof spawnSync} ejecutar Quien lanza la orden; las pruebas le ponen uno que no llama a npm.
+ */
+export function pedirElInforme(ejecutar = spawnSync) {
   // Como una sola orden y con shell, no como lista de argumentos: en Windows
   // `npm` es un .cmd y sin shell no se encuentra, y Node avisa de que pasar una
   // lista de argumentos con shell no los escapa. Aqui no hay nada variable.
-  const respuesta = spawnSync('npm audit --omit=dev --json', {
+  const respuesta = ejecutar('npm audit --omit=dev --json', {
     encoding: 'utf8',
     shell: true,
     maxBuffer: 64 * 1024 * 1024,
@@ -212,20 +216,37 @@ function pedirElInforme() {
   return informe;
 }
 
-function principal() {
-  const aceptadas = leerLasAceptadas(readFileSync('vulnerabilidades-aceptadas.json', 'utf8'));
-  const hoy = new Date().toISOString().slice(0, 10);
-  const resultado = evaluar(pedirElInforme(), aceptadas, hoy);
+/**
+ * Revisa las dependencias y cuenta el resultado por `salida`. Todo lo que toca el sistema
+ * (npm, el archivo de aceptadas, la fecha) se puede reemplazar para probarlo.
+ *
+ * @param {object} [opciones]
+ * @param {() => object} [opciones.pedir] Devuelve el informe de `npm audit`.
+ * @param {(ruta: string, codificacion: 'utf8') => string} [opciones.leer] Lee el archivo de aceptadas.
+ * @param {string} [opciones.hoy] La fecha de hoy, `AAAA-MM-DD`.
+ * @param {{ log: (texto: string) => void, error: (texto: string) => void }} [opciones.salida]
+ * @returns {number} El codigo de salida: 0 si no hay nada grave sin resolver, 1 si lo hay o si no se pudo mirar.
+ */
+export function principal({
+  pedir = pedirElInforme,
+  leer = readFileSync,
+  hoy = new Date().toISOString().slice(0, 10),
+  salida = console,
+} = {}) {
+  try {
+    const aceptadas = leerLasAceptadas(leer('vulnerabilidades-aceptadas.json', 'utf8'));
+    const resultado = evaluar(pedir(), aceptadas, hoy);
 
-  console.log(describir(resultado));
-  process.exitCode = resultado.ok ? 0 : 1;
+    salida.log(describir(resultado));
+
+    return resultado.ok ? 0 : 1;
+  } catch (error) {
+    salida.error(`::error::${error.message}`);
+
+    return 1;
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  try {
-    principal();
-  } catch (error) {
-    console.error(`::error::${error.message}`);
-    process.exitCode = 1;
-  }
+  process.exitCode = principal();
 }
