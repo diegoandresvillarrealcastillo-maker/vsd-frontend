@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 
 import { AvisoOrientativo } from '../../componentes/AvisoOrientativo.tsx';
 import { MarcaDeLaApp } from '../../componentes/MarcaDeLaApp.tsx';
@@ -37,15 +37,23 @@ import { ProveedorDeLaMascota } from './viva/ProveedorDeLaMascota.tsx';
  */
 export function Actividad() {
   const { id } = useParams<{ id: string }>();
+  const [parametros] = useSearchParams();
+  const idSesion = parametros.get('sesion') ?? undefined;
 
   // Cada actividad es una pantalla nueva (SCRUM-295): al pasar a la siguiente desde «Siguiente
   // actividad» la ruta es la misma y solo cambia el id. Con `key` no queda nada de la anterior,
   // y en particular su identificador de operacion: dos actividades no pueden compartirlo.
-  return <PantallaDeLaActividad key={id} id={id} />;
+  return <PantallaDeLaActividad key={`${id}:${idSesion ?? ''}`} id={id} idSesion={idSesion} />;
 }
 
-function PantallaDeLaActividad({ id }: { id: string | undefined }) {
-  const { estado, sesion, completar, reintentar } = useCompletarActividad(id);
+function PantallaDeLaActividad({
+  id,
+  idSesion,
+}: {
+  id: string | undefined;
+  idSesion: string | undefined;
+}) {
+  const { estado, sesion, completar, reintentar } = useCompletarActividad(id, idSesion);
   const siguiente = useSiguienteActividad(
     id,
     estado.fase === 'hecha' || estado.fase === 'guardada',

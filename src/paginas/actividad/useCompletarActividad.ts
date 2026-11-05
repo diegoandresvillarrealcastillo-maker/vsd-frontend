@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ActividadConSuCategoria } from '../../infraestructura/api/catalogo.ts';
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
 import type { SesionDeLaActividad } from '../../infraestructura/api/progreso.ts';
+import { buscarSesionPublicada } from '../../infraestructura/api/sesionesPublicadas.ts';
 import type {
   Metadata,
   ResultadoPorRegistrar,
@@ -81,11 +82,9 @@ function explicarElRechazo(error: ErrorDeOperacion | null): string {
     case 'FECHA_EN_EL_FUTURO':
       return 'La fecha de la actividad no puede estar en el futuro. Revisa la hora de tu dispositivo.';
 
-    // La sesion que se hizo ya no es una de esta actividad (SCRUM-208): la copia que tenia este
-    // equipo quedo atras de lo que el servidor sabe. Repetir lo mismo daria lo mismo: hay que abrirla
-    // de nuevo desde el panel, que la trae al dia.
+    // La sesión elegida ya no pertenece a esta actividad. Hay que abrirla de nuevo desde el árbol.
     case 'LA_SESION_NO_ES_DE_LA_ACTIVIDAD':
-      return 'La sesión de hoy cambió mientras la hacías. Vuelve al panel y ábrela otra vez.';
+      return 'La sesión elegida cambió mientras la hacías. Vuelve al panel y ábrela otra vez.';
 
     case 'SIN_RESPUESTA':
       return 'El servidor no responde. Tu resultado sigue guardado en este equipo: puedes reintentar en un momento.';
@@ -195,20 +194,23 @@ export function mostrarLoQuePaso(
  * Cada pantalla de actividad trae el suyo (`Actividad` se monta de nuevo con cada `id`): dos
  * actividades, o dos veces la misma, nunca se mezclan.
  *
- * ## La sesion del dia (SCRUM-208, ADR 0030)
+ * ## La sesion elegida (SCRUM-208, SCRUM-322, ADR 0030)
  *
- * Una actividad con motor trae la **sesion de hoy**, que la eligio el servidor y viaja en el progreso
- * que el panel guarda en este equipo. Se lee de esa copia (`leerLaSesionGuardada`) al mismo tiempo
- * que la ficha, y la actividad **no sale a pintarse hasta saber las dos cosas**: pintar la mecanica
+ * Al abrir desde el árbol se carga la sesión publicada indicada en la URL. Al abrir desde la ruta
+ * de hoy se lee la sesión de la copia local (`leerLaSesionGuardada`). La actividad **no sale a
+ * pintarse hasta saber la ficha y la sesión**: pintar la mecánica
  * con lo de siempre y cambiarla despues haria perder lo que la persona lleve hecho.
  *
  * La lectura nunca rompe la pantalla: si falla o no hay sesion, la actividad carga igual, sin ella.
  * La sesion queda fija para ese intento, y el resultado lleva su `idSesion`, tambien el que se hace
  * sin conexion y queda en la cola. Cada vez que se abre la actividad se vuelve a leer.
  */
-export function useCompletarActividad(id: string | undefined): {
+export function useCompletarActividad(
+  id: string | undefined,
+  idSesion?: string,
+): {
   readonly estado: EstadoDeLaActividad;
-  /** La sesion de hoy de esta actividad, fija para el intento; `undefined` si no tiene. */
+  /** La sesión elegida, fija para el intento; `undefined` si no tiene. */
   readonly sesion: SesionDeLaActividad | undefined;
   readonly completar: (produjo: LoQueProduceLaActividad) => void;
   readonly reintentar: () => void;
@@ -255,13 +257,23 @@ export function useCompletarActividad(id: string | undefined): {
         const [ficha, guardada] = await Promise.all([
           buscarActividadConCopia(idActividad, control.signal),
           // Leer la sesion nunca impide abrir la actividad: sin ella se hace como siempre.
-          leerLaSesionGuardada(idActividad).catch(() => null),
+          idSesion === undefined
+            ? leerLaSesionGuardada(idActividad).catch(() => null)
+            : buscarSesionPublicada(idSesion, control.signal),
         ]);
 
         if (control.signal.aborted) {
           return;
         }
 
+        if (
+          idSesion !== undefined &&
+          (guardada === null ||
+            !('idActividad' in guardada) ||
+            guardada.idActividad !== idActividad)
+        ) {
+          throw new Error('La sesión seleccionada ya no está disponible.');
+        }
         setSesion(ficha === null ? undefined : (guardada ?? undefined));
         setEstado(ficha === null ? { fase: 'no-existe' } : { fase: 'lista', ficha });
       } catch (error) {
@@ -278,7 +290,7 @@ export function useCompletarActividad(id: string | undefined): {
     return () => {
       control.abort();
     };
-  }, [id, intento]);
+  }, [id, idSesion, intento]);
 
   const guardar = useCallback(
     async (produjo: LoQueProduceLaActividad, ficha: ActividadConSuCategoria) => {
