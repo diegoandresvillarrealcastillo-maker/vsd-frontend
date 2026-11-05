@@ -1,8 +1,9 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 
 import type { Modulo } from '../../infraestructura/api/cuenta.ts';
 import {
   consultarSesionesPublicadas,
+  consultarSesionesHechas,
   type SesionPublicada,
 } from '../../infraestructura/api/sesionesPublicadas.ts';
 import { ALTO_DE_FILA, desplazamiento } from './geometria.ts';
@@ -11,12 +12,23 @@ import { PopoverDeActividad } from './PopoverDeActividad.tsx';
 type Estado =
   | { readonly tipo: 'cargando' }
   | { readonly tipo: 'error' }
-  | { readonly tipo: 'listo'; readonly sesiones: readonly SesionPublicada[] };
+  | {
+      readonly tipo: 'listo';
+      readonly sesiones: readonly SesionPublicada[];
+      readonly hechas: ReadonlySet<string>;
+    };
 
 /** El arbol usa sesiones publicadas, no dias ficticios ni una fecha de desbloqueo. */
-export function ArbolDeSesiones({ modulo }: { modulo: Modulo }) {
+export function ArbolDeSesiones({
+  modulo,
+  diasHechos = 0,
+}: {
+  modulo: Modulo;
+  diasHechos?: number;
+}) {
   const [estado, setEstado] = useState<Estado>({ tipo: 'cargando' });
   const [intento, setIntento] = useState(0);
+  const ventana = useRef<HTMLDivElement>(null);
   const [seleccion, setSeleccion] = useState<{
     ancla: HTMLElement;
     sesion: SesionPublicada;
@@ -24,9 +36,13 @@ export function ArbolDeSesiones({ modulo }: { modulo: Modulo }) {
 
   useEffect(() => {
     const control = new AbortController();
-    consultarSesionesPublicadas(modulo, control.signal).then(
-      (sesiones) => {
-        if (!control.signal.aborted) setEstado({ tipo: 'listo', sesiones });
+    Promise.all([
+      consultarSesionesPublicadas(modulo, control.signal),
+      consultarSesionesHechas(modulo, control.signal),
+    ]).then(
+      ([sesiones, hechas]) => {
+        if (!control.signal.aborted)
+          setEstado({ tipo: 'listo', sesiones, hechas: new Set(hechas) });
       },
       () => {
         if (!control.signal.aborted) setEstado({ tipo: 'error' });
@@ -34,6 +50,22 @@ export function ArbolDeSesiones({ modulo }: { modulo: Modulo }) {
     );
     return () => control.abort();
   }, [modulo, intento]);
+
+  const indiceDeHoy =
+    estado.tipo === 'listo'
+      ? Math.min(Math.max(0, Math.floor(diasHechos)), Math.max(0, estado.sesiones.length - 1))
+      : 0;
+
+  useEffect(() => {
+    if (estado.tipo !== 'listo') return;
+    const ventanaActual = ventana.current;
+    if (ventanaActual !== null) {
+      ventanaActual.scrollTop = Math.max(
+        0,
+        (indiceDeHoy + 0.5) * ALTO_DE_FILA - ventanaActual.clientHeight / 2,
+      );
+    }
+  }, [estado, indiceDeHoy]);
 
   if (estado.tipo === 'cargando') return <p role="status">Cargando actividades…</p>;
   if (estado.tipo === 'error') {
@@ -71,8 +103,24 @@ export function ArbolDeSesiones({ modulo }: { modulo: Modulo }) {
 
   return (
     <div className="arbol-sesiones">
-      <p className="app__nota">Elige cualquier actividad, en el orden que prefieras.</p>
+      <div className="arbol-sesiones__cabecera">
+        <p className="app__nota">Día {indiceDeHoy + 1} · Puedes elegir cualquier actividad.</p>
+        <button
+          type="button"
+          className="perfil__secundario"
+          onClick={() => {
+            const boton = ventana.current?.querySelector<HTMLButtonElement>(
+              '[data-dia-activo="true"]',
+            );
+            boton?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            boton?.focus({ preventScroll: true });
+          }}
+        >
+          Ir a mi día
+        </button>
+      </div>
       <div
+        ref={ventana}
         className="arbol-sesiones__ventana"
         role="region"
         aria-label={`Actividades de ${modulo}`}
@@ -100,9 +148,10 @@ export function ArbolDeSesiones({ modulo }: { modulo: Modulo }) {
               >
                 <button
                   type="button"
-                  className="sendero__punto arbol-sesiones__punto"
+                  className={`sendero__punto arbol-sesiones__punto${estado.hechas.has(sesion.id) ? ' arbol-sesiones__punto--hecho' : ''}${indice === indiceDeHoy ? ' arbol-sesiones__punto--hoy' : ''}`}
+                  data-dia-activo={indice === indiceDeHoy}
                   aria-haspopup="dialog"
-                  aria-label={`Actividad ${indice + 1}: ${sesion.titulo}`}
+                  aria-label={`Actividad ${indice + 1}: ${sesion.titulo}${estado.hechas.has(sesion.id) ? ', completada' : indice === indiceDeHoy ? ', sugerida para hoy' : ''}`}
                   onClick={(evento) => setSeleccion({ ancla: evento.currentTarget, sesion })}
                 >
                   {indice + 1}
@@ -118,7 +167,7 @@ export function ArbolDeSesiones({ modulo }: { modulo: Modulo }) {
           actividad={{
             id: seleccion.sesion.idActividad,
             nombre: seleccion.sesion.titulo,
-            hecha: false,
+            hecha: estado.hechas.has(seleccion.sesion.id),
           }}
           idSesion={seleccion.sesion.id}
           alCerrar={() => setSeleccion(null)}

@@ -24,6 +24,17 @@ export function consultarSesionesPublicadas(
   );
 }
 
+/** Solo IDs de sesiones terminadas por la cuenta autenticada. */
+export function consultarSesionesHechas(
+  modulo: Modulo,
+  senal?: AbortSignal,
+): Promise<readonly string[]> {
+  return llamarALaApi<readonly string[]>(
+    `/api/progreso/${modulo}/sesiones-hechas`,
+    senal ? { senal } : {},
+  );
+}
+
 export function buscarSesionPublicada(
   id: string,
   senal?: AbortSignal,

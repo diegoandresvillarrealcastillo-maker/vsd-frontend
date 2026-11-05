@@ -874,13 +874,61 @@
 }
 
 .arbol-sesiones__ventana .arbol-sesiones__punto {
-  border-color: var(--modulo-acento);
-  background: var(--modulo-fondo);
-  color: var(--modulo-acento);
-  box-shadow: 0 5px 0 color-mix(in srgb, var(--modulo-acento) 55%, black);
+  border-color: var(--app-borde);
+  background: color-mix(in srgb, var(--app-borde) 38%, var(--app-superficie));
+  color: var(--app-tenue);
+  box-shadow: 0 5px 0 color-mix(in srgb, var(--app-borde) 70%, black);
   cursor: pointer;
   font: inherit;
   font-weight: 800;
+  transition:
+    background-color 400ms ease,
+    border-color 400ms ease,
+    color 400ms ease,
+    box-shadow 400ms ease,
+    filter 180ms ease;
+}
+
+.arbol-sesiones__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.arbol-sesiones__ventana .arbol-sesiones__punto--hecho {
+  border-color: var(--modulo-acento);
+  background: var(--modulo-acento);
+  color: var(--app-lienzo);
+  box-shadow: 0 5px 0 color-mix(in srgb, var(--modulo-acento) 55%, black);
+}
+
+.arbol-sesiones__ventana .arbol-sesiones__punto--hoy {
+  border-color: var(--modulo-acento);
+  color: var(--modulo-acento);
+  outline: 4px solid color-mix(in srgb, var(--modulo-acento) 35%, transparent);
+  outline-offset: 6px;
+  animation: arbol-sesiones-respiro 2.8s ease-in-out infinite;
+}
+
+.arbol-sesiones__ventana .arbol-sesiones__punto--hoy.arbol-sesiones__punto--hecho {
+  color: var(--app-lienzo);
+}
+
+@keyframes arbol-sesiones-respiro {
+  50% {
+    outline-offset: 11px;
+    filter: brightness(1.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arbol-sesiones__ventana .arbol-sesiones__punto {
+    animation: none;
+    transition: none;
+  }
 }
 
 /* Sin `transform`: la fila ya usa `translateX(var(--x))` para el zigzag y se perderia. */
