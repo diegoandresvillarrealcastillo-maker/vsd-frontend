@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 import type { ActividadDeHoy, ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
 import { rutaDeModulo } from '../../rutas/rutas.ts';
-import { MapaDelPlan } from '../sendero/MapaDelPlan.tsx';
+import { ArbolDeSesiones } from '../sendero/ArbolDeSesiones.tsx';
 import { DIAS_DEL_PLAN, planDelAnio } from '../sendero/planDelAnio.ts';
 import { Icono } from './Icono.tsx';
 import { MODULOS } from './modulos.ts';
@@ -23,10 +23,8 @@ function lineaDeHoy(hoy: readonly ActividadDeHoy[]): string {
 /**
  * Un modulo activo dentro de «Tu ruta de hoy», como una pestaña que se despliega (SCRUM-293).
  *
- * Cerrado, se ve el nombre, lo que toca hoy y en que dia de los 365 va. La ruta con todos sus dias
- * **solo se monta al abrirlo**: son 365 puntos por modulo y no hace falta pintar los de tres a la
- * vez. Al abrirlo, la vista va sola al dia activo (`MapaDelPlan`), y lo de hoy se abre desde el
- * punto «Hoy» de esa ruta.
+ * Cerrado, se ve el nombre y el progreso del plan anual. Abierto, muestra las
+ * sesiones realmente publicadas; el día del plan no bloquea ninguna de ellas.
  *
  * El boton es un encabezado: lo abre y lo cierra con teclado como cualquier acordeon. Lo abierto lo
  * decide quien lo usa (solo uno a la vez, y se recuerda el ultimo).
@@ -87,7 +85,7 @@ export function AcordeonDeModulo({
       <div id={idDeLaRuta} role="region" aria-labelledby={idDelBoton} hidden={!abierto}>
         {abierto && (
           <div className="acordeon-modulo__cuerpo">
-            <MapaDelPlan progreso={progreso} titulo={datos.titulo} />
+            <ArbolDeSesiones modulo={progreso.modulo} />
 
             <Link className="acordeon-modulo__detalle" to={rutaDeModulo(progreso.modulo)}>
               Ver el detalle de {datos.titulo}

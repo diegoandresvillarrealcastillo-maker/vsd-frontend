@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
@@ -8,6 +8,24 @@ import type { ProgresoDelModulo } from '../../../infraestructura/api/progreso.ts
 import { fallosDeAccesibilidad } from '../../../pruebas/axe.ts';
 import { construirLaRuta } from './construirLaRuta.ts';
 import { RutaDelDia } from './RutaDelDia.tsx';
+
+const { consultarSesionesPublicadas } = vi.hoisted(() => ({
+  consultarSesionesPublicadas: vi.fn(),
+}));
+vi.mock('../../../infraestructura/api/sesionesPublicadas.ts', () => ({
+  consultarSesionesPublicadas,
+}));
+consultarSesionesPublicadas.mockImplementation((modulo: string) =>
+  Promise.resolve([
+    {
+      id: `sesion-${modulo}`,
+      idActividad: 'a2',
+      titulo: 'Secuencia de números',
+      actividad: 'Secuencia',
+      nivel: 1,
+    },
+  ]),
+);
 
 const PROGRESO: ProgresoDelModulo[] = [
   {
@@ -119,24 +137,28 @@ describe('RutaDelDia', () => {
     expect(screen.queryByRole('region', { name: /Ruta de 365 días/ })).not.toBeInTheDocument();
   });
 
-  it('el modulo desplegado muestra su ruta de 365 dias, y los demas siguen cerrados', () => {
+  it('el módulo desplegado muestra sus sesiones publicadas, y los demás siguen cerrados', async () => {
     pintar(PROGRESO, { desplegado: 'cognicion' });
 
     expect(pestana(/Cognición/)).toHaveAttribute('aria-expanded', 'true');
     expect(pestana(/Bienestar/)).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByRole('region', { name: 'Ruta de 365 días de Cognición' })).toBeVisible();
+    expect(await screen.findByRole('region', { name: 'Actividades de cognicion' })).toBeVisible();
     expect(
-      screen.queryByRole('region', { name: 'Ruta de 365 días de Bienestar' }),
+      screen.queryByRole('region', { name: 'Actividades de bienestar' }),
     ).not.toBeInTheDocument();
   });
 
-  it('la ruta desplegada cuenta lo de hoy con la misma meta que el contador', async () => {
+  it('la ruta desplegada permite comenzar una sesión publicada', async () => {
     pintar(PROGRESO, { desplegado: 'cognicion' });
 
-    await userEvent.click(screen.getByRole('button', { name: /Ver lo de hoy/ }));
-
-    // Cognicion tiene dos de las tres de hoy y una esta hecha.
-    expect(screen.getByRole('dialog')).toHaveTextContent('1 de 2');
+    const arbol = await screen.findByRole('region', { name: 'Actividades de cognicion' });
+    await userEvent.click(
+      within(arbol).getByRole('button', { name: 'Actividad 1: Secuencia de números' }),
+    );
+    expect(screen.getByRole('link', { name: 'Comenzar Secuencia de números' })).toHaveAttribute(
+      'href',
+      '/actividad/a2?sesion=sesion-cognicion',
+    );
   });
 
   it('sin completar no hay logro, ni aviso', () => {

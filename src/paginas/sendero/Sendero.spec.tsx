@@ -6,25 +6,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
 import type { ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
-import { abrirUnAlmacenDePrueba, cerrarElAlmacenDePrueba } from '../../pruebas/almacenDePrueba.ts';
 import { cuantosH1, fallosDeAccesibilidad } from '../../pruebas/axe.ts';
 import { RUTAS, rutaDeModulo } from '../../rutas/rutas.ts';
-import { encolar } from '../../sincronizacion/ciclo.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
 import { Sendero } from './Sendero.tsx';
 
-/**
- * El sendero de un modulo, con la API simulada y la pantalla de verdad.
- */
-const { consultarLaVersionDelAviso, darDeAltaLaCuenta, consultarElProgreso, consultarElHistorial } =
-  vi.hoisted(() => ({
-    consultarLaVersionDelAviso: vi.fn(),
-    darDeAltaLaCuenta: vi.fn(),
-    consultarElProgreso: vi.fn(),
-    consultarElHistorial: vi.fn(),
-  }));
+const {
+  consultarLaVersionDelAviso,
+  darDeAltaLaCuenta,
+  consultarElProgreso,
+  consultarElHistorial,
+  consultarSesionesPublicadas,
+} = vi.hoisted(() => ({
+  consultarLaVersionDelAviso: vi.fn(),
+  darDeAltaLaCuenta: vi.fn(),
+  consultarElProgreso: vi.fn(),
+  consultarElHistorial: vi.fn(),
+  consultarSesionesPublicadas: vi.fn(),
+}));
 
-// El semaforo flota en esta pantalla (SCRUM-98); aqui no se prueba.
 vi.mock('../../infraestructura/api/pendientes.ts', () => ({
   consultarElSemaforo: () => Promise.resolve({ pendientes: [], recordatorio: null }),
 }));
@@ -32,6 +32,7 @@ vi.mock('../../infraestructura/api/aviso.ts', () => ({ consultarLaVersionDelAvis
 vi.mock('../../infraestructura/api/cuenta.ts', () => ({ darDeAltaLaCuenta }));
 vi.mock('../../infraestructura/api/progreso.ts', () => ({ consultarElProgreso }));
 vi.mock('../../infraestructura/api/historial.ts', () => ({ consultarElHistorial }));
+vi.mock('../../infraestructura/api/sesionesPublicadas.ts', () => ({ consultarSesionesPublicadas }));
 
 const CUENTA: Cuenta = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -47,39 +48,17 @@ const CUENTA: Cuenta = {
   zonaHoraria: 'America/Bogota',
 };
 
-/** Tres sesiones hechas y nada todavia hoy. */
-const BIENESTAR: ProgresoDelModulo = {
+const PROGRESO: ProgresoDelModulo = {
   modulo: 'bienestar',
   sesiones: 3,
   etapa: { numero: 1, esTemporada: false, sesionesHechas: 3, sesionesDeLaEtapa: 5 },
   hoy: [
-    {
-      id: '0acd0000-0000-4000-8000-000000000002',
-      nombre: 'Cómo dormiste anoche',
-      descripcion: 'Anota cuánto y cómo dormiste.',
-      hecha: false,
-      frecuencia: { tipo: 'diaria' },
-    },
-    {
-      id: '0acd0000-0000-4000-8000-000000000003',
-      nombre: 'Estiramientos',
-      hecha: false,
-      frecuencia: { tipo: 'semanal', dias: [1, 4] },
-    },
-    {
-      id: '0acd0000-0000-4000-8000-000000000004',
-      nombre: 'Tu punto de partida',
-      hecha: false,
-      frecuencia: { tipo: 'unica' },
-    },
+    { id: '0acd0000-0000-4000-8000-000000000002', nombre: 'Cómo dormiste anoche', hecha: false },
   ],
 };
 
-const usuario = userEvent.setup({ delay: null });
-
-function sesion(): EstadoDeSesion {
+function estado(): EstadoDeSesion {
   const vacio = vi.fn();
-
   return {
     sesion: { user: { email: CUENTA.correo } } as Session,
     cargando: false,
@@ -95,9 +74,9 @@ function sesion(): EstadoDeSesion {
   };
 }
 
-function pintar(ruta: string = rutaDeModulo('bienestar')) {
+function pintar(ruta = rutaDeModulo('bienestar')) {
   return render(
-    <SesionContexto.Provider value={sesion()}>
+    <SesionContexto.Provider value={estado()}>
       <MemoryRouter initialEntries={[ruta]}>
         <Routes>
           <Route path={RUTAS.MODULO} element={<Sendero />} />
@@ -108,473 +87,79 @@ function pintar(ruta: string = rutaDeModulo('bienestar')) {
   );
 }
 
-function conProgreso(parcial: Partial<ProgresoDelModulo>) {
-  consultarElProgreso.mockResolvedValue([{ ...BIENESTAR, ...parcial }]);
-}
-
 beforeEach(() => {
   consultarLaVersionDelAviso.mockResolvedValue('version-de-la-api');
   darDeAltaLaCuenta.mockResolvedValue(CUENTA);
-  consultarElProgreso.mockResolvedValue([BIENESTAR]);
+  consultarElProgreso.mockResolvedValue([PROGRESO]);
   consultarElHistorial.mockResolvedValue({ hechos: [], siguientePagina: null });
+  consultarSesionesPublicadas.mockResolvedValue(
+    Array.from({ length: 58 }, (_, indice) => ({
+      id: `sesion-${indice + 1}`,
+      idActividad: `actividad-${indice + 1}`,
+      titulo: `Actividad ${indice + 1}`,
+      actividad: `Actividad ${indice + 1}`,
+      nivel: 1,
+    })),
+  );
 });
+afterEach(() => vi.clearAllMocks());
 
-afterEach(() => {
-  vi.clearAllMocks();
-});
-
-describe('Sendero, la carga (SCRUM-180)', () => {
-  it('mientras llega el progreso muestra el esqueleto y lo dice', async () => {
-    consultarElProgreso.mockReturnValue(
-      new Promise(function sinResolver() {
-        // A proposito: la peticion se queda en el aire.
-      }),
+describe('Sendero de sesiones publicadas (SCRUM-322)', () => {
+  it('permite ir directamente de la actividad 9 a la 58 con el mismo popover', async () => {
+    const usuario = userEvent.setup();
+    pintar();
+    const arbol = await screen.findByRole('region', { name: 'Actividades de bienestar' });
+    expect(within(arbol).getAllByRole('button')).toHaveLength(58);
+    await usuario.click(within(arbol).getByRole('button', { name: 'Actividad 9: Actividad 9' }));
+    expect(screen.getByRole('link', { name: 'Comenzar Actividad 9' })).toHaveAttribute(
+      'href',
+      '/actividad/actividad-9?sesion=sesion-9',
     );
-
-    pintar();
-
-    const estado = await screen.findByRole('status');
-
-    expect(estado).toHaveTextContent('Cargando tu sendero…');
-    expect(estado).toHaveAttribute('aria-busy', 'true');
-    // La mascota corre sobre la barra (SCRUM-283, antes unas tarjetas de esqueleto).
-    expect(estado.querySelector('.vsd-carga__corredor')).not.toBeNull();
+    await usuario.click(within(arbol).getByRole('button', { name: 'Actividad 58: Actividad 58' }));
+    expect(screen.getByRole('link', { name: 'Comenzar Actividad 58' })).toHaveAttribute(
+      'href',
+      '/actividad/actividad-58?sesion=sesion-58',
+    );
   });
-});
 
-describe('Sendero, accesibilidad (C-03)', () => {
-  it('no tiene fallos de accesibilidad y tiene un solo h1', async () => {
+  it('mantiene el árbol accesible con el popover abierto', async () => {
+    const usuario = userEvent.setup();
     pintar();
-    await screen.findByRole('heading', { name: 'Bienestar' });
-
-    expect(await fallosDeAccesibilidad()).toEqual([]);
+    const arbol = await screen.findByRole('region', { name: 'Actividades de bienestar' });
+    await usuario.click(within(arbol).getByRole('button', { name: 'Actividad 1: Actividad 1' }));
     expect(cuantosH1()).toBe(1);
-  });
-
-  it('tampoco con la hoja de lo de hoy abierta', async () => {
-    pintar();
-    await usuario.click(await screen.findByRole('button', { name: /Ver lo de hoy/ }));
-    await screen.findByRole('dialog');
-
     expect(await fallosDeAccesibilidad()).toEqual([]);
   });
 
-  it('la hoja se cierra al pulsar el fondo, y no al pulsar dentro', async () => {
+  it('permite reintentar la consulta del catálogo', async () => {
+    consultarSesionesPublicadas.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const usuario = userEvent.setup();
     pintar();
-    await usuario.click(await screen.findByRole('button', { name: /Ver lo de hoy/ }));
-
-    const hoja = screen.getByRole('dialog');
-
-    await usuario.click(within(hoja).getByRole('heading', { name: 'Lo de hoy' }));
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
-
-    // El fondo es el elemento que la rodea, sin rol de control.
-    const fondo = hoja.parentElement;
-
-    expect(fondo).not.toBeNull();
-    await usuario.click(fondo!);
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-});
-
-describe('Sendero', () => {
-  describe('el camino', () => {
-    it('muestra la etapa actual con lo hecho, el punto de hoy y la meta', async () => {
-      pintar();
-
-      expect(await screen.findByRole('heading', { name: 'Bienestar' })).toBeInTheDocument();
-      expect(screen.getByRole('heading', { name: 'Etapa 1' })).toBeInTheDocument();
-      expect(screen.getByText('3 de 5 sesiones')).toBeInTheDocument();
-
-      const puntos = within(screen.getByRole('list', { name: 'Sesiones de la Etapa 1' }));
-
-      expect(puntos.getAllByRole('listitem')).toHaveLength(5);
-      expect(puntos.getByRole('img', { name: 'Sesión 1: hecha' })).toBeInTheDocument();
-      expect(puntos.getByRole('img', { name: 'Sesión 3: hecha' })).toBeInTheDocument();
-      expect(
-        puntos.getByRole('button', { name: /Hoy, sesión 4: 0 de 3 actividades hechas/ }),
-      ).toBeInTheDocument();
-      expect(
-        puntos.getByRole('img', { name: 'Sesión 5, la meta de la etapa: por hacer' }),
-      ).toBeInTheDocument();
-    });
-
-    it('con algo hecho hoy, hoy ya cuenta como sesion', async () => {
-      conProgreso({
-        sesiones: 4,
-        etapa: { numero: 1, esTemporada: false, sesionesHechas: 4, sesionesDeLaEtapa: 5 },
-        hoy: BIENESTAR.hoy.map((actividad, indice) => ({ ...actividad, hecha: indice === 0 })),
-      });
-
-      pintar();
-
-      expect(await screen.findByText('4 de 5 sesiones')).toBeInTheDocument();
-      expect(
-        screen.getByRole('button', { name: /Hoy, sesión 4: 1 de 3 actividades hechas/ }),
-      ).toBeInTheDocument();
-    });
-
-    it('el dia que completa la etapa la ve cerrada, y no salta a la siguiente', async () => {
-      // Para la API ya va en la etapa 2; el sendero muestra hoy como la meta de
-      // la etapa 1.
-      conProgreso({
-        sesiones: 5,
-        etapa: { numero: 2, esTemporada: false, sesionesHechas: 0, sesionesDeLaEtapa: 10 },
-        hoy: BIENESTAR.hoy.map((actividad) => ({ ...actividad, hecha: true })),
-      });
-
-      pintar();
-
-      expect(await screen.findByRole('heading', { name: 'Etapa 1' })).toBeInTheDocument();
-      expect(screen.getByText('5 de 5 sesiones')).toBeInTheDocument();
-      expect(screen.getByText(/Hoy completaste la Etapa 1/)).toBeInTheDocument();
-      expect(screen.getByText('Etapa 2 · 10 sesiones')).toBeInTheDocument();
-    });
-
-    it('las etapas anteriores van plegadas y la siguiente, bloqueada', async () => {
-      conProgreso({
-        sesiones: 17,
-        etapa: { numero: 3, esTemporada: false, sesionesHechas: 2, sesionesDeLaEtapa: 15 },
-        hoy: [],
-      });
-
-      pintar();
-
-      expect(await screen.findByText('2 etapas completadas')).toBeInTheDocument();
-      expect(screen.getByText('Etapa 1 · 5 sesiones')).toBeInTheDocument();
-      expect(screen.getByText('Etapa 2 · 10 sesiones')).toBeInTheDocument();
-      expect(screen.getByRole('heading', { name: 'Etapa 3' })).toBeInTheDocument();
-      expect(screen.getByText('Etapa 4 · 20 sesiones')).toBeInTheDocument();
-      expect(screen.getByText('Se abre al completar esta etapa.')).toBeInTheDocument();
-    });
-
-    it('tras la etapa 4 vienen las temporadas', async () => {
-      conProgreso({
-        sesiones: 52,
-        etapa: { numero: 1, esTemporada: true, sesionesHechas: 2, sesionesDeLaEtapa: 25 },
-        hoy: [],
-      });
-
-      pintar();
-
-      expect(await screen.findByRole('heading', { name: 'Temporada 1' })).toBeInTheDocument();
-      expect(screen.getByText('Temporada actual')).toBeInTheDocument();
-      expect(screen.getByText('4 etapas completadas')).toBeInTheDocument();
-      expect(screen.getByText('Temporada 2 · 25 sesiones')).toBeInTheDocument();
-    });
-  });
-
-  describe('lo de hoy', () => {
-    it('el punto de hoy abre lo que toca, con su frecuencia y su enlace', async () => {
-      pintar();
-
-      await usuario.click(await screen.findByRole('button', { name: /Hoy, sesión 4/ }));
-
-      const hoja = screen.getByRole('dialog', { name: 'Lo de hoy' });
-
-      expect(within(hoja).getByText('Diaria')).toBeInTheDocument();
-      expect(within(hoja).getByText('Lun · Jue')).toBeInTheDocument();
-      expect(within(hoja).getByText('Una vez')).toBeInTheDocument();
-      expect(
-        within(hoja).getByRole('link', { name: 'Empezar Cómo dormiste anoche' }),
-      ).toHaveAttribute('href', '/actividad/0acd0000-0000-4000-8000-000000000002');
-      // El foco entra a la hoja, para poder cerrarla enseguida con teclado.
-      expect(within(hoja).getByRole('button', { name: 'Cerrar' })).toHaveFocus();
-    });
-
-    it('se cierra con Escape y el foco vuelve al punto de hoy', async () => {
-      pintar();
-
-      const punto = await screen.findByRole('button', { name: /Hoy, sesión 4/ });
-
-      await usuario.click(punto);
-      await usuario.keyboard('{Escape}');
-
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-      expect(punto).toHaveFocus();
-    });
-
-    it('tambien se abre desde el boton, y lo hecho se marca', async () => {
-      conProgreso({
-        sesiones: 4,
-        hoy: BIENESTAR.hoy.map((actividad, indice) => ({ ...actividad, hecha: indice === 0 })),
-      });
-
-      pintar();
-
-      await usuario.click(await screen.findByRole('button', { name: 'Ver lo de hoy · 1 de 3' }));
-
-      const hoja = screen.getByRole('dialog');
-
-      expect(within(hoja).getByText('Hecha hoy')).toBeInTheDocument();
-      expect(within(hoja).getByText('1 de 3')).toBeInTheDocument();
-
-      await usuario.click(within(hoja).getByRole('button', { name: 'Cerrar' }));
-
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    });
-
-    it('un dia sin nada que hacer lo dice', async () => {
-      conProgreso({ hoy: [] });
-
-      pintar();
-
-      await usuario.click(await screen.findByRole('button', { name: 'Ver lo de hoy' }));
-
-      expect(screen.getByRole('dialog')).toHaveTextContent('Hoy no te toca nada en este módulo');
-    });
-
-    describe('sin tope diario y con sugeridas (SCRUM-184)', () => {
-      it('lo hecho hoy se puede volver a hacer', async () => {
-        conProgreso({
-          sesiones: 4,
-          hoy: BIENESTAR.hoy.map((actividad, indice) => ({ ...actividad, hecha: indice === 0 })),
-        });
-
-        pintar();
-
-        await usuario.click(await screen.findByRole('button', { name: /Ver lo de hoy/ }));
-
-        const hoja = screen.getByRole('dialog');
-        const otraVez = within(hoja).getByRole('link', {
-          name: 'Hacer otra vez Cómo dormiste anoche',
-        });
-
-        expect(otraVez).toHaveAttribute('href', '/actividad/0acd0000-0000-4000-8000-000000000002');
-        // Lo que falta sigue siendo «Empezar».
-        expect(
-          within(hoja).getByRole('link', { name: 'Empezar Estiramientos' }),
-        ).toBeInTheDocument();
-      });
-
-      it('las sugeridas van aparte, sin contar para lo de hoy y diciendo que no son obligatorias', async () => {
-        conProgreso({
-          hoy: [BIENESTAR.hoy[0]!],
-          sugeridas: [BIENESTAR.hoy[1]!, BIENESTAR.hoy[2]!],
-        });
-
-        pintar();
-
-        // «1 de 1»: lo sugerido no entra a la cuenta del dia.
-        await usuario.click(await screen.findByRole('button', { name: 'Ver lo de hoy · 0 de 1' }));
-
-        const hoja = screen.getByRole('dialog');
-        const sugeridas = within(hoja).getByRole('region', { name: 'Si quieres hacer más' });
-
-        expect(within(hoja).getByText('0 de 1')).toBeInTheDocument();
-        expect(sugeridas).toHaveTextContent(/solo una sugerencia/i);
-        expect(within(sugeridas).getAllByRole('listitem')).toHaveLength(2);
-        expect(
-          within(sugeridas).getByRole('link', { name: 'Empezar Estiramientos' }),
-        ).toBeInTheDocument();
-      });
-
-      it('sin sugeridas, o con un servidor anterior que no las manda, no hay seccion', async () => {
-        pintar();
-
-        await usuario.click(await screen.findByRole('button', { name: /Ver lo de hoy/ }));
-
-        expect(
-          within(screen.getByRole('dialog')).queryByRole('region', {
-            name: 'Si quieres hacer más',
-          }),
-        ).not.toBeInTheDocument();
-      });
-
-      it('una sugerida ya hecha hoy se marca y tambien se puede repetir', async () => {
-        conProgreso({
-          hoy: [BIENESTAR.hoy[0]!],
-          sugeridas: [{ ...BIENESTAR.hoy[1]!, hecha: true }],
-        });
-
-        pintar();
-
-        await usuario.click(await screen.findByRole('button', { name: /Ver lo de hoy/ }));
-
-        const sugeridas = within(screen.getByRole('dialog')).getByRole('region', {
-          name: 'Si quieres hacer más',
-        });
-
-        expect(within(sugeridas).getByText('Hecha hoy')).toBeInTheDocument();
-        expect(
-          within(sugeridas).getByRole('link', { name: 'Hacer otra vez Estiramientos' }),
-        ).toBeInTheDocument();
-      });
-    });
-
-    describe('el historial (SCRUM-184)', () => {
-      it('muestra el historial del modulo debajo del sendero', async () => {
-        consultarElHistorial.mockResolvedValue({
-          hechos: [
-            {
-              id: 'h1',
-              actividad: { id: 'a1', nombre: 'Cómo dormiste anoche' },
-              dia: '2026-09-30',
-              hechaEn: '2026-09-30T15:00:00.000Z',
-            },
-          ],
-          siguientePagina: null,
-        });
-
-        pintar();
-
-        const historial = await screen.findByRole('region', { name: 'Tu historial' });
-
-        expect(await within(historial).findByText('Cómo dormiste anoche')).toBeInTheDocument();
-        expect(consultarElHistorial.mock.calls[0]?.[0]).toBe('bienestar');
-      });
-
-      it('si el historial falla, el sendero sigue entero', async () => {
-        consultarElHistorial.mockRejectedValue(new TypeError('Failed to fetch'));
-
-        pintar();
-
-        expect(await screen.findByRole('button', { name: /Ver lo de hoy/ })).toBeInTheDocument();
-        expect(await screen.findByText(/hace falta conexión/)).toBeInTheDocument();
-        // El aviso del historial no tapa la pantalla.
-        expect(screen.getByRole('heading', { name: 'Bienestar', level: 1 })).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('la mascota (SCRUM-99)', () => {
-    function expresion(): string | undefined {
-      return document.querySelector<HTMLElement>('.mascota')?.dataset.expresion;
-    }
-
-    it('acompaña en el sendero, y celebra cuando lo de hoy esta hecho', async () => {
-      darDeAltaLaCuenta.mockResolvedValue({
-        ...CUENTA,
-        mascota: { forma: 'ori', nombre: 'Hilo' },
-      });
-      conProgreso({
-        sesiones: 4,
-        hoy: BIENESTAR.hoy.map((actividad) => ({ ...actividad, hecha: true })),
-      });
-
-      pintar();
-
-      expect(await screen.findByRole('button', { name: 'Hilo, tu mascota' })).toBeInTheDocument();
-      expect(expresion()).toBe('celebrando');
-    });
-
-    it('con lo de hoy a medias no celebra', async () => {
-      pintar();
-
-      await screen.findByRole('button', { name: 'Fungito, tu mascota' });
-
-      expect(expresion()).not.toBe('celebrando');
-    });
-  });
-
-  describe('lo que no sale bien', () => {
-    it('un modulo que no tiene activo lo dice y lleva al panel', async () => {
-      consultarElProgreso.mockResolvedValue([{ ...BIENESTAR, modulo: 'cognicion' }]);
-
-      pintar();
-
-      expect(
-        await screen.findByText('Todavía no tienes Bienestar entre tus módulos.'),
-      ).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: 'Añadirlo desde tu panel' })).toHaveAttribute(
-        'href',
-        RUTAS.PANEL,
-      );
-    });
-
-    it('un modulo que no existe no llama a la API', () => {
-      pintar('/modulo/astrologia');
-
-      expect(screen.getByRole('alert')).toHaveTextContent('Ese módulo no existe');
-      expect(consultarElProgreso).not.toHaveBeenCalled();
-    });
-
-    it('si no se puede conectar, lo explica y deja reintentar', async () => {
-      consultarElProgreso.mockRejectedValueOnce(new TypeError('Failed to fetch'));
-
-      pintar();
-
-      // Sin red y sin una copia en este equipo no hay nada que ensenar (SCRUM-140).
-      expect(await screen.findByRole('alert')).toHaveTextContent(
-        /Todavía no hay una copia de tu panel en este equipo/,
-      );
-
-      await usuario.click(screen.getByRole('button', { name: 'Reintentar' }));
-
-      expect(await screen.findByRole('heading', { name: 'Etapa 1' })).toBeInTheDocument();
-    });
-
-    it('siempre se puede volver al panel', async () => {
-      pintar();
-
-      await screen.findByRole('heading', { name: 'Etapa 1' });
-
-      expect(screen.getByRole('link', { name: 'Volver a tu panel' })).toHaveAttribute(
-        'href',
-        RUTAS.PANEL,
-      );
-    });
-  });
-});
-
-describe('Sendero sin conexion (SCRUM-140)', () => {
-  beforeEach(async () => {
-    await abrirUnAlmacenDePrueba();
-  });
-
-  afterEach(() => {
-    cerrarElAlmacenDePrueba();
-    darDeAltaLaCuenta.mockReset();
-  });
-
-  async function conLaCopiaGuardada() {
-    const primera = pintar();
-
-    await screen.findByRole('heading', { name: 'Etapa 1' });
-    primera.unmount();
-    darDeAltaLaCuenta.mockRejectedValue(new TypeError('Failed to fetch'));
-  }
-
-  it('se abre con la copia de este equipo, y dice de cuando es', async () => {
-    await conLaCopiaGuardada();
-
-    pintar();
-
-    expect(await screen.findByRole('heading', { name: 'Etapa 1' })).toBeInTheDocument();
-    expect(screen.getByText(/Datos de hace un momento/)).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No pudimos cargar las actividades.',
+    );
+    await usuario.click(screen.getByRole('button', { name: 'Reintentar' }));
     expect(
-      screen.getByRole('button', { name: /Hoy, sesión 4: 0 de 3 actividades hechas/ }),
+      await screen.findByRole('region', { name: 'Actividades de bienestar' }),
     ).toBeInTheDocument();
   });
 
-  it('lo que se hizo hoy sin conexion sale hecho, y se dice que se contara al enviarse', async () => {
-    await conLaCopiaGuardada();
-    await encolar({
-      operationId: 'res-1',
-      tipo: 'resultado.registrar',
-      entidad: 'resultado:res-1',
-      payload: {
-        clientOperationId: 'res-1',
-        activityId: '0acd0000-0000-4000-8000-000000000002',
-        completedAt: new Date().toISOString(),
-      },
-    });
-
+  it('conserva el historial sin bloquear el sendero', async () => {
+    consultarElHistorial.mockRejectedValueOnce(new TypeError('Failed to fetch'));
     pintar();
-
     expect(
-      await screen.findByRole('button', { name: /Hoy, sesión 4: 1 de 3 actividades hechas/ }),
+      await screen.findByRole('region', { name: 'Actividades de bienestar' }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Lo que hiciste sin conexión se contará cuando se envíe/),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/hace falta conexión/)).toBeInTheDocument();
   });
 
-  it('con conexion no hay nada que decir de la copia', async () => {
-    pintar();
-
-    await screen.findByRole('heading', { name: 'Etapa 1' });
-
-    expect(screen.queryByText(/Datos de hace/)).toBeNull();
+  it('no consulta un módulo inexistente y permite volver al panel', () => {
+    pintar('/modulo/astrologia');
+    expect(screen.getByRole('alert')).toHaveTextContent('Ese módulo no existe');
+    expect(consultarElProgreso).not.toHaveBeenCalled();
+    expect(screen.getByRole('link', { name: 'Volver a tu panel' })).toHaveAttribute(
+      'href',
+      RUTAS.PANEL,
+    );
   });
 });

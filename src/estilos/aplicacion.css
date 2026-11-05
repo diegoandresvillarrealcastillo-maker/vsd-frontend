@@ -861,12 +861,74 @@
   margin-top: 0;
 }
 
+.arbol-sesiones__ventana {
+  max-height: min(40rem, 75vh);
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  border-radius: 20px;
+  background: var(--app-superficie);
+}
+
+.arbol-sesiones__ventana .sendero__tramo {
+  margin-top: 0;
+}
+
+.arbol-sesiones__ventana .arbol-sesiones__punto {
+  border-color: var(--modulo-acento);
+  background: var(--modulo-fondo);
+  color: var(--modulo-acento);
+  box-shadow: 0 5px 0 color-mix(in srgb, var(--modulo-acento) 55%, black);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
 /* Sin `transform`: la fila ya usa `translateX(var(--x))` para el zigzag y se perderia. */
 .mapa__punto-hecho {
   cursor: pointer;
 }
 
+.app .sendero__popover {
+  position: fixed;
+  z-index: 100;
+  display: grid;
+  gap: 0.75rem;
+  width: min(14rem, calc(100vw - 24px));
+  padding: 0.875rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 16px;
+  background: var(--app-superficie);
+  color: var(--app-tinta);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 18%);
+}
+
+.sendero__popover-texto {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.sendero__popover-accion {
+  display: grid;
+  min-height: 2.75rem;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--app-primario);
+  color: var(--app-sobre-primario);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.sendero__popover-accion:focus-visible {
+  outline: 3px solid var(--app-tinta);
+  outline-offset: 3px;
+}
+
 @media (hover: hover) and (pointer: fine) {
+  .arbol-sesiones__ventana .arbol-sesiones__punto:hover {
+    filter: brightness(1.08);
+  }
+
   .mapa__punto-hecho:hover {
     filter: brightness(1.08);
   }
