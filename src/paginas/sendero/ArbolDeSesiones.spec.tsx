@@ -73,4 +73,31 @@ describe('ArbolDeSesiones', () => {
     expect(segunda).toHaveAttribute('data-dia-activo', 'true');
     expect(screen.getByRole('button', { name: 'Actividad 3: Pausa 3' })).toBeEnabled();
   });
+
+  it('permite reintentar si falla la consulta sin mostrar sesiones incompletas', async () => {
+    consultar.mockRejectedValueOnce(new Error('Red no disponible')).mockResolvedValueOnce([
+      {
+        id: 'sesion-1',
+        idActividad: 'actividad-1',
+        titulo: 'Pausa 1',
+        actividad: 'Pausa',
+        nivel: 1,
+      },
+    ]);
+    const usuario = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ArbolDeSesiones modulo="bienestar" />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('No pudimos cargar');
+    expect(
+      screen.queryByRole('region', { name: 'Actividades de bienestar' }),
+    ).not.toBeInTheDocument();
+    await usuario.click(screen.getByRole('button', { name: 'Reintentar' }));
+
+    expect(await screen.findByRole('button', { name: /Actividad 1: Pausa 1/ })).toBeEnabled();
+    expect(consultar).toHaveBeenCalledTimes(2);
+  });
 });
