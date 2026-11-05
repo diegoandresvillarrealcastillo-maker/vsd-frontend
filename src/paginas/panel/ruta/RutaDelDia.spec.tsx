@@ -9,12 +9,15 @@ import { fallosDeAccesibilidad } from '../../../pruebas/axe.ts';
 import { construirLaRuta } from './construirLaRuta.ts';
 import { RutaDelDia } from './RutaDelDia.tsx';
 
-const { consultarSesionesPublicadas } = vi.hoisted(() => ({
+const { consultarSesionesPublicadas, consultarSesionesHechas } = vi.hoisted(() => ({
   consultarSesionesPublicadas: vi.fn(),
+  consultarSesionesHechas: vi.fn(),
 }));
 vi.mock('../../../infraestructura/api/sesionesPublicadas.ts', () => ({
   consultarSesionesPublicadas,
+  consultarSesionesHechas,
 }));
+consultarSesionesHechas.mockResolvedValue([]);
 consultarSesionesPublicadas.mockImplementation((modulo: string) =>
   Promise.resolve([
     {
@@ -153,7 +156,7 @@ describe('RutaDelDia', () => {
 
     const arbol = await screen.findByRole('region', { name: 'Actividades de cognicion' });
     await userEvent.click(
-      within(arbol).getByRole('button', { name: 'Actividad 1: Secuencia de números' }),
+      within(arbol).getByRole('button', { name: /Actividad 1: Secuencia de números/ }),
     );
     expect(screen.getByRole('link', { name: 'Comenzar Secuencia de números' })).toHaveAttribute(
       'href',

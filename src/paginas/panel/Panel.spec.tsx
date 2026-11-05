@@ -43,8 +43,9 @@ const { consultarLaVersionDelAviso, darDeAltaLaCuenta, cambiarPreferencias, cons
     consultarElProgreso: vi.fn(),
   }));
 
-const { consultarSesionesPublicadas } = vi.hoisted(() => ({
+const { consultarSesionesPublicadas, consultarSesionesHechas } = vi.hoisted(() => ({
   consultarSesionesPublicadas: vi.fn(),
+  consultarSesionesHechas: vi.fn(),
 }));
 
 // El semaforo flota en esta pantalla (SCRUM-98); aqui no se prueba.
@@ -54,7 +55,10 @@ vi.mock('../../infraestructura/api/pendientes.ts', () => ({
 vi.mock('../../infraestructura/api/aviso.ts', () => ({ consultarLaVersionDelAviso }));
 vi.mock('../../infraestructura/api/cuenta.ts', () => ({ darDeAltaLaCuenta, cambiarPreferencias }));
 vi.mock('../../infraestructura/api/progreso.ts', () => ({ consultarElProgreso }));
-vi.mock('../../infraestructura/api/sesionesPublicadas.ts', () => ({ consultarSesionesPublicadas }));
+vi.mock('../../infraestructura/api/sesionesPublicadas.ts', () => ({
+  consultarSesionesPublicadas,
+  consultarSesionesHechas,
+}));
 
 // La llama de la barra pide la racha (SCRUM-186) y la mascota de la tarde (SCRUM-243) habla con lo que
 // llega: aqui se controla lo que dice el servidor.
@@ -169,6 +173,7 @@ function acordeonAbierto(nombre: RegExp) {
 }
 
 beforeEach(() => {
+  consultarSesionesHechas.mockResolvedValue([]);
   olvidarLaRutaAbierta(CUENTA.id);
   consultarLaRacha.mockResolvedValue(rachaDePrueba());
   consultarElDatoDeHoy.mockResolvedValue({
