@@ -25,7 +25,8 @@ export function PopoverDeActividad({ ancla, actividad, idSesion, alCerrar }: Pro
 
   useEffect(() => {
     const colocar = () => {
-      const punto = ancla.getBoundingClientRect();
+      // La envoltura no salta: la tarjeta sigue junto al nodo mientras el boton rebota.
+      const punto = (ancla.closest('.arbol-sesiones__nodo') ?? ancla).getBoundingClientRect();
       if (punto.bottom < 0 || punto.top > window.innerHeight) {
         alCerrar();
         return;

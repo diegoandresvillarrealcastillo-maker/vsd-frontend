@@ -17,12 +17,14 @@ const {
   consultarElProgreso,
   consultarElHistorial,
   consultarSesionesPublicadas,
+  consultarSesionesHechas,
 } = vi.hoisted(() => ({
   consultarLaVersionDelAviso: vi.fn(),
   darDeAltaLaCuenta: vi.fn(),
   consultarElProgreso: vi.fn(),
   consultarElHistorial: vi.fn(),
   consultarSesionesPublicadas: vi.fn(),
+  consultarSesionesHechas: vi.fn(),
 }));
 
 vi.mock('../../infraestructura/api/pendientes.ts', () => ({
@@ -32,7 +34,10 @@ vi.mock('../../infraestructura/api/aviso.ts', () => ({ consultarLaVersionDelAvis
 vi.mock('../../infraestructura/api/cuenta.ts', () => ({ darDeAltaLaCuenta }));
 vi.mock('../../infraestructura/api/progreso.ts', () => ({ consultarElProgreso }));
 vi.mock('../../infraestructura/api/historial.ts', () => ({ consultarElHistorial }));
-vi.mock('../../infraestructura/api/sesionesPublicadas.ts', () => ({ consultarSesionesPublicadas }));
+vi.mock('../../infraestructura/api/sesionesPublicadas.ts', () => ({
+  consultarSesionesPublicadas,
+  consultarSesionesHechas,
+}));
 
 const CUENTA: Cuenta = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -92,6 +97,7 @@ beforeEach(() => {
   darDeAltaLaCuenta.mockResolvedValue(CUENTA);
   consultarElProgreso.mockResolvedValue([PROGRESO]);
   consultarElHistorial.mockResolvedValue({ hechos: [], siguientePagina: null });
+  consultarSesionesHechas.mockResolvedValue([]);
   consultarSesionesPublicadas.mockResolvedValue(
     Array.from({ length: 58 }, (_, indice) => ({
       id: `sesion-${indice + 1}`,

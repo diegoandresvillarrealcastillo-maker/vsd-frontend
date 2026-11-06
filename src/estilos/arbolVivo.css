@@ -1,0 +1,128 @@
+/* El mismo ambiente de las actividades, quieto detras de la ventana del arbol. */
+.arbol-sesiones__mapa {
+  --fondo: var(--app-lienzo);
+  --viva-modulo: var(--modulo-acento);
+  --viva-aire: color-mix(in srgb, var(--modulo-fondo) 50%, var(--app-lienzo));
+  /* El reflejo dorado del fondo original de las actividades. */
+  --viva-sol: #ffc83d;
+
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--app-borde);
+  border-radius: 20px;
+}
+
+.arbol-sesiones__mapa > .viva-fondo {
+  position: absolute;
+}
+
+:root .arbol-sesiones__ventana {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  scroll-behavior: auto;
+}
+
+/* El desplazamiento horizontal lo conserva esta envoltura; solo el boton salta. */
+.arbol-sesiones__nodo {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+}
+
+:root .arbol-sesiones__ventana .arbol-sesiones__punto {
+  position: relative;
+  transform-origin: center 80%;
+  transition:
+    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+:root .arbol-sesiones__punto:focus-visible {
+  outline: 3px solid var(--app-tinta);
+  outline-offset: 7px;
+}
+
+:root .arbol-sesiones__ventana .arbol-sesiones__punto--seleccionado {
+  border-color: var(--modulo-acento);
+  box-shadow:
+    0 6px 0 color-mix(in srgb, var(--modulo-acento) 45%, var(--app-borde)),
+    0 0 0 8px color-mix(in srgb, var(--modulo-acento) 14%, transparent);
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  :root .arbol-sesiones__ventana .arbol-sesiones__punto:hover {
+    transform: translateY(-5px) scale(1.07);
+    border-color: var(--modulo-acento);
+    box-shadow:
+      0 9px 0 color-mix(in srgb, var(--modulo-acento) 40%, var(--app-borde)),
+      0 14px 24px -10px color-mix(in srgb, var(--modulo-acento) 35%, transparent);
+  }
+
+  .sendero__popover-accion:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 0 color-mix(in srgb, var(--app-primario) 45%, var(--app-borde));
+  }
+}
+
+:root .arbol-sesiones__ventana .arbol-sesiones__punto:active {
+  transform: translateY(3px) scale(0.94);
+}
+
+.app .sendero__popover {
+  transform-origin: center top;
+  animation: arbol-abre-tarjeta 240ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.sendero__popover-accion {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.sendero__popover-accion:active {
+  transform: translateY(2px) scale(0.98);
+}
+
+@keyframes arbol-abre-tarjeta {
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arbol-sesiones__mapa .viva-fondo *,
+  :root .arbol-sesiones__ventana .arbol-sesiones__punto,
+  .app .sendero__popover,
+  .sendero__popover-accion {
+    animation: none;
+    transition: none;
+  }
+
+  /* Las formas siguen visibles, pero en reposo. */
+  .arbol-sesiones__mapa .viva-fondo__flota {
+    top: 30%;
+    bottom: auto;
+    opacity: 0.14;
+  }
+
+  .arbol-sesiones__mapa .viva-fondo__flota:nth-child(even) {
+    top: 70%;
+  }
+
+  :root .arbol-sesiones__ventana .arbol-sesiones__punto:active,
+  .sendero__popover-accion:active {
+    transform: none;
+  }
+}
