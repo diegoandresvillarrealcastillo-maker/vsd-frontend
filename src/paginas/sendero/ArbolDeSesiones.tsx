@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useReducedMotion } from 'framer-motion';
 
+import '../../estilos/arbolVivo.css';
 import type { Modulo } from '../../infraestructura/api/cuenta.ts';
+import { FondoVivo } from '../actividad/viva/FondoVivo.tsx';
 import {
   consultarSesionesPublicadas,
   consultarSesionesHechas,
@@ -26,6 +29,7 @@ export function ArbolDeSesiones({
   modulo: Modulo;
   diasHechos?: number;
 }) {
+  const sinMovimiento = useReducedMotion();
   const [estado, setEstado] = useState<Estado>({ tipo: 'cargando' });
   const [intento, setIntento] = useState(0);
   const ventana = useRef<HTMLDivElement>(null);
@@ -112,57 +116,87 @@ export function ArbolDeSesiones({
             const boton = ventana.current?.querySelector<HTMLButtonElement>(
               '[data-dia-activo="true"]',
             );
-            boton?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            boton?.scrollIntoView({
+              block: 'center',
+              behavior: sinMovimiento ? 'instant' : 'smooth',
+            });
             boton?.focus({ preventScroll: true });
           }}
         >
           Ir a mi día
         </button>
       </div>
-      <div
-        ref={ventana}
-        className="arbol-sesiones__ventana"
-        role="region"
-        aria-label={`Actividades de ${modulo}`}
-        // El contenedor con overflow debe recibir foco para poder desplazarse con teclado.
-        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
-        tabIndex={0}
-      >
-        <div className="sendero__tramo">
-          <svg
-            className="sendero__traza"
-            width="1"
-            height={puntos.length * ALTO_DE_FILA}
-            viewBox={`0 0 1 ${puntos.length * ALTO_DE_FILA}`}
-            aria-hidden="true"
-            focusable="false"
-          >
-            <path className="sendero__tramo--pendiente" d={trazo} />
-          </svg>
-          <ol className="sendero__puntos" aria-label={`Sesiones publicadas de ${modulo}`}>
-            {estado.sesiones.map((sesion, indice) => (
-              <li
-                key={sesion.id}
-                className="sendero__fila"
-                style={{ '--x': `${desplazamiento(indice)}px` } as CSSProperties}
-              >
-                <button
-                  type="button"
-                  className={`sendero__punto arbol-sesiones__punto${estado.hechas.has(sesion.id) ? ' arbol-sesiones__punto--hecho' : ''}${indice === indiceDeHoy ? ' arbol-sesiones__punto--hoy' : ''}`}
-                  data-dia-activo={indice === indiceDeHoy}
-                  aria-haspopup="dialog"
-                  aria-label={`Actividad ${indice + 1}: ${sesion.titulo}${estado.hechas.has(sesion.id) ? ', completada' : indice === indiceDeHoy ? ', sugerida para hoy' : ''}`}
-                  onClick={(evento) => setSeleccion({ ancla: evento.currentTarget, sesion })}
+      <div className="arbol-sesiones__mapa">
+        <FondoVivo modulo={modulo} />
+        <div
+          ref={ventana}
+          className="arbol-sesiones__ventana"
+          role="region"
+          aria-label={`Actividades de ${modulo}`}
+          // El contenedor con overflow debe recibir foco para poder desplazarse con teclado.
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+          tabIndex={0}
+        >
+          <div className="sendero__tramo">
+            <svg
+              className="sendero__traza"
+              width="1"
+              height={puntos.length * ALTO_DE_FILA}
+              viewBox={`0 0 1 ${puntos.length * ALTO_DE_FILA}`}
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path className="sendero__tramo--pendiente" d={trazo} />
+            </svg>
+            <ol className="sendero__puntos" aria-label={`Sesiones publicadas de ${modulo}`}>
+              {estado.sesiones.map((sesion, indice) => (
+                <li
+                  key={sesion.id}
+                  className="sendero__fila"
+                  style={{ '--x': `${desplazamiento(indice)}px` } as CSSProperties}
                 >
-                  {indice + 1}
-                </button>
-              </li>
-            ))}
-          </ol>
+                  <span className="arbol-sesiones__nodo">
+                    <button
+                      type="button"
+                      className={`sendero__punto arbol-sesiones__punto${estado.hechas.has(sesion.id) ? ' arbol-sesiones__punto--hecho' : ''}${indice === indiceDeHoy ? ' arbol-sesiones__punto--hoy' : ''}${seleccion?.sesion.id === sesion.id ? ' arbol-sesiones__punto--seleccionado' : ''}`}
+                      data-dia-activo={indice === indiceDeHoy}
+                      aria-haspopup="dialog"
+                      aria-expanded={seleccion?.sesion.id === sesion.id}
+                      aria-label={`Actividad ${indice + 1}: ${sesion.titulo}${estado.hechas.has(sesion.id) ? ', completada' : indice === indiceDeHoy ? ', sugerida para hoy' : ''}`}
+                      onClick={(evento) => {
+                        const punto = evento.currentTarget;
+                        if (!sinMovimiento) {
+                          // Solo salta el boton pulsado. La envoltura conserva el zigzag y el ancla.
+                          punto.getAnimations?.().forEach((animacion) => {
+                            if (animacion.id === 'salto-del-arbol') animacion.cancel();
+                          });
+                          const salto = punto.animate?.(
+                            [
+                              { transform: 'translateY(0) scale(1)', offset: 0 },
+                              { transform: 'translateY(4px) scale(1.08, 0.9)', offset: 0.16 },
+                              { transform: 'translateY(-18px) scale(0.96, 1.06)', offset: 0.42 },
+                              { transform: 'translateY(2px) scale(1.04, 0.96)', offset: 0.72 },
+                              { transform: 'translateY(0) scale(1)', offset: 1 },
+                            ],
+                            { duration: 560, easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)' },
+                          );
+                          if (salto !== undefined) salto.id = 'salto-del-arbol';
+                        }
+                        setSeleccion({ ancla: punto, sesion });
+                      }}
+                    >
+                      {indice + 1}
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
         </div>
       </div>
       {seleccion !== null && (
         <PopoverDeActividad
+          key={seleccion.sesion.id}
           ancla={seleccion.ancla}
           actividad={{
             id: seleccion.sesion.idActividad,

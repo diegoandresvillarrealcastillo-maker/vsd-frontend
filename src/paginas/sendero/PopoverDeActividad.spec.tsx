@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { PopoverDeActividad } from './PopoverDeActividad.tsx';
 
@@ -27,6 +27,37 @@ function Ejemplo() {
 }
 
 describe('PopoverDeActividad', () => {
+  it('se coloca junto al ancla estable aunque el boton este en mitad del salto', async () => {
+    const ancla = document.createElement('button');
+    const envoltura = document.createElement('span');
+    envoltura.className = 'arbol-sesiones__nodo';
+    envoltura.append(ancla);
+    document.body.append(envoltura);
+    vi.spyOn(ancla, 'getBoundingClientRect').mockReturnValue(
+      DOMRect.fromRect({ x: 150, y: 182, width: 68, height: 68 }),
+    );
+    vi.spyOn(envoltura, 'getBoundingClientRect').mockReturnValue(
+      DOMRect.fromRect({ x: 150, y: 200, width: 68, height: 68 }),
+    );
+    try {
+      render(
+        <MemoryRouter>
+          <PopoverDeActividad
+            ancla={ancla}
+            actividad={{ id: 'pausa', nombre: 'Pausa', hecha: false }}
+            alCerrar={() => undefined}
+          />
+        </MemoryRouter>,
+      );
+      expect(await screen.findByRole('dialog')).toHaveStyle({ top: '278px' });
+      // Desplazarse durante el salto tampoco debe arrastrar la tarjeta.
+      window.dispatchEvent(new Event('scroll'));
+      expect(screen.getByRole('dialog')).toHaveStyle({ top: '278px' });
+    } finally {
+      envoltura.remove();
+    }
+  });
+
   it('ofrece la actividad real junto al nodo y se cierra con Escape', async () => {
     const usuario = userEvent.setup();
     render(
