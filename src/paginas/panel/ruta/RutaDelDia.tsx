@@ -9,10 +9,9 @@ import type { RutaDelDia as Ruta } from './construirLaRuta.ts';
 /**
  * Lo que toca hoy (SCRUM-170), con los modulos activos juntos como pestañas que se despliegan.
  *
- * Cada pestaña dice lo que toca hoy en ese modulo; al abrirla se ve su ruta de 365 dias, con la
- * vista ya en el dia activo, y lo de hoy se abre desde el punto «Hoy» de esa ruta. La meta del dia
- * son unas tres actividades repartidas entre los modulos (`construirLaRuta`); con una sola que se
- * haga, la racha ya cuenta.
+ * Cada pestaña dice lo que toca hoy en ese módulo; al abrirla se ven las sesiones publicadas
+ * que la persona puede elegir libremente. La meta del día son unas tres actividades repartidas
+ * entre los módulos (`construirLaRuta`); con una sola que se haga, la racha ya cuenta.
  *
  * Nada aqui castiga: no hay vidas, ni rachas que se rompan, ni nada que se pierda por no hacer algo
  * hoy. Lo que no se hizo espera, sin avisos.

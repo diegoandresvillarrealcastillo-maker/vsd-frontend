@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { SesionDeLaActividad } from '../../infraestructura/api/progreso.ts';
+import { buscarSesionPublicada } from '../../infraestructura/api/sesionesPublicadas.ts';
 import { reintentarCambio } from '../../sincronizacion/acciones.ts';
 import { buscarActividadConCopia } from '../../sincronizacion/catalogoLocal.ts';
 import { encolar } from '../../sincronizacion/ciclo.ts';
@@ -26,6 +27,9 @@ vi.mock('../../sincronizacion/seguimiento.ts', () => ({ seguirUnaOperacion: vi.f
 vi.mock('../../sincronizacion/catalogoLocal.ts', () => ({ buscarActividadConCopia: vi.fn() }));
 vi.mock('../../sincronizacion/acciones.ts', () => ({ reintentarCambio: vi.fn() }));
 vi.mock('../../sincronizacion/panelLocal.ts', () => ({ leerLaSesionGuardada: vi.fn() }));
+vi.mock('../../infraestructura/api/sesionesPublicadas.ts', () => ({
+  buscarSesionPublicada: vi.fn(),
+}));
 
 const FICHA = {
   actividad: { id: 'a1', nombre: 'Como dormiste anoche', produceNivel: true },
@@ -44,6 +48,7 @@ beforeEach(() => {
   vi.mocked(reintentarCambio).mockResolvedValue(true);
   vi.mocked(leerLaSesionGuardada).mockReset();
   vi.mocked(leerLaSesionGuardada).mockResolvedValue(null);
+  vi.mocked(buscarSesionPublicada).mockReset();
 });
 
 async function listo() {
@@ -94,7 +99,7 @@ describe('mostrarLoQuePaso: lo que se le dice a la persona (SCRUM-138)', () => {
     });
 
     expect(estado).toMatchObject({ fase: 'error', ficha: FICHA });
-    expect(estado).toHaveProperty('mensaje', expect.stringMatching(/sesión de hoy cambió/));
+    expect(estado).toHaveProperty('mensaje', expect.stringMatching(/sesión elegida cambió/));
     expect(estado).toHaveProperty('mensaje', expect.stringMatching(/panel/));
   });
 
@@ -265,6 +270,32 @@ describe('useCompletarActividad: la sesion del dia (SCRUM-208, ADR 0030)', () =>
     await terminar(gancho);
 
     expect(loQueSeGuardo()).toMatchObject({ activityId: 'a1', score: 9, idSesion: 's-1' });
+  });
+
+  it('la sesión elegida en el árbol prevalece sobre la copia del día y se registra exactamente', async () => {
+    const elegida = { ...SESION, id: 's-58', idActividad: 'a1', titulo: 'Sesión 58' };
+    vi.mocked(leerLaSesionGuardada).mockResolvedValue(SESION);
+    vi.mocked(buscarSesionPublicada).mockResolvedValue(elegida);
+
+    const gancho = renderHook(() => useCompletarActividad('a1', 's-58'));
+    await vi.waitFor(() => expect(gancho.result.current.estado.fase).toBe('lista'));
+    expect(gancho.result.current.sesion).toEqual(elegida);
+    expect(leerLaSesionGuardada).not.toHaveBeenCalled();
+
+    await terminar(gancho);
+    expect(loQueSeGuardo()).toMatchObject({ activityId: 'a1', idSesion: 's-58' });
+  });
+
+  it('una sesión de otra actividad no abre la mecánica ni se registra', async () => {
+    vi.mocked(buscarSesionPublicada).mockResolvedValue({
+      ...SESION,
+      idActividad: 'a2',
+    });
+
+    const gancho = renderHook(() => useCompletarActividad('a1', 's-ajena'));
+    await vi.waitFor(() => expect(gancho.result.current.estado.fase).toBe('error'));
+    expect(gancho.result.current.sesion).toBeUndefined();
+    expect(encolar).not.toHaveBeenCalled();
   });
 
   it('sin sesion guardada, el resultado no lleva idSesion y la pantalla es la de siempre', async () => {

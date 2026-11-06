@@ -23,7 +23,6 @@ import {
   tutorialVisto,
   volverAVerElTutorial,
 } from '../../tutorial/memoriaDelTutorial.ts';
-import { ALTO_DE_FILA, ALTO_DE_FILA_DE_HOY } from '../sendero/geometria.ts';
 import { Icono, type NombreDeIcono } from './Icono.tsx';
 import { Panel } from './Panel.tsx';
 import { olvidarLaRutaAbierta, rutaAbierta } from './ruta/memoriaDeLaRuta.ts';
@@ -44,6 +43,11 @@ const { consultarLaVersionDelAviso, darDeAltaLaCuenta, cambiarPreferencias, cons
     consultarElProgreso: vi.fn(),
   }));
 
+const { consultarSesionesPublicadas, consultarSesionesHechas } = vi.hoisted(() => ({
+  consultarSesionesPublicadas: vi.fn(),
+  consultarSesionesHechas: vi.fn(),
+}));
+
 // El semaforo flota en esta pantalla (SCRUM-98); aqui no se prueba.
 vi.mock('../../infraestructura/api/pendientes.ts', () => ({
   consultarElSemaforo: () => Promise.resolve({ pendientes: [], recordatorio: null }),
@@ -51,6 +55,10 @@ vi.mock('../../infraestructura/api/pendientes.ts', () => ({
 vi.mock('../../infraestructura/api/aviso.ts', () => ({ consultarLaVersionDelAviso }));
 vi.mock('../../infraestructura/api/cuenta.ts', () => ({ darDeAltaLaCuenta, cambiarPreferencias }));
 vi.mock('../../infraestructura/api/progreso.ts', () => ({ consultarElProgreso }));
+vi.mock('../../infraestructura/api/sesionesPublicadas.ts', () => ({
+  consultarSesionesPublicadas,
+  consultarSesionesHechas,
+}));
 
 // La llama de la barra pide la racha (SCRUM-186) y la mascota de la tarde (SCRUM-243) habla con lo que
 // llega: aqui se controla lo que dice el servidor.
@@ -165,6 +173,7 @@ function acordeonAbierto(nombre: RegExp) {
 }
 
 beforeEach(() => {
+  consultarSesionesHechas.mockResolvedValue([]);
   olvidarLaRutaAbierta(CUENTA.id);
   consultarLaRacha.mockResolvedValue(rachaDePrueba());
   consultarElDatoDeHoy.mockResolvedValue({
@@ -185,6 +194,36 @@ beforeEach(() => {
   consultarLaVersionDelAviso.mockResolvedValue('version-de-la-api');
   darDeAltaLaCuenta.mockResolvedValue(CUENTA);
   consultarElProgreso.mockResolvedValue(PROGRESO);
+  consultarSesionesPublicadas.mockImplementation((modulo: string) =>
+    Promise.resolve(
+      modulo === 'bienestar'
+        ? [
+            {
+              id: 'sesion-sueno',
+              idActividad: '0acd0000-0000-4000-8000-000000000002',
+              titulo: 'Cómo dormiste anoche',
+              actividad: 'Sueño',
+              nivel: 1,
+            },
+            {
+              id: 'sesion-movimiento',
+              idActividad: '0acd0000-0000-4000-8000-000000000003',
+              titulo: 'Movimiento del día',
+              actividad: 'Movimiento',
+              nivel: 1,
+            },
+          ]
+        : [
+            {
+              id: 'sesion-parejas',
+              idActividad: '0acd0000-0000-4000-8000-000000000001',
+              titulo: 'Parejas',
+              actividad: 'Parejas',
+              nivel: 1,
+            },
+          ],
+    ),
+  );
 });
 
 afterEach(() => {
@@ -201,8 +240,8 @@ describe('Dashboard, accesibilidad (C-03)', () => {
   });
 });
 
-describe('Dashboard, la ruta de 365 dias dentro de «Tu ruta de hoy» (SCRUM-293, SCRUM-294)', () => {
-  const RUTA = /Ruta de 365 días de/;
+describe('Dashboard, sesiones publicadas dentro de «Tu ruta de hoy» (SCRUM-322)', () => {
+  const RUTA = /Actividades de/;
 
   it('las pestañas viven en «Tu ruta de hoy» y las tarjetas siguen en «Elige donde enfocarte»', async () => {
     pintar();
@@ -232,21 +271,22 @@ describe('Dashboard, la ruta de 365 dias dentro de «Tu ruta de hoy» (SCRUM-293
     expect(screen.getByText('1 de 3')).toBeInTheDocument();
   });
 
-  it('lo de hoy se abre desde el punto «Hoy» de la ruta, con lo hecho marcado', async () => {
+  it('cualquier sesión publicada abre el panel compacto y permite comenzarla', async () => {
     pintar();
 
     await screen.findByRole('heading', { name: 'Tu ruta de hoy' });
     await userEvent.click(acordeon(/Bienestar/));
-    await userEvent.click(screen.getByRole('button', { name: /Ver lo de hoy/ }));
+    const arbol = await screen.findByRole('region', { name: 'Actividades de bienestar' });
+    await userEvent.click(
+      within(arbol).getByRole('button', { name: /Actividad 2: Movimiento del día/ }),
+    );
 
-    const hoja = screen.getByRole('dialog', { name: 'Lo de hoy' });
-
-    expect(
-      within(hoja).getByRole('link', { name: 'Empezar Cómo dormiste anoche' }),
-    ).toHaveAttribute('href', '/actividad/0acd0000-0000-4000-8000-000000000002');
-    expect(
-      within(hoja).getByRole('link', { name: 'Empezar Movimiento del día' }),
-    ).toBeInTheDocument();
+    const hoja = screen.getByRole('dialog', { name: 'Actividad: Movimiento del día' });
+    expect(within(hoja).getByText('Empieza cuando quieras')).toBeInTheDocument();
+    expect(within(hoja).getByRole('link', { name: 'Comenzar Movimiento del día' })).toHaveAttribute(
+      'href',
+      '/actividad/0acd0000-0000-4000-8000-000000000003?sesion=sesion-movimiento',
+    );
   });
 
   it('la meta del dia son unas tres actividades, aunque el servidor mande muchas', async () => {
@@ -276,10 +316,20 @@ describe('Dashboard, la ruta de 365 dias dentro de «Tu ruta de hoy» (SCRUM-293
 
     expect(screen.getByText('0 de 3')).toBeInTheDocument();
     expect(screen.getByRole('complementary')).toHaveTextContent('Actividad 10');
-    // Lo que no entra en la meta sigue al alcance, como sugerencia.
+    // Las sesiones publicadas se pueden elegir incluso si no son la meta de hoy.
+    consultarSesionesPublicadas.mockResolvedValueOnce(
+      Array.from({ length: 6 }, (_, i) => ({
+        id: `sesion-${i}`,
+        idActividad: `actividad-${i}`,
+        titulo: `Actividad ${10 + i}`,
+        actividad: `Actividad ${10 + i}`,
+        nivel: 1,
+      })),
+    );
     await userEvent.click(acordeon(/Cognición/));
-    await userEvent.click(screen.getByRole('button', { name: /Ver lo de hoy/ }));
-    expect(screen.getByRole('link', { name: 'Empezar Actividad 15' })).toBeInTheDocument();
+    const arbol = await screen.findByRole('region', { name: 'Actividades de cognicion' });
+    await userEvent.click(within(arbol).getByRole('button', { name: 'Actividad 6: Actividad 15' }));
+    expect(screen.getByRole('link', { name: 'Comenzar Actividad 15' })).toBeInTheDocument();
   });
 
   it('al entrar todos los modulos estan cerrados y ninguna ruta pesa en la pantalla', async () => {
@@ -292,18 +342,15 @@ describe('Dashboard, la ruta de 365 dias dentro de «Tu ruta de hoy» (SCRUM-293
     expect(screen.queryByRole('region', { name: RUTA })).not.toBeInTheDocument();
   });
 
-  it('al abrir un modulo aparecen sus 365 dias y la vista va sola al dia activo', async () => {
+  it('al abrir un módulo aparecen sus sesiones publicadas y todas son elegibles', async () => {
     pintar();
 
     await screen.findByRole('heading', { name: /Hola, Marina/ });
     await userEvent.click(acordeon(/Bienestar/));
 
-    const ventana = screen.getByRole('region', { name: 'Ruta de 365 días de Bienestar' });
-
-    expect(within(within(ventana).getByRole('list')).getAllByRole('listitem')).toHaveLength(365);
-    // Bienestar va en el dia 4: tres filas hechas y el centro de la de hoy. En jsdom no se mide
-    // nada, asi que la ventana mide 0 y el punto de hoy queda arriba del todo.
-    expect(ventana.scrollTop).toBe(3 * ALTO_DE_FILA + ALTO_DE_FILA_DE_HOY / 2);
+    const ventana = await screen.findByRole('region', { name: 'Actividades de bienestar' });
+    expect(within(within(ventana).getByRole('list')).getAllByRole('listitem')).toHaveLength(2);
+    expect(within(ventana).getAllByRole('button')).toHaveLength(2);
     expect(acordeonAbierto(/Bienestar/)).toBeInTheDocument();
   });
 
@@ -316,7 +363,7 @@ describe('Dashboard, la ruta de 365 dias dentro de «Tu ruta de hoy» (SCRUM-293
 
     expect(acordeon(/Cognición/)).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getAllByRole('region', { name: RUTA })).toHaveLength(1);
-    expect(screen.getByRole('region', { name: 'Ruta de 365 días de Bienestar' })).toBeVisible();
+    expect(await screen.findByRole('region', { name: 'Actividades de bienestar' })).toBeVisible();
   });
 
   it('un modulo abierto se cierra al pulsarlo de nuevo', async () => {
@@ -347,7 +394,7 @@ describe('Dashboard, la ruta de 365 dias dentro de «Tu ruta de hoy» (SCRUM-293
     expect(acordeonAbierto(/Cognición/)).toBeInTheDocument();
     // Las secciones entran con un fundido (SCRUM-310): al montar nacen transparentes.
     await waitFor(() =>
-      expect(screen.getByRole('region', { name: 'Ruta de 365 días de Cognición' })).toBeVisible(),
+      expect(screen.getByRole('region', { name: 'Actividades de cognicion' })).toBeVisible(),
     );
   });
 
