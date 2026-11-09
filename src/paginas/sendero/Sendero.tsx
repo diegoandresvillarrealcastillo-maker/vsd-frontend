@@ -117,7 +117,11 @@ export function VistaDelSendero({
       )}
 
       {estado.fase === 'listo' && (
-        <ArbolDeSesiones modulo={modulo} diasHechos={estado.progreso.sesiones} personaId={personaId} />
+        <ArbolDeSesiones
+          modulo={modulo}
+          diasHechos={estado.progreso.sesiones}
+          personaId={personaId}
+        />
       )}
 
       {/* El historial es del servidor y no tiene copia: sin conexion lo dice con calma y no tapa

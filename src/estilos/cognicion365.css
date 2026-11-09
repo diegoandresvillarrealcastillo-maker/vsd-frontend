@@ -32,7 +32,9 @@
     animation: none;
     transition: none;
   }
+}
 
+@media (hover: hover) and (prefers-reduced-motion: reduce) {
   .cognicion365__casilla:hover,
   .cognicion365__casilla:active,
   .cognicion365__opcion:hover,

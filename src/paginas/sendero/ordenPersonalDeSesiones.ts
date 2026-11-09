@@ -29,12 +29,12 @@ export function ordenarActividadesParaPersona(
     agrupadas.set(sesion.idActividad, grupo);
   }
 
-  const grupos = [...agrupadas.entries()]
-    .map(([idActividad, variantes]) => {
-      const sesionesOrdenadas = [...variantes].sort((a, b) => a.id.localeCompare(b.id));
-      const indice = hashEstable(`${personaId}|${modulo}|sesion|${idActividad}`) % sesionesOrdenadas.length;
-      return { idActividad, sesiones: sesionesOrdenadas, sesion: sesionesOrdenadas[indice]! };
-    });
+  const grupos = [...agrupadas.entries()].map(([idActividad, variantes]) => {
+    const sesionesOrdenadas = [...variantes].sort((a, b) => a.id.localeCompare(b.id));
+    const indice =
+      hashEstable(`${personaId}|${modulo}|sesion|${idActividad}`) % sesionesOrdenadas.length;
+    return { idActividad, sesiones: sesionesOrdenadas, sesion: sesionesOrdenadas[indice]! };
+  });
 
   const posicionesDiarias = new Set<number>();
   grupos.forEach((grupo, indice) => {

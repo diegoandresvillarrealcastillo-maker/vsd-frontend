@@ -58,14 +58,19 @@ export function ArbolDeSesiones({
     return () => control.abort();
   }, [modulo, intento]);
 
-  const grupos = useMemo(() => estado.tipo === 'listo'
-    ? ordenarActividadesParaPersona(estado.sesiones, personaId, modulo)
-    : [], [estado, modulo, personaId]);
+  const grupos = useMemo(
+    () =>
+      estado.tipo === 'listo'
+        ? ordenarActividadesParaPersona(estado.sesiones, personaId, modulo)
+        : [],
+    [estado, modulo, personaId],
+  );
   const idsHechosPorActividad = useMemo(() => {
     const hechos = new Set<string>();
     if (estado.tipo === 'listo') {
       for (const grupo of grupos) {
-        if (grupo.sesiones.some((sesion) => estado.hechas.has(sesion.id))) hechos.add(grupo.idActividad);
+        if (grupo.sesiones.some((sesion) => estado.hechas.has(sesion.id)))
+          hechos.add(grupo.idActividad);
       }
     }
     return hechos;

@@ -34,8 +34,9 @@ describe('ordenPersonalDeSesiones', () => {
     expect(orden.map(({ idActividad }) => idActividad)).toHaveLength(sesiones.length);
     expect(orden[1]?.idActividad).toBe('horas-de-sueno');
     expect(orden[4]?.idActividad).toBe('diaria-emociones');
-    expect(orden.map(({ idActividad }) => idActividad).filter((id) => id.startsWith('rotativa-')))
-      .not.toEqual(['rotativa-a', 'rotativa-b', 'rotativa-c', 'rotativa-d']);
+    expect(
+      orden.map(({ idActividad }) => idActividad).filter((id) => id.startsWith('rotativa-')),
+    ).not.toEqual(['rotativa-a', 'rotativa-b', 'rotativa-c', 'rotativa-d']);
   });
 
   it('conserva el mismo orden por persona y genera otro para un perfil distinto', () => {
@@ -62,6 +63,8 @@ describe('ordenPersonalDeSesiones', () => {
     const orden = ordenarActividadesParaPersona(sesiones, 'persona-a', 'emociones');
 
     expect(orden).toHaveLength(2);
-    expect(orden.find(({ idActividad }) => idActividad === 'actividad-a')?.sesiones).toHaveLength(2);
+    expect(orden.find(({ idActividad }) => idActividad === 'actividad-a')?.sesiones).toHaveLength(
+      2,
+    );
   });
 });

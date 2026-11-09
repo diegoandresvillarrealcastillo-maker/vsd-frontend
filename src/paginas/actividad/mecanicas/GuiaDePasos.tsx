@@ -72,14 +72,17 @@ function Dibujo({ clave, tamano }: { clave: string; tamano: number }) {
 /** Reconoce las seis zonas del escaneo para dar una referencia visual sin añadir texto al paso. */
 function zonaCorporalDelTitulo(titulo?: string): ZonaCorporal | null {
   const normalizado =
-    titulo?.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g, '') ?? '';
-
-  if (normalizado.includes('pie')) {
-    return 'pies';
-  }
+    titulo
+      ?.toLocaleLowerCase('es')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') ?? '';
 
   if (normalizado.includes('pierna')) {
     return 'piernas';
+  }
+
+  if (normalizado.includes('pie')) {
+    return 'pies';
   }
 
   if (normalizado.includes('abdomen')) {
