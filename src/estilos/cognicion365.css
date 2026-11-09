@@ -1,0 +1,42 @@
+/* Movimiento compartido por los retos nuevos de Cognición 365.
+   Colores, estados, hover y pulsación vienen del kit .juego__opcion de VSD. */
+.cognicion365__casilla,
+.cognicion365__opcion {
+  animation: viva-reparte 0.5s var(--viva-curva-rebote) calc(var(--i, 0) * 45ms) both;
+}
+
+.cognicion365__casilla[data-marcada],
+.cognicion365__opcion[data-marcada] {
+  animation: viva-pop 0.45s var(--viva-curva-rebote);
+}
+
+.cognicion365__casilla[data-estado='correcta'],
+.cognicion365__opcion[data-estado='correcta'] {
+  animation: viva-pop 0.55s var(--viva-curva-rebote);
+}
+
+.cognicion365__casilla[data-estado='elegida'],
+.cognicion365__opcion[data-estado='elegida'] {
+  animation: juego-tiembla 0.45s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cognicion365__casilla,
+  .cognicion365__casilla[data-marcada],
+  .cognicion365__casilla[data-estado='correcta'],
+  .cognicion365__casilla[data-estado='elegida'],
+  .cognicion365__opcion,
+  .cognicion365__opcion[data-marcada],
+  .cognicion365__opcion[data-estado='correcta'],
+  .cognicion365__opcion[data-estado='elegida'] {
+    animation: none;
+    transition: none;
+  }
+
+  .cognicion365__casilla:hover,
+  .cognicion365__casilla:active,
+  .cognicion365__opcion:hover,
+  .cognicion365__opcion:active {
+    transform: none;
+  }
+}

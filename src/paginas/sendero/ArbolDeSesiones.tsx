@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useReducedMotion } from 'framer-motion';
 
 import '../../estilos/arbolVivo.css';
@@ -11,6 +11,7 @@ import {
 } from '../../infraestructura/api/sesionesPublicadas.ts';
 import { ALTO_DE_FILA, desplazamiento } from './geometria.ts';
 import { PopoverDeActividad } from './PopoverDeActividad.tsx';
+import { ordenarActividadesParaPersona } from './ordenPersonalDeSesiones.ts';
 
 type Estado =
   | { readonly tipo: 'cargando' }
@@ -25,9 +26,11 @@ type Estado =
 export function ArbolDeSesiones({
   modulo,
   diasHechos = 0,
+  personaId = 'perfil-local',
 }: {
   modulo: Modulo;
   diasHechos?: number;
+  personaId?: string;
 }) {
   const sinMovimiento = useReducedMotion();
   const [estado, setEstado] = useState<Estado>({ tipo: 'cargando' });
@@ -55,9 +58,22 @@ export function ArbolDeSesiones({
     return () => control.abort();
   }, [modulo, intento]);
 
+  const grupos = useMemo(() => estado.tipo === 'listo'
+    ? ordenarActividadesParaPersona(estado.sesiones, personaId, modulo)
+    : [], [estado, modulo, personaId]);
+  const idsHechosPorActividad = useMemo(() => {
+    const hechos = new Set<string>();
+    if (estado.tipo === 'listo') {
+      for (const grupo of grupos) {
+        if (grupo.sesiones.some((sesion) => estado.hechas.has(sesion.id))) hechos.add(grupo.idActividad);
+      }
+    }
+    return hechos;
+  }, [estado, grupos]);
+
   const indiceDeHoy =
     estado.tipo === 'listo'
-      ? Math.min(Math.max(0, Math.floor(diasHechos)), Math.max(0, estado.sesiones.length - 1))
+      ? Math.min(Math.max(0, Math.floor(diasHechos)), Math.max(0, grupos.length - 1))
       : 0;
 
   useEffect(() => {
@@ -89,10 +105,10 @@ export function ArbolDeSesiones({
       </div>
     );
   }
-  if (estado.sesiones.length === 0)
+  if (grupos.length === 0)
     return <p className="app__nota">Aún no hay actividades publicadas en este módulo.</p>;
 
-  const puntos = estado.sesiones.map((_, indice) => ({
+  const puntos = grupos.map((_, indice) => ({
     x: desplazamiento(indice),
     y: (indice + 0.5) * ALTO_DE_FILA,
   }));
@@ -148,21 +164,21 @@ export function ArbolDeSesiones({
             >
               <path className="sendero__tramo--pendiente" d={trazo} />
             </svg>
-            <ol className="sendero__puntos" aria-label={`Sesiones publicadas de ${modulo}`}>
-              {estado.sesiones.map((sesion, indice) => (
+            <ol className="sendero__puntos" aria-label={`Actividades de ${modulo}`}>
+              {grupos.map(({ sesion, idActividad }, indice) => (
                 <li
-                  key={sesion.id}
+                  key={idActividad}
                   className="sendero__fila"
                   style={{ '--x': `${desplazamiento(indice)}px` } as CSSProperties}
                 >
                   <span className="arbol-sesiones__nodo">
                     <button
                       type="button"
-                      className={`sendero__punto arbol-sesiones__punto${estado.hechas.has(sesion.id) ? ' arbol-sesiones__punto--hecho' : ''}${indice === indiceDeHoy ? ' arbol-sesiones__punto--hoy' : ''}${seleccion?.sesion.id === sesion.id ? ' arbol-sesiones__punto--seleccionado' : ''}`}
+                      className={`sendero__punto arbol-sesiones__punto${idsHechosPorActividad.has(idActividad) ? ' arbol-sesiones__punto--hecho' : ''}${indice === indiceDeHoy ? ' arbol-sesiones__punto--hoy' : ''}${seleccion?.sesion.id === sesion.id ? ' arbol-sesiones__punto--seleccionado' : ''}`}
                       data-dia-activo={indice === indiceDeHoy}
                       aria-haspopup="dialog"
                       aria-expanded={seleccion?.sesion.id === sesion.id}
-                      aria-label={`Actividad ${indice + 1}: ${sesion.titulo}${estado.hechas.has(sesion.id) ? ', completada' : indice === indiceDeHoy ? ', sugerida para hoy' : ''}`}
+                      aria-label={`Actividad ${indice + 1}: ${sesion.actividad}${idsHechosPorActividad.has(idActividad) ? ', completada' : indice === indiceDeHoy ? ', sugerida para hoy' : ''}`}
                       onClick={(evento) => {
                         const punto = evento.currentTarget;
                         if (!sinMovimiento) {
@@ -200,8 +216,8 @@ export function ArbolDeSesiones({
           ancla={seleccion.ancla}
           actividad={{
             id: seleccion.sesion.idActividad,
-            nombre: seleccion.sesion.titulo,
-            hecha: estado.hechas.has(seleccion.sesion.id),
+            nombre: seleccion.sesion.actividad,
+            hecha: idsHechosPorActividad.has(seleccion.sesion.idActividad),
           }}
           idSesion={seleccion.sesion.id}
           alCerrar={() => setSeleccion(null)}

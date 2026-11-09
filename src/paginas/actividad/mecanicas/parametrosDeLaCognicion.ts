@@ -82,10 +82,24 @@ export function leerFlujo(parametros: unknown): ParametrosDeFlujo | null {
     return null;
   }
 
+  // Un acierto del objetivo cuenta como ronda. Limita también las sesiones antiguas, que podían traer 15.
+  const clavesObjetivo = new Set(objetivos.map((objetivo) => objetivo.clave));
+  const secuenciaBreve: string[] = [];
+  let rondasObjetivo = 0;
+
+  for (const clave of secuencia) {
+    if (secuenciaBreve.length >= MAXIMO_DE_RONDAS * 3) break;
+    if (clavesObjetivo.has(clave)) {
+      if (rondasObjetivo >= MAXIMO_DE_RONDAS) break;
+      rondasObjetivo += 1;
+    }
+    secuenciaBreve.push(clave);
+  }
+
   return {
     objetivos,
     otros,
-    secuencia,
+    secuencia: secuenciaBreve,
     msPorEstimulo: parametros.msPorEstimulo,
     puntosMaximos: parametros.puntosMaximos,
   };
@@ -128,7 +142,11 @@ export function leerPuntos(parametros: unknown): ParametrosDePuntos | null {
     return null;
   }
 
-  return { indicacion: parametros.indicacion, puntos, puntosMaximos: parametros.puntosMaximos };
+  return {
+    indicacion: parametros.indicacion,
+    puntos: puntos.slice(0, MAXIMO_DE_RONDAS),
+    puntosMaximos: parametros.puntosMaximos,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -175,7 +193,7 @@ export function leerLaLista(parametros: unknown): ParametrosDeLista | null {
   return {
     contexto: parametros.contexto,
     segundosVista: parametros.segundosVista,
-    elementos,
+    elementos: elementos.slice(0, MAXIMO_DE_RONDAS),
     distractores,
     puntosMaximos: parametros.puntosMaximos,
   };
@@ -421,7 +439,7 @@ export function leerLasCestas(parametros: unknown): ParametrosDeCestas | null {
   return {
     indicacion: parametros.indicacion,
     cestas,
-    elementos,
+    elementos: elementos.slice(0, MAXIMO_DE_RONDAS),
     ...(puntua ? { puntosMaximos: puntosMaximos as number } : {}),
     ...(lineaLeida === undefined ? {} : { linea: lineaLeida }),
     ...(typeof parametros.cierre === 'string' ? { cierre: parametros.cierre } : {}),

@@ -57,6 +57,7 @@ function Flujo({
   /** El estimulo que se ve ahora; -1 mientras la persona se prepara. */
   const [indice, setIndice] = useState(-1);
   const [resumen, setResumen] = useState({ aciertos: 0, otrosIntentos: 0 });
+  const [retroalimentacion, setRetroalimentacion] = useState<string | null>(null);
   const aciertos = useRef(0);
   const otrosIntentos = useRef(0);
   const yaTocado = useRef(false);
@@ -69,6 +70,7 @@ function Flujo({
   );
   const clavesDelObjetivo = useMemo(() => new Set(objetivos.map((o) => o.clave)), [objetivos]);
   const nombresDelObjetivo = objetivos.map((objetivo) => objetivo.nombre).join(' y ');
+  const totalObjetivos = secuencia.filter((clave) => clavesDelObjetivo.has(clave)).length;
 
   // El reloj: un estimulo cada `msPorEstimulo`, el primero tras la espera de la preparacion.
   useEffect(() => {
@@ -89,6 +91,7 @@ function Flujo({
       }
 
       yaTocado.current = false;
+      setRetroalimentacion(null);
       setIndice(siguiente);
     }, msPorEstimulo);
 
@@ -107,6 +110,8 @@ function Flujo({
     if (claveDeAhora !== undefined && clavesDelObjetivo.has(claveDeAhora) && !yaTocado.current) {
       yaTocado.current = true;
       aciertos.current += 1;
+      const nombre = simbolos.get(claveDeAhora)?.nombre ?? claveDeAhora;
+      setRetroalimentacion(`¡Bien! Tocaste el objetivo: ${nombre}.`);
     } else {
       // Un toque de mas no resta ni se senala: es otro intento.
       otrosIntentos.current += 1;
@@ -117,6 +122,7 @@ function Flujo({
     inicio.current = marcaDeTiempo();
     aciertos.current = 0;
     otrosIntentos.current = 0;
+    setRetroalimentacion(null);
     setIndice(-1);
     setFase('corriendo');
   }
@@ -129,10 +135,13 @@ function Flujo({
     terminada.current = true;
 
     alTerminar({
-      score: Math.min(resumen.aciertos, puntosMaximos),
+      score:
+        totalObjetivos === 0
+          ? 0
+          : Math.round((resumen.aciertos / totalObjetivos) * puntosMaximos * 100) / 100,
       metadata: {
         aciertos: resumen.aciertos,
-        objetivos: puntosMaximos,
+        objetivos: totalObjetivos,
         otrosIntentos: resumen.otrosIntentos,
         segundos: segundosDesde(inicio.current),
       },
@@ -177,7 +186,7 @@ function Flujo({
   }
 
   if (fase === 'fin') {
-    const bien = resumen.aciertos >= Math.ceil(puntosMaximos * 0.75);
+    const bien = resumen.aciertos >= Math.ceil(totalObjetivos * 0.75);
 
     return (
       <div className="juego">
@@ -191,7 +200,7 @@ function Flujo({
         />
 
         <p className="juego__marcador" role="status">
-          Tocaste {resumen.aciertos} de {puntosMaximos} veces que salió {nombresDelObjetivo}.
+          Tocaste {resumen.aciertos} de {totalObjetivos} veces que salió {nombresDelObjetivo}.
           {resumen.otrosIntentos > 0 ? ` Otros intentos: ${String(resumen.otrosIntentos)}.` : ''}
         </p>
 
@@ -211,8 +220,9 @@ function Flujo({
     <div className="juego">
       <VozDeLaMascota
         mascota={mascota}
-        mensaje={`Toca solo si es ${nombresDelObjetivo}.`}
-        anunciar={false}
+        mensaje={retroalimentacion ?? `Toca solo si es ${nombresDelObjetivo}.`}
+        {...(retroalimentacion === null ? { anunciar: false } : { resultado: 'acierto' as const })}
+        expresion={retroalimentacion === null ? 'normal' : 'feliz'}
       />
 
       <div className="juego__objetivo juego__objetivo--fijo">

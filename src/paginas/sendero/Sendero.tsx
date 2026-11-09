@@ -16,6 +16,7 @@ import { DatosDeHace } from '../../conexion/DatosDeHace.tsx';
 import { ahoraMismo, diaDe } from '../diario/calendarioDelDiario.ts';
 import { HistorialDelModulo } from './HistorialDelModulo.tsx';
 import { useSendero } from './useSendero.ts';
+import { useSesion } from '../../sesion/useSesion.ts';
 
 /**
  * Sendero de sesiones publicadas. Cada nodo se puede abrir sin depender del dia.
@@ -27,6 +28,7 @@ function esModulo(valor: string | undefined): valor is Modulo {
 
 export function Sendero() {
   const { modulo } = useParams();
+  const { sesion } = useSesion();
 
   return (
     <div className="app">
@@ -41,7 +43,7 @@ export function Sendero() {
         </Link>
 
         {esModulo(modulo) ? (
-          <SenderoDe modulo={modulo} />
+          <SenderoDe modulo={modulo} personaId={sesion?.user.id ?? 'cuenta-local'} />
         ) : (
           <p className="app__aviso" role="alert">
             Ese módulo no existe. Vuelve a tu panel para elegir uno.
@@ -54,8 +56,8 @@ export function Sendero() {
   );
 }
 
-function SenderoDe({ modulo }: { modulo: Modulo }) {
-  return <VistaDelSendero modulo={modulo} {...useSendero(modulo)} />;
+function SenderoDe({ modulo, personaId }: { modulo: Modulo; personaId: string }) {
+  return <VistaDelSendero modulo={modulo} personaId={personaId} {...useSendero(modulo)} />;
 }
 
 /**
@@ -64,9 +66,10 @@ function SenderoDe({ modulo }: { modulo: Modulo }) {
  */
 export function VistaDelSendero({
   modulo,
+  personaId = 'perfil-local',
   estado,
   reintentar,
-}: { modulo: Modulo } & ReturnType<typeof useSendero>) {
+}: { modulo: Modulo; personaId?: string } & ReturnType<typeof useSendero>) {
   const datos = MODULOS[modulo];
 
   return (
@@ -114,7 +117,7 @@ export function VistaDelSendero({
       )}
 
       {estado.fase === 'listo' && (
-        <ArbolDeSesiones modulo={modulo} diasHechos={estado.progreso.sesiones} />
+        <ArbolDeSesiones modulo={modulo} diasHechos={estado.progreso.sesiones} personaId={personaId} />
       )}
 
       {/* El historial es del servidor y no tiene copia: sin conexion lo dice con calma y no tapa

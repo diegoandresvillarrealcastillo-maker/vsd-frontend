@@ -70,6 +70,71 @@
   background: color-mix(in srgb, var(--viva-modulo) 8%, var(--fondo-elevado));
 }
 
+.figura-zona-corporal {
+  overflow: visible;
+  color: var(--viva-modulo);
+}
+
+.figura-zona-corporal__parte {
+  fill: color-mix(in srgb, var(--viva-modulo) 14%, var(--fondo-elevado));
+  stroke: color-mix(in srgb, var(--viva-modulo) 72%, var(--texto));
+  stroke-width: 2.4;
+  stroke-linejoin: round;
+  transition:
+    fill 220ms ease,
+    stroke 220ms ease,
+    filter 220ms ease;
+}
+
+.figura-zona-corporal [data-parte='cabeza'] {
+  transform-origin: 60px 23px;
+}
+
+.figura-zona-corporal [data-parte='pecho'] {
+  transform-origin: 60px 57px;
+}
+
+.figura-zona-corporal [data-parte='abdomen'] {
+  transform-origin: 60px 82px;
+}
+
+.figura-zona-corporal [data-parte='brazos'] {
+  transform-origin: 60px 66px;
+}
+
+.figura-zona-corporal [data-parte='piernas'] {
+  transform-origin: 60px 120px;
+}
+
+.figura-zona-corporal [data-parte='pies'] {
+  transform-origin: 60px 148px;
+}
+
+.figura-zona-corporal[data-zona='cabeza'] [data-parte='cabeza'],
+.figura-zona-corporal[data-zona='pecho'] [data-parte='pecho'],
+.figura-zona-corporal[data-zona='abdomen'] [data-parte='abdomen'],
+.figura-zona-corporal[data-zona='brazos'] [data-parte='brazos'],
+.figura-zona-corporal[data-zona='piernas'] [data-parte='piernas'],
+.figura-zona-corporal[data-zona='pies'] [data-parte='pies'] {
+  fill: color-mix(in srgb, var(--viva-modulo) 45%, var(--fondo-elevado));
+  stroke: var(--viva-modulo);
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--viva-modulo) 35%, transparent));
+  animation: figura-zona-pulso 2.8s ease-in-out infinite;
+}
+
+.figura-zona-corporal__eje {
+  fill: none;
+  stroke: color-mix(in srgb, var(--viva-modulo) 45%, transparent);
+  stroke-linecap: round;
+  stroke-width: 2;
+}
+
+@keyframes figura-zona-pulso {
+  50% {
+    opacity: 0.68;
+  }
+}
+
 .guia-pasos__texto {
   margin: 0;
   font-size: 1.0625rem;
@@ -114,5 +179,10 @@
 @media (prefers-reduced-motion: reduce) {
   .guia-pasos__tiempo-barra {
     animation: none;
+  }
+
+  .figura-zona-corporal__parte {
+    animation: none !important;
+    transition: none;
   }
 }
