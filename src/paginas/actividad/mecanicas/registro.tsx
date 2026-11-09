@@ -7,6 +7,7 @@ import { ComoDormisteAnoche } from './ComoDormisteAnoche.tsx';
 import { ComoTeSientesHoy } from './ComoTeSientesHoy.tsx';
 import { CompletaLaPalabra } from './CompletaLaPalabra.tsx';
 import { CuentasConCalma } from './CuentasConCalma.tsx';
+import { DeduccionEspacial } from './DeduccionEspacial.tsx';
 import { EncuentraLaDiferencia } from './EncuentraLaDiferencia.tsx';
 import { EscrituraBreve } from './EscrituraBreve.tsx';
 import { GestosDelDia } from './GestosDelDia.tsx';
@@ -22,6 +23,8 @@ import { ParejasDeCartas } from './ParejasDeCartas.tsx';
 import { QueTeEstaPesando } from './QueTeEstaPesando.tsx';
 import { RecuerdaLaLista } from './RecuerdaLaLista.tsx';
 import { RuedaDeEmociones } from './RuedaDeEmociones.tsx';
+import { RazonamientoLogico } from './RazonamientoLogico.tsx';
+import { RetoCompuestoCognitivo } from './RetoCompuestoCognitivo.tsx';
 import { SecuenciaDeCasillas } from './SecuenciaDeCasillas.tsx';
 import { SecuenciaDeNumeros } from './SecuenciaDeNumeros.tsx';
 import { UnMomentoBueno } from './UnMomentoBueno.tsx';
@@ -155,6 +158,9 @@ const MECANICAS_POR_MOTOR: Readonly<Record<string, Mecanica>> = {
     ),
   palabras: (props) => <CompletaLaPalabra {...props} />,
   calculo: (props) => <CuentasConCalma {...props} />,
+  deduccion_espacial: (props) => <DeduccionEspacial {...props} />,
+  deduccion_logica: (props) => <RazonamientoLogico {...props} />,
+  reto_compuesto_cognitivo: (props) => <RetoCompuestoCognitivo {...props} />,
 };
 
 /** El `modo` de una sesion, si lo trae: los motores que sirven a varias mecanicas se parten por el. */

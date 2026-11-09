@@ -1,0 +1,8 @@
+.razonamiento-logico__premisas {
+  display: grid;
+  gap: 8px;
+  width: min(100%, 34rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

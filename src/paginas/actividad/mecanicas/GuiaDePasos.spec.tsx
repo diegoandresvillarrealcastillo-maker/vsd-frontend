@@ -184,6 +184,34 @@ describe('recorrer los pasos', () => {
     expect(screen.getByText('Paso 1 de 3')).toBeInTheDocument();
   });
 
+  it('acompaña las zonas del escaneo con su figura corporal', async () => {
+    const zonas = [
+      { titulo: 'PÍES', clave: 'pies' },
+      { titulo: 'Pierna derecha', clave: 'piernas' },
+      { titulo: 'Abdómen', clave: 'abdomen' },
+      { titulo: 'Pecho', clave: 'pecho' },
+      { titulo: 'Mano', clave: 'brazos' },
+      { titulo: 'Cara', clave: 'cabeza' },
+    ];
+
+    await empezar({
+      ...ESTIRAMIENTO,
+      pasos: zonas.map(({ titulo }) => ({
+        titulo,
+        texto: `Pausa para ${titulo.toLocaleLowerCase('es')}.`,
+      })),
+    });
+
+    for (const [indice, zona] of zonas.entries()) {
+      expect(await screen.findByRole('heading', { name: zona.titulo })).toBeInTheDocument();
+      expect(document.querySelector(`[data-zona="${zona.clave}"]`)).not.toBeNull();
+
+      if (indice < zonas.length - 1) {
+        await pulsar(/Siguiente/);
+      }
+    }
+  });
+
   it('un paso sin titulo se llama «Paso N»', async () => {
     await empezar();
     await pulsar(/Siguiente/);

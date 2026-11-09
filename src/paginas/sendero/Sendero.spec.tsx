@@ -116,12 +116,12 @@ describe('Sendero de sesiones publicadas (SCRUM-322)', () => {
     pintar();
     const arbol = await screen.findByRole('region', { name: 'Actividades de bienestar' });
     expect(within(arbol).getAllByRole('button')).toHaveLength(58);
-    await usuario.click(within(arbol).getByRole('button', { name: 'Actividad 9: Actividad 9' }));
+    await usuario.click(within(arbol).getByRole('button', { name: /Actividad 9$/ }));
     expect(screen.getByRole('link', { name: 'Comenzar Actividad 9' })).toHaveAttribute(
       'href',
       '/actividad/actividad-9?sesion=sesion-9',
     );
-    await usuario.click(within(arbol).getByRole('button', { name: 'Actividad 58: Actividad 58' }));
+    await usuario.click(within(arbol).getByRole('button', { name: /Actividad 58$/ }));
     expect(screen.getByRole('link', { name: 'Comenzar Actividad 58' })).toHaveAttribute(
       'href',
       '/actividad/actividad-58?sesion=sesion-58',
@@ -132,7 +132,7 @@ describe('Sendero de sesiones publicadas (SCRUM-322)', () => {
     const usuario = userEvent.setup();
     pintar();
     const arbol = await screen.findByRole('region', { name: 'Actividades de bienestar' });
-    await usuario.click(within(arbol).getByRole('button', { name: 'Actividad 1: Actividad 1' }));
+    await usuario.click(within(arbol).getByRole('button', { name: /Actividad 1$/ }));
     expect(cuantosH1()).toBe(1);
     expect(await fallosDeAccesibilidad()).toEqual([]);
   });

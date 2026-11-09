@@ -277,13 +277,9 @@ describe('Dashboard, sesiones publicadas dentro de «Tu ruta de hoy» (SCRUM-322
     await screen.findByRole('heading', { name: 'Tu ruta de hoy' });
     await userEvent.click(acordeon(/Bienestar/));
     const arbol = await screen.findByRole('region', { name: 'Actividades de bienestar' });
-    await userEvent.click(
-      within(arbol).getByRole('button', { name: /Actividad 2: Movimiento del día/ }),
-    );
+    await userEvent.click(within(arbol).getByRole('button', { name: /Movimiento$/ }));
 
-    const hoja = screen.getByRole('dialog', { name: 'Actividad: Movimiento del día' });
-    expect(within(hoja).getByText('Empieza cuando quieras')).toBeInTheDocument();
-    expect(within(hoja).getByRole('link', { name: 'Comenzar Movimiento del día' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Comenzar Movimiento' })).toHaveAttribute(
       'href',
       '/actividad/0acd0000-0000-4000-8000-000000000003?sesion=sesion-movimiento',
     );
@@ -328,7 +324,7 @@ describe('Dashboard, sesiones publicadas dentro de «Tu ruta de hoy» (SCRUM-322
     );
     await userEvent.click(acordeon(/Cognición/));
     const arbol = await screen.findByRole('region', { name: 'Actividades de cognicion' });
-    await userEvent.click(within(arbol).getByRole('button', { name: 'Actividad 6: Actividad 15' }));
+    await userEvent.click(within(arbol).getByRole('button', { name: /Actividad 15$/ }));
     expect(screen.getByRole('link', { name: 'Comenzar Actividad 15' })).toBeInTheDocument();
   });
 

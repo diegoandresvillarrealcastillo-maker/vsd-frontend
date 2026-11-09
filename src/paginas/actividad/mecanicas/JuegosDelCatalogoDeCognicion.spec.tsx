@@ -621,6 +621,15 @@ describe('Toca solo lo que cambia', () => {
     expect(entregado().metadata).toMatchObject({ aciertos: 3, objetivos: 3, otrosIntentos: 0 });
   });
 
+  it('explica al instante por qué el toque era correcto', async () => {
+    await empezar();
+    adelantar(FLUJO.msPorEstimulo); // la luna
+    adelantar(FLUJO.msPorEstimulo); // el sol, que es el objetivo
+    await tocar();
+
+    expect(screen.getByText('¡Bien! Tocaste el objetivo: el sol.')).toBeInTheDocument();
+  });
+
   it('tocar de mas no resta ni se senala: se cuenta aparte como otro intento', async () => {
     await empezar();
     // Los tres del objetivo, mas dos toques en lo que no era.
@@ -703,7 +712,9 @@ describe('Une los puntos en orden', () => {
     const tablero = within(screen.getByRole('group', { name: 'Puntos para unir' }));
 
     expect(tablero.getAllByRole('button')).toHaveLength(5);
-    expect(screen.getByText('Busca el 1.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Empieza por el 1; ese es el inicio de la secuencia.'),
+    ).toBeInTheDocument();
     expect(screen.getByText('Llevas 0 de 5.')).toBeInTheDocument();
   });
 
@@ -720,7 +731,7 @@ describe('Une los puntos en orden', () => {
     await usuario.click(punto('2'));
 
     expect(screen.getByText('Llevas 2 de 5.')).toBeInTheDocument();
-    expect(screen.getByText('Busca el 3.')).toBeInTheDocument();
+    expect(screen.getByText('¡Bien! 2 sigue el orden. Ahora busca el 3.')).toBeInTheDocument();
     expect(punto('1')).toHaveAccessibleName('1, ya tocado');
     expect(document.querySelectorAll('.juego__lineas line')).toHaveLength(1);
   });
@@ -813,6 +824,7 @@ describe('Ordena por categoria (con cesta correcta)', () => {
 
     expect(cesta('pera', 'Frutas')).toHaveAttribute('data-estado', 'correcta');
     expect(screen.getByText('(iba aquí)')).toBeInTheDocument();
+    expect(screen.getByText('pera pertenece a la categoría Frutas.')).toBeInTheDocument();
   });
 
   it('un fallo dice donde iba, sin senalarlo, y deja lo elegido como «tu eleccion»', async () => {
@@ -832,7 +844,11 @@ describe('Ordena por categoria (con cesta correcta)', () => {
     await pulsar(/Siguiente/);
     await usuario.click(cesta('tomate', 'Verduras'));
 
-    expect(screen.getByText(/^(¡|Eso|Muy|Bien|Así|Genial|Lo|Qué|Perfecto)/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'tomate también puede clasificarse en Frutas o Verduras; ambas categorías son válidas.',
+      ),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/¡Casi!/)).not.toBeInTheDocument();
     expect(screen.getByText('Frutas', { selector: '.juego__cesta-nombre' })).toBeInTheDocument();
   });

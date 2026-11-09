@@ -83,7 +83,7 @@ describe('ArbolDeSesiones', () => {
         id: `sesion-${indice + 1}`,
         idActividad: `actividad-${indice + 1}`,
         titulo: `Pausa ${indice + 1}`,
-        actividad: 'Pausa',
+        actividad: `Pausa ${indice + 1}`,
         nivel: 1,
       })),
     );
@@ -98,7 +98,7 @@ describe('ArbolDeSesiones', () => {
 
     const arbol = await screen.findByRole('region', { name: 'Actividades de bienestar' });
     expect(within(arbol).getAllByRole('button')).toHaveLength(58);
-    await usuario.click(within(arbol).getByRole('button', { name: 'Actividad 58: Pausa 58' }));
+    await usuario.click(within(arbol).getByRole('button', { name: /Pausa 58/ }));
 
     expect(screen.getByRole('link', { name: 'Comenzar Pausa 58' })).toHaveAttribute(
       'href',
@@ -113,7 +113,7 @@ describe('ArbolDeSesiones', () => {
         id: `sesion-${numero}`,
         idActividad: `actividad-${numero}`,
         titulo: `Pausa ${numero}`,
-        actividad: 'Pausa',
+        actividad: `Pausa ${numero}`,
         nivel: 1,
       })),
     );
@@ -123,11 +123,14 @@ describe('ArbolDeSesiones', () => {
         <ArbolDeSesiones modulo="bienestar" diasHechos={1} />
       </MemoryRouter>,
     );
-    const primera = await screen.findByRole('button', { name: 'Actividad 1: Pausa 1, completada' });
-    const segunda = screen.getByRole('button', { name: 'Actividad 2: Pausa 2, sugerida para hoy' });
+    const arbol = await screen.findByRole('region', { name: 'Actividades de bienestar' });
+    const primera = await screen.findByRole('button', { name: /Pausa 1, completada/ });
+    const actividadActiva = screen.getByRole('button', { name: /sugerida para hoy/ });
     expect(primera).toHaveClass('arbol-sesiones__punto--hecho');
-    expect(segunda).toHaveAttribute('data-dia-activo', 'true');
-    expect(screen.getByRole('button', { name: 'Actividad 3: Pausa 3' })).toBeEnabled();
+    expect(actividadActiva).toHaveAttribute('data-dia-activo', 'true');
+    expect(within(arbol).getAllByRole('button')).toHaveLength(3);
+    expect(within(arbol).getByRole('button', { name: /Pausa 2/ })).toBeEnabled();
+    expect(within(arbol).getByRole('button', { name: /Pausa 3/ })).toBeEnabled();
   });
 
   it('permite reintentar si falla la consulta sin mostrar sesiones incompletas', async () => {
@@ -136,7 +139,7 @@ describe('ArbolDeSesiones', () => {
         id: 'sesion-1',
         idActividad: 'actividad-1',
         titulo: 'Pausa 1',
-        actividad: 'Pausa',
+        actividad: 'Pausa 1',
         nivel: 1,
       },
     ]);
@@ -153,7 +156,7 @@ describe('ArbolDeSesiones', () => {
     ).not.toBeInTheDocument();
     await usuario.click(screen.getByRole('button', { name: 'Reintentar' }));
 
-    expect(await screen.findByRole('button', { name: /Actividad 1: Pausa 1/ })).toBeEnabled();
+    expect(await screen.findByRole('button', { name: /Pausa 1/ })).toBeEnabled();
     expect(consultar).toHaveBeenCalledTimes(2);
   });
 

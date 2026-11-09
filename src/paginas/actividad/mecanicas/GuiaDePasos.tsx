@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import '../../../estilos/pasos.css';
 import { FiguraDeEstiramiento } from '../figuras/FiguraDeEstiramiento.tsx';
+import { FiguraDeZonaCorporal, type ZonaCorporal } from '../figuras/FiguraDeZonaCorporal.tsx';
 import { existeLaFigura } from '../figuras/estiramientos.tsx';
 import { Pictograma } from '../pictogramas/Pictograma.tsx';
 import { AvisoSiempre } from '../viva/AvisoSiempre.tsx';
@@ -66,6 +67,41 @@ function Dibujo({ clave, tamano }: { clave: string; tamano: number }) {
   ) : (
     <Pictograma clave={clave} tamano={tamano} />
   );
+}
+
+/** Reconoce las seis zonas del escaneo para dar una referencia visual sin añadir texto al paso. */
+function zonaCorporalDelTitulo(titulo?: string): ZonaCorporal | null {
+  const normalizado =
+    titulo
+      ?.toLocaleLowerCase('es')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') ?? '';
+
+  if (normalizado.includes('pierna')) {
+    return 'piernas';
+  }
+
+  if (normalizado.includes('pie')) {
+    return 'pies';
+  }
+
+  if (normalizado.includes('abdomen')) {
+    return 'abdomen';
+  }
+
+  if (normalizado.includes('pecho')) {
+    return 'pecho';
+  }
+
+  if (normalizado.includes('brazo') || normalizado.includes('mano')) {
+    return 'brazos';
+  }
+
+  if (normalizado.includes('cabeza') || normalizado.includes('cara')) {
+    return 'cabeza';
+  }
+
+  return null;
 }
 
 function Guia({
@@ -271,6 +307,8 @@ function Guia({
     return null;
   }
 
+  const zonaCorporal = zonaCorporalDelTitulo(paso.titulo);
+
   return (
     <div className="guia-pasos">
       <BarraDeProgreso paso={indice + 1} total={total} hechos={indice} etiqueta="Paso" />
@@ -284,9 +322,13 @@ function Guia({
         direccion={direccion}
         titulo={paso.titulo ?? `Paso ${String(indice + 1)}`}
       >
-        {paso.pictograma !== undefined && (
+        {(paso.pictograma !== undefined || zonaCorporal !== null) && (
           <div className="guia-pasos__figura">
-            <Dibujo clave={paso.pictograma} tamano={168} />
+            {zonaCorporal !== null ? (
+              <FiguraDeZonaCorporal zona={zonaCorporal} tamano={168} />
+            ) : (
+              <Dibujo clave={paso.pictograma ?? ''} tamano={168} />
+            )}
           </div>
         )}
 

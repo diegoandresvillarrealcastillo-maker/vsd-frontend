@@ -65,6 +65,13 @@ describe.each([
 });
 
 describe('leerFlujo', () => {
+  it('recorta sesiones antiguas para que el objetivo aparezca como máximo siete veces', () => {
+    const secuencia = Array.from({ length: 15 }, () => 'sol');
+    const leida = leerFlujo({ ...FLUJO, secuencia, puntosMaximos: 15 });
+
+    expect(leida?.secuencia).toHaveLength(7);
+  });
+
   it('rechaza ir mas rapido que un estimulo por segundo (R10: nada de destellos)', () => {
     expect(leerFlujo({ ...FLUJO, msPorEstimulo: 999 })).toBeNull();
     expect(leerFlujo({ ...FLUJO, msPorEstimulo: 1000 })).not.toBeNull();
@@ -93,6 +100,16 @@ describe('leerFlujo', () => {
 });
 
 describe('leerPuntos', () => {
+  it('limita a siete puntos aunque la sesión antigua traiga más', () => {
+    const puntos = Array.from({ length: 10 }, (_, indice) => ({
+      etiqueta: String(indice + 1),
+      x: 10 + indice * 8,
+      y: 20 + indice * 5,
+    }));
+
+    expect(leerPuntos({ ...PUNTOS, puntos })?.puntos).toHaveLength(7);
+  });
+
   it('rechaza etiquetas repetidas (aunque cambien en mayusculas) y posiciones fuera del tablero', () => {
     const [primero, ...resto] = PUNTOS.puntos;
 
@@ -112,6 +129,15 @@ describe('leerPuntos', () => {
 });
 
 describe('leerLaLista', () => {
+  it('muestra como máximo siete elementos para recordar', () => {
+    const elementos = Array.from({ length: 8 }, (_, indice) => ({
+      clave: `elemento-${String(indice)}`,
+      nombre: `Elemento ${String(indice)}`,
+    }));
+
+    expect(leerLaLista({ ...LISTA, elementos })?.elementos).toHaveLength(7);
+  });
+
   it('rechaza una clave que esta a la vez en la lista y entre los distractores', () => {
     expect(
       leerLaLista({
@@ -180,6 +206,17 @@ describe('leerIntruso', () => {
 });
 
 describe('leerLasCestas', () => {
+  it('limita la mesa a siete tarjetas aunque la sesión tenga más', () => {
+    const elementoBase = CESTAS.elementos[0]!;
+    const elementos = Array.from({ length: 8 }, (_, indice) => ({
+      ...elementoBase,
+      clave: `elemento-${String(indice)}`,
+      nombre: `Elemento ${String(indice)}`,
+    }));
+
+    expect(leerLasCestas({ ...CESTAS, elementos })?.elementos).toHaveLength(7);
+  });
+
   it('con cesta correcta se puntua, y una tarjeta ambigua tiene varias cestas', () => {
     const leidas = leerLasCestas(CESTAS);
 
