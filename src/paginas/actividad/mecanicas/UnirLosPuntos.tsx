@@ -132,7 +132,9 @@ function Tablero({
       : 'Gracias por intentarlo. Lo que hiciste cuenta.'
     : siguiente === undefined
       ? ''
-      : `Busca el ${siguiente.etiqueta}.`;
+      : hechos === 0
+        ? `Empieza por el ${siguiente.etiqueta}; ese es el inicio de la secuencia.`
+        : `¡Bien! ${puntos[hechos - 1]?.etiqueta} sigue el orden. Ahora busca el ${siguiente.etiqueta}.`;
 
   return (
     <div className="juego">

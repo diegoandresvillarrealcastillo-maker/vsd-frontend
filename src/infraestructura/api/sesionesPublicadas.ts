@@ -1,6 +1,6 @@
 import { llamarALaApi } from './clienteHttp.ts';
 import type { Modulo } from './cuenta.ts';
-import type { SesionDeLaActividad } from './progreso.ts';
+import type { Frecuencia, SesionDeLaActividad } from './progreso.ts';
 
 export interface SesionPublicada {
   readonly id: string;
@@ -8,6 +8,7 @@ export interface SesionPublicada {
   readonly titulo: string;
   readonly actividad: string;
   readonly nivel: number;
+  readonly frecuencia?: Frecuencia;
 }
 
 interface SesionConContenido extends SesionDeLaActividad {

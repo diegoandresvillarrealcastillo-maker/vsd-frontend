@@ -155,10 +155,8 @@ describe('RutaDelDia', () => {
     pintar(PROGRESO, { desplegado: 'cognicion' });
 
     const arbol = await screen.findByRole('region', { name: 'Actividades de cognicion' });
-    await userEvent.click(
-      within(arbol).getByRole('button', { name: /Actividad 1: Secuencia de números/ }),
-    );
-    expect(screen.getByRole('link', { name: 'Comenzar Secuencia de números' })).toHaveAttribute(
+    await userEvent.click(within(arbol).getByRole('button', { name: /Secuencia(?:,|$)/ }));
+    expect(screen.getByRole('link', { name: 'Comenzar Secuencia' })).toHaveAttribute(
       'href',
       '/actividad/a2?sesion=sesion-cognicion',
     );

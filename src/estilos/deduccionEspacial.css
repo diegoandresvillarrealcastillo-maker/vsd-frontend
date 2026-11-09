@@ -1,0 +1,37 @@
+.deduccion-espacial__pistas {
+  display: grid;
+  gap: 12px;
+}
+
+.deduccion-espacial__pistas-lista {
+  display: grid;
+  gap: 8px;
+  width: min(100%, 34rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.deduccion-espacial__tablero {
+  display: grid;
+  grid-template-columns: repeat(var(--columnas-deduccion, 3), minmax(0, 1fr));
+  gap: 10px;
+  width: min(100%, 34rem);
+  margin-inline: auto;
+}
+
+.deduccion-espacial__casilla {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 4px;
+  min-height: 72px;
+  padding: 8px;
+  font-size: clamp(0.9rem, 3.5vw, 1.1rem);
+}
+
+.deduccion-espacial__forma {
+  display: grid;
+  place-items: center;
+  color: var(--simbolo);
+}

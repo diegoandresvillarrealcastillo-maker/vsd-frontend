@@ -124,7 +124,7 @@ function Mesa({
     const escrito = texto.trim();
 
     alTerminar({
-      ...(puntua ? { score: Math.min(aciertos, puntosMaximos) } : {}),
+      ...(puntua ? { score: Math.round((aciertos / total) * puntosMaximos * 100) / 100 } : {}),
       metadata: {
         colocaciones: colocacionesPorElemento,
         segundos: segundosDesde(inicio.current),
@@ -250,7 +250,9 @@ function Mesa({
       : !puntua
         ? mensajeAlElegir(hechas)
         : acerto
-          ? elegir(ACIERTO, hechas)
+          ? elemento.sitios.length > 1
+            ? `${elemento.nombre} también puede clasificarse en ${sitios}; ambas categorías son válidas.`
+            : `${elemento.nombre} pertenece a la categoría ${sitios}.`
           : `¡Casi! Iba en ${sitios}.`;
 
   return (

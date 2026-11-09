@@ -103,7 +103,9 @@ html:has(.actividad) {
 
 .actividad__texto {
   margin: 0 0 20px;
-  color: var(--texto-tenue);
+  color: var(--texto);
+  font-size: 1.0625rem;
+  line-height: 1.55;
 }
 
 .actividad__cargando {
@@ -261,8 +263,9 @@ html:has(.actividad) {
 
 .actividad__apoyo {
   margin: 0 0 20px;
-  color: var(--texto-tenue);
-  font-size: 0.9375rem;
+  color: var(--texto);
+  font-size: 1rem;
+  line-height: 1.5;
 }
 
 /* ---------- Lineas de atencion (SCRUM-94) ----------
