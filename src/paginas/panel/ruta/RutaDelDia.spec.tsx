@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Modulo } from '../../../infraestructura/api/cuenta.ts';
 import type { ProgresoDelModulo } from '../../../infraestructura/api/progreso.ts';
 import { fallosDeAccesibilidad } from '../../../pruebas/axe.ts';
-import { ordenarActividadesParaPersona } from '../../sendero/ordenPersonalDeSesiones.ts';
+import { ordenarSesionesParaPersona } from '../../sendero/ordenPersonalDeSesiones.ts';
 import { construirLaRuta } from './construirLaRuta.ts';
 import { RutaDelDia } from './RutaDelDia.tsx';
 
@@ -159,8 +159,10 @@ describe('RutaDelDia', () => {
     pintar(PROGRESO, { desplegado: 'cognicion' });
 
     const arbol = await screen.findByRole('region', { name: 'Actividades de cognicion' });
-    await userEvent.click(within(arbol).getByRole('button', { name: /Secuencia(?:,|$)/ }));
-    expect(screen.getByRole('link', { name: 'Comenzar Secuencia' })).toHaveAttribute(
+    await userEvent.click(
+      within(arbol).getByRole('button', { name: /Secuencia de números(?:,|$)/ }),
+    );
+    expect(screen.getByRole('link', { name: 'Comenzar Secuencia de números' })).toHaveAttribute(
       'href',
       '/actividad/a2?sesion=sesion-cognicion',
     );
@@ -191,7 +193,7 @@ describe('RutaDelDia', () => {
       },
     ];
     const personaId = 'cuenta-con-orden-propio';
-    const esperado = ordenarActividadesParaPersona(sesiones, personaId, 'cognicion');
+    const esperado = ordenarSesionesParaPersona(sesiones, personaId, 'cognicion');
     consultarSesionesPublicadas.mockResolvedValueOnce(sesiones);
 
     pintar(PROGRESO, { desplegado: 'cognicion', personaId });
@@ -202,8 +204,8 @@ describe('RutaDelDia', () => {
       .map((boton) => boton.getAttribute('aria-label'));
     expect(ordenVisible).toEqual(
       esperado.map(
-        ({ sesion }, indice) =>
-          `Actividad ${indice + 1}: ${sesion.actividad}${indice === 0 ? ', sugerida para hoy' : ', pendiente'}`,
+        (sesion, indice) =>
+          `Actividad ${indice + 1}: ${sesion.titulo}${indice === 0 ? ', sugerida para hoy' : ', pendiente'}`,
       ),
     );
   });

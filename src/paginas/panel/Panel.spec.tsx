@@ -322,7 +322,7 @@ describe('Dashboard, sesiones publicadas dentro de «Tu ruta de hoy» (SCRUM-322
     );
     await userEvent.click(acordeon(/Cognición/));
     const arbol = await screen.findByRole('region', { name: 'Actividades de cognicion' });
-    expect(within(arbol).getByRole('button', { name: /Actividad 15, pendiente/ })).toBeDisabled();
+    expect(within(arbol).getByRole('button', { name: /Actividad 15, pendiente/ })).toBeEnabled();
   });
 
   it('al entrar todos los modulos estan cerrados y ninguna ruta pesa en la pantalla', async () => {
@@ -345,7 +345,7 @@ describe('Dashboard, sesiones publicadas dentro de «Tu ruta de hoy» (SCRUM-322
     expect(within(within(ventana).getByRole('list')).getAllByRole('listitem')).toHaveLength(2);
     expect(within(ventana).getAllByRole('button')).toHaveLength(2);
     expect(within(ventana).getAllByRole('button', { name: /pendiente/ })).toHaveLength(1);
-    expect(within(ventana).getByRole('button', { name: /pendiente/ })).toBeDisabled();
+    expect(within(ventana).getByRole('button', { name: /pendiente/ })).toBeEnabled();
     expect(acordeonAbierto(/Bienestar/)).toBeInTheDocument();
   });
 

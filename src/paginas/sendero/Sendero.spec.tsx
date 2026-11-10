@@ -111,7 +111,7 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe('Sendero de sesiones publicadas (SCRUM-322)', () => {
-  it('permite iniciar la sugerida y deja pendientes futuras deshabilitadas', async () => {
+  it('permite iniciar la sugerida y abrir también actividades pendientes futuras', async () => {
     const usuario = userEvent.setup();
     pintar();
     const arbol = await screen.findByRole('region', { name: 'Actividades de bienestar' });
@@ -119,11 +119,16 @@ describe('Sendero de sesiones publicadas (SCRUM-322)', () => {
     await usuario.click(within(arbol).getByRole('button', { name: /sugerida para hoy/ }));
     expect(screen.getByRole('link', { name: /^Comenzar Actividad/ })).toBeInTheDocument();
     expect(within(arbol).getAllByRole('button', { name: /pendiente/ })).toHaveLength(57);
+    const pendientes = within(arbol).getAllByRole('button', { name: /pendiente/ });
+    expect(pendientes.every((boton) => !(boton as HTMLButtonElement).disabled)).toBe(true);
     expect(
-      within(arbol)
-        .getAllByRole('button', { name: /pendiente/ })
-        .every((boton) => (boton as HTMLButtonElement).disabled),
+      pendientes.every((boton) => boton.classList.contains('arbol-sesiones__punto--pendiente')),
     ).toBe(true);
+    const primeraPendiente = pendientes[0];
+    if (primeraPendiente === undefined) throw new Error('Se esperaba una actividad pendiente.');
+    await usuario.click(primeraPendiente);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^Comenzar Actividad/ })).toBeInTheDocument();
   });
 
   it('mantiene el árbol accesible con el popover abierto', async () => {
