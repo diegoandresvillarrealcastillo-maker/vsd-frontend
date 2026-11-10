@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SesionPublicada } from '../../infraestructura/api/sesionesPublicadas.ts';
-import { ordenarActividadesParaPersona } from './ordenPersonalDeSesiones.ts';
+import { ordenarActividadesParaPersona, ordenarSesionesParaPersona } from './ordenPersonalDeSesiones.ts';
 
 function sesion(
   actividad: string,
@@ -66,5 +66,20 @@ describe('ordenPersonalDeSesiones', () => {
     expect(orden.find(({ idActividad }) => idActividad === 'actividad-a')?.sesiones).toHaveLength(
       2,
     );
+  });
+
+  it('el árbol de prueba conserva todas las sesiones, incluidas las variantes de una actividad', () => {
+    const sesiones = [
+      sesion('actividad-a', { tipo: 'rotativa' }, 'a-1'),
+      sesion('actividad-a', { tipo: 'rotativa' }, 'a-2'),
+      sesion('actividad-b', { tipo: 'diaria' }, 'b-diaria'),
+      sesion('actividad-c', { tipo: 'rotativa' }, 'c-1'),
+    ];
+
+    const orden = ordenarSesionesParaPersona(sesiones, 'persona-a', 'bienestar');
+
+    expect(orden).toHaveLength(sesiones.length);
+    expect(new Set(orden.map(({ id }) => id))).toEqual(new Set(sesiones.map(({ id }) => id)));
+    expect(orden[2]?.id).toBe('b-diaria');
   });
 });
