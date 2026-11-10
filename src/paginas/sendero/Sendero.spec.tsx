@@ -111,28 +111,26 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe('Sendero de sesiones publicadas (SCRUM-322)', () => {
-  it('permite ir directamente de la actividad 9 a la 58 con el mismo popover', async () => {
+  it('permite iniciar la sugerida y deja pendientes futuras deshabilitadas', async () => {
     const usuario = userEvent.setup();
     pintar();
     const arbol = await screen.findByRole('region', { name: 'Actividades de bienestar' });
     expect(within(arbol).getAllByRole('button')).toHaveLength(58);
-    await usuario.click(within(arbol).getByRole('button', { name: /Actividad 9$/ }));
-    expect(screen.getByRole('link', { name: 'Comenzar Actividad 9' })).toHaveAttribute(
-      'href',
-      '/actividad/actividad-9?sesion=sesion-9',
-    );
-    await usuario.click(within(arbol).getByRole('button', { name: /Actividad 58$/ }));
-    expect(screen.getByRole('link', { name: 'Comenzar Actividad 58' })).toHaveAttribute(
-      'href',
-      '/actividad/actividad-58?sesion=sesion-58',
-    );
+    await usuario.click(within(arbol).getByRole('button', { name: /sugerida para hoy/ }));
+    expect(screen.getByRole('link', { name: /^Comenzar Actividad/ })).toBeInTheDocument();
+    expect(within(arbol).getAllByRole('button', { name: /pendiente/ })).toHaveLength(57);
+    expect(
+      within(arbol)
+        .getAllByRole('button', { name: /pendiente/ })
+        .every((boton) => (boton as HTMLButtonElement).disabled),
+    ).toBe(true);
   });
 
   it('mantiene el árbol accesible con el popover abierto', async () => {
     const usuario = userEvent.setup();
     pintar();
     const arbol = await screen.findByRole('region', { name: 'Actividades de bienestar' });
-    await usuario.click(within(arbol).getByRole('button', { name: /Actividad 1$/ }));
+    await usuario.click(within(arbol).getByRole('button', { name: /sugerida para hoy/ }));
     expect(cuantosH1()).toBe(1);
     expect(await fallosDeAccesibilidad()).toEqual([]);
   });
