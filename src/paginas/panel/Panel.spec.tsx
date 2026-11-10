@@ -271,18 +271,16 @@ describe('Dashboard, sesiones publicadas dentro de «Tu ruta de hoy» (SCRUM-322
     expect(screen.getByText('1 de 3')).toBeInTheDocument();
   });
 
-  it('cualquier sesión publicada abre el panel compacto y permite comenzarla', async () => {
+  it('la sesión sugerida abre el panel compacto y permite comenzarla', async () => {
     pintar();
 
     await screen.findByRole('heading', { name: 'Tu ruta de hoy' });
     await userEvent.click(acordeon(/Bienestar/));
     const arbol = await screen.findByRole('region', { name: 'Actividades de bienestar' });
-    await userEvent.click(within(arbol).getByRole('button', { name: /Movimiento$/ }));
+    const sugerida = within(arbol).getByRole('button', { name: /sugerida para hoy/ });
+    await userEvent.click(sugerida);
 
-    expect(screen.getByRole('link', { name: 'Comenzar Movimiento' })).toHaveAttribute(
-      'href',
-      '/actividad/0acd0000-0000-4000-8000-000000000003?sesion=sesion-movimiento',
-    );
+    expect(screen.getByRole('link', { name: /^Comenzar / })).toBeInTheDocument();
   });
 
   it('la meta del dia son unas tres actividades, aunque el servidor mande muchas', async () => {
@@ -312,7 +310,7 @@ describe('Dashboard, sesiones publicadas dentro de «Tu ruta de hoy» (SCRUM-322
 
     expect(screen.getByText('0 de 3')).toBeInTheDocument();
     expect(screen.getByRole('complementary')).toHaveTextContent('Actividad 10');
-    // Las sesiones publicadas se pueden elegir incluso si no son la meta de hoy.
+    // El catálogo completo se muestra, pero solo la siguiente pendiente está habilitada.
     consultarSesionesPublicadas.mockResolvedValueOnce(
       Array.from({ length: 6 }, (_, i) => ({
         id: `sesion-${i}`,
@@ -324,8 +322,7 @@ describe('Dashboard, sesiones publicadas dentro de «Tu ruta de hoy» (SCRUM-322
     );
     await userEvent.click(acordeon(/Cognición/));
     const arbol = await screen.findByRole('region', { name: 'Actividades de cognicion' });
-    await userEvent.click(within(arbol).getByRole('button', { name: /Actividad 15$/ }));
-    expect(screen.getByRole('link', { name: 'Comenzar Actividad 15' })).toBeInTheDocument();
+    expect(within(arbol).getByRole('button', { name: /Actividad 15, pendiente/ })).toBeDisabled();
   });
 
   it('al entrar todos los modulos estan cerrados y ninguna ruta pesa en la pantalla', async () => {
@@ -338,7 +335,7 @@ describe('Dashboard, sesiones publicadas dentro de «Tu ruta de hoy» (SCRUM-322
     expect(screen.queryByRole('region', { name: RUTA })).not.toBeInTheDocument();
   });
 
-  it('al abrir un módulo aparecen sus sesiones publicadas y todas son elegibles', async () => {
+  it('al abrir un módulo aparecen sus sesiones y solo la siguiente pendiente está habilitada', async () => {
     pintar();
 
     await screen.findByRole('heading', { name: /Hola, Marina/ });
@@ -347,6 +344,8 @@ describe('Dashboard, sesiones publicadas dentro de «Tu ruta de hoy» (SCRUM-322
     const ventana = await screen.findByRole('region', { name: 'Actividades de bienestar' });
     expect(within(within(ventana).getByRole('list')).getAllByRole('listitem')).toHaveLength(2);
     expect(within(ventana).getAllByRole('button')).toHaveLength(2);
+    expect(within(ventana).getAllByRole('button', { name: /pendiente/ })).toHaveLength(1);
+    expect(within(ventana).getByRole('button', { name: /pendiente/ })).toBeDisabled();
     expect(acordeonAbierto(/Bienestar/)).toBeInTheDocument();
   });
 

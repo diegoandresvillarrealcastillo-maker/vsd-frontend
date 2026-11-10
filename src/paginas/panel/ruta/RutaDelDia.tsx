@@ -21,12 +21,14 @@ import type { RutaDelDia as Ruta } from './construirLaRuta.ts';
 export function RutaDelDia({
   ruta,
   nuevas,
+  personaId,
   desplegado,
   alAlternar,
 }: {
   ruta: Ruta;
   /** Los ids de las actividades que se acaban de hacer, para celebrarlas. */
   nuevas: ReadonlySet<string>;
+  personaId: string;
   desplegado: Modulo | null;
   alAlternar: (modulo: Modulo) => void;
 }) {
@@ -60,6 +62,7 @@ export function RutaDelDia({
             <AcordeonDeModulo
               key={progreso.modulo}
               progreso={progreso}
+              personaId={personaId}
               abierto={desplegado === progreso.modulo}
               alAlternar={() => alAlternar(progreso.modulo)}
             />

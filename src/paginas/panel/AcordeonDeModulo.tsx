@@ -31,10 +31,12 @@ function lineaDeHoy(hoy: readonly ActividadDeHoy[]): string {
  */
 export function AcordeonDeModulo({
   progreso,
+  personaId,
   abierto,
   alAlternar,
 }: {
   progreso: ProgresoDelModulo;
+  personaId: string;
   abierto: boolean;
   alAlternar: () => void;
 }) {
@@ -85,7 +87,11 @@ export function AcordeonDeModulo({
       <div id={idDeLaRuta} role="region" aria-labelledby={idDelBoton} hidden={!abierto}>
         {abierto && (
           <div className="acordeon-modulo__cuerpo">
-            <ArbolDeSesiones modulo={progreso.modulo} />
+            <ArbolDeSesiones
+              key={`${personaId}-${progreso.modulo}`}
+              modulo={progreso.modulo}
+              personaId={personaId}
+            />
 
             <Link className="acordeon-modulo__detalle" to={rutaDeModulo(progreso.modulo)}>
               Ver el detalle de {datos.titulo}

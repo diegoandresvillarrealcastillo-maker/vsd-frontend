@@ -56,7 +56,7 @@
 }
 
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  :root .arbol-sesiones__ventana .arbol-sesiones__punto:hover {
+  :root .arbol-sesiones__ventana .arbol-sesiones__punto:not(:disabled):hover {
     transform: translateY(-5px) scale(1.07);
     border-color: var(--modulo-acento);
     box-shadow:

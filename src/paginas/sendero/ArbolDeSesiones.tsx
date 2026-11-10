@@ -25,11 +25,9 @@ type Estado =
 /** El arbol usa sesiones publicadas, no dias ficticios ni una fecha de desbloqueo. */
 export function ArbolDeSesiones({
   modulo,
-  diasHechos = 0,
   personaId = 'perfil-local',
 }: {
   modulo: Modulo;
-  diasHechos?: number;
   personaId?: string;
 }) {
   const sinMovimiento = useReducedMotion();
@@ -56,7 +54,7 @@ export function ArbolDeSesiones({
       },
     );
     return () => control.abort();
-  }, [modulo, intento]);
+  }, [modulo, personaId, intento]);
 
   const grupos = useMemo(
     () =>
@@ -76,10 +74,11 @@ export function ArbolDeSesiones({
     return hechos;
   }, [estado, grupos]);
 
+  const indicePendiente = grupos.findIndex(
+    ({ idActividad }) => !idsHechosPorActividad.has(idActividad),
+  );
   const indiceDeHoy =
-    estado.tipo === 'listo'
-      ? Math.min(Math.max(0, Math.floor(diasHechos)), Math.max(0, grupos.length - 1))
-      : 0;
+    estado.tipo === 'listo' ? (indicePendiente === -1 ? grupos.length - 1 : indicePendiente) : 0;
 
   useEffect(() => {
     if (estado.tipo !== 'listo') return;
@@ -112,6 +111,7 @@ export function ArbolDeSesiones({
   }
   if (grupos.length === 0)
     return <p className="app__nota">Aún no hay actividades publicadas en este módulo.</p>;
+  const rutaCompleta = indicePendiente === -1;
 
   const puntos = grupos.map((_, indice) => ({
     x: desplazamiento(indice),
@@ -129,7 +129,11 @@ export function ArbolDeSesiones({
   return (
     <div className="arbol-sesiones">
       <div className="arbol-sesiones__cabecera">
-        <p className="app__nota">Día {indiceDeHoy + 1} · Puedes elegir cualquier actividad.</p>
+        <p className="app__nota">
+          {rutaCompleta
+            ? 'Completaste la ruta · Puedes repetir una actividad.'
+            : `Día ${indiceDeHoy + 1} · Empieza por la siguiente actividad.`}
+        </p>
         <button
           type="button"
           className="perfil__secundario"
@@ -170,47 +174,53 @@ export function ArbolDeSesiones({
               <path className="sendero__tramo--pendiente" d={trazo} />
             </svg>
             <ol className="sendero__puntos" aria-label={`Actividades de ${modulo}`}>
-              {grupos.map(({ sesion, idActividad }, indice) => (
-                <li
-                  key={idActividad}
-                  className="sendero__fila"
-                  style={{ '--x': `${desplazamiento(indice)}px` } as CSSProperties}
-                >
-                  <span className="arbol-sesiones__nodo">
-                    <button
-                      type="button"
-                      className={`sendero__punto arbol-sesiones__punto${idsHechosPorActividad.has(idActividad) ? ' arbol-sesiones__punto--hecho' : ''}${indice === indiceDeHoy ? ' arbol-sesiones__punto--hoy' : ''}${seleccion?.sesion.id === sesion.id ? ' arbol-sesiones__punto--seleccionado' : ''}`}
-                      data-dia-activo={indice === indiceDeHoy}
-                      aria-haspopup="dialog"
-                      aria-expanded={seleccion?.sesion.id === sesion.id}
-                      aria-label={`Actividad ${indice + 1}: ${sesion.actividad}${idsHechosPorActividad.has(idActividad) ? ', completada' : indice === indiceDeHoy ? ', sugerida para hoy' : ''}`}
-                      onClick={(evento) => {
-                        const punto = evento.currentTarget;
-                        if (!sinMovimiento) {
-                          // Solo salta el boton pulsado. La envoltura conserva el zigzag y el ancla.
-                          punto.getAnimations?.().forEach((animacion) => {
-                            if (animacion.id === 'salto-del-arbol') animacion.cancel();
-                          });
-                          const salto = punto.animate?.(
-                            [
-                              { transform: 'translateY(0) scale(1)', offset: 0 },
-                              { transform: 'translateY(4px) scale(1.08, 0.9)', offset: 0.16 },
-                              { transform: 'translateY(-18px) scale(0.96, 1.06)', offset: 0.42 },
-                              { transform: 'translateY(2px) scale(1.04, 0.96)', offset: 0.72 },
-                              { transform: 'translateY(0) scale(1)', offset: 1 },
-                            ],
-                            { duration: 560, easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)' },
-                          );
-                          if (salto !== undefined) salto.id = 'salto-del-arbol';
-                        }
-                        setSeleccion({ ancla: punto, sesion });
-                      }}
-                    >
-                      {indice + 1}
-                    </button>
-                  </span>
-                </li>
-              ))}
+              {grupos.map(({ sesion, idActividad }, indice) => {
+                const hecha = idsHechosPorActividad.has(idActividad);
+                const esSiguiente = indice === indiceDeHoy && !rutaCompleta;
+
+                return (
+                  <li
+                    key={idActividad}
+                    className="sendero__fila"
+                    style={{ '--x': `${desplazamiento(indice)}px` } as CSSProperties}
+                  >
+                    <span className="arbol-sesiones__nodo">
+                      <button
+                        type="button"
+                        className={`sendero__punto arbol-sesiones__punto${hecha ? ' arbol-sesiones__punto--hecho' : ''}${esSiguiente ? ' arbol-sesiones__punto--hoy' : ''}${seleccion?.sesion.id === sesion.id ? ' arbol-sesiones__punto--seleccionado' : ''}`}
+                        data-dia-activo={indice === indiceDeHoy}
+                        aria-haspopup="dialog"
+                        aria-expanded={seleccion?.sesion.id === sesion.id}
+                        aria-label={`Actividad ${indice + 1}: ${sesion.actividad}${hecha ? ', completada' : esSiguiente ? ', sugerida para hoy' : ', pendiente'}`}
+                        disabled={!hecha && !esSiguiente}
+                        onClick={(evento) => {
+                          const punto = evento.currentTarget;
+                          if (!sinMovimiento) {
+                            // Solo salta el boton pulsado. La envoltura conserva el zigzag y el ancla.
+                            punto.getAnimations?.().forEach((animacion) => {
+                              if (animacion.id === 'salto-del-arbol') animacion.cancel();
+                            });
+                            const salto = punto.animate?.(
+                              [
+                                { transform: 'translateY(0) scale(1)', offset: 0 },
+                                { transform: 'translateY(4px) scale(1.08, 0.9)', offset: 0.16 },
+                                { transform: 'translateY(-18px) scale(0.96, 1.06)', offset: 0.42 },
+                                { transform: 'translateY(2px) scale(1.04, 0.96)', offset: 0.72 },
+                                { transform: 'translateY(0) scale(1)', offset: 1 },
+                              ],
+                              { duration: 560, easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)' },
+                            );
+                            if (salto !== undefined) salto.id = 'salto-del-arbol';
+                          }
+                          setSeleccion({ ancla: punto, sesion });
+                        }}
+                      >
+                        {indice + 1}
+                      </button>
+                    </span>
+                  </li>
+                );
+              })}
             </ol>
           </div>
         </div>
