@@ -45,9 +45,9 @@ export function ArbolDeSesiones({
       datosParaVistaPrevia === undefined
         ? estadoDeLaApi
         : {
-          tipo: 'listo',
-          sesiones: datosParaVistaPrevia.sesiones,
-          hechas: new Set(datosParaVistaPrevia.hechas),
+            tipo: 'listo',
+            sesiones: datosParaVistaPrevia.sesiones,
+            hechas: new Set(datosParaVistaPrevia.hechas),
           },
     [estadoDeLaApi, datosParaVistaPrevia],
   );
@@ -79,15 +79,17 @@ export function ArbolDeSesiones({
 
   const sesionesEnOrden = useMemo(
     () =>
-      estado.tipo === 'listo'
-        ? ordenarSesionesParaPersona(estado.sesiones, personaId, modulo)
-        : [],
+      estado.tipo === 'listo' ? ordenarSesionesParaPersona(estado.sesiones, personaId, modulo) : [],
     [estado, modulo, personaId],
   );
   const idsHechos = estado.tipo === 'listo' ? estado.hechas : new Set<string>();
   const indicePendiente = sesionesEnOrden.findIndex(({ id }) => !idsHechos.has(id));
   const indiceDeHoy =
-    estado.tipo === 'listo' ? (indicePendiente === -1 ? sesionesEnOrden.length - 1 : indicePendiente) : 0;
+    estado.tipo === 'listo'
+      ? indicePendiente === -1
+        ? sesionesEnOrden.length - 1
+        : indicePendiente
+      : 0;
 
   useEffect(() => {
     if (estado.tipo !== 'listo') return;

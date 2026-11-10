@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SesionPublicada } from '../../infraestructura/api/sesionesPublicadas.ts';
-import { ordenarActividadesParaPersona, ordenarSesionesParaPersona } from './ordenPersonalDeSesiones.ts';
+import {
+  ordenarActividadesParaPersona,
+  ordenarSesionesParaPersona,
+} from './ordenPersonalDeSesiones.ts';
 
 function sesion(
   actividad: string,

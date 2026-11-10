@@ -121,8 +121,9 @@ describe('Sendero de sesiones publicadas (SCRUM-322)', () => {
     expect(within(arbol).getAllByRole('button', { name: /pendiente/ })).toHaveLength(57);
     const pendientes = within(arbol).getAllByRole('button', { name: /pendiente/ });
     expect(pendientes.every((boton) => !(boton as HTMLButtonElement).disabled)).toBe(true);
-    expect(pendientes.every((boton) => boton.classList.contains('arbol-sesiones__punto--pendiente')))
-      .toBe(true);
+    expect(
+      pendientes.every((boton) => boton.classList.contains('arbol-sesiones__punto--pendiente')),
+    ).toBe(true);
     const primeraPendiente = pendientes[0];
     if (primeraPendiente === undefined) throw new Error('Se esperaba una actividad pendiente.');
     await usuario.click(primeraPendiente);

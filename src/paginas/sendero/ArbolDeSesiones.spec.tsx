@@ -98,10 +98,10 @@ describe('ArbolDeSesiones', () => {
 
     const arbol = await screen.findByRole('region', { name: 'Actividades de bienestar' });
     expect(within(arbol).getAllByRole('button')).toHaveLength(58);
-    expect(within(arbol).getByRole('button', { name: /Pausa 58, pendiente/ }))
-      .toBeEnabled();
-    expect(within(arbol).getByRole('button', { name: /Pausa 58, pendiente/ }))
-      .toHaveClass('arbol-sesiones__punto--pendiente');
+    expect(within(arbol).getByRole('button', { name: /Pausa 58, pendiente/ })).toBeEnabled();
+    expect(within(arbol).getByRole('button', { name: /Pausa 58, pendiente/ })).toHaveClass(
+      'arbol-sesiones__punto--pendiente',
+    );
     expect(within(arbol).getByRole('button', { name: /sugerida para hoy/ })).toBeEnabled();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
@@ -168,8 +168,9 @@ describe('ArbolDeSesiones', () => {
     expect(within(arbol).getAllByRole('listitem')).toHaveLength(365);
     expect(within(arbol).getAllByRole('button')).toHaveLength(365);
     expect(within(arbol).getAllByRole('button')[364]).toBeEnabled();
-    expect(within(arbol).getAllByRole('button')[364])
-      .toHaveClass('arbol-sesiones__punto--pendiente');
+    expect(within(arbol).getAllByRole('button')[364]).toHaveClass(
+      'arbol-sesiones__punto--pendiente',
+    );
   });
 
   it('permite reintentar si falla la consulta sin mostrar sesiones incompletas', async () => {
