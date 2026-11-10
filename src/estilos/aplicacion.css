@@ -905,15 +905,23 @@
   box-shadow: 0 5px 0 color-mix(in srgb, var(--modulo-acento) 55%, black);
 }
 
+.arbol-sesiones__ventana .arbol-sesiones__punto--pendiente {
+  border-color: color-mix(in srgb, var(--app-tenue) 44%, var(--app-borde));
+  background: color-mix(in srgb, var(--app-tenue) 22%, var(--app-superficie));
+  color: var(--app-tenue);
+}
+
 .arbol-sesiones__ventana .arbol-sesiones__punto--hoy {
   border-color: var(--modulo-acento);
-  color: var(--modulo-acento);
+  background: color-mix(in srgb, var(--app-borde) 38%, var(--app-superficie));
+  color: var(--app-tenue);
   outline: 4px solid color-mix(in srgb, var(--modulo-acento) 35%, transparent);
   outline-offset: 6px;
   animation: arbol-sesiones-respiro 2.8s ease-in-out infinite;
 }
 
 .arbol-sesiones__ventana .arbol-sesiones__punto--hoy.arbol-sesiones__punto--hecho {
+  background: var(--modulo-acento);
   color: var(--app-lienzo);
 }
 

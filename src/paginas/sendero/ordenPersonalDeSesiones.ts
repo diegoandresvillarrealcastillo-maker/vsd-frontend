@@ -16,6 +16,30 @@ function hashEstable(texto: string): number {
   return hash >>> 0;
 }
 
+/** Ordena cada sesión individualmente para el árbol de pruebas sin perder ninguna variante. */
+export function ordenarSesionesParaPersona(
+  sesiones: readonly SesionPublicada[],
+  personaId: string,
+  modulo: Modulo,
+): readonly SesionPublicada[] {
+  const fijas = new Set<number>();
+  sesiones.forEach((sesion, indice) => {
+    if (sesion.frecuencia?.tipo === 'diaria') fijas.add(indice);
+  });
+
+  const rotativas = sesiones
+    .filter((_, indice) => !fijas.has(indice))
+    .slice()
+    .sort((a, b) => {
+      const ha = hashEstable(`${personaId}|${modulo}|sesion|${a.id}`);
+      const hb = hashEstable(`${personaId}|${modulo}|sesion|${b.id}`);
+      return ha - hb || a.id.localeCompare(b.id);
+    });
+
+  let siguiente = 0;
+  return sesiones.map((sesion, indice) => (fijas.has(indice) ? sesion : rotativas[siguiente++]!));
+}
+
 /** Una actividad por nodo; su posición y sesión elegida permanecen estables por persona. */
 export function ordenarActividadesParaPersona(
   sesiones: readonly SesionPublicada[],

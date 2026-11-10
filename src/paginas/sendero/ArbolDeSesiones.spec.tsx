@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ArbolDeSesiones } from './ArbolDeSesiones.tsx';
+import { ordenarActividadesParaPersona } from './ordenPersonalDeSesiones.ts';
 
 const { consultar, consultarHechas } = vi.hoisted(() => ({
   consultar: vi.fn(),
@@ -77,7 +78,7 @@ describe('ArbolDeSesiones', () => {
     expect(nodo).toHaveFocus();
   });
 
-  it('permite abrir la sesion 58 sin pasar por las anteriores', async () => {
+  it('conserva todo el catálogo y deja pendiente la actividad que todavía no toca', async () => {
     consultar.mockResolvedValue(
       Array.from({ length: 58 }, (_, indice) => ({
         id: `sesion-${indice + 1}`,
@@ -87,7 +88,6 @@ describe('ArbolDeSesiones', () => {
         nivel: 1,
       })),
     );
-    const usuario = userEvent.setup();
     render(
       <MemoryRouter>
         <div className="app">
@@ -98,39 +98,79 @@ describe('ArbolDeSesiones', () => {
 
     const arbol = await screen.findByRole('region', { name: 'Actividades de bienestar' });
     expect(within(arbol).getAllByRole('button')).toHaveLength(58);
-    await usuario.click(within(arbol).getByRole('button', { name: /Pausa 58/ }));
-
-    expect(screen.getByRole('link', { name: 'Comenzar Pausa 58' })).toHaveAttribute(
-      'href',
-      '/actividad/actividad-58?sesion=sesion-58',
+    expect(within(arbol).getByRole('button', { name: /Pausa 58, pendiente/ })).toBeEnabled();
+    expect(within(arbol).getByRole('button', { name: /Pausa 58, pendiente/ })).toHaveClass(
+      'arbol-sesiones__punto--pendiente',
     );
+    expect(within(arbol).getByRole('button', { name: /sugerida para hoy/ })).toBeEnabled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
     expect(consultar).toHaveBeenCalledWith('bienestar', expect.any(AbortSignal));
   });
 
-  it('avanza el foco al día siguiente y distingue una sesión terminada sin bloquear las demás', async () => {
+  it('marca solo las actividades hechas y lleva a la primera pendiente después de dos completadas', async () => {
+    const sesiones = [1, 2, 3].map((numero) => ({
+      id: `sesion-${numero}`,
+      idActividad: `actividad-${numero}`,
+      titulo: `Pausa ${numero}`,
+      actividad: `Pausa ${numero}`,
+      nivel: 1,
+    }));
+    const personaId = 'persona-que-avanza';
+    const grupos = ordenarActividadesParaPersona(sesiones, personaId, 'bienestar');
+    const hechas = grupos.slice(0, 2).map(({ sesion }) => sesion.id);
+    consultar.mockResolvedValue(sesiones);
+    consultarHechas.mockResolvedValue(hechas);
+    render(
+      <MemoryRouter>
+        <ArbolDeSesiones modulo="bienestar" personaId={personaId} />
+      </MemoryRouter>,
+    );
+
+    const arbol = await screen.findByRole('region', { name: 'Actividades de bienestar' });
+    const completadas = within(arbol).getAllByRole('button', { name: /completada/ });
+    const actividadActiva = within(arbol).getByRole('button', { name: /sugerida para hoy/ });
+
+    expect(completadas).toHaveLength(2);
+    for (const actividad of completadas) {
+      expect(actividad).toHaveClass('arbol-sesiones__punto--hecho');
+      expect(actividad).toBeEnabled();
+    }
+    expect(actividadActiva).toHaveAttribute('data-dia-activo', 'true');
+    expect(actividadActiva).toHaveClass('arbol-sesiones__punto--hoy');
+    expect(actividadActiva).not.toHaveClass('arbol-sesiones__punto--hecho');
+    expect(actividadActiva).toBeEnabled();
+    expect(within(arbol).getAllByRole('button')).toHaveLength(3);
+    const desplazar = vi.fn();
+    Object.defineProperty(actividadActiva, 'scrollIntoView', { value: desplazar });
+    await userEvent.click(screen.getByRole('button', { name: 'Ir a mi día' }));
+    expect(desplazar).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' });
+    expect(actividadActiva).toHaveFocus();
+  });
+
+  it('renderiza las 365 actividades recibidas sin recortar la lista', async () => {
     consultar.mockResolvedValue(
-      [1, 2, 3].map((numero) => ({
-        id: `sesion-${numero}`,
-        idActividad: `actividad-${numero}`,
-        titulo: `Pausa ${numero}`,
-        actividad: `Pausa ${numero}`,
+      Array.from({ length: 365 }, (_, indice) => ({
+        id: `sesion-${indice + 1}`,
+        idActividad: `actividad-${indice + 1}`,
+        titulo: `Actividad ${indice + 1}`,
+        actividad: `Actividad ${indice + 1}`,
         nivel: 1,
       })),
     );
-    consultarHechas.mockResolvedValue(['sesion-1']);
     render(
       <MemoryRouter>
-        <ArbolDeSesiones modulo="bienestar" diasHechos={1} />
+        <ArbolDeSesiones modulo="emociones" personaId="cuenta-365" />
       </MemoryRouter>,
     );
-    const arbol = await screen.findByRole('region', { name: 'Actividades de bienestar' });
-    const primera = await screen.findByRole('button', { name: /Pausa 1, completada/ });
-    const actividadActiva = screen.getByRole('button', { name: /sugerida para hoy/ });
-    expect(primera).toHaveClass('arbol-sesiones__punto--hecho');
-    expect(actividadActiva).toHaveAttribute('data-dia-activo', 'true');
-    expect(within(arbol).getAllByRole('button')).toHaveLength(3);
-    expect(within(arbol).getByRole('button', { name: /Pausa 2/ })).toBeEnabled();
-    expect(within(arbol).getByRole('button', { name: /Pausa 3/ })).toBeEnabled();
+
+    const arbol = await screen.findByRole('region', { name: 'Actividades de emociones' });
+    expect(within(arbol).getAllByRole('listitem')).toHaveLength(365);
+    expect(within(arbol).getAllByRole('button')).toHaveLength(365);
+    expect(within(arbol).getAllByRole('button')[364]).toBeEnabled();
+    expect(within(arbol).getAllByRole('button')[364]).toHaveClass(
+      'arbol-sesiones__punto--pendiente',
+    );
   });
 
   it('permite reintentar si falla la consulta sin mostrar sesiones incompletas', async () => {

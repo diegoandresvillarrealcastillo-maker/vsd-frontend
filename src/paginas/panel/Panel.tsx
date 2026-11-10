@@ -225,6 +225,7 @@ function Dashboard({
         <RutaDelDia
           ruta={ruta}
           nuevas={nuevas}
+          personaId={cuenta.id}
           desplegado={desplegado}
           alAlternar={alternarLaRuta}
         />
