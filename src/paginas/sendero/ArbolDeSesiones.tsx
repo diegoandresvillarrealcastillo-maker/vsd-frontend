@@ -39,7 +39,18 @@ export function ArbolDeSesiones({
   datosParaVistaPrevia?: DatosParaVistaPrevia;
 }) {
   const sinMovimiento = useReducedMotion();
-  const [estado, setEstado] = useState<Estado>({ tipo: 'cargando' });
+  const [estadoDeLaApi, setEstado] = useState<Estado>({ tipo: 'cargando' });
+  const estado = useMemo<Estado>(
+    () =>
+      datosParaVistaPrevia === undefined
+        ? estadoDeLaApi
+        : {
+          tipo: 'listo',
+          sesiones: datosParaVistaPrevia.sesiones,
+          hechas: new Set(datosParaVistaPrevia.hechas),
+          },
+    [estadoDeLaApi, datosParaVistaPrevia],
+  );
   const [intento, setIntento] = useState(0);
   const ventana = useRef<HTMLDivElement>(null);
   const [seleccion, setSeleccion] = useState<{
@@ -48,14 +59,7 @@ export function ArbolDeSesiones({
   } | null>(null);
 
   useEffect(() => {
-    if (datosParaVistaPrevia !== undefined) {
-      setEstado({
-        tipo: 'listo',
-        sesiones: datosParaVistaPrevia.sesiones,
-        hechas: new Set(datosParaVistaPrevia.hechas),
-      });
-      return;
-    }
+    if (datosParaVistaPrevia !== undefined) return;
 
     const control = new AbortController();
     Promise.all([
