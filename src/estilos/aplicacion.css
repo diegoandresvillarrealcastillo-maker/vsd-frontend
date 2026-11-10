@@ -907,14 +907,21 @@
 
 .arbol-sesiones__ventana .arbol-sesiones__punto--hoy {
   border-color: var(--modulo-acento);
-  color: var(--modulo-acento);
+  background: color-mix(in srgb, var(--app-borde) 38%, var(--app-superficie));
+  color: var(--app-tenue);
   outline: 4px solid color-mix(in srgb, var(--modulo-acento) 35%, transparent);
   outline-offset: 6px;
   animation: arbol-sesiones-respiro 2.8s ease-in-out infinite;
 }
 
 .arbol-sesiones__ventana .arbol-sesiones__punto--hoy.arbol-sesiones__punto--hecho {
+  background: var(--modulo-acento);
   color: var(--app-lienzo);
+}
+
+.arbol-sesiones__ventana .arbol-sesiones__punto:disabled {
+  cursor: not-allowed;
+  filter: none;
 }
 
 @keyframes arbol-sesiones-respiro {
