@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ActividadConSuCategoria } from '../../infraestructura/api/catalogo.ts';
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
 import type { SesionDeLaActividad } from '../../infraestructura/api/progreso.ts';
-import { buscarSesionPublicada } from '../../infraestructura/api/sesionesPublicadas.ts';
+import { buscarSesionPublicadaConCopia } from '../../sincronizacion/sesionesPublicadasLocal.ts';
 import type {
   Metadata,
   ResultadoPorRegistrar,
@@ -259,7 +259,7 @@ export function useCompletarActividad(
           // Leer la sesion nunca impide abrir la actividad: sin ella se hace como siempre.
           idSesion === undefined
             ? leerLaSesionGuardada(idActividad).catch(() => null)
-            : buscarSesionPublicada(idSesion, control.signal),
+            : buscarSesionPublicadaConCopia(idSesion, control.signal),
         ]);
 
         if (control.signal.aborted) {
