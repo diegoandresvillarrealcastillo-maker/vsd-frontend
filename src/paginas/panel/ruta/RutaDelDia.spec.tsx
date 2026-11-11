@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Modulo } from '../../../infraestructura/api/cuenta.ts';
 import type { ProgresoDelModulo } from '../../../infraestructura/api/progreso.ts';
 import { fallosDeAccesibilidad } from '../../../pruebas/axe.ts';
-import { ordenarSesionesParaPersona } from '../../sendero/ordenPersonalDeSesiones.ts';
+import { ordenarActividadesParaPersona } from '../../sendero/ordenPersonalDeSesiones.ts';
 import { construirLaRuta } from './construirLaRuta.ts';
 import { RutaDelDia } from './RutaDelDia.tsx';
 
@@ -193,7 +193,7 @@ describe('RutaDelDia', () => {
       },
     ];
     const personaId = 'cuenta-con-orden-propio';
-    const esperado = ordenarSesionesParaPersona(sesiones, personaId, 'cognicion');
+    const esperado = ordenarActividadesParaPersona(sesiones, personaId, 'cognicion');
     consultarSesionesPublicadas.mockResolvedValueOnce(sesiones);
 
     pintar(PROGRESO, { desplegado: 'cognicion', personaId });
@@ -204,7 +204,7 @@ describe('RutaDelDia', () => {
       .map((boton) => boton.getAttribute('aria-label'));
     expect(ordenVisible).toEqual(
       esperado.map(
-        (sesion, indice) =>
+        ({ sesion }, indice) =>
           `Actividad ${indice + 1}: ${sesion.titulo}${indice === 0 ? ', sugerida para hoy' : ', pendiente'}`,
       ),
     );

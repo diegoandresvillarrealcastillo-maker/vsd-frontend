@@ -11,7 +11,7 @@ import {
 } from '../../infraestructura/api/sesionesPublicadas.ts';
 import { ALTO_DE_FILA, desplazamiento } from './geometria.ts';
 import { PopoverDeActividad } from './PopoverDeActividad.tsx';
-import { ordenarSesionesParaPersona } from './ordenPersonalDeSesiones.ts';
+import { ordenarActividadesParaPersona } from './ordenPersonalDeSesiones.ts';
 
 type Estado =
   | { readonly tipo: 'cargando' }
@@ -28,7 +28,7 @@ export interface DatosParaVistaPrevia {
   readonly hechas: readonly string[];
 }
 
-/** El arbol usa sesiones publicadas, no dias ficticios ni una fecha de desbloqueo. */
+/** Una ficha por actividad; sus variantes de sesión no se duplican en el árbol. */
 export function ArbolDeSesiones({
   modulo,
   personaId = 'perfil-local',
@@ -77,17 +77,21 @@ export function ArbolDeSesiones({
     return () => control.abort();
   }, [modulo, personaId, intento, datosParaVistaPrevia]);
 
-  const sesionesEnOrden = useMemo(
+  const actividadesEnOrden = useMemo(
     () =>
-      estado.tipo === 'listo' ? ordenarSesionesParaPersona(estado.sesiones, personaId, modulo) : [],
+      estado.tipo === 'listo'
+        ? ordenarActividadesParaPersona(estado.sesiones, personaId, modulo)
+        : [],
     [estado, modulo, personaId],
   );
   const idsHechos = estado.tipo === 'listo' ? estado.hechas : new Set<string>();
-  const indicePendiente = sesionesEnOrden.findIndex(({ id }) => !idsHechos.has(id));
+  const estaHecha = (sesiones: readonly SesionPublicada[]) =>
+    sesiones.some(({ id }) => idsHechos.has(id));
+  const indicePendiente = actividadesEnOrden.findIndex(({ sesiones }) => !estaHecha(sesiones));
   const indiceDeHoy =
     estado.tipo === 'listo'
       ? indicePendiente === -1
-        ? sesionesEnOrden.length - 1
+        ? actividadesEnOrden.length - 1
         : indicePendiente
       : 0;
 
@@ -120,11 +124,11 @@ export function ArbolDeSesiones({
       </div>
     );
   }
-  if (sesionesEnOrden.length === 0)
+  if (actividadesEnOrden.length === 0)
     return <p className="app__nota">Aún no hay actividades publicadas en este módulo.</p>;
   const rutaCompleta = indicePendiente === -1;
 
-  const puntos = sesionesEnOrden.map((_, indice) => ({
+  const puntos = actividadesEnOrden.map((_, indice) => ({
     x: desplazamiento(indice),
     y: (indice + 0.5) * ALTO_DE_FILA,
   }));
@@ -185,8 +189,10 @@ export function ArbolDeSesiones({
               <path className="sendero__tramo--pendiente" d={trazo} />
             </svg>
             <ol className="sendero__puntos" aria-label={`Actividades de ${modulo}`}>
-              {sesionesEnOrden.map((sesion, indice) => {
-                const hecha = idsHechos.has(sesion.id);
+              {actividadesEnOrden.map((grupo, indice) => {
+                const varianteHecha = grupo.sesiones.find(({ id }) => idsHechos.has(id));
+                const sesion = varianteHecha ?? grupo.sesion;
+                const hecha = estaHecha(grupo.sesiones);
                 const esSiguiente = indice === indiceDeHoy && !rutaCompleta;
 
                 return (
