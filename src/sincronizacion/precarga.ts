@@ -3,6 +3,7 @@ import { precargarElDiario } from './diarioLocal.ts';
 import { precargarElPanel } from './panelLocal.ts';
 import { precargarLasReglasLocales } from './reglasLocalesLocal.ts';
 import { precargarElSemaforo } from './semaforoLocal.ts';
+import { precargarLosSenderos } from './sesionesPublicadasLocal.ts';
 
 /**
  * Lo que se guarda por adelantado para poder usarlo sin conexion (SCRUM-138).
@@ -39,5 +40,6 @@ export async function precargarLasLecturas(): Promise<void> {
     Promise.resolve().then(() => precargarElSemaforo()),
     Promise.resolve().then(() => precargarElPanel()),
     Promise.resolve().then(() => precargarLasReglasLocales()),
+    Promise.resolve().then(() => precargarLosSenderos()),
   ]);
 }

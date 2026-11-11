@@ -59,6 +59,20 @@ vi.mock('../../infraestructura/api/sesionesPublicadas.ts', () => ({
   consultarSesionesPublicadas,
   consultarSesionesHechas,
 }));
+vi.mock('../../sincronizacion/sesionesPublicadasLocal.ts', () => ({
+  traerSesionesPublicadasConCopia: async (...argumentos: unknown[]) => {
+    const respuesta: unknown = await consultarSesionesPublicadas(...argumentos);
+    return {
+      valor: Array.isArray(respuesta) ? Array.from(respuesta as readonly unknown[]) : [],
+      deLaCopia: false,
+      guardadoEn: null,
+    };
+  },
+  consultarSesionesHechasConCopia: async (modulo: string) => {
+    const respuesta: unknown = await consultarSesionesHechas(modulo);
+    return Array.isArray(respuesta) ? Array.from(respuesta as readonly string[]) : [];
+  },
+}));
 
 // La llama de la barra pide la racha (SCRUM-186) y la mascota de la tarde (SCRUM-243) habla con lo que
 // llega: aqui se controla lo que dice el servidor.
