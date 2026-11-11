@@ -173,6 +173,131 @@ describe('ArbolDeSesiones', () => {
     );
   });
 
+  it('muestra una sola actividad por mecánica y conserva la sesión elegida para abrirla', async () => {
+    const sesiones = [
+      {
+        id: 'sesion-a-1',
+        idActividad: 'actividad-a',
+        titulo: 'Pausa breve, versión uno',
+        actividad: 'Pausa breve',
+        nivel: 1,
+      },
+      {
+        id: 'sesion-a-2',
+        idActividad: 'actividad-a',
+        titulo: 'Pausa breve, versión dos',
+        actividad: 'Pausa breve',
+        nivel: 1,
+      },
+      {
+        id: 'sesion-b-1',
+        idActividad: 'actividad-b',
+        titulo: 'Escaneo corporal',
+        actividad: 'Escaneo corporal',
+        nivel: 1,
+      },
+    ];
+    const personaId = 'persona-con-una-variante';
+    const grupos = ordenarActividadesParaPersona(sesiones, personaId, 'bienestar');
+    consultar.mockResolvedValue(sesiones);
+    const usuario = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <div className="app">
+          <ArbolDeSesiones modulo="bienestar" personaId={personaId} />
+        </div>
+      </MemoryRouter>,
+    );
+
+    const arbol = await screen.findByRole('region', { name: 'Actividades de bienestar' });
+    const nodos = within(arbol).getAllByRole('button');
+    expect(nodos).toHaveLength(2);
+    expect(nodos[0]).toHaveAccessibleName(new RegExp(grupos[0]!.sesion.titulo));
+
+    await usuario.click(nodos[0]!);
+    expect(
+      screen.getByRole('link', { name: `Comenzar ${grupos[0]!.sesion.titulo}` }),
+    ).toHaveAttribute('href', expect.stringContaining(`sesion=${grupos[0]!.sesion.id}`));
+  });
+
+  it('365 actividades rotativas más las diarias fijas mantienen sus nodos propios', async () => {
+    const sesiones = [
+      {
+        id: 'sesion-diaria',
+        idActividad: 'actividad-diaria',
+        titulo: 'Registro diario',
+        actividad: 'Registro diario',
+        nivel: 1,
+        frecuencia: { tipo: 'diaria' as const },
+      },
+      ...Array.from({ length: 365 }, (_, indice) => ({
+        id: `sesion-${indice + 1}`,
+        idActividad: `actividad-${indice + 1}`,
+        titulo: `Actividad ${indice + 1}`,
+        actividad: `Actividad ${indice + 1}`,
+        nivel: 1,
+      })),
+    ];
+    consultar.mockResolvedValue(sesiones);
+    render(
+      <MemoryRouter>
+        <div className="app">
+          <ArbolDeSesiones modulo="bienestar" personaId="cuenta-con-diaria" />
+        </div>
+      </MemoryRouter>,
+    );
+
+    const arbol = await screen.findByRole('region', { name: 'Actividades de bienestar' });
+    const nodos = within(arbol).getAllByRole('button');
+    expect(nodos).toHaveLength(366);
+    expect(nodos[0]).toHaveAccessibleName(/Registro diario/);
+    expect(nodos[1]).toHaveAccessibleName(/Actividad/);
+  });
+
+  it('marca completada una actividad si la persona completó cualquiera de sus sesiones', async () => {
+    const sesiones = [
+      {
+        id: 'sesion-a-1',
+        idActividad: 'actividad-a',
+        titulo: 'Pausa breve, versión uno',
+        actividad: 'Pausa breve',
+        nivel: 1,
+      },
+      {
+        id: 'sesion-a-2',
+        idActividad: 'actividad-a',
+        titulo: 'Pausa breve, versión dos',
+        actividad: 'Pausa breve',
+        nivel: 1,
+      },
+      {
+        id: 'sesion-b-1',
+        idActividad: 'actividad-b',
+        titulo: 'Escaneo corporal',
+        actividad: 'Escaneo corporal',
+        nivel: 1,
+      },
+    ];
+    const personaId = 'persona-que-completo-una-variante';
+    const grupos = ordenarActividadesParaPersona(sesiones, personaId, 'bienestar');
+    const actividad = grupos[0]!;
+    const varianteCompletada = actividad.sesiones.find(({ id }) => id !== actividad.sesion.id)!;
+    consultar.mockResolvedValue(sesiones);
+    consultarHechas.mockResolvedValue([varianteCompletada.id]);
+    render(
+      <MemoryRouter>
+        <ArbolDeSesiones modulo="bienestar" personaId={personaId} />
+      </MemoryRouter>,
+    );
+
+    const arbol = await screen.findByRole('region', { name: 'Actividades de bienestar' });
+    expect(
+      within(arbol).getByRole('button', {
+        name: new RegExp(`${varianteCompletada.titulo}, completada`),
+      }),
+    ).toHaveClass('arbol-sesiones__punto--hecho');
+  });
+
   it('permite reintentar si falla la consulta sin mostrar sesiones incompletas', async () => {
     consultar.mockRejectedValueOnce(new Error('Red no disponible')).mockResolvedValueOnce([
       {
