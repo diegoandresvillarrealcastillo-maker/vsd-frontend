@@ -12,6 +12,7 @@ vi.mock('./diarioLocal.ts', () => ({ precargarElDiario: vi.fn() }));
 vi.mock('./panelLocal.ts', () => ({ precargarElPanel: vi.fn() }));
 vi.mock('./reglasLocalesLocal.ts', () => ({ precargarLasReglasLocales: vi.fn() }));
 vi.mock('./semaforoLocal.ts', () => ({ precargarElSemaforo: vi.fn() }));
+vi.mock('./sesionesPublicadasLocal.ts', () => ({ precargarLosSenderos: vi.fn() }));
 
 const traer = vi.mocked(traerElCatalogoConCopia);
 const traerElDiario = vi.mocked(precargarElDiario);

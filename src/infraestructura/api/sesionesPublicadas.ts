@@ -9,6 +9,8 @@ export interface SesionPublicada {
   readonly actividad: string;
   readonly nivel: number;
   readonly frecuencia?: Frecuencia;
+  /** Parámetros públicos de la mecánica, incluidos para poder jugar desde la copia offline. */
+  readonly parametros?: Readonly<Record<string, unknown>>;
 }
 
 interface SesionConContenido extends SesionDeLaActividad {

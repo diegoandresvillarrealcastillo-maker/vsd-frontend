@@ -38,6 +38,20 @@ vi.mock('../../infraestructura/api/sesionesPublicadas.ts', () => ({
   consultarSesionesPublicadas,
   consultarSesionesHechas,
 }));
+vi.mock('../../sincronizacion/sesionesPublicadasLocal.ts', () => ({
+  traerSesionesPublicadasConCopia: async (...argumentos: unknown[]) => {
+    const respuesta: unknown = await consultarSesionesPublicadas(...argumentos);
+    return {
+      valor: Array.isArray(respuesta) ? Array.from(respuesta as readonly unknown[]) : [],
+      deLaCopia: false,
+      guardadoEn: null,
+    };
+  },
+  consultarSesionesHechasConCopia: async (modulo: string) => {
+    const respuesta: unknown = await consultarSesionesHechas(modulo);
+    return Array.isArray(respuesta) ? Array.from(respuesta as readonly string[]) : [];
+  },
+}));
 
 const CUENTA: Cuenta = {
   id: '11111111-1111-4111-8111-111111111111',

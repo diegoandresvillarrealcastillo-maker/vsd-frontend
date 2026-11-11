@@ -4,11 +4,11 @@ import { useReducedMotion } from 'framer-motion';
 import '../../estilos/arbolVivo.css';
 import type { Modulo } from '../../infraestructura/api/cuenta.ts';
 import { FondoVivo } from '../actividad/viva/FondoVivo.tsx';
+import type { SesionPublicada } from '../../infraestructura/api/sesionesPublicadas.ts';
 import {
-  consultarSesionesPublicadas,
-  consultarSesionesHechas,
-  type SesionPublicada,
-} from '../../infraestructura/api/sesionesPublicadas.ts';
+  consultarSesionesHechasConCopia,
+  traerSesionesPublicadasConCopia,
+} from '../../sincronizacion/sesionesPublicadasLocal.ts';
 import { ALTO_DE_FILA, desplazamiento } from './geometria.ts';
 import { PopoverDeActividad } from './PopoverDeActividad.tsx';
 import { ordenarActividadesParaPersona } from './ordenPersonalDeSesiones.ts';
@@ -62,18 +62,16 @@ export function ArbolDeSesiones({
     if (datosParaVistaPrevia !== undefined) return;
 
     const control = new AbortController();
-    Promise.all([
-      consultarSesionesPublicadas(modulo, control.signal),
-      consultarSesionesHechas(modulo, control.signal),
-    ]).then(
-      ([sesiones, hechas]) => {
-        if (!control.signal.aborted)
+    void traerSesionesPublicadasConCopia(modulo, control.signal)
+      .then(async ({ valor: sesiones }) => {
+        const hechas = await consultarSesionesHechasConCopia(modulo, sesiones, control.signal);
+        if (!control.signal.aborted) {
           setEstado({ tipo: 'listo', sesiones, hechas: new Set(hechas) });
-      },
-      () => {
+        }
+      })
+      .catch(() => {
         if (!control.signal.aborted) setEstado({ tipo: 'error' });
-      },
-    );
+      });
     return () => control.abort();
   }, [modulo, personaId, intento, datosParaVistaPrevia]);
 

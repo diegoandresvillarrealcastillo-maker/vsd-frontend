@@ -16,6 +16,20 @@ vi.mock('../../infraestructura/api/sesionesPublicadas.ts', () => ({
   consultarSesionesPublicadas: consultar,
   consultarSesionesHechas: consultarHechas,
 }));
+vi.mock('../../sincronizacion/sesionesPublicadasLocal.ts', () => ({
+  traerSesionesPublicadasConCopia: async (...argumentos: unknown[]) => {
+    const respuesta: unknown = await consultar(...argumentos);
+    return {
+      valor: Array.isArray(respuesta) ? Array.from(respuesta as readonly unknown[]) : [],
+      deLaCopia: false,
+      guardadoEn: null,
+    };
+  },
+  consultarSesionesHechasConCopia: async (modulo: string) => {
+    const respuesta: unknown = await consultarHechas(modulo);
+    return Array.isArray(respuesta) ? Array.from(respuesta as readonly string[]) : [];
+  },
+}));
 
 beforeEach(() => {
   movimiento.reducido = false;
