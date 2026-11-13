@@ -23,6 +23,7 @@ import {
 } from './semaforoLocal.ts';
 import { precargarLasLecturas } from './precarga.ts';
 import { planDeEnvio } from './cola.ts';
+import { avisarResultadoSincronizado } from './resultadoSincronizado.ts';
 import {
   avisoDeSinConexion,
   cambiosParaMostrar,
@@ -92,6 +93,9 @@ const SIN_CAMBIOS: ContadoresDeCambios = {
   conflictos: 0,
   total: 0,
 };
+
+/** `seguirUnaOperacion` espera este tiempo antes de avisar que el resultado quedo en el equipo. */
+const ESPERA_DE_UN_RESULTADO_EN_MS = 5_000;
 
 function estadoInicial(conexion: EstadoDeLaConexion): EstadoDeLaSincronizacion {
   return {
@@ -378,6 +382,20 @@ export function iniciarLaSincronizacionAutomatica(
       cambiar({ sincronizando: true });
     } else if (evento.tipo === 'enviada') {
       void leerLoGuardado();
+
+      // La racha es autoritativa del servidor. Se vuelve a pedir despues de confirmar el resultado,
+      // no al recibir el evento `online`, que puede ocurrir antes de que la cola termine de enviarlo.
+      const llevaEnCola = reloj().getTime() - Date.parse(evento.operacion.creadaEn);
+      const esperabaSincronizacion =
+        motivoActual !== 'manual' || llevaEnCola >= ESPERA_DE_UN_RESULTADO_EN_MS;
+
+      if (evento.operacion.tipo === 'resultado.registrar' && esperabaSincronizacion) {
+        const ciclo = cicloActual();
+
+        if (ciclo !== null) {
+          avisarResultadoSincronizado(ciclo.persona);
+        }
+      }
 
       // Una tanda puede cortarse a la mitad: lo que ya salio se guarda sin esperar a su fin.
       if (esTipoDelDiario(evento.operacion.tipo)) {

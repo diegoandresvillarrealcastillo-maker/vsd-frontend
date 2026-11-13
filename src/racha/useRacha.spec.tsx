@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { rachaDePrueba } from '../pruebas/rachaDePrueba.ts';
 import { SesionContexto, type EstadoDeSesion } from '../sesion/SesionContexto.ts';
+import { avisarResultadoSincronizado } from '../sincronizacion/resultadoSincronizado.ts';
 import { olvidarLaRacha, recordarLaRacha } from './memoriaDeLaRacha.ts';
 import { useRacha } from './useRacha.ts';
 
@@ -66,6 +67,47 @@ describe('useRacha', () => {
       recordarLaRacha(BETO, rachaDePrueba({ dias: 99 }));
     });
 
+    expect(result.current?.dias).toBe(5);
+  });
+
+  it('vuelve a consultar la racha cuando el servidor acepta un resultado offline de su cuenta', async () => {
+    consultarLaRacha.mockResolvedValue(rachaDePrueba({ dias: 5 }));
+
+    renderHook(() => useRacha(), { wrapper: conSesion(ANA) });
+    await waitFor(() => expect(consultarLaRacha).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      avisarResultadoSincronizado(ANA);
+    });
+
+    await waitFor(() => expect(consultarLaRacha).toHaveBeenCalledTimes(2));
+  });
+
+  it('no consulta la racha ante una sincronizacion de otra cuenta', async () => {
+    consultarLaRacha.mockResolvedValue(rachaDePrueba({ dias: 5 }));
+
+    renderHook(() => useRacha(), { wrapper: conSesion(ANA) });
+    await waitFor(() => expect(consultarLaRacha).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      avisarResultadoSincronizado(BETO);
+    });
+
+    expect(consultarLaRacha).toHaveBeenCalledTimes(1);
+  });
+
+  it('conserva la ultima racha si falla la consulta posterior a la sincronizacion', async () => {
+    consultarLaRacha.mockResolvedValueOnce(rachaDePrueba({ dias: 5 }));
+
+    const { result } = renderHook(() => useRacha(), { wrapper: conSesion(ANA) });
+    await waitFor(() => expect(result.current?.dias).toBe(5));
+    consultarLaRacha.mockRejectedValueOnce(new Error('sin conexion'));
+
+    act(() => {
+      avisarResultadoSincronizado(ANA);
+    });
+
+    await waitFor(() => expect(consultarLaRacha).toHaveBeenCalledTimes(2));
     expect(result.current?.dias).toBe(5);
   });
 
