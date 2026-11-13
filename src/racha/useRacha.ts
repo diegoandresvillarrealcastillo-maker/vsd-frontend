@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import type { Racha } from '../infraestructura/api/racha.ts';
+import { alSincronizarUnResultado } from '../sincronizacion/resultadoSincronizado.ts';
 import { useSesion } from '../sesion/useSesion.ts';
 import { alCambiarLaRacha, rachaRecordadaDe } from './memoriaDeLaRacha.ts';
 import { refrescarLaRacha } from './refrescarLaRacha.ts';
@@ -36,6 +37,14 @@ export function useRacha(): Racha | null {
         setRacha(nueva);
       }
     });
+    const dejarDeEscucharResultados = alSincronizarUnResultado((deQuien) => {
+      if (vigente && deQuien === cuenta) {
+        // El servidor ya acepto la actividad offline; ahora su fecha local puede activar la racha.
+        refrescarLaRacha(cuenta, controlador.signal).catch(() => {
+          // Si la red vuelve a fallar, se conserva la ultima racha conocida.
+        });
+      }
+    });
 
     function pedir() {
       if (cuenta === null) {
@@ -55,6 +64,7 @@ export function useRacha(): Racha | null {
       vigente = false;
       controlador.abort();
       dejarDeEscuchar();
+      dejarDeEscucharResultados();
       window.removeEventListener('online', pedir);
     };
   }, [cuenta]);
