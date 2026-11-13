@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { nuevaOperacion, type Operacion } from './cola.ts';
+import { alSincronizarUnResultado } from './resultadoSincronizado.ts';
 import {
   descartar,
   descartarElAviso,
@@ -673,6 +674,58 @@ describe('la copia local del semaforo se pone al dia con lo que el servidor acep
 
     expect(t.conciliarElSemaforo).toHaveBeenCalledTimes(veces);
 
+    t.apagar();
+  });
+});
+
+describe('la racha se refresca despues de sincronizar un resultado offline', () => {
+  it.each([
+    ['apertura', 'apertura', '2026-10-07T14:59:59.000Z', true],
+    ['envio manual de algo que espero', 'manual', '2026-10-07T14:59:54.000Z', true],
+    ['envio manual inmediato', 'manual', '2026-10-07T14:59:56.000Z', false],
+  ] as const)(
+    '%s: avisa solo si el resultado esperaba sincronizacion',
+    async (_caso, motivo, creadaEn, esperado) => {
+      const t = armar();
+      const c = crearCiclo('cuenta-a');
+      const oyente = vi.fn();
+      const dejarDeEscuchar = alSincronizarUnResultado(oyente);
+
+      await abrir(c);
+      c.emitir({ tipo: 'inicio', motivo });
+      c.emitir({
+        tipo: 'enviada',
+        operacion: operacion({ tipo: 'resultado.registrar', creadaEn }),
+        recibo: null,
+      });
+
+      expect(oyente).toHaveBeenCalledTimes(esperado ? 1 : 0);
+      if (esperado) {
+        expect(oyente).toHaveBeenCalledWith('cuenta-a');
+      }
+
+      dejarDeEscuchar();
+      t.apagar();
+    },
+  );
+
+  it('no avisa por otros tipos de operacion', async () => {
+    const t = armar();
+    const c = crearCiclo('cuenta-a');
+    const oyente = vi.fn();
+    const dejarDeEscuchar = alSincronizarUnResultado(oyente);
+
+    await abrir(c);
+    c.emitir({ tipo: 'inicio', motivo: 'apertura' });
+    c.emitir({
+      tipo: 'enviada',
+      operacion: operacion({ tipo: 'diario.escribir' }),
+      recibo: null,
+    });
+
+    expect(oyente).not.toHaveBeenCalled();
+
+    dejarDeEscuchar();
     t.apagar();
   });
 });

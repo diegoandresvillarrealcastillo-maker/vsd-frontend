@@ -74,12 +74,10 @@ export function Casilla({ etiqueta, nota, marcada, onChange, disabled }: Props) 
         onPointerCancel={() => setPulsada(false)}
       >
         <motion.span
-          className="casilla__caja"
+          className={`casilla__caja${sinMovimiento ? ' casilla__caja--sin-movimiento' : ''}`}
           aria-hidden="true"
-          animate={{
-            scale: escala,
-            borderColor: marcada ? 'var(--acento)' : 'var(--borde-fuerte)',
-          }}
+          data-marcada={marcada}
+          animate={{ scale: escala }}
           transition={resorte}
         >
           {/* El relleno crece desde el centro. Encenderlo de golpe se lee como
