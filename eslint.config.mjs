@@ -12,7 +12,17 @@ export default tseslint.config(
   {
     // `public/` se sirve tal cual, sin compilar y sin codigo propio: el service
     // worker vive en `src/sw.ts` desde SCRUM-135.
-    ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'public/**'],
+    ignores: [
+      'dist/**',
+      'coverage/**',
+      'node_modules/**',
+      'public/**',
+      // Carpetas locales excluidas de Git: no forman parte del producto ni de CI.
+      'qa/**',
+      'src/preview/**',
+      'preview-arbol.local.html',
+      'vite.preview.local.config.ts',
+    ],
   },
 
   js.configs.recommended,

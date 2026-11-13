@@ -330,6 +330,15 @@
   border: 1.5px solid var(--borde-fuerte);
   border-radius: 7px;
   overflow: hidden;
+  transition: border-color 180ms ease-out;
+}
+
+.casilla__caja[data-marcada='true'] {
+  border-color: var(--acento);
+}
+
+.casilla__caja--sin-movimiento {
+  transition: none;
 }
 
 /* Cuando el foco esta en el input invisible, el anillo se pinta en la caja.
