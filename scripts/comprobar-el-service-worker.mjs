@@ -270,12 +270,18 @@ async function comprobarElComportamiento(codigo, guardados, comprobar) {
 
   // ----- la orden de la pagina -----
 
-  await disparar('message', { data: { type: 'OTRA_COSA' } });
-  await disparar('message', { data: 'SKIP_WAITING' });
-  await disparar('message', { data: null });
+  await disparar('message', { origin: ORIGEN, data: { type: 'OTRA_COSA' } });
+  await disparar('message', { origin: ORIGEN, data: 'SKIP_WAITING' });
+  await disparar('message', { origin: ORIGEN, data: null });
   comprobar('un mensaje que no es la orden no activa nada', llamadas.skipWaiting === 0);
 
-  await disparar('message', { data: { type: 'SKIP_WAITING' } });
+  await disparar('message', {
+    origin: 'https://no-es-vsd.example',
+    data: { type: 'SKIP_WAITING' },
+  });
+  comprobar('un mensaje de otro origen no activa la version nueva', llamadas.skipWaiting === 0);
+
+  await disparar('message', { origin: ORIGEN, data: { type: 'SKIP_WAITING' } });
   comprobar('la orden de la pagina si activa la version nueva', llamadas.skipWaiting === 1);
 
   // ----- que responde y que no -----

@@ -33,6 +33,16 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+function prepararAzar(...muestras: number[]) {
+  return vi.spyOn(globalThis.crypto, 'getRandomValues').mockImplementation(((
+    arreglo: Uint32Array,
+  ) => {
+    arreglo[0] = muestras.shift() ?? 0;
+
+    return arreglo;
+  }) as typeof globalThis.crypto.getRandomValues);
+}
+
 describe('Parejas de cartas', () => {
   it('reparte doce cartas: cada simbolo, dos veces', () => {
     const cartas = repartir();
@@ -162,15 +172,15 @@ describe('Secuencia de casillas (SCRUM-209)', () => {
   });
 
   it('la primera casilla posible y la ultima salen, y nunca una que no existe', () => {
-    const azar = vi.spyOn(Math, 'random');
-
-    azar.mockReturnValueOnce(0).mockReturnValueOnce(0.9999999);
+    const azar = prepararAzar(0, 0xffff_ffff - (0x1_0000_0000 % 9));
 
     expect(generarSecuenciaDeCasillas(2, 9)).toEqual([0, 8]);
+
+    expect(azar).toHaveBeenCalledTimes(2);
   });
 
   it('una casilla se puede repetir: es una secuencia, no una baraja', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    prepararAzar(2, 2, 2);
 
     expect(generarSecuenciaDeCasillas(3, 4)).toEqual([2, 2, 2]);
   });

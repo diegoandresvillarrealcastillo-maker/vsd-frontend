@@ -23,12 +23,29 @@ export function segundosDesde(marca: number): number {
   return Math.round((Date.now() - marca) / 1000);
 }
 
+/** Usa Web Crypto para que el azar de los juegos no dependa de Math.random. */
+function enteroAleatorio(limiteExclusivo: number): number {
+  if (!Number.isInteger(limiteExclusivo) || limiteExclusivo < 1) {
+    throw new RangeError('El limite del azar debe ser un entero positivo.');
+  }
+
+  const rango = 0x1_0000_0000;
+  const limiteAceptado = rango - (rango % limiteExclusivo);
+  const muestra = new Uint32Array(1);
+
+  do {
+    globalThis.crypto.getRandomValues(muestra);
+  } while ((muestra[0] ?? rango) >= limiteAceptado);
+
+  return (muestra[0] ?? 0) % limiteExclusivo;
+}
+
 /** Fisher-Yates: cada orden igual de probable. */
 export function barajar<T>(lista: readonly T[]): T[] {
   const copia = [...lista];
 
   for (let i = copia.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = enteroAleatorio(i + 1);
     const actual = copia[i];
     const otra = copia[j];
 
@@ -136,7 +153,7 @@ export const SECUENCIA_DE_SIEMPRE = {
 } as const;
 
 export function generarSecuencia(largo: number): string {
-  return Array.from({ length: largo }, () => Math.floor(Math.random() * 10)).join('');
+  return Array.from({ length: largo }, () => enteroAleatorio(10)).join('');
 }
 
 /**
@@ -144,7 +161,7 @@ export function generarSecuencia(largo: number): string {
  * Una casilla se puede repetir: es una secuencia, no una baraja. Devuelve sus posiciones.
  */
 export function generarSecuenciaDeCasillas(largo: number, cuantas: number): number[] {
-  return Array.from({ length: largo }, () => Math.floor(Math.random() * cuantas));
+  return Array.from({ length: largo }, () => enteroAleatorio(cuantas));
 }
 
 /**
@@ -224,10 +241,10 @@ export function ladoDeLaRondaSegun(
 export function generarTablero(lado: number): Tablero {
   const total = lado * lado;
   const cantidad = SIMBOLOS_DE_DIFERENCIA.length;
-  const antes = Array.from({ length: total }, () => Math.floor(Math.random() * cantidad));
-  const cambio = Math.floor(Math.random() * total);
+  const antes = Array.from({ length: total }, () => enteroAleatorio(cantidad));
+  const cambio = enteroAleatorio(total);
   // Otro simbolo cualquiera, pero nunca el mismo: si no, no habria diferencia.
-  const salto = 1 + Math.floor(Math.random() * (cantidad - 1));
+  const salto = 1 + enteroAleatorio(cantidad - 1);
   const ahora = [...antes];
 
   ahora[cambio] = ((antes[cambio] ?? 0) + salto) % cantidad;
