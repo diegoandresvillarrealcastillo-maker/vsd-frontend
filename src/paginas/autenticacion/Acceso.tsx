@@ -23,6 +23,7 @@ export function Acceso() {
   const [estado, setEstado] = useState<EstadoDeEnvio>('listo');
   const [error, setError] = useState<string | null>(null);
   const captcha = useCaptcha();
+  const confirmacion = (ubicacion.state as { confirmacion?: string } | null)?.confirmacion;
 
   // Desmarcada por defecto (SCRUM-164, decision D9): buena parte de quien usa
   // VSD Health entra desde una sala de computo, y alli una sesion que se queda
@@ -88,6 +89,14 @@ export function Acceso() {
       }
     >
       <form className="acceso__formulario" onSubmit={(e) => void enviar(e)} noValidate>
+        {confirmacion !== undefined && (
+          <Aparece>
+            <p className="aviso aviso--bien" role="status">
+              {confirmacion}
+            </p>
+          </Aparece>
+        )}
+
         {error !== null && (
           <Aparece>
             {/* `alert` hace que un lector de pantalla lo lea en cuanto aparece,
