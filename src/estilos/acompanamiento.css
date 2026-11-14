@@ -1,0 +1,97 @@
+/* ============================================================
+   El aviso de acompanamiento (SCRUM-177)
+
+   Va debajo de la barra de arriba, dentro de `.app`: usa los tokens
+   `--app-*` y se ve bien en claro y en oscuro.
+
+   Es una invitacion, no una alarma: ningun rojo, ningun icono de
+   alerta. Lo que distingue al critico es que se queda a la vista y
+   lleva las lineas, no un color que asuste.
+   ============================================================ */
+
+.acompanamiento {
+  display: grid;
+  gap: 0.625rem;
+  max-width: 48rem;
+  margin: 1rem auto 0;
+  /* Se alinea con el contenido de la pagina, que deja un margen de 1.25 rem. */
+  width: calc(100% - 2.5rem);
+  padding: 1rem 1.125rem;
+  color: var(--app-tinta);
+  background: var(--app-superficie);
+  border: 1px solid var(--app-borde);
+  border-left: 4px solid var(--app-primario);
+  border-radius: 1rem;
+}
+
+.acompanamiento--critico {
+  border-color: var(--app-primario);
+}
+
+.acompanamiento__titulo {
+  margin: 0;
+  font-family: var(--app-fuente-titulos);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.25rem;
+  color: var(--app-tinta);
+}
+
+.acompanamiento__texto {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.acompanamiento__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.acompanamiento__lineas {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.acompanamiento__linea {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem 0.875rem;
+  background: var(--app-lienzo);
+  border-radius: 0.75rem;
+}
+
+.acompanamiento__linea-titulo,
+.acompanamiento__linea-descripcion {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.acompanamiento__linea-descripcion {
+  color: var(--app-tenue);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.acompanamiento__cobertura {
+  margin-left: 0.5rem;
+  color: var(--app-tenue);
+  font-size: 0.8125rem;
+}
+
+.acompanamiento__enlace {
+  justify-self: start;
+  color: var(--app-primario);
+  font-size: 0.875rem;
+  text-underline-offset: 0.2em;
+}
+
+.acompanamiento__enlace:focus-visible {
+  outline: 2px solid var(--app-primario);
+  outline-offset: 2px;
+}

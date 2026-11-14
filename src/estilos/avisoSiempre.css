@@ -1,0 +1,48 @@
+/* ============================================================
+   El aviso de siempre (SCRUM-227)
+   ============================================================
+   Una frase que queda a la vista durante toda la actividad, con el acceso a las lineas de
+   atencion al lado cuando la sesion lo pide. Lo usan la guia de pasos y las preguntas.
+   Ningun color es propio: el acento es el del modulo (`--viva-modulo`).
+   ============================================================ */
+
+/* El aviso que no se va: una linea tenue, con el acceso a las lineas de atencion al lado si lo hay. */
+.aviso-siempre {
+  display: grid;
+  gap: 8px;
+  padding: 10px 14px;
+  border-left: 4px solid var(--viva-modulo);
+  border-radius: 10px;
+  background: var(--fondo-sutil);
+}
+
+.aviso-siempre__texto {
+  margin: 0;
+  color: var(--texto);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+.aviso-siempre__lineas {
+  display: grid;
+  gap: 10px;
+}
+
+.aviso-siempre__boton {
+  justify-self: start;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 2px solid var(--borde);
+  border-radius: 999px;
+  background: var(--fondo-elevado);
+  color: var(--viva-texto);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.aviso-siempre__boton:focus-visible {
+  outline: 3px solid var(--viva-modulo);
+  outline-offset: 2px;
+}

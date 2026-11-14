@@ -63,7 +63,14 @@ jobs:
   commits:
     name: Convencion de commits
     runs-on: ubuntu-24.04
-    if: github.event_name == 'pull_request'
+    # Solo en los PR de cada ticket. Una promocion (desarrollo -> preproduccion
+    # -> produccion) trae commits que ya se revisaron al entrar a desarrollo y
+    # que no se pueden corregir sin reescribir una rama compartida. Saltado, el
+    # trabajo cuenta como aprobado para la proteccion de la rama.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.head_ref != 'desarrollo' &&
+      github.head_ref != 'preproduccion'
     steps:
       - name: Descargar el codigo con el historial completo
         uses: actions/checkout@v7
@@ -95,6 +102,9 @@ jobs:
     steps:
       - name: Descargar el codigo
         uses: actions/checkout@v7
+        with:
+          # SonarQube Cloud necesita el historial para atribuir lo nuevo (SCRUM-277).
+          fetch-depth: 0
 
       - name: Preparar Node
         uses: actions/setup-node@v7
@@ -121,5 +131,238 @@ jobs:
         # que merezca cubrirse. El umbral vive en vite.config.ts.
         run: npm run test:coverage
 
+      # SonarQube Cloud (SCRUM-277). Se salta mientras no exista la variable SONAR_PROJECT_KEY, para
+      # no poner el CI en rojo antes de crear el proyecto, y en PR de forks, a los que GitHub no
+      # entrega los secretos (esos PR se analizan desde una rama de confianza antes de aprobarse).
+      # Tampoco en los de Dependabot: sus secretos son otros y SONAR_TOKEN llegaria vacio.
+      # Se analizan los PR (SCRUM-277) y los push a desarrollo, que es la rama principal de Sonar
+      # (SCRUM-280). Los de preproduccion y produccion no: se compararian con una rama principal
+      # que no es la suya. En el push el Quality Gate no se espera: el panel se actualiza, pero
+      # "Calidad del codigo", que es obligatoria en desarrollo, no depende de el.
+      - name: Validar la configuracion de SonarQube Cloud
+        if: >-
+          vars.SONAR_PROJECT_KEY != '' &&
+          github.actor != 'dependabot[bot]' &&
+          ((github.event_name == 'pull_request' &&
+            github.event.pull_request.head.repo.full_name == github.repository) ||
+           (github.event_name == 'push' && github.ref == 'refs/heads/desarrollo'))
+        shell: bash
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+        run: |
+          set -euo pipefail
+          test -n "$SONAR_TOKEN"
+          test -n "$SONAR_ORGANIZATION"
+          test -s coverage/lcov.info
+
+      - name: Analizar con SonarQube Cloud y exigir el Quality Gate en los PR
+        if: >-
+          vars.SONAR_PROJECT_KEY != '' &&
+          github.actor != 'dependabot[bot]' &&
+          ((github.event_name == 'pull_request' &&
+            github.event.pull_request.head.repo.full_name == github.repository) ||
+           (github.event_name == 'push' && github.ref == 'refs/heads/desarrollo'))
+        uses: SonarSource/sonarqube-scan-action@59db25f34e16620e48ab4bb9e4a5dce155cb5432 # v8.0.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+        with:
+          args: >
+            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
+            -Dsonar.qualitygate.wait=${{ github.event_name == 'pull_request' }}
+
       - name: Compilar
         run: npm run build
+
+  imagen:
+    name: Imagen de Docker
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v7
+
+      - name: Construir la imagen
+        # No se pasa ninguna VITE_*: la pagina se sirve igual, y las credenciales
+        # de Supabase solo se piden cuando alguien se autentica.
+        run: docker build --tag vsd-web:ci .
+
+      - name: Imprimir el peso y revisar que no se haya disparado
+        run: |
+          set -euo pipefail
+          bytes="$(docker image inspect vsd-web:ci --format '{{.Size}}')"
+          mb=$((bytes / 1024 / 1024))
+          echo "La imagen pesa ${mb} MB."
+          # Alarma contra accidentes (que entren node_modules o mapas de fuente),
+          # no una meta. Se ajusta con el numero real que imprime esta linea.
+          limite=200
+          if [ "$mb" -gt "$limite" ]; then
+            echo "::error::La imagen pesa ${mb} MB y el limite de alarma es ${limite} MB."
+            exit 1
+          fi
+
+      - name: Arrancarla y esperar a que este sana
+        run: |
+          set -euo pipefail
+          docker run --detach --name web --publish 8080:8080 vsd-web:ci
+
+          # Esperar al HEALTHCHECK de la imagen comprueba tambien que ese
+          # comando funciona, que de otro modo nadie ejecuta.
+          for intento in $(seq 1 24); do
+            estado="$(docker inspect --format '{{.State.Health.Status}}' web)"
+            echo "intento ${intento}: ${estado}"
+            if [ "$estado" = "healthy" ]; then
+              break
+            fi
+            sleep 5
+          done
+
+          if [ "$estado" != "healthy" ]; then
+            docker logs web
+            echo "::error::La imagen no llego a estado healthy."
+            exit 1
+          fi
+
+      - name: Comprobar que sirve la aplicacion como lo hace Vercel
+        run: |
+          set -euo pipefail
+          base=http://localhost:8080
+
+          codigo() { curl --silent --output /dev/null --write-out '%{http_code}' "$@"; }
+          cabecera() { curl --silent --show-error --fail --head "$@"; }
+
+          # `grep -q` sale en cuanto encuentra la primera coincidencia. Si `curl`
+          # todavia esta escribiendo, recibe un error de escritura (codigo 23) o
+          # SIGPIPE, y con `pipefail` el paso falla de forma intermitente aunque
+          # la comprobacion se cumpla. Por eso, donde se usa `grep -q`, la salida
+          # de `curl` se guarda antes en una variable y `grep` la lee con `<<<`,
+          # sin tuberia de por medio: `echo "$x" | grep -q` falla igual cuando el
+          # texto pasa del bufer de la tuberia (64 KB). Los `grep` sin `-q` leen
+          # todo y no tienen este problema.
+
+          echo "La raiz es la aplicacion"
+          pagina="$(curl --silent --show-error --fail "$base/")"
+          grep -q 'id="raiz"' <<<"$pagina"
+
+          echo "Una ruta interna devuelve la aplicacion, no un 404 (recargar /panel)"
+          test "$(codigo "$base/panel")" = "200"
+          pagina="$(curl --silent --show-error --fail "$base/panel")"
+          grep -q 'id="raiz"' <<<"$pagina"
+
+          echo "Un archivo de la compilacion que no existe es un 404 de verdad"
+          test "$(codigo "$base/assets/no-existe.js")" = "404"
+
+          echo "Los archivos que existen se sirven tal cual, con su tipo (icono, SVG)"
+          test "$(codigo "$base/icono-192.png")" = "200"
+          cabecera "$base/icono-192.png" | grep -i '^content-type: image/png'
+          cabecera "$base/favicon.svg" | grep -i '^content-type: image/svg+xml'
+
+          echo "Un PDF se sirve como PDF: no cae en index.html (la guia de la mascota)"
+          cabecera "$base/guia-de-la-mascota-propia.pdf" | grep -i '^content-type: application/pdf'
+
+          echo "index.html y sw.js nunca se usan sin validar"
+          cabecera "$base/index.html" | grep -i '^cache-control:.*no-cache'
+          cabecera "$base/sw.js" | grep -i '^cache-control:.*no-cache'
+
+          echo "El manifiesto, con su tipo"
+          cabecera "$base/manifest.webmanifest" | grep -i '^content-type: application/manifest+json'
+
+          echo "Los archivos con hash se guardan un ano, y comprimidos"
+          js="$(curl --silent --show-error --fail "$base/" | grep -o '/assets/[^"]*\.js' | awk 'NR==1')"
+          test -n "$js"
+          echo "  usando $js"
+          cabecera "$base$js" | grep -i '^cache-control:.*immutable'
+          curl --silent --show-error --fail --head -H 'Accept-Encoding: gzip' "$base$js" | grep -i '^content-encoding: gzip'
+
+          # Las cabeceras de seguridad (S-05 de la auditoria 360) tienen que salir en
+          # TODO, no solo en la portada: un `location` de nginx que declara sus
+          # propias cabeceras borra las del nivel de arriba, y es justo lo que pasa
+          # sin que nadie lo note con `index.html`, `sw.js` o los archivos con hash.
+          # Tambien en los errores: de ahi el 404.
+          echo "Las cabeceras de seguridad salen en toda respuesta"
+          for ruta in "/" "/panel" "/index.html" "/sw.js" "/manifest.webmanifest" "$js" "/assets/no-existe.js"; do
+            encabezados="$(curl --silent --show-error --head "$base$ruta")"
+            for esperada in \
+              'x-content-type-options: nosniff' \
+              'x-frame-options: DENY' \
+              'referrer-policy: strict-origin-when-cross-origin' \
+              'permissions-policy: ' \
+              'content-security-policy-report-only: '; do
+              if ! echo "$encabezados" | grep -qi "^${esperada}"; then
+                echo "::error::${ruta} no trae '${esperada}'"
+                exit 1
+              fi
+            done
+          done
+
+          echo "La politica de contenido no deja encuadrar la aplicacion ni cargar letras de Google"
+          politica="$(cabecera "$base/" | grep -i '^content-security-policy-report-only:')"
+          echo "$politica" | grep -q "frame-ancestors 'none'"
+          echo "$politica" | grep -q "object-src 'none'"
+          if echo "$politica" | grep -qi 'fonts\.\(googleapis\|gstatic\)\.com'; then
+            echo "::error::La politica vuelve a nombrar Google Fonts."
+            exit 1
+          fi
+
+          echo "No dice que version de nginx es"
+          if cabecera "$base/" | grep -i '^server: .*[0-9]'; then
+            echo "::error::La cabecera Server revela la version."
+            exit 1
+          fi
+
+          # Lo que ven los buscadores (SEO-02 de la auditoria 360). Aqui la imagen se
+          # compila sin VITE_APP_ENV, es decir como desarrollo: todo cerrado.
+          echo "Cada pantalla de la aplicacion carga, con y sin barra final"
+          for ruta in /acceso /registro /recuperar /contrasena-nueva /privacidad /terminos /cookies \
+            /panel /perfil /diario /modulo/emociones /actividad/abc-123 /panel/; do
+            test "$(codigo "$base$ruta")" = "200" || { echo "::error::${ruta} no devolvio 200"; exit 1; }
+            pagina="$(curl --silent --show-error --fail "$base$ruta")"
+            grep -q 'id="raiz"' <<<"$pagina"
+          done
+
+          echo "Una direccion inventada es un 404 de verdad, con su pagina y sin indexar"
+          for ruta in /no-existe /aceso /panel/otro /modulo /wp-login.php /.env; do
+            test "$(codigo "$base$ruta")" = "404" || { echo "::error::${ruta} no devolvio 404"; exit 1; }
+          done
+          pagina="$(curl --silent "$base/no-existe")"
+          echo "$pagina" | grep -q 'No encontramos esta página'
+          echo "$pagina" | grep -q 'name="robots" content="noindex'
+          if echo "$pagina" | grep -q 'id="raiz"'; then
+            echo "::error::El 404 devuelve la aplicacion en lugar de su propia pagina."
+            exit 1
+          fi
+
+          echo "Fuera de produccion todo esta cerrado a los buscadores: etiqueta, cabecera y robots.txt"
+          pagina="$(curl --silent --show-error --fail "$base/")"
+          grep -q 'name="robots" content="noindex' <<<"$pagina"
+          encabezados="$(cabecera "$base/")"
+          grep -qi '^x-robots-tag: noindex' <<<"$encabezados"
+          encabezados="$(curl --silent --head "$base/no-existe")"
+          grep -qi '^x-robots-tag: noindex' <<<"$encabezados"
+          test "$(curl --silent --show-error --fail "$base/robots.txt")" = "$(printf 'User-agent: *\nDisallow: /')"
+          cabecera "$base/robots.txt" | grep -i '^content-type: text/plain'
+          test "$(codigo "$base/sitemap.xml")" = "404"
+          test "$(codigo "$base/llms.txt")" = "200"
+
+      - name: Revisar la imagen por dentro
+        run: |
+          set -euo pipefail
+          usuario="$(docker exec web id -u)"
+          echo "Corre con el usuario ${usuario}"
+          test "$usuario" != "0"
+
+          # Ni configuracion ni codigo fuente ni herramientas de desarrollo.
+          docker exec web sh -c 'test ! -e /usr/share/nginx/html/.env'
+          docker exec web sh -c 'test ! -d /usr/share/nginx/html/src'
+          docker exec web sh -c 'test ! -d /usr/share/nginx/html/node_modules'
+
+          # La raiz publicada es de solo lectura para quien corre el proceso.
+          if docker exec web sh -c 'touch /usr/share/nginx/html/escribir-aqui 2>/dev/null'; then
+            echo "::error::El proceso pudo escribir en la carpeta publicada."
+            exit 1
+          fi
+
+      - name: Registros del contenedor si algo fallo
+        if: failure()
+        run: docker logs web || true

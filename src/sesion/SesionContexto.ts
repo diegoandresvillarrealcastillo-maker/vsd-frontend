@@ -25,18 +25,37 @@ export interface EstadoDeSesion {
   // forma corta, extraerlas con desestructuracion —que es como se usan— hace
   // saltar la regla que avisa de metodos separados de su objeto.
   readonly registrarse: (
-    datos: DatosDeAcceso & { aceptaElAviso: boolean },
+    datos: DatosDeAcceso & { aceptaElAviso: boolean; aceptaLosTerminos: boolean },
   ) => Promise<ResultadoDeAcceso>;
   readonly entrar: (datos: DatosDeEntrada) => Promise<ResultadoDeAcceso>;
   readonly entrarConGoogle: (recordar: boolean) => Promise<ResultadoDeAcceso>;
-  readonly pedirRecuperacion: (correo: string) => Promise<ResultadoDeAcceso>;
+  readonly pedirRecuperacion: (correo: string, captchaToken?: string) => Promise<ResultadoDeAcceso>;
   readonly cambiarContrasena: (nueva: string) => Promise<ResultadoDeAcceso>;
+  /**
+   * Pide a Supabase que mande un codigo de verificacion al correo de la
+   * cuenta. Es el primer paso para cambiar la contrasena desde el perfil.
+   */
+  readonly pedirCodigoDeVerificacion: () => Promise<ResultadoDeAcceso>;
+  /**
+   * Cambia la contrasena con el codigo que llego al correo. Sin un codigo
+   * valido, Supabase la rechaza. La contrasena va directo a Supabase: nunca
+   * pasa por nuestra API.
+   */
+  readonly cambiarContrasenaConCodigo: (
+    nueva: string,
+    codigo: string,
+  ) => Promise<ResultadoDeAcceso>;
   readonly salir: () => Promise<void>;
 }
 
 export interface DatosDeAcceso {
   readonly correo: string;
   readonly contrasena: string;
+  /**
+   * El token del CAPTCHA de Cloudflare Turnstile (SCRUM-165). Sin CAPTCHA en esta
+   * compilacion no hay token y no se manda. Supabase lo acepta una sola vez.
+   */
+  readonly captchaToken?: string;
 }
 
 /**
@@ -61,7 +80,10 @@ export interface DatosDeEntrada extends DatosDeAcceso {
  */
 export interface ResultadoDeAcceso {
   readonly ok: boolean;
-  /** Mensaje ya listo para mostrar. Vacio cuando `ok`. */
+  /**
+   * Mensaje ya listo para mostrar. Vacio cuando `ok`, salvo al cambiar la
+   * contrasena: ahi dice que paso con la sesion de los demas dispositivos.
+   */
   readonly mensaje?: string;
 }
 

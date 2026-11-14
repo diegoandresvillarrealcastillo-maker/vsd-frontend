@@ -38,13 +38,67 @@ export class ErrorDeLaApi extends Error {
    */
   readonly identificador: string | undefined;
 
-  constructor(estado: number, mensaje: string, identificador?: string, codigo?: string) {
+  /**
+   * Cuanto pide el servidor que se espere antes de volver a intentarlo, en
+   * segundos (la cabecera `Retry-After`, SCRUM-136). Lo manda un 429 ("demasiadas
+   * peticiones") o un 503; el envio de lo guardado sin conexion lo respeta en
+   * lugar de martillear. Indefinido si no lo pidio o vino en una forma que no se
+   * entiende.
+   */
+  readonly reintentarEnSegundos: number | undefined;
+
+  constructor(
+    estado: number,
+    mensaje: string,
+    identificador?: string,
+    codigo?: string,
+    reintentarEnSegundos?: number,
+  ) {
     super(mensaje);
     this.name = 'ErrorDeLaApi';
     this.estado = estado;
     this.identificador = identificador;
     this.codigo = codigo;
+    this.reintentarEnSegundos = reintentarEnSegundos;
   }
+}
+
+/**
+ * Lo que dice la cabecera `Retry-After`, en segundos.
+ *
+ * Puede venir de dos formas: un numero de segundos (`120`) o una fecha HTTP
+ * (`Wed, 21 Oct 2026 07:28:00 GMT`). Lo que no sea ninguna de las dos, o sea
+ * negativo, se ignora: una cabecera mal formada no puede romper la lectura de un
+ * error que ya esta en curso.
+ */
+export function segundosDeEspera(
+  valor: string | null,
+  ahora: Date = new Date(),
+): number | undefined {
+  if (valor === null) {
+    return undefined;
+  }
+
+  const texto = valor.trim();
+
+  if (/^\d+$/.test(texto)) {
+    return Number(texto);
+  }
+
+  // Solo el formato de fecha de HTTP. `Date.parse` es demasiado generoso: da por
+  // buenas cosas como "-5" o "1.5", que son fechas para el, y un `Retry-After`
+  // mal formado se convertiria en una espera inventada.
+  if (!/^[A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} GMT$/.test(texto)) {
+    return undefined;
+  }
+
+  const fecha = Date.parse(texto);
+
+  if (Number.isNaN(fecha)) {
+    return undefined;
+  }
+
+  return Math.max(0, Math.ceil((fecha - ahora.getTime()) / 1000));
 }
 
 /** Lo que se pudo entender del cuerpo de una respuesta fallida. */
@@ -91,7 +145,27 @@ async function explicacionDe(respuesta: Response): Promise<ExplicacionDelFallo> 
   };
 }
 
-async function tokenActual(): Promise<string | null> {
+export interface ContextoDePeticion {
+  readonly persona: string;
+  readonly vigente: () => boolean;
+}
+
+function exigirContexto(contexto?: ContextoDePeticion): void {
+  if (contexto && !contexto.vigente()) {
+    throw new DOMException('La sesion cambio', 'AbortError');
+  }
+}
+
+async function tokenActual(contexto?: ContextoDePeticion): Promise<string | null> {
+  if (contexto) {
+    exigirContexto(contexto);
+    const { data } = await supabase().auth.getSession();
+    exigirContexto(contexto);
+    if (data.session?.user.id !== contexto.persona) {
+      throw new DOMException('La identidad no coincide con la operacion', 'AbortError');
+    }
+    return data.session.access_token;
+  }
   try {
     // getSession renueva el token si le queda poco, asi que esta es tambien la
     // forma de no mandar uno caducado a media sesion larga.
@@ -102,39 +176,97 @@ async function tokenActual(): Promise<string | null> {
   }
 }
 
-interface Opciones {
-  readonly metodo?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
-  readonly cuerpo?: unknown;
-  readonly senal?: AbortSignal;
+/**
+ * Cierra la sesion de este dispositivo porque la API dijo 401, pero solo si ese 401 es de la sesion
+ * que hay ahora (SCRUM-272).
+ *
+ * La peticion recuerda con que token salio. Entre que sale y que vuelve la respuesta puede pasar de
+ * todo: la persona sale y entra otra, o otra pestana renueva el token. Si la sesion de ahora ya no
+ * es esa, el 401 es de una sesion que ya no existe y no puede cerrar la de quien llego despues. Una
+ * peticion que salio sin sesion tampoco cierra nada.
+ *
+ * Y se cierra con `scope: 'local'`: solo este dispositivo. El alcance global revoca los tokens de la
+ * persona en todos los demas, y un 401 de aqui no es motivo para eso.
+ *
+ * Nunca lanza: ya hay un error de la API en curso, y es el que tiene que salir.
+ */
+async function cerrarSiSigueSiendoEsaSesion(tokenUsado: string | null): Promise<void> {
+  if (tokenUsado === null) {
+    return;
+  }
+
+  try {
+    if ((await tokenActual()) === tokenUsado) {
+      await supabase().auth.signOut({ scope: 'local' });
+    }
+  } catch {
+    // Cerrar no puede tapar el 401.
+  }
 }
 
-export async function llamarALaApi<T>(ruta: string, opciones: Opciones = {}): Promise<T> {
-  const token = await tokenActual();
+interface Opciones {
+  readonly contexto?: ContextoDePeticion | undefined;
+  readonly metodo?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  /** Lo que se manda, como JSON. */
+  readonly cuerpo?: unknown;
+  /**
+   * O bien los bytes de un archivo, tal cual y con su propio tipo (SCRUM-120).
+   * No se combina con `cuerpo`: son dos formas distintas de llevar lo mismo.
+   */
+  readonly bytes?: Blob;
+  readonly senal?: AbortSignal;
+  /**
+   * El `ETag` de la copia que ya se tiene (SCRUM-138). Se manda como
+   * `If-None-Match`, y un `304` ("sigue siendo la misma") deja de ser un fallo.
+   */
+  readonly etag?: string;
+}
 
-  const cabeceras = new Headers({ Accept: 'application/json' });
+/**
+ * Hace la llamada y deja pasar solo las que salieron bien.
+ *
+ * Es lo comun a pedir JSON y a pedir bytes: la cabecera con la sesion, que una
+ * sesion caducada se limpie, y que un fallo se convierta en un `ErrorDeLaApi`
+ * con su codigo y su identificador. Lo que cambia es como se lee el cuerpo de
+ * una respuesta buena, y eso lo decide quien llama.
+ */
+async function pedir(ruta: string, opciones: Opciones, acepta: string): Promise<Response> {
+  const token = await tokenActual(opciones.contexto);
+  exigirContexto(opciones.contexto);
+
+  const cabeceras = new Headers({ Accept: acepta });
 
   if (opciones.cuerpo !== undefined) {
     cabeceras.set('Content-Type', 'application/json');
+  } else if (opciones.bytes !== undefined) {
+    cabeceras.set('Content-Type', opciones.bytes.type);
   }
 
   if (token) {
     cabeceras.set('Authorization', `Bearer ${token}`);
   }
 
+  if (opciones.etag !== undefined) {
+    cabeceras.set('If-None-Match', opciones.etag);
+  }
+
   const respuesta = await fetch(`${entorno.urlDeLaApi}${ruta}`, {
     method: opciones.metodo ?? 'GET',
     headers: cabeceras,
-    body: opciones.cuerpo === undefined ? null : JSON.stringify(opciones.cuerpo),
+    body:
+      opciones.cuerpo !== undefined ? JSON.stringify(opciones.cuerpo) : (opciones.bytes ?? null),
     ...(opciones.senal ? { signal: opciones.senal } : {}),
   });
 
+  exigirContexto(opciones.contexto);
   const identificador = respuesta.headers.get('x-request-id') ?? undefined;
 
   if (respuesta.status === 401) {
     // El token no vale: caducado, revocado, o la sesion se cerro en otra
     // pestana. Se limpia aqui para que la aplicacion no siga pareciendo que
-    // hay alguien dentro mientras ninguna peticion funciona.
-    await supabase().auth.signOut();
+    // hay alguien dentro mientras ninguna peticion funciona, pero solo si la
+    // sesion sigue siendo la que hizo la peticion (SCRUM-272).
+    await cerrarSiSigueSiendoEsaSesion(token);
 
     // El mensaje lo pone el cliente y no la API, a proposito. La API distingue
     // por dentro entre "no llego token" y "el token no vale", pero responde lo
@@ -144,22 +276,142 @@ export async function llamarALaApi<T>(ruta: string, opciones: Opciones = {}): Pr
     // El codigo si se conserva, porque sirve para diagnosticar y no se ensena.
     const { codigo } = await explicacionDe(respuesta);
 
-    throw new ErrorDeLaApi(401, 'Tu sesión caducó. Vuelve a entrar.', identificador, codigo);
+    // Una cuenta dada de baja desde otro dispositivo (SCRUM-190): su sesion seguia siendo
+    // autentica, pero ya no hay cuenta. «Vuelve a entrar» no tendria a donde llevarla.
+    const mensaje =
+      codigo === 'CUENTA_INACTIVA'
+        ? 'Esta cuenta ya no existe. Si quieres volver a usar VSD Health, crea una cuenta nueva.'
+        : 'Tu sesión caducó. Vuelve a entrar.';
+
+    throw new ErrorDeLaApi(401, mensaje, identificador, codigo);
+  }
+
+  // "Sigue siendo la misma": lo que se pidio con `etag` y no cambio. No es un fallo.
+  if (respuesta.status === 304 && opciones.etag !== undefined) {
+    return respuesta;
   }
 
   if (!respuesta.ok) {
     const { codigo, mensaje } = await explicacionDe(respuesta);
 
+    // No es un fallo de sesion (la persona sigue siendo ella, y no se cierra nada): falta aceptar
+    // un texto. El error sigue saliendo, y ademas se avisa a quien lleve a la persona a aceptarlo.
+    if (respuesta.status === 403 && codigo === 'TEXTOS_PENDIENTES_DE_ACEPTAR') {
+      avisarQueHayTextosPendientes();
+    }
+
     // Se prefiere el mensaje de la API cuando lo hay: esta escrito para que lo
     // lea una persona y sabe de que error habla. Quien pinte una pantalla puede
     // ignorarlo y redactar el suyo mirando `codigo`, que suele quedar mejor
     // porque conoce el contexto.
-    throw new ErrorDeLaApi(respuesta.status, mensaje ?? FALLO_SIN_EXPLICAR, identificador, codigo);
+    throw new ErrorDeLaApi(
+      respuesta.status,
+      mensaje ?? FALLO_SIN_EXPLICAR,
+      identificador,
+      codigo,
+      segundosDeEspera(respuesta.headers.get('retry-after')),
+    );
   }
+
+  return respuesta;
+}
+
+/**
+ * Quien quiere enterarse de que faltan por aceptar el aviso de privacidad o los terminos
+ * (SCRUM-237).
+ *
+ * La API responde 403 `TEXTOS_PENDIENTES_DE_ACEPTAR` a todo lo que no sea ver, exportar o borrar la
+ * cuenta. Puede pasar en cualquier pantalla, sin recargar: se publica una version nueva con la
+ * sesion abierta. En vez de que cada pantalla lo entienda, el cliente avisa aqui y la ruta
+ * protegida lleva a la persona a aceptar.
+ */
+const oyentesDeTextosPendientes = new Set<() => void>();
+
+/** Pide que se avise cuando la API diga que faltan textos por aceptar. Devuelve como dejar de escuchar. */
+export function suscribirseALosTextosPendientes(oyente: () => void): () => void {
+  oyentesDeTextosPendientes.add(oyente);
+
+  return () => {
+    oyentesDeTextosPendientes.delete(oyente);
+  };
+}
+
+/** Lo llama el cliente al ver el 403. Aparte para que se pueda comprobar sin montar una pantalla. */
+export function avisarQueHayTextosPendientes(): void {
+  for (const oyente of [...oyentesDeTextosPendientes]) {
+    oyente();
+  }
+}
+
+export async function llamarALaApi<T>(ruta: string, opciones: Opciones = {}): Promise<T> {
+  const respuesta = await pedir(ruta, opciones, 'application/json');
 
   if (respuesta.status === 204) {
     return undefined as T;
   }
 
-  return (await respuesta.json()) as T;
+  const datos = (await respuesta.json()) as T;
+  exigirContexto(opciones.contexto);
+  return datos;
+}
+
+/** Lo que responde una lectura condicional: o hay algo nuevo, o sigue valiendo lo que se tenia. */
+export type RespuestaCondicional<T> =
+  | { readonly estado: 'nuevo'; readonly valor: T; readonly etag: string | null }
+  | { readonly estado: 'sin_cambios' };
+
+/**
+ * Lee algo y, si ya se tiene una copia, le pregunta al servidor si sigue valiendo
+ * (SCRUM-138).
+ *
+ * Con `etag`, el servidor responde `304` si no cambio y no manda el cuerpo: ahorra
+ * bajar lo mismo cada vez. Sin `etag`, es una lectura corriente. El `ETag` de la
+ * respuesta nueva se devuelve para guardarlo junto a la copia; llega hasta aqui
+ * porque la API lo expone por CORS.
+ *
+ * **Es una lectura de lo publico.** Lo de una persona lleva `no-store` y no se
+ * guarda asi: ver `leerConCopia`, que solo se usa con lo que es igual para todos.
+ */
+export async function leerSiCambio<T>(
+  ruta: string,
+  opciones: { readonly etag?: string | null; readonly senal?: AbortSignal } = {},
+): Promise<RespuestaCondicional<T>> {
+  const respuesta = await pedir(
+    ruta,
+    {
+      ...(opciones.etag === undefined || opciones.etag === null ? {} : { etag: opciones.etag }),
+      ...(opciones.senal ? { senal: opciones.senal } : {}),
+    },
+    'application/json',
+  );
+
+  if (respuesta.status === 304) {
+    return { estado: 'sin_cambios' };
+  }
+
+  return {
+    estado: 'nuevo',
+    valor: (await respuesta.json()) as T,
+    etag: respuesta.headers.get('etag'),
+  };
+}
+
+/**
+ * Pide un archivo a la API y lo entrega como `Blob`, con el tipo que trae
+ * (SCRUM-120). Es para lo que no es JSON: la foto de perfil.
+ *
+ * Va por aqui y no por una direccion que el navegador abra solo (un `<img
+ * src>`) porque cada peticion tiene que llevar la sesion, y una imagen no puede
+ * ponerse una cabecera.
+ */
+export async function pedirBytesALaApi(
+  ruta: string,
+  opciones: Opciones & {
+    /** Lo que se acepta de vuelta. Por defecto, una foto: `image/jpeg, image/png`. */
+    readonly acepta?: string;
+  } = {},
+): Promise<Blob> {
+  const respuesta = await pedir(ruta, opciones, opciones.acepta ?? 'image/jpeg, image/png');
+
+  return respuesta.blob();
 }

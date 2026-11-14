@@ -1,57 +1,144 @@
 import type { Session } from '@supabase/supabase-js';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { olvidarElDatoGuardado } from '../../datosCuriosos/memoriaDelDia.ts';
 import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
-import { VERSION_DEL_AVISO } from '../../sesion/consentimiento.ts';
+import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
+import type { ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
+import { abrirUnAlmacenDePrueba, cerrarElAlmacenDePrueba } from '../../pruebas/almacenDePrueba.ts';
+import { cuantosH1, fallosDeAccesibilidad } from '../../pruebas/axe.ts';
+import { rachaDePrueba } from '../../pruebas/rachaDePrueba.ts';
+import { fraseDeLaRacha } from '../../racha/frasesDeLaRacha.ts';
+import { olvidarLaRacha } from '../../racha/memoriaDeLaRacha.ts';
+import { olvidarElAvisoDeLaTarde } from '../../racha/useAvisoDeLaTarde.ts';
+import { fijarLaZonaDeLaCuenta } from '../../tiempo/zonaHoraria.ts';
 import { SesionContexto, type EstadoDeSesion } from '../../sesion/SesionContexto.ts';
+import { olvidarQueYaSePregunto } from '../../notificaciones/memoriaDelPermiso.ts';
+import { encolar } from '../../sincronizacion/ciclo.ts';
+import {
+  marcarElTutorialComoVisto,
+  tutorialVisto,
+  volverAVerElTutorial,
+} from '../../tutorial/memoriaDelTutorial.ts';
+import { Icono, type NombreDeIcono } from './Icono.tsx';
 import { Panel } from './Panel.tsx';
+import { olvidarLaRutaAbierta, rutaAbierta } from './ruta/memoriaDeLaRuta.ts';
 
 /**
- * El panel, con la API simulada y el resto de verdad.
+ * El dashboard, con la API simulada y el resto de verdad.
  *
- * Se simulan los dos modulos de API y **no** el gancho que los usa: asi la
- * prueba recorre lo que de verdad puede fallar —el orden de las llamadas, los
- * tres estados, el reintento— en lugar de comprobar que un doble devuelve lo
- * que se le dijo que devolviera.
+ * Se simulan los modulos de API y **no** el gancho que los usa: asi la prueba
+ * recorre lo que de verdad puede fallar —el orden de las llamadas, los tres
+ * estados, el reintento— en lugar de comprobar que un doble devuelve lo que se
+ * le dijo que devolviera.
  */
-const { darDeAltaLaCuenta, traerElCatalogo } = vi.hoisted(() => ({
-  darDeAltaLaCuenta: vi.fn(),
-  traerElCatalogo: vi.fn(),
+const { consultarLaVersionDelAviso, darDeAltaLaCuenta, cambiarPreferencias, consultarElProgreso } =
+  vi.hoisted(() => ({
+    consultarLaVersionDelAviso: vi.fn(),
+    darDeAltaLaCuenta: vi.fn(),
+    cambiarPreferencias: vi.fn(),
+    consultarElProgreso: vi.fn(),
+  }));
+
+const { consultarSesionesPublicadas, consultarSesionesHechas } = vi.hoisted(() => ({
+  consultarSesionesPublicadas: vi.fn(),
+  consultarSesionesHechas: vi.fn(),
 }));
 
-vi.mock('../../infraestructura/api/cuenta.ts', () => ({ darDeAltaLaCuenta }));
-vi.mock('../../infraestructura/api/catalogo.ts', () => ({ traerElCatalogo }));
+// El semaforo flota en esta pantalla (SCRUM-98); aqui no se prueba.
+vi.mock('../../infraestructura/api/pendientes.ts', () => ({
+  consultarElSemaforo: () => Promise.resolve({ pendientes: [], recordatorio: null }),
+}));
+vi.mock('../../infraestructura/api/aviso.ts', () => ({ consultarLaVersionDelAviso }));
+vi.mock('../../infraestructura/api/cuenta.ts', () => ({ darDeAltaLaCuenta, cambiarPreferencias }));
+vi.mock('../../infraestructura/api/progreso.ts', () => ({ consultarElProgreso }));
+vi.mock('../../infraestructura/api/sesionesPublicadas.ts', () => ({
+  consultarSesionesPublicadas,
+  consultarSesionesHechas,
+}));
+vi.mock('../../sincronizacion/sesionesPublicadasLocal.ts', () => ({
+  traerSesionesPublicadasConCopia: async (...argumentos: unknown[]) => {
+    const respuesta: unknown = await consultarSesionesPublicadas(...argumentos);
+    return {
+      valor: Array.isArray(respuesta) ? Array.from(respuesta as readonly unknown[]) : [],
+      deLaCopia: false,
+      guardadoEn: null,
+    };
+  },
+  consultarSesionesHechasConCopia: async (modulo: string) => {
+    const respuesta: unknown = await consultarSesionesHechas(modulo);
+    return Array.isArray(respuesta) ? Array.from(respuesta as readonly string[]) : [];
+  },
+}));
 
-const CUENTA = {
+// La llama de la barra pide la racha (SCRUM-186) y la mascota de la tarde (SCRUM-243) habla con lo que
+// llega: aqui se controla lo que dice el servidor.
+const { consultarLaRacha } = vi.hoisted(() => ({ consultarLaRacha: vi.fn() }));
+
+vi.mock('../../infraestructura/api/racha.ts', () => ({ consultarLaRacha }));
+
+// El dato curioso del dia (SCRUM-185) lo pide el mini-panel del dashboard.
+const { consultarElDatoDeHoy } = vi.hoisted(() => ({ consultarElDatoDeHoy: vi.fn() }));
+
+vi.mock('../../infraestructura/api/datosCuriosos.ts', () => ({ consultarElDatoDeHoy }));
+
+// La oferta de avisos (SCRUM-188) mira el navegador y al servidor: aqui se simulan los dos. Por
+// defecto el navegador no recibe avisos, que es lo que pasa en jsdom.
+const { capacidadDelNavegador, permisoDeAvisos, consultarLasNotificaciones } = vi.hoisted(() => ({
+  capacidadDelNavegador: vi.fn(),
+  permisoDeAvisos: vi.fn(),
+  consultarLasNotificaciones: vi.fn(),
+}));
+
+vi.mock('../../notificaciones/navegador.ts', async (importar) => ({
+  ...(await importar<typeof import('../../notificaciones/navegador.ts')>()),
+  capacidadDelNavegador,
+  permisoDeAvisos,
+}));
+vi.mock('../../infraestructura/api/notificaciones.ts', () => ({
+  consultarLasNotificaciones,
+  suscribirEsteNavegador: vi.fn(),
+}));
+
+const CUENTA: Cuenta = {
   id: '11111111-1111-4111-8111-111111111111',
   correo: 'alguien@ucundinamarca.edu.co',
   rol: 'usuario',
+  nombre: 'Marina',
   consentimiento: { versionPolitica: '2026-09-1', aceptadoEn: '2026-09-26T15:00:00.000Z' },
   registradoEn: '2026-09-26T15:00:00.000Z',
+  modulosActivos: ['cognicion', 'bienestar'],
+  mascota: null,
+  diarioConRecomendaciones: false,
+  acompanamientoPorDias: false,
+  zonaHoraria: 'America/Bogota',
 };
 
-const CATALOGO = [
+const PROGRESO: ProgresoDelModulo[] = [
   {
-    id: '0cat0000-0000-4000-8000-000000000001',
-    nombre: 'Cognición',
-    descripcion: 'Ejercicios breves de memoria y atención.',
-    actividades: [
-      {
-        id: '0acd0000-0000-4000-8000-000000000001',
-        nombre: 'Parejas de cartas',
-        tipo: 'juego',
-        descripcion: 'Encuentra las parejas iguales.',
-        produceNivel: true,
-      },
+    modulo: 'cognicion',
+    sesiones: 7,
+    etapa: { numero: 2, esTemporada: false, sesionesHechas: 2, sesionesDeLaEtapa: 10 },
+    hoy: [
+      { id: '0acd0000-0000-4000-8000-000000000001', nombre: 'Parejas', tipo: 'juego', hecha: true },
+    ],
+  },
+  {
+    modulo: 'bienestar',
+    sesiones: 3,
+    etapa: { numero: 1, esTemporada: false, sesionesHechas: 3, sesionesDeLaEtapa: 5 },
+    hoy: [
       {
         id: '0acd0000-0000-4000-8000-000000000002',
-        nombre: 'Secuencia de números',
-        tipo: 'juego',
-        produceNivel: true,
+        nombre: 'Cómo dormiste anoche',
+        tipo: 'bitacora',
+        descripcion: 'Anota cuánto y cómo dormiste.',
+        hecha: false,
       },
+      { id: '0acd0000-0000-4000-8000-000000000003', nombre: 'Movimiento del día', hecha: false },
     ],
   },
 ];
@@ -60,152 +147,1222 @@ function estado(parcial: Partial<EstadoDeSesion>): EstadoDeSesion {
   const vacio = vi.fn();
 
   return {
-    sesion: { user: { email: 'alguien@ucundinamarca.edu.co' } } as Session,
+    sesion: { user: { email: CUENTA.correo } } as Session,
     cargando: false,
-    correo: 'alguien@ucundinamarca.edu.co',
+    correo: CUENTA.correo,
     registrarse: vacio,
     entrar: vacio,
     entrarConGoogle: vacio,
     pedirRecuperacion: vacio,
     cambiarContrasena: vacio,
+    pedirCodigoDeVerificacion: vacio,
+    cambiarContrasenaConCodigo: vacio,
     salir: vacio,
     ...parcial,
   };
 }
 
-function pintar() {
+function pintar(sesion: Partial<EstadoDeSesion> = {}, ruta = '/') {
   return render(
-    <SesionContexto.Provider value={estado({})}>
-      <MemoryRouter>
+    <SesionContexto.Provider value={estado(sesion)}>
+      <MemoryRouter initialEntries={[ruta]}>
         <Panel />
       </MemoryRouter>
     </SesionContexto.Provider>,
   );
 }
 
+/** La tarjeta de un modulo en «Elige donde enfocarte»: un enlace a su sendero (SCRUM-92). */
+function tarjeta(nombre: RegExp) {
+  return screen.getByRole('link', { name: nombre });
+}
+
+/** La pestaña desplegable de un modulo activo, dentro de «Tu ruta de hoy» (SCRUM-293). */
+function acordeon(nombre: RegExp) {
+  return screen.getByRole('button', { name: nombre, expanded: false });
+}
+
+function acordeonAbierto(nombre: RegExp) {
+  return screen.getByRole('button', { name: nombre, expanded: true });
+}
+
 beforeEach(() => {
+  consultarSesionesHechas.mockResolvedValue([]);
+  olvidarLaRutaAbierta(CUENTA.id);
+  consultarLaRacha.mockResolvedValue(rachaDePrueba());
+  consultarElDatoDeHoy.mockResolvedValue({
+    dia: '2026-10-13',
+    dato: {
+      id: 'd0000000-0000-4000-8000-000000000001',
+      texto: 'Los pulpos tienen tres corazones.',
+      tema: 'animales',
+    },
+  });
+  // El tutorial de Fungito (SCRUM-187) abre un dialogo modal la primera vez: aqui ya se vio, y
+  // lo que se prueba de el tiene su propio bloque.
+  marcarElTutorialComoVisto(CUENTA.id);
+  olvidarQueYaSePregunto(CUENTA.id);
+  capacidadDelNavegador.mockReturnValue('sin-soporte');
+  permisoDeAvisos.mockReturnValue('default');
+  consultarLasNotificaciones.mockResolvedValue({ disponible: true, clavePublica: 'clave' });
+  consultarLaVersionDelAviso.mockResolvedValue('version-de-la-api');
   darDeAltaLaCuenta.mockResolvedValue(CUENTA);
-  traerElCatalogo.mockResolvedValue(CATALOGO);
+  consultarElProgreso.mockResolvedValue(PROGRESO);
+  consultarSesionesPublicadas.mockImplementation((modulo: string) =>
+    Promise.resolve(
+      modulo === 'bienestar'
+        ? [
+            {
+              id: 'sesion-sueno',
+              idActividad: '0acd0000-0000-4000-8000-000000000002',
+              titulo: 'Cómo dormiste anoche',
+              actividad: 'Sueño',
+              nivel: 1,
+            },
+            {
+              id: 'sesion-movimiento',
+              idActividad: '0acd0000-0000-4000-8000-000000000003',
+              titulo: 'Movimiento del día',
+              actividad: 'Movimiento',
+              nivel: 1,
+            },
+          ]
+        : [
+            {
+              id: 'sesion-parejas',
+              idActividad: '0acd0000-0000-4000-8000-000000000001',
+              titulo: 'Parejas',
+              actividad: 'Parejas',
+              nivel: 1,
+            },
+          ],
+    ),
+  );
 });
 
 afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('Panel', () => {
-  it('da de alta la cuenta al entrar, con la version del aviso vigente', async () => {
+describe('Dashboard, accesibilidad (C-03)', () => {
+  it('no tiene fallos de accesibilidad y tiene un solo h1', async () => {
+    pintar();
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+    expect(cuantosH1()).toBe(1);
+  });
+});
+
+describe('Dashboard, sesiones publicadas dentro de «Tu ruta de hoy» (SCRUM-322)', () => {
+  const RUTA = /Actividades de/;
+
+  it('las pestañas viven en «Tu ruta de hoy» y las tarjetas siguen en «Elige donde enfocarte»', async () => {
     pintar();
 
-    await screen.findByText('Tu cuenta');
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
 
-    // La version no se escribe aqui a mano: se compara contra la constante que
-    // tambien usa el registro. Si las dos se separaran, quedarian guardados dos
-    // consentimientos distintos para la misma persona.
-    expect(darDeAltaLaCuenta).toHaveBeenCalledWith(VERSION_DEL_AVISO, expect.anything());
+    const ruta = screen.getByRole('heading', { name: 'Tu ruta de hoy' }).closest('section')!;
+    const modulos = document.getElementById('programas')!;
+
+    expect(within(ruta).getAllByRole('button', { expanded: false })).toHaveLength(2);
+    expect(within(ruta).queryByRole('link', { name: /Etapa/ })).not.toBeInTheDocument();
+    // Las tarjetas no se despliegan: llevan al detalle del modulo.
+    expect(within(modulos).queryByRole('button', { expanded: false })).not.toBeInTheDocument();
+    expect(within(modulos).getByRole('link', { name: /Cognición/ })).toHaveAttribute(
+      'href',
+      '/modulo/cognicion',
+    );
   });
 
-  it('muestra el rol y el consentimiento que devuelve la API', async () => {
+  it('cada pestaña dice lo que toca hoy en su modulo', async () => {
     pintar();
 
-    expect(await screen.findByText('usuario')).toBeInTheDocument();
-    expect(screen.getByText(/Versión 2026-09-1/)).toBeInTheDocument();
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    expect(acordeon(/Cognición/)).toHaveTextContent('Hoy ya hiciste lo tuyo');
+    expect(acordeon(/Bienestar/)).toHaveTextContent('Hoy: Cómo dormiste anoche');
+    expect(screen.getByText('1 de 3')).toBeInTheDocument();
   });
 
-  it('lista las actividades del catalogo', async () => {
+  it('la sesión sugerida abre el panel compacto y permite comenzarla', async () => {
     pintar();
 
-    expect(await screen.findByText('Parejas de cartas')).toBeInTheDocument();
-    expect(screen.getByText('Secuencia de números')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Cognición' })).toBeInTheDocument();
+    await screen.findByRole('heading', { name: 'Tu ruta de hoy' });
+    await userEvent.click(acordeon(/Bienestar/));
+    const arbol = await screen.findByRole('region', { name: 'Actividades de bienestar' });
+    const sugerida = within(arbol).getByRole('button', { name: /sugerida para hoy/ });
+    await userEvent.click(sugerida);
+
+    expect(screen.getByRole('link', { name: /^Comenzar / })).toBeInTheDocument();
   });
 
-  it('mientras carga lo dice, en lugar de dejar la caja vacia', () => {
-    // Una promesa que nunca se resuelve deja la pantalla en el estado
-    // intermedio, que sin esto solo se ve un instante y nunca se comprueba.
-    const nuncaTermina = <T,>(): Promise<T> =>
-      new Promise<T>(function sinResolver() {
-        // A proposito: la peticion se queda en el aire.
+  it('la meta del dia son unas tres actividades, aunque el servidor mande muchas', async () => {
+    const seis = (modulo: ProgresoDelModulo['modulo'], inicial: string): ProgresoDelModulo => ({
+      modulo,
+      sesiones: 10,
+      etapa: { numero: 1, esTemporada: false, sesionesHechas: 1, sesionesDeLaEtapa: 5 },
+      hoy: Array.from({ length: 6 }, (_, i) => ({
+        id: `0acd0000-0000-4000-8000-0000000000${inicial}${i}`,
+        nombre: `Actividad ${inicial}${i}`,
+        hecha: false,
+      })),
+    });
+
+    consultarElProgreso.mockResolvedValue([
+      seis('cognicion', '1'),
+      seis('bienestar', '2'),
+      seis('emociones', '3'),
+    ]);
+    darDeAltaLaCuenta.mockResolvedValue({
+      ...CUENTA,
+      modulosActivos: ['cognicion', 'bienestar', 'emociones'],
+    });
+    pintar();
+
+    await screen.findByRole('heading', { name: 'Tu ruta de hoy' });
+
+    expect(screen.getByText('0 de 3')).toBeInTheDocument();
+    expect(screen.getByRole('complementary')).toHaveTextContent('Actividad 10');
+    // El catálogo completo se muestra, pero solo la siguiente pendiente está habilitada.
+    consultarSesionesPublicadas.mockResolvedValueOnce(
+      Array.from({ length: 6 }, (_, i) => ({
+        id: `sesion-${i}`,
+        idActividad: `actividad-${i}`,
+        titulo: `Actividad ${10 + i}`,
+        actividad: `Actividad ${10 + i}`,
+        nivel: 1,
+      })),
+    );
+    await userEvent.click(acordeon(/Cognición/));
+    const arbol = await screen.findByRole('region', { name: 'Actividades de cognicion' });
+    expect(within(arbol).getByRole('button', { name: /Actividad 15, pendiente/ })).toBeEnabled();
+  });
+
+  it('al entrar todos los modulos estan cerrados y ninguna ruta pesa en la pantalla', async () => {
+    pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    expect(acordeon(/Cognición/)).toBeInTheDocument();
+    expect(acordeon(/Bienestar/)).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: RUTA })).not.toBeInTheDocument();
+  });
+
+  it('al abrir un módulo aparecen sus sesiones y solo la siguiente pendiente está habilitada', async () => {
+    pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+    await userEvent.click(acordeon(/Bienestar/));
+
+    const ventana = await screen.findByRole('region', { name: 'Actividades de bienestar' });
+    expect(within(within(ventana).getByRole('list')).getAllByRole('listitem')).toHaveLength(2);
+    expect(within(ventana).getAllByRole('button')).toHaveLength(2);
+    expect(within(ventana).getAllByRole('button', { name: /pendiente/ })).toHaveLength(1);
+    expect(within(ventana).getByRole('button', { name: /pendiente/ })).toBeEnabled();
+    expect(acordeonAbierto(/Bienestar/)).toBeInTheDocument();
+  });
+
+  it('abre un solo modulo a la vez', async () => {
+    pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+    await userEvent.click(acordeon(/Cognición/));
+    await userEvent.click(acordeon(/Bienestar/));
+
+    expect(acordeon(/Cognición/)).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getAllByRole('region', { name: RUTA })).toHaveLength(1);
+    expect(await screen.findByRole('region', { name: 'Actividades de bienestar' })).toBeVisible();
+  });
+
+  it('un modulo abierto se cierra al pulsarlo de nuevo', async () => {
+    pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+    await userEvent.click(acordeon(/Bienestar/));
+    await userEvent.click(acordeonAbierto(/Bienestar/));
+
+    expect(acordeon(/Bienestar/)).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: RUTA })).not.toBeInTheDocument();
+    expect(rutaAbierta(CUENTA.id)).toBeNull();
+  });
+
+  it('recuerda el ultimo modulo abierto al volver al panel (checkpoint)', async () => {
+    const primera = pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+    await userEvent.click(acordeon(/Cognición/));
+
+    expect(rutaAbierta(CUENTA.id)).toBe('cognicion');
+
+    primera.unmount();
+    pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    expect(acordeonAbierto(/Cognición/)).toBeInTheDocument();
+    // Las secciones entran con un fundido (SCRUM-310): al montar nacen transparentes.
+    await waitFor(() =>
+      expect(screen.getByRole('region', { name: 'Actividades de cognicion' })).toBeVisible(),
+    );
+  });
+
+  it('se maneja con teclado y no tiene fallos de accesibilidad con un modulo abierto', async () => {
+    pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    acordeon(/Bienestar/).focus();
+    await userEvent.keyboard('{Enter}');
+
+    expect(acordeonAbierto(/Bienestar/)).toHaveFocus();
+    expect(await fallosDeAccesibilidad()).toEqual([]);
+  });
+});
+
+describe('Dashboard', () => {
+  describe('la carga', () => {
+    it('da de alta la cuenta con la version del aviso vigente y despues pide el progreso', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      // La version no la conoce el frontend: la dice la API (SCRUM-85).
+      expect(darDeAltaLaCuenta).toHaveBeenCalledWith('version-de-la-api', expect.anything());
+      // El progreso necesita la cuenta, asi que va despues del alta.
+      expect(darDeAltaLaCuenta.mock.invocationCallOrder[0]).toBeLessThan(
+        consultarElProgreso.mock.invocationCallOrder[0] ?? 0,
+      );
+    });
+
+    it('mientras carga lo dice, en lugar de dejar la pantalla vacia', () => {
+      darDeAltaLaCuenta.mockReturnValue(
+        new Promise(function sinResolver() {
+          // A proposito: la peticion se queda en el aire.
+        }),
+      );
+
+      pintar();
+
+      const estado = screen.getByRole('status');
+
+      expect(estado).toHaveTextContent(/Cargando tu espacio/);
+      // Con la mascota corriendo sobre la barra (SCRUM-283, antes un esqueleto, SCRUM-180): la
+      // pantalla no queda en blanco ni salta al llegar los datos.
+      expect(estado).toHaveAttribute('aria-busy', 'true');
+      expect(estado.querySelector('.vsd-carga__corredor')).not.toBeNull();
+      expect(estado.querySelector('.vsd-carga__barra')).not.toBeNull();
+    });
+
+    it('si no se puede conectar, lo explica y deja reintentar', async () => {
+      darDeAltaLaCuenta.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+      pintar();
+
+      // Sin red y sin una copia en este equipo no hay nada que ensenar: se dice que hace falta
+      // conectarse una vez (SCRUM-140).
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        /Todavía no hay una copia de tu panel en este equipo/,
+      );
+
+      await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+
+      expect(await screen.findByRole('heading', { name: /Hola, Marina/ })).toBeInTheDocument();
+    });
+
+    it('si el aviso cambio justo antes del alta, reintentar vuelve a pedir la version', async () => {
+      darDeAltaLaCuenta.mockRejectedValueOnce(
+        new ErrorDeLaApi(409, 'da igual', undefined, 'VERSION_DEL_AVISO_NO_VIGENTE'),
+      );
+
+      pintar();
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/acaba de actualizarse/);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      expect(consultarLaVersionDelAviso).toHaveBeenCalledTimes(2);
+    });
+
+    it('el correo ya registrado se explica por su codigo', async () => {
+      darDeAltaLaCuenta.mockRejectedValue(
+        new ErrorDeLaApi(409, 'da igual', undefined, 'CORREO_YA_REGISTRADO'),
+      );
+
+      pintar();
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/otro método de acceso/);
+    });
+
+    it('la sesion caducada manda a entrar otra vez', async () => {
+      consultarElProgreso.mockRejectedValue(new ErrorDeLaApi(401, 'Tu sesion caduco.'));
+
+      pintar();
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/Tu sesión caducó/);
+    });
+  });
+
+  describe('el dock del movil (SCRUM-114)', () => {
+    function dock(): HTMLElement {
+      const elemento = document.querySelector<HTMLElement>('.app__nav-inferior');
+
+      if (elemento === null) {
+        throw new Error('El dock no esta en pantalla');
+      }
+
+      return elemento;
+    }
+
+    function desplazarA(y: number) {
+      Object.defineProperty(window, 'scrollY', { configurable: true, value: y });
+      fireEvent.scroll(window);
+    }
+
+    /**
+     * Pinta el panel y espera a que el dock ya escuche el desplazamiento (SCRUM-174).
+     *
+     * El dock engancha esa escucha en un efecto, y el efecto puede correr despues de que el
+     * saludo ya este en pantalla: con la maquina cargada, bajar justo al ver el saludo se perdia
+     * en el vacio, y cuando el efecto corria tomaba la posicion ya bajada como punto de partida,
+     * asi que el dock no se escondia nunca. Por eso se baja y sube hasta que el dock responde, y
+     * se deja arriba y a la vista: cada prueba parte de un dock que ya escucha.
+     */
+    async function pintarConElDockAtento() {
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      await waitFor(() => {
+        desplazarA(0);
+        desplazarA(300);
+        expect(dock()).toHaveClass('app__nav-inferior--oculto');
       });
 
-    darDeAltaLaCuenta.mockReturnValue(nuncaTermina());
-    traerElCatalogo.mockReturnValue(nuncaTermina());
+      desplazarA(0);
+      expect(dock()).not.toHaveClass('app__nav-inferior--oculto');
+    }
 
-    pintar();
+    // Cada prueba empieza arriba del todo.
+    beforeEach(() => {
+      Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 });
+    });
 
-    expect(screen.getByRole('status')).toHaveTextContent(/Cargando tu cuenta/);
+    it('marca Inicio como la ubicacion y lleva a Mi actividad y a Mi diario (SCRUM-296)', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      expect(within(dock()).getByRole('link', { name: 'Inicio' })).toHaveAttribute(
+        'aria-current',
+        'location',
+      );
+
+      const actividad = within(dock()).getByRole('link', { name: 'Mi actividad' });
+
+      expect(actividad).toHaveAttribute('href', '/mi-actividad');
+      expect(actividad).not.toHaveAttribute('aria-current');
+      expect(within(dock()).getByRole('link', { name: 'Mi diario' })).toHaveAttribute(
+        'href',
+        '/diario',
+      );
+    });
+
+    it('se aparta al bajar y vuelve al subir', async () => {
+      await pintarConElDockAtento();
+
+      desplazarA(300);
+      expect(dock()).toHaveClass('app__nav-inferior--oculto');
+
+      desplazarA(200);
+      expect(dock()).not.toHaveClass('app__nav-inferior--oculto');
+    });
+
+    it('arriba del todo no se aparta, y vuelve si recibe el foco', async () => {
+      await pintarConElDockAtento();
+
+      desplazarA(40);
+      expect(dock()).not.toHaveClass('app__nav-inferior--oculto');
+
+      desplazarA(400);
+      expect(dock()).toHaveClass('app__nav-inferior--oculto');
+
+      fireEvent.focus(within(dock()).getByRole('link', { name: 'Mi actividad' }));
+      expect(dock()).not.toHaveClass('app__nav-inferior--oculto');
+    });
   });
 
-  it('si no se puede conectar, lo explica y deja reintentar', async () => {
-    // Lo que lanza `fetch` cuando no hay nadie escuchando no es un ErrorDeLaApi,
-    // porque no llego a haber respuesta. Ese es el caso de tener el backend
-    // apagado, y es el que define esta tarea.
-    darDeAltaLaCuenta.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+  describe('el dato curioso (SCRUM-185)', () => {
+    const CON_CUENTA = { sesion: { user: { id: CUENTA.id, email: CUENTA.correo } } as Session };
 
-    pintar();
+    it('aparece bajo la tarjeta de avance, con el dato de hoy', async () => {
+      pintar(CON_CUENTA);
 
-    const aviso = await screen.findByRole('alert');
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
 
-    expect(aviso).toHaveTextContent(/No se pudo conectar con el servidor/);
+      const dato = await screen.findByRole('region', { name: 'Dato curioso del día' });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+      expect(within(dato).getByText('Los pulpos tienen tres corazones.')).toBeInTheDocument();
+      // Y la invitacion vieja ya no esta.
+      expect(screen.queryByText(/Empieza por la que más te llame/)).toBeNull();
+    });
 
-    expect(await screen.findByText('Tu cuenta')).toBeInTheDocument();
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    it('si el servidor no responde y no hay nada guardado, el panel sigue igual y sin un hueco', async () => {
+      // Lo que dejo la prueba anterior en este equipo: aqui se parte de cero.
+      olvidarElDatoGuardado();
+      consultarElDatoDeHoy.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      pintar(CON_CUENTA);
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      expect(screen.queryByRole('region', { name: 'Dato curioso del día' })).toBeNull();
+    });
   });
 
-  it('el correo ya registrado se explica con su propio mensaje', async () => {
-    darDeAltaLaCuenta.mockRejectedValue(
-      new ErrorDeLaApi(409, 'da igual lo que diga', undefined, 'CORREO_YA_REGISTRADO'),
-    );
+  describe('el tutorial de Fungito (SCRUM-187)', () => {
+    it('la primera vez que se ve el panel, Fungito se presenta', async () => {
+      volverAVerElTutorial(CUENTA.id);
 
-    pintar();
+      pintar();
 
-    // El texto sale del codigo de la API y no de su mensaje: por eso el mensaje
-    // del doble es irrelevante y aun asi la pantalla dice lo correcto.
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      /ya pertenece a una cuenta creada con otro método/,
-    );
+      const dialogo = await screen.findByRole('dialog', { name: /Soy Fungito/ });
+
+      expect(dialogo).toBeInTheDocument();
+    });
+
+    it('omitirlo lo deja visto: no vuelve a abrirse al volver al panel', async () => {
+      volverAVerElTutorial(CUENTA.id);
+
+      const primera = pintar();
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Omitir' }));
+
+      expect(tutorialVisto(CUENTA.id)).toBe(true);
+
+      primera.unmount();
+
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      expect(screen.queryByRole('dialog', { name: /Soy Fungito/ })).toBeNull();
+    });
+
+    it('los avisos se ofrecen despues del tutorial, nunca a la vez (SCRUM-188)', async () => {
+      capacidadDelNavegador.mockReturnValue('lista');
+      volverAVerElTutorial(CUENTA.id);
+
+      pintar();
+
+      await screen.findByRole('dialog', { name: /Soy Fungito/ });
+
+      // Mientras Fungito habla, la oferta de avisos espera.
+      expect(screen.queryByRole('dialog', { name: /te avisemos/i })).toBeNull();
+      expect(consultarLasNotificaciones).not.toHaveBeenCalled();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Omitir' }));
+
+      expect(await screen.findByRole('dialog', { name: /te avisemos/i })).toBeInTheDocument();
+    });
+
+    it('si el tutorial ya se vio, los avisos se ofrecen de una vez', async () => {
+      capacidadDelNavegador.mockReturnValue('lista');
+
+      pintar();
+
+      expect(await screen.findByRole('dialog', { name: /te avisemos/i })).toBeInTheDocument();
+    });
+
+    it('no se abre en la bienvenida, antes de elegir modulos', async () => {
+      volverAVerElTutorial(CUENTA.id);
+      darDeAltaLaCuenta.mockResolvedValue({ ...CUENTA, modulosActivos: [] });
+
+      pintar();
+
+      await screen.findByRole('heading', { name: /Bienvenid/i });
+
+      expect(screen.queryByRole('dialog', { name: /Soy Fungito/ })).toBeNull();
+    });
   });
 
-  it('el consentimiento que falta se explica por su codigo, no por ser un 400', async () => {
-    darDeAltaLaCuenta.mockRejectedValue(
-      new ErrorDeLaApi(400, 'da igual', undefined, 'CONSENTIMIENTO_NO_REGISTRADO'),
-    );
+  describe('la entrada de las secciones (SCRUM-310)', () => {
+    const SECCIONES = ['inicio', 'progreso', 'programas'];
 
-    pintar();
+    it('con el tutorial ya visto, las tres secciones entran escalonadas', async () => {
+      pintar();
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/falta la aceptación del aviso/);
+      for (const id of SECCIONES) {
+        expect(document.getElementById(id)?.style.opacity, id).not.toBe('');
+      }
+    });
+
+    it('con el tutorial por abrirse no hay entrada: mide el panel al montar y lo veria desplazado', async () => {
+      volverAVerElTutorial(CUENTA.id);
+      pintar();
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      for (const id of SECCIONES) {
+        expect(document.getElementById(id)?.getAttribute('style'), id).toBeNull();
+      }
+    });
   });
 
-  it('otro 400 no se explica como si fuera el consentimiento', async () => {
-    // Es el motivo de mirar el codigo y no solo el estado. Dar por hecho que
-    // todo 400 es el consentimiento mandaria a la persona a revisar algo que
-    // estaba bien.
-    darDeAltaLaCuenta.mockRejectedValue(
-      new ErrorDeLaApi(400, 'otra cosa', undefined, 'IDENTIFICADOR_INVALIDO'),
-    );
+  describe('la navegacion sin «Explorar» (SCRUM-182)', () => {
+    it('las tarjetas de los modulos siguen en el panel: sin ellas no hay como entrar a un sendero', async () => {
+      pintar();
 
-    pintar();
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
 
-    const aviso = await screen.findByRole('alert');
+      const modulos = document.getElementById('programas');
 
-    expect(aviso).not.toHaveTextContent(/aviso de tratamiento/);
-    expect(aviso).toHaveTextContent(/error 400/);
+      expect(modulos).not.toBeNull();
+      expect(
+        within(modulos!).getByRole('heading', { name: 'Elige dónde enfocarte' }),
+      ).toBeInTheDocument();
+      // Ya no hay un enlace en la barra ni en el dock que lleve a ellas por nombre. Por el DOM:
+      // la barra de arriba queda en `display: none` en jsdom y no cuenta para los roles.
+      const textos = [...document.querySelectorAll('a')].map((enlace) => enlace.textContent.trim());
+
+      expect(textos).not.toContain('Explorar');
+    });
+
+    it('la barra de arriba lleva Inicio, Mi actividad y Mi diario (SCRUM-249, SCRUM-296)', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      const barra = document.querySelector<HTMLElement>('.app__nav');
+
+      expect(barra).not.toBeNull();
+      // Por el DOM y no por rol: en jsdom la barra queda en `display: none` (no evalua las
+      // media queries de escritorio) y las consultas por rol la dan por inaccesible.
+      const textos = [...barra!.querySelectorAll('a')].map((enlace) => enlace.textContent.trim());
+
+      expect(textos).toEqual(['Inicio', 'Mi actividad', 'Mi diario']);
+    });
+
+    it('al llegar con #progreso desde otra pagina, baja a esa seccion', async () => {
+      const desplazar = vi.spyOn(Element.prototype, 'scrollIntoView');
+
+      pintar({}, '/panel#progreso');
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      await waitFor(() => {
+        expect(desplazar.mock.contexts.some((el) => (el as Element).id === 'progreso')).toBe(true);
+      });
+
+      desplazar.mockRestore();
+    });
+
+    it('sin ancla no se desplaza a ninguna seccion', async () => {
+      const desplazar = vi.spyOn(Element.prototype, 'scrollIntoView');
+
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      expect(desplazar.mock.contexts.some((el) => (el as Element).id === 'progreso')).toBe(false);
+
+      desplazar.mockRestore();
+    });
   });
 
-  it('la sesion caducada manda a entrar otra vez', async () => {
-    darDeAltaLaCuenta.mockRejectedValue(new ErrorDeLaApi(401, 'Tu sesion caduco.'));
+  describe('lo que se ve', () => {
+    it('saluda con el nombre de la cuenta', async () => {
+      pintar();
 
-    pintar();
+      expect(await screen.findByRole('heading', { name: /Hola, Marina\./ })).toBeInTheDocument();
+    });
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/Tu sesión caducó/);
+    it('y pregunta por donde empezar, sin genero gramatical (SCRUM-109)', async () => {
+      pintar();
+
+      expect(await screen.findByRole('heading', { name: /Hola, Marina/ })).toHaveTextContent(
+        '¿Por dónde empezamos hoy?',
+      );
+    });
+
+    it('el selector de tema esta en la barra y cambia el tema (SCRUM-112)', async () => {
+      document.documentElement.dataset.tema = 'oscuro';
+
+      pintar();
+
+      const tema = await screen.findByRole('group', { name: 'Tema de la aplicación' });
+
+      await userEvent.click(within(tema).getByRole('button', { name: 'Tema claro' }));
+
+      expect(document.documentElement.dataset.tema).toBe('claro');
+      expect(within(tema).getByRole('button', { name: 'Tema claro' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+      expect(localStorage.getItem('vsd.tema')).toBe('claro');
+
+      localStorage.removeItem('vsd.tema');
+    });
+
+    it('sin nombre saluda igual, sin inventar uno', async () => {
+      darDeAltaLaCuenta.mockResolvedValue({ ...CUENTA, nombre: undefined });
+
+      pintar();
+
+      expect(await screen.findByRole('heading', { name: /^Hola\./ })).toBeInTheDocument();
+    });
+
+    it('el avance de hoy sale de lo que dice la API: 1 de 3', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      expect(screen.getByText('33%')).toBeInTheDocument();
+      expect(
+        screen.getByRole('progressbar', { name: 'Actividades de hoy hechas' }),
+      ).toHaveAttribute('aria-valuenow', '1');
+    });
+
+    it('cada modulo activo muestra su etapa real', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      expect(tarjeta(/Cognición/)).toHaveTextContent('Etapa 2 · 2 de 10 sesiones');
+      expect(tarjeta(/Cognición/)).toHaveTextContent('20%');
+      expect(tarjeta(/Bienestar/)).toHaveTextContent('Etapa 1 · 3 de 5 sesiones');
+    });
+
+    it('cada pestaña dice en que dia de sus 365 va, con lo que dice la API', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+      // Cognicion: 7 sesiones y hoy ya hecho, asi que hoy es el dia 7. Bienestar: 3 y nada hoy, dia 4.
+      expect(acordeon(/Cognición/)).toHaveTextContent('Día 7 de 365 · 2%');
+      expect(acordeon(/Bienestar/)).toHaveTextContent('Día 4 de 365 · 1%');
+    });
+
+    it('el modulo que no esta activo se ofrece para añadirlo', async () => {
+      pintar();
+
+      expect(await screen.findByRole('button', { name: /Añadir Emociones/ })).toBeInTheDocument();
+    });
+
+    it('la ruta del día lista lo que toca hoy en cada modulo', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: 'Tu ruta de hoy' });
+
+      expect(acordeon(/Cognición/)).toHaveTextContent('Hoy ya hiciste lo tuyo');
+      expect(acordeon(/Bienestar/)).toHaveTextContent('Hoy: Cómo dormiste anoche');
+    });
+
+    it('recomienda la siguiente actividad pendiente, no un texto fijo', async () => {
+      pintar();
+
+      const recomendado = await screen.findByRole('complementary');
+
+      expect(within(recomendado).getByRole('heading')).toHaveTextContent('Cómo dormiste anoche');
+      expect(within(recomendado).getByRole('link', { name: /Comenzar/ })).toBeInTheDocument();
+    });
+
+    it('el icono de la tarjeta no es la luna del cambio de tema (SCRUM-285)', async () => {
+      pintar();
+
+      const recomendado = await screen.findByRole('complementary');
+      const trazos = (nombre: NombreDeIcono) =>
+        [...render(<Icono nombre={nombre} />).container.querySelectorAll('path')]
+          .map((trazo) => trazo.getAttribute('d'))
+          .join('|');
+      const delIcono = [
+        ...(recomendado.querySelector('.app__recomendado-icono svg')?.querySelectorAll('path') ??
+          []),
+      ]
+        .map((trazo) => trazo.getAttribute('d'))
+        .join('|');
+
+      expect(delIcono).not.toBe('');
+      expect(delIcono).toBe(trazos('sparkles'));
+      expect(delIcono).not.toBe(trazos('moon'));
+    });
+
+    it('la mascota acompaña en el dashboard y no celebra con el plan a medias', async () => {
+      darDeAltaLaCuenta.mockResolvedValue({
+        ...CUENTA,
+        mascota: { forma: 'gato', nombre: 'Bigotes' },
+      });
+
+      pintar();
+
+      expect(
+        await screen.findByRole('button', { name: 'Bigotes, tu mascota' }),
+      ).toBeInTheDocument();
+      expect(document.querySelector<HTMLElement>('.mascota')?.dataset.expresion).not.toBe(
+        'celebrando',
+      );
+    });
+
+    it('con el plan del dia completo, la mascota celebra', async () => {
+      consultarElProgreso.mockResolvedValue(
+        PROGRESO.map((uno) => ({ ...uno, hoy: uno.hoy.map((a) => ({ ...a, hecha: true })) })),
+      );
+
+      pintar();
+
+      await screen.findByRole('button', { name: 'Fungito, tu mascota' });
+
+      expect(document.querySelector<HTMLElement>('.mascota')?.dataset.expresion).toBe('celebrando');
+    });
+
+    it('con todo hecho, lo celebra en lugar de recomendar mas', async () => {
+      consultarElProgreso.mockResolvedValue(
+        PROGRESO.map((uno) => ({ ...uno, hoy: uno.hoy.map((a) => ({ ...a, hecha: true })) })),
+      );
+
+      pintar();
+
+      const recomendado = await screen.findByRole('complementary');
+
+      expect(within(recomendado).getByRole('heading')).toHaveTextContent(
+        'Hoy ya hiciste todo tu plan',
+      );
+    });
   });
 
-  it('no promete actividades cuando el catalogo llega vacio', async () => {
-    traerElCatalogo.mockResolvedValue([]);
+  describe('la bienvenida (SCRUM-90)', () => {
+    // Una cuenta recien creada: sin nombre y sin modulos.
+    const { nombre: _sinNombre, ...sinNombre } = CUENTA;
+    const NUEVA: Cuenta = { ...sinNombre, modulosActivos: [] };
+
+    beforeEach(() => {
+      darDeAltaLaCuenta.mockResolvedValue(NUEVA);
+      consultarElProgreso.mockResolvedValue([]);
+    });
+
+    it('una cuenta sin modulos ve la bienvenida y no el dashboard', async () => {
+      pintar();
+
+      expect(
+        await screen.findByRole('heading', { name: /Te damos la bienvenida/ }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Tu ruta de hoy' })).not.toBeInTheDocument();
+      expect(screen.getAllByRole('checkbox')).toHaveLength(3);
+      // Las secciones son del dashboard: aqui no llevarian a ningun sitio.
+      expect(screen.queryByRole('navigation', { name: 'Secciones' })).not.toBeInTheDocument();
+      // Salir de la cuenta, en cambio, sigue disponible.
+      expect(screen.getByRole('button', { name: /menú de tu cuenta/ })).toBeInTheDocument();
+    });
+
+    it('sin elegir ningun modulo no deja empezar, y lo dice', async () => {
+      pintar();
+
+      await userEvent.click(await screen.findByRole('button', { name: /Empezar/ }));
+
+      expect(screen.getByRole('alert')).toHaveTextContent('Elige al menos un módulo');
+      expect(cambiarPreferencias).not.toHaveBeenCalled();
+    });
+
+    it('guarda el nombre y los modulos elegidos, en orden, y pasa al dashboard', async () => {
+      cambiarPreferencias.mockResolvedValue({
+        ...NUEVA,
+        nombre: 'Marina',
+        modulosActivos: ['bienestar', 'emociones'],
+      });
+      consultarElProgreso.mockResolvedValueOnce([]).mockResolvedValueOnce(PROGRESO);
+
+      pintar();
+
+      await userEvent.type(await screen.findByLabelText(/Cómo quieres que te llamemos/), 'Marina');
+      await userEvent.click(screen.getByRole('checkbox', { name: /Emociones/ }));
+      await userEvent.click(screen.getByRole('checkbox', { name: /Bienestar/ }));
+      await userEvent.click(screen.getByRole('button', { name: /Empezar/ }));
+
+      expect(cambiarPreferencias).toHaveBeenCalledWith(
+        { nombre: 'Marina', modulosActivos: ['bienestar', 'emociones'] },
+        expect.any(AbortSignal),
+        undefined,
+      );
+      expect(await screen.findByRole('heading', { name: /Hola, Marina/ })).toBeInTheDocument();
+    });
+
+    it('si no escribe nombre, no lo manda', async () => {
+      cambiarPreferencias.mockResolvedValue({ ...NUEVA, modulosActivos: ['cognicion'] });
+
+      pintar();
+
+      await userEvent.click(await screen.findByRole('checkbox', { name: /Cognición/ }));
+      await userEvent.click(screen.getByRole('button', { name: /Empezar/ }));
+
+      expect(cambiarPreferencias).toHaveBeenCalledWith(
+        { modulosActivos: ['cognicion'] },
+        expect.any(AbortSignal),
+        undefined,
+      );
+    });
+
+    it('marcar y desmarcar un modulo se refleja en la casilla', async () => {
+      pintar();
+
+      const emociones = await screen.findByRole('checkbox', { name: /Emociones/ });
+
+      await userEvent.click(emociones);
+      expect(emociones).toHaveAttribute('aria-checked', 'true');
+
+      await userEvent.click(emociones);
+      expect(emociones).toHaveAttribute('aria-checked', 'false');
+    });
+
+    it('si guardar falla, lo dice y deja intentarlo otra vez', async () => {
+      cambiarPreferencias.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      pintar();
+
+      await userEvent.click(await screen.findByRole('checkbox', { name: /Bienestar/ }));
+      await userEvent.click(screen.getByRole('button', { name: /Empezar/ }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo guardar');
+      expect(screen.getByRole('button', { name: /Empezar/ })).toBeEnabled();
+    });
+
+    it('sin conexion se puede elegir pero no empezar, y lo dice (SCRUM-142)', async () => {
+      const red = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+
+      pintar();
+
+      await userEvent.type(await screen.findByLabelText(/Cómo quieres que te llamemos/), 'Marina');
+      await userEvent.click(screen.getByRole('checkbox', { name: /Emociones/ }));
+
+      expect(screen.getByRole('status')).toHaveTextContent('Necesitas conexión para esto.');
+      expect(screen.getByRole('button', { name: /Empezar/ })).toBeDisabled();
+      // Lo elegido y lo escrito se queda como estaba.
+      expect(screen.getByRole('checkbox', { name: /Emociones/ })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
+      expect(screen.getByLabelText(/Cómo quieres que te llamemos/)).toHaveValue('Marina');
+      expect(cambiarPreferencias).not.toHaveBeenCalled();
+
+      red.mockReturnValue(true);
+    });
+
+    it('con conexion la bienvenida no dice que haga falta nada', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: /Te damos la bienvenida/ });
+
+      expect(screen.queryByText('Necesitas conexión para esto.')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Empezar/ })).toBeEnabled();
+    });
+  });
+
+  describe('lo que se puede hacer', () => {
+    it('cada modulo activo lleva a su sendero (SCRUM-92), desde su tarjeta y desde su pestaña', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: 'Tu ruta de hoy' });
+
+      expect(tarjeta(/Cognición/)).toHaveAttribute('href', '/modulo/cognicion');
+      expect(tarjeta(/Bienestar/)).toHaveAttribute('href', '/modulo/bienestar');
+
+      await userEvent.click(acordeon(/Bienestar/));
+      expect(screen.getByRole('link', { name: /Ver el detalle de Bienestar/ })).toHaveAttribute(
+        'href',
+        '/modulo/bienestar',
+      );
+    });
+
+    it('lleva el pie con lo que no es y para quien es, y el camino a los documentos (L-03)', async () => {
+      pintar();
+
+      await screen.findByRole('heading', { name: 'Tu ruta de hoy' });
+
+      const pie = screen.getByRole('contentinfo');
+
+      expect(pie).toHaveTextContent(/no diagnostica, no formula medicamentos y no reemplaza/i);
+      expect(pie).toHaveTextContent('Es solo para mayores de 18 años');
+      expect(within(pie).getByRole('link', { name: 'Términos' })).toHaveAttribute(
+        'href',
+        '/terminos',
+      );
+      expect(within(pie).getByRole('link', { name: 'Privacidad' })).toHaveAttribute(
+        'href',
+        '/privacidad',
+      );
+    });
+
+    it('añadir un modulo lo activa y lo pinta sin recargar', async () => {
+      const conEmociones: ProgresoDelModulo = {
+        modulo: 'emociones',
+        sesiones: 0,
+        etapa: { numero: 1, esTemporada: false, sesionesHechas: 0, sesionesDeLaEtapa: 5 },
+        hoy: [],
+      };
+
+      cambiarPreferencias.mockResolvedValue({
+        ...CUENTA,
+        modulosActivos: ['cognicion', 'bienestar', 'emociones'],
+      });
+      // La primera llamada es la de la carga; la segunda, la de despues de
+      // activar el modulo.
+      consultarElProgreso
+        .mockResolvedValueOnce(PROGRESO)
+        .mockResolvedValueOnce([...PROGRESO, conEmociones]);
+
+      pintar();
+
+      await userEvent.click(await screen.findByRole('button', { name: /Añadir Emociones/ }));
+
+      expect(cambiarPreferencias).toHaveBeenCalledWith(
+        { modulosActivos: ['cognicion', 'bienestar', 'emociones'] },
+        expect.any(AbortSignal),
+        undefined,
+      );
+      expect(await screen.findByRole('link', { name: /Emociones/ })).toHaveTextContent(
+        'Etapa 1 · 0 de 5 sesiones',
+      );
+      expect(screen.getByRole('button', { name: /Emociones/, expanded: false })).toHaveTextContent(
+        'Día 1 de 365 · 0%',
+      );
+      expect(screen.queryByRole('button', { name: /Añadir Emociones/ })).not.toBeInTheDocument();
+    });
+
+    it('al añadir el tercer modulo lo celebra, y el aviso se cierra con Escape', async () => {
+      cambiarPreferencias.mockResolvedValue({
+        ...CUENTA,
+        modulosActivos: ['cognicion', 'bienestar', 'emociones'],
+      });
+
+      pintar();
+
+      await userEvent.click(await screen.findByRole('button', { name: /Añadir Emociones/ }));
+
+      const aviso = await screen.findByRole('dialog');
+
+      expect(aviso).toHaveTextContent('Ya tienes los tres módulos');
+      // El foco entra al aviso, para que con teclado se pueda cerrar enseguida.
+      expect(within(aviso).getByRole('button', { name: /Seguir/ })).toHaveFocus();
+
+      await userEvent.keyboard('{Escape}');
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('con el segundo modulo el texto es otro', async () => {
+      darDeAltaLaCuenta.mockResolvedValue({ ...CUENTA, modulosActivos: ['cognicion'] });
+      consultarElProgreso.mockResolvedValue([PROGRESO[0]]);
+      cambiarPreferencias.mockResolvedValue({
+        ...CUENTA,
+        modulosActivos: ['cognicion', 'bienestar'],
+      });
+
+      pintar();
+
+      await userEvent.click(await screen.findByRole('button', { name: /Añadir Bienestar/ }));
+
+      expect(await screen.findByRole('dialog')).toHaveTextContent('tu segundo módulo');
+
+      await userEvent.click(screen.getByRole('button', { name: /Seguir/ }));
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('sin conexion no se puede añadir un modulo, y lo dice en la propia tarjeta (SCRUM-142)', async () => {
+      const red = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+
+      pintar();
+
+      const boton = await screen.findByRole('button', { name: /Añadir Emociones/ });
+
+      expect(boton).toBeDisabled();
+      expect(screen.getByRole('status')).toHaveTextContent('Necesitas conexión para esto.');
+
+      await userEvent.click(boton);
+
+      expect(cambiarPreferencias).not.toHaveBeenCalled();
+
+      red.mockReturnValue(true);
+    });
+
+    it('con conexion añadir un modulo no dice que haga falta nada', async () => {
+      pintar();
+
+      expect(await screen.findByRole('button', { name: /Añadir Emociones/ })).toBeEnabled();
+      expect(screen.queryByText('Necesitas conexión para esto.')).not.toBeInTheDocument();
+    });
+
+    it('si añadir falla, lo dice en la propia tarjeta', async () => {
+      cambiarPreferencias.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      pintar();
+
+      await userEvent.click(await screen.findByRole('button', { name: /Añadir Emociones/ }));
+
+      expect(await screen.findByText(/No se pudo añadir/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Añadir Emociones/ })).toBeEnabled();
+    });
+
+    it('el menu de la cuenta muestra el correo, deja salir y se cierra con Escape', async () => {
+      const salir = vi.fn();
+
+      pintar({ salir });
+
+      await userEvent.click(await screen.findByRole('button', { name: /menú de tu cuenta/ }));
+
+      expect(screen.getByText(CUENTA.correo)).toBeInTheDocument();
+
+      await userEvent.keyboard('{Escape}');
+
+      expect(screen.queryByText(CUENTA.correo)).not.toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole('button', { name: /menú de tu cuenta/ }));
+      await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
+
+      expect(salir).toHaveBeenCalled();
+    });
+  });
+});
+
+describe('Dashboard sin conexion (SCRUM-140)', () => {
+  beforeEach(async () => {
+    await abrirUnAlmacenDePrueba();
+  });
+
+  afterEach(() => {
+    cerrarElAlmacenDePrueba();
+    darDeAltaLaCuenta.mockReset();
+  });
+
+  it('se abre con la copia de este equipo, y dice de cuando es', async () => {
+    const primera = pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+    primera.unmount();
+    darDeAltaLaCuenta.mockRejectedValue(new TypeError('Failed to fetch'));
 
     pintar();
 
-    expect(await screen.findByText('Todavía no hay actividades disponibles.')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /Hola, Marina/ })).toBeInTheDocument();
+    expect(screen.getByText(/Datos de hace un momento/)).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('en cuanto vuelve la conexion se pone al dia y deja de decirlo', async () => {
+    const primera = pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+    primera.unmount();
+    darDeAltaLaCuenta.mockRejectedValue(new TypeError('Failed to fetch'));
+    pintar();
+    await screen.findByText(/Datos de hace/);
+
+    darDeAltaLaCuenta.mockResolvedValue({ ...CUENTA, nombre: 'Marina Isabel' });
+    fireEvent(window, new Event('online'));
+
+    expect(await screen.findByRole('heading', { name: /Hola, Marina Isabel/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Datos de hace/)).toBeNull();
+  });
+
+  it('con conexion no hay nada que decir de la copia', async () => {
+    pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    expect(screen.queryByText(/Datos de hace/)).toBeNull();
+  });
+
+  it('lo que se hizo sin conexion se dice, para que se sepa que se contara al enviarse', async () => {
+    const primera = pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+    primera.unmount();
+    darDeAltaLaCuenta.mockRejectedValue(new TypeError('Failed to fetch'));
+    await encolar({
+      operationId: 'res-1',
+      tipo: 'resultado.registrar',
+      entidad: 'resultado:res-1',
+      payload: {
+        clientOperationId: 'res-1',
+        activityId: '0acd0000-0000-4000-8000-000000000002',
+        completedAt: new Date().toISOString(),
+      },
+    });
+
+    pintar();
+
+    expect(
+      await screen.findByText(/Lo que hiciste sin conexión se contará cuando se envíe/),
+    ).toBeInTheDocument();
+  });
+
+  it('sin nada hecho sin conexion, no dice eso', async () => {
+    const primera = pintar();
+
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+    primera.unmount();
+    darDeAltaLaCuenta.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    pintar();
+
+    await screen.findByText(/Datos de hace/);
+
+    expect(screen.queryByText(/se contará cuando se envíe/)).toBeNull();
+  });
+});
+
+describe('La racha por la tarde (SCRUM-243)', () => {
+  const DE_TARDE = new Date('2026-10-22T01:30:00Z'); // 20:30 en Bogota
+  const DE_MANANA = new Date('2026-10-21T15:00:00Z'); // 10:00 en Bogota
+
+  function pintarConCuenta() {
+    return pintar({
+      sesion: { user: { id: CUENTA.id, email: CUENTA.correo } } as Session,
+    });
+  }
+
+  beforeEach(() => {
+    fijarLaZonaDeLaCuenta('America/Bogota');
+    localStorage.clear();
+    olvidarElAvisoDeLaTarde();
+    olvidarLaRacha();
+    // La respuesta del servidor llega por la llama de la barra, y la mascota habla con ella.
+    consultarLaRacha.mockResolvedValue(rachaDePrueba({ dias: 12, hechoHoy: false }));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    olvidarLaRacha();
+    olvidarElAvisoDeLaTarde();
+  });
+
+  it('de tarde, con hoy sin hacer, la mascota lo dice sola, con congelamientos disponibles', async () => {
+    vi.useFakeTimers({ now: DE_TARDE, toFake: ['Date'], shouldAdvanceTime: true });
+
+    pintarConCuenta();
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    expect(
+      await screen.findByText(fraseDeLaRacha('riesgoConCongelamientos', { dias: 12 })),
+    ).toBeInTheDocument();
+  });
+
+  it('por la manana no dice nada de la racha', async () => {
+    vi.useFakeTimers({ now: DE_MANANA, toFake: ['Date'], shouldAdvanceTime: true });
+
+    pintarConCuenta();
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    expect(document.querySelector('.mascota__frase')).toBeNull();
+  });
+
+  it('si hoy ya sumo, tampoco', async () => {
+    vi.useFakeTimers({ now: DE_TARDE, toFake: ['Date'], shouldAdvanceTime: true });
+    consultarLaRacha.mockResolvedValue(rachaDePrueba({ dias: 12, hechoHoy: true }));
+
+    pintarConCuenta();
+    await screen.findByRole('heading', { name: /Hola, Marina/ });
+
+    expect(document.querySelector('.mascota__frase')).toBeNull();
   });
 });

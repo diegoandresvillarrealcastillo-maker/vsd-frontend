@@ -16,8 +16,75 @@ export const RUTAS = {
   /** A donde lleva el enlace del correo de recuperacion. */
   CONTRASENA_NUEVA: '/contrasena-nueva',
 
+  /**
+   * Los documentos legales. Publicos, con sesion o sin ella: se tienen que
+   * poder leer antes de aceptarlos, y despues de hacerlo.
+   */
+  PRIVACIDAD: '/privacidad',
+  TERMINOS: '/terminos',
+  COOKIES: '/cookies',
+
+  /**
+   * La fecha de nacimiento y las casillas, para quien tiene sesion y todavia no
+   * las dio: entro con Google, confirmo su correo en otro dispositivo o es una
+   * cuenta de antes de que se pidieran.
+   */
+  COMPLETAR_REGISTRO: '/completa-tu-registro',
+
+  /**
+   * Volver a aceptar el aviso de privacidad o los terminos cuando cambiaron (SCRUM-237): para quien
+   * tiene sesion y su registro completo, pero acepto una version que ya no es la vigente.
+   */
+  ACTUALIZAMOS_TEXTOS: '/actualizamos-nuestros-textos',
+
+  /**
+   * Lo que ve quien resulta menor de 18 anos. Publica: se llega a ella despues de
+   * cerrar la sesion, y no guarda ni pide nada.
+   */
+  SOLO_MAYORES: '/solo-mayores',
+
   /** Primera pantalla despues de entrar. */
   PANEL: '/panel',
+
+  /** Lo que la persona configura de su cuenta (SCRUM-101). */
+  PERFIL: '/perfil',
+
+  /** Mi diario: el lienzo para escribir y el historial por dias (SCRUM-96). */
+  DIARIO: '/diario',
+
+  /**
+   * Mi actividad: la semana, las sesiones por modulo y lo ultimo que se hizo (SCRUM-296). No choca con
+   * `ACTIVIDAD` (`/actividad/:id`): esa es una actividad concreta y esta es el resumen de la persona.
+   */
+  MI_ACTIVIDAD: '/mi-actividad',
+
+  /**
+   * El sendero de un modulo (SCRUM-92). Lleva parametro: se usa
+   * `rutaDeModulo`.
+   */
+  MODULO: '/modulo/:modulo',
+
+  /**
+   * Una actividad concreta. Lleva parametro, asi que no se navega a esta
+   * cadena tal cual: se usa `rutaDeActividad`.
+   */
+  ACTIVIDAD: '/actividad/:id',
 } as const;
 
 export type Ruta = (typeof RUTAS)[keyof typeof RUTAS];
+
+/**
+ * La direccion de una actividad concreta.
+ *
+ * Existe para que el identificador se incruste en un solo sitio. Escribir
+ * `` `/actividad/${id}` `` en cada enlace funciona hasta que la ruta cambia y
+ * hay que encontrarlos todos.
+ */
+export function rutaDeActividad(id: string): string {
+  return RUTAS.ACTIVIDAD.replace(':id', encodeURIComponent(id));
+}
+
+/** La direccion del sendero de un modulo. */
+export function rutaDeModulo(modulo: string): string {
+  return RUTAS.MODULO.replace(':modulo', encodeURIComponent(modulo));
+}

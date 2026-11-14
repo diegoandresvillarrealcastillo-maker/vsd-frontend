@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 
+import { PantallaDeCarga } from '../componentes/PantallaDeCarga.tsx';
 import { useSesion } from '../sesion/useSesion.ts';
 import { RUTAS } from './rutas.ts';
 
@@ -21,12 +22,9 @@ export function RutaDeInvitado({ children }: { children: ReactNode }) {
 
   if (cargando) {
     // Todavia no se sabe si hay sesion. Pintar el formulario ahora y quitarlo
-    // medio segundo despues es peor que esperar.
-    return (
-      <p role="status" aria-live="polite" className="solo-lectores">
-        Comprobando la sesión
-      </p>
-    );
+    // medio segundo despues es peor que esperar (SCRUM-283: y mientras tanto se ve
+    // la pantalla de carga, la misma que puso el `index.html`).
+    return <PantallaDeCarga mensaje="Comprobando la sesión" />;
   }
 
   if (sesion) {

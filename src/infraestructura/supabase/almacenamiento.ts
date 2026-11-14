@@ -1,3 +1,5 @@
+import type { Session } from '@supabase/supabase-js';
+
 /**
  * Donde se guarda la sesion, y por que hay dos sitios.
  *
@@ -15,10 +17,11 @@
  * espera, y desaparece al cerrar la pestana. Con `true` vive en
  * `localStorage` y dura los treinta dias del token de refresco.
  *
- * Hoy nadie llama con `false`: la casilla que lo ofrecia se quito de las
- * pantallas de acceso y el proveedor guarda siempre. El mecanismo se conserva
- * entero y probado porque el caso de la sala de computo no ha desaparecido,
- * solo la forma de pedirlo; ver `RECORDAR_SIEMPRE` en `ProveedorDeSesion`.
+ * Se llama con `false` cuando quien entra no marca «Mantener la sesion en este
+ * equipo» en la pantalla de acceso, que es lo que pasa si no toca nada
+ * (SCRUM-164): lo seguro en una sala de computo es lo que ocurre por defecto.
+ * Al registrarse con correo se usa el almacen duradero por una razon tecnica;
+ * ver `RECORDAR_SIEMPRE` en `ProveedorDeSesion`.
  *
  * ---------------------------------------------------------------------------
  * Por que un adaptador y no dos clientes
@@ -41,6 +44,9 @@
  *
  * Lo que nunca se guarda aqui es informacion de la persona. Solo el token.
  */
+
+/** La clave bajo la que el cliente de Supabase guarda la sesion. */
+export const CLAVE_DE_LA_SESION = 'vsd.sesion';
 
 /** Marca que esta sesion no debe sobrevivir al cierre de la pestana. */
 const CLAVE_SOLO_ESTA_PESTANA = 'vsd.solo-esta-pestana';
@@ -138,6 +144,61 @@ export const almacenamientoDeSesion = {
     }
   },
 };
+
+/**
+ * La sesion que quedo guardada en este equipo, tal cual, **sin renovarla**; o `null`
+ * si no hay una que se pueda leer (SCRUM-137).
+ *
+ * ## Para que existe
+ *
+ * El token de acceso dura una hora. Pasada esa hora, `getSession()` intenta
+ * renovarlo, y **sin conexion no puede**: devuelve "sin sesion" aunque haya una
+ * guardada y valida. Abrir la aplicacion sin conexion mas de una hora despues de
+ * la ultima vez mandaria a la pantalla de acceso, justo cuando mas falta hace
+ * poder usarla sin red.
+ *
+ * Quien la use (`ProveedorDeSesion`) lo hace **solo cuando la renovacion fallo por
+ * falta de red**, y solo para saber **quien es**: el token vencido no sirve para
+ * llamar a la API. En cuanto vuelva la red, Supabase lo renueva y todo sigue; si la
+ * sesion ya no vale (se revoco, vencio el token de refresco), se cierra como
+ * siempre.
+ *
+ * Valida lo minimo para no creerle a cualquier cosa: un objeto con un usuario con
+ * identificador y un token de refresco. No verifica nada criptografico: eso lo hace
+ * la API con cada peticion.
+ */
+export function leerLaSesionGuardada(): Session | null {
+  try {
+    const crudo = almacenamientoDeSesion.getItem(CLAVE_DE_LA_SESION);
+
+    if (crudo === null) {
+      return null;
+    }
+
+    const valor: unknown = JSON.parse(crudo);
+
+    if (typeof valor !== 'object' || valor === null) {
+      return null;
+    }
+
+    const { user, refresh_token: refresco } = valor as { user?: unknown; refresh_token?: unknown };
+
+    if (
+      typeof refresco !== 'string' ||
+      refresco === '' ||
+      typeof user !== 'object' ||
+      user === null ||
+      typeof (user as { id?: unknown }).id !== 'string' ||
+      (user as { id: string }).id === ''
+    ) {
+      return null;
+    }
+
+    return valor as Session;
+  } catch {
+    return null;
+  }
+}
 
 /** Borra la marca de pestana. Se usa al cerrar sesion. */
 export function olvidarPreferenciaDePestana(): void {

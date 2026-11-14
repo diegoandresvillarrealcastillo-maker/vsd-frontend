@@ -1,0 +1,2947 @@
+/*
+ * La aplicacion despues de entrar, con el diseño de Figma Make
+ * "Aplicación de salud integral" (SCRUM-89).
+ *
+ * Los valores son los del diseño: se leyeron de su hoja de estilos y de sus
+ * clases de Tailwind, y se traducen aqui una por una. Todo cuelga de `.app`, y
+ * eso es lo que garantiza que la portada, el acceso y el registro no cambian:
+ * los tokens de Figma no existen fuera de este bloque.
+ *
+ * El diseño de Figma es oscuro, y es el tema oscuro, con los colores de la
+ * portada (SCRUM-286). El claro (SCRUM-112) usa los mismos tokens con valores
+ * de la paleta de la portada, crema y verde:
+ * ningun componente sabe en que tema esta, solo lee `--app-*`. Al tocar un
+ * color, hay que tocarlo en los dos bloques.
+ */
+
+/* Los tokens tambien los lee la pantalla de una actividad (SCRUM-173), que no cuelga de `.app`
+   pero tiene que verse con la misma paleta, en claro y en oscuro. Solo los tokens: el aspecto de
+   pagina de abajo sigue siendo de `.app`.
+
+   La paleta oscura es la de la portada (`:root[data-tema='oscuro']` de global.css), no una propia
+   (SCRUM-286): lienzo, superficies, borde, tinta y acento valen lo mismo dentro y fuera de la
+   cuenta. No se enlazan con `var()` porque `viva.css` redefine `--fondo` dentro de `.actividad`,
+   y un token que se apunta a si mismo queda invalido; `paletaUnificada.spec.ts` vigila que sigan
+   siendo iguales. */
+.app,
+.actividad {
+  --app-lienzo: #0d1517;
+  --app-superficie: #162124;
+  --app-superficie-alta: #1d2c30;
+  --app-borde: #25403f;
+  --app-tinta: #f1f3f0;
+  --app-tenue: #a9b8b4;
+  --app-salvia: #4ee8b0;
+  --app-primario: #35e0b4;
+  --app-sobre-primario: #04211a;
+  --app-bienestar: #0f3d33;
+  --app-bienestar-acento: #4ee8b0;
+  --app-cognicion: #14315f;
+  --app-cognicion-acento: #79b0ff;
+  --app-emociones: #521f1c;
+  --app-emociones-acento: #ff8a78;
+  --app-avatar: #5a3d12;
+  --app-avatar-tinta: #ffd08a;
+  --app-descanso: #0f4a3c;
+
+  /* Capas sobre fondos de color: los adornos y el icono de la tarjeta
+     recomendada, las cifras de los modulos y los carriles de progreso. */
+  --app-trazo-sobre: rgb(255 255 255 / 0.1);
+  --app-capa-sobre: rgb(255 255 255 / 0.12);
+  --app-tinta-suave: rgb(241 243 240 / 0.82);
+  --app-hundido: rgb(0 0 0 / 0.15);
+  --app-carril: rgb(0 0 0 / 0.2);
+
+  /* El vidrio de lo que flota (SCRUM-113). Ver "Vidrio" al final. */
+  --vidrio-fondo: color-mix(in srgb, var(--app-superficie) 68%, transparent);
+  --vidrio-fondo-denso: color-mix(in srgb, var(--app-superficie) 86%, transparent);
+  --vidrio-borde: rgb(255 255 255 / 0.1);
+  --vidrio-brillo: inset 0 1px 0 rgb(255 255 255 / 0.08);
+  --vidrio-sombra: 0 18px 40px -12px rgb(0 0 0 / 0.5);
+  --vidrio-filtro: blur(18px) saturate(160%);
+
+  --app-fuente: 'DM Sans', sans-serif;
+  --app-fuente-titulos: Newsreader, Georgia, serif;
+}
+
+.app {
+  color-scheme: dark;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--app-lienzo);
+  color: var(--app-tinta);
+  font-family: var(--app-fuente);
+  font-synthesis: none;
+}
+
+/* ---------- Tema claro (SCRUM-112) ----------
+   Blanco fresco y verde vivo, como la portada (SCRUM-309). Cada texto cumple 4,5:1 sobre su fondo:
+   la tinta y lo tenue sobre el lienzo y las superficies, el acento de cada
+   modulo sobre su propio fondo, y el blanco sobre el primario. */
+:root[data-tema='claro'] .app,
+:root[data-tema='claro'] .actividad {
+  --app-lienzo: #f3f9f6;
+  --app-superficie: #ffffff;
+  --app-superficie-alta: #e1efe9;
+  --app-borde: #b9dccd;
+  --app-tinta: #14231e;
+  --app-tenue: #3f5a52;
+  --app-salvia: #0a6e55;
+  --app-primario: #0a7d62;
+  --app-sobre-primario: #ffffff;
+  --app-bienestar: #d4f3e3;
+  --app-bienestar-acento: #0a7a4b;
+  --app-cognicion: #dce6ff;
+  --app-cognicion-acento: #2447c8;
+  --app-emociones: #ffe0d6;
+  --app-emociones-acento: #b83a22;
+  --app-avatar: #ffe8c2;
+  --app-avatar-tinta: #7a4a0a;
+  --app-descanso: #c8efdc;
+
+  --app-trazo-sobre: rgb(0 0 0 / 0.07);
+  --app-capa-sobre: rgb(255 255 255 / 0.7);
+  --app-tinta-suave: rgb(20 35 30 / 0.78);
+  --app-hundido: rgb(255 255 255 / 0.7);
+  --app-carril: rgb(0 0 0 / 0.08);
+
+  --vidrio-fondo: color-mix(in srgb, #ffffff 62%, transparent);
+  --vidrio-fondo-denso: color-mix(in srgb, #ffffff 84%, transparent);
+  --vidrio-borde: rgb(255 255 255 / 0.75);
+  --vidrio-brillo: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 0 0 1px rgb(29 36 32 / 0.06);
+  --vidrio-sombra: 0 18px 40px -16px rgb(29 36 32 / 0.25);
+
+  color-scheme: light;
+}
+
+.app *:focus-visible {
+  outline: 2px solid var(--app-salvia);
+  outline-offset: 3px;
+}
+
+.app h1,
+.app h2,
+.app p {
+  margin: 0;
+}
+
+/* ---------- Barra superior ---------- */
+
+.app__barra {
+  border-bottom: 1px solid var(--app-borde);
+  background: color-mix(in srgb, var(--app-lienzo) 95%, transparent);
+}
+
+.app__barra-interior {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1440px;
+  height: 76px;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+  /* Con el telefono de lado el notch queda a un costado: el contenido no se mete debajo. */
+  padding-left: max(1.25rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1.25rem, env(safe-area-inset-right, 0px));
+}
+
+.app__nav {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem;
+  border-radius: 9999px;
+  background: var(--app-superficie);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+}
+
+/* Los enlaces de la navegacion: la barra de arriba y el dock del movil son dos piezas porque el espacio no es el
+   mismo, pero se sienten como una sola (SCRUM-284). Todo lo que se siente se escribe una vez, con los dos
+   selectores juntos (`barraDeNavegacion.spec.ts` vigila que no se separen): el color de reposo, el de la seccion
+   a la vista, el hundirse un poco al pulsar, el pasar el raton y la pastilla que se desliza. Lo que sigue abajo
+   de cada uno es solo su forma (uno es una fila; el otro, un icono sobre su texto). */
+.app__enlace,
+.app__nav-inferior-enlace {
+  position: relative;
+  border-radius: 9999px;
+  color: var(--app-tenue);
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    color 0.2s,
+    background-color 0.2s,
+    transform 0.14s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.app__enlace--activo,
+.app__nav-inferior-enlace--activo {
+  color: var(--app-salvia);
+}
+
+/* Al pulsar se hunde un poco: el aviso de que el toque llego, con el dedo y con el raton. */
+.app__enlace:active,
+.app__nav-inferior-enlace:active {
+  transform: scale(0.96);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .app__enlace:hover,
+  .app__nav-inferior-enlace:hover {
+    background-color: color-mix(in srgb, var(--app-superficie-alta) 55%, transparent);
+    color: var(--app-salvia);
+  }
+}
+
+/* La pastilla que se desliza hasta la seccion a la vista, debajo del texto. Es la misma en la barra y en el dock;
+   el movimiento lo da `PastillaDeLaNavegacion` (un resorte, o nada con «reducir movimiento»). */
+.app__pastilla {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: var(--app-superficie-alta);
+}
+
+/* Lo que se lee va por encima de la pastilla. */
+.app__enlace > svg,
+.app__enlace-texto,
+.app__nav-inferior-icono,
+.app__nav-inferior-texto {
+  position: relative;
+}
+
+/* La forma de la barra de arriba: una fila. */
+.app__enlace {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  /* «Mi diario» se sumo a la barra (SCRUM-249) y la hizo mas ancha: un enlace nunca se parte en dos lineas. */
+  white-space: nowrap;
+}
+
+/* Entre 768 y 1023 px la barra ya lleva la marca, la llama, la conexion, el tema y la cuenta: los enlaces pierden
+   el icono y se aprietan para no pegarse a la marca ni a las acciones. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .app__enlace {
+    padding-inline: 0.75rem;
+  }
+
+  .app__enlace > svg {
+    display: none;
+  }
+}
+
+/* El tema y la cuenta, juntos a la derecha de la barra. */
+.app__acciones {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* La barra en un telefono (< 768 px, donde el dock hace de navegacion). El isotipo nuevo y la llama ya no
+   caben en una fila a 375 px (pedian ~423 y ensanchaban la pantalla): el nombre «VSD-H» queda solo para el
+   lector de pantalla (el enlace ya lleva su `aria-label`; un recorte, no `display: none`) y, si aun asi no
+   cabe, las acciones pasan a una segunda fila en vez de salirse. Desde 768 px no se toca: ahi la navegacion
+   central sigue centrada. Lleva `.app` para ganar en especificidad sin depender del orden de las hojas. */
+@media (max-width: 767px) {
+  .app .app__barra-interior {
+    min-width: 0;
+    height: auto;
+    min-height: 76px;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding-block: 0.5rem;
+  }
+
+  .app .app__acciones {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-inline-start: auto;
+    gap: 0.5rem;
+  }
+
+  .app .marca__texto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+/* El selector de tema dentro de la barra (SCRUM-112): con los colores de
+   la aplicacion y sin flotar.
+
+   Plano (SCRUM-118): una pista de un solo color y una pastilla encima. Sin
+   borde, sin brillo y sin sombra en reposo; el vidrio es del cambio y lo pone
+   `global.css`.
+
+   Va como `.tema.tema--barra` y no solo `.tema--barra`: la regla base `.tema`
+   (fija, de 1120 px) vive en `global.css`, y desde que la pantalla de error
+   importa esta hoja en el paquete principal, esta carga ANTES que `global.css`.
+   Con la misma especificidad ganaba la base y la barra se veia como una pista
+   larga. Asi gana siempre, cargue en el orden que cargue. */
+.tema.tema--barra {
+  position: static;
+  width: auto;
+  padding: 3px;
+  background: var(--app-carril);
+  border-radius: 9999px;
+  translate: none;
+  pointer-events: auto;
+}
+
+.tema--barra .tema__opcion {
+  color: var(--app-tenue);
+}
+
+.tema--barra .tema__opcion[aria-pressed='true'] {
+  color: var(--app-tinta);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tema--barra .tema__opcion:hover {
+    color: var(--app-tinta);
+  }
+}
+
+.tema--barra .tema__pastilla {
+  background: var(--app-superficie-alta);
+}
+
+:root[data-tema='claro'] .tema--barra .tema__pastilla {
+  background: var(--app-superficie);
+  box-shadow: 0 1px 2px rgb(29 36 32 / 12%);
+}
+
+.app__cuenta {
+  position: relative;
+}
+
+.app__avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  /* Un `button` trae relleno propio (1px 6px): sin quitarlo, la foto al 100% quedaba en un
+     rectangulo de 28 x 38 dentro del circulo, con el fondo asomando a los lados. */
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--app-avatar);
+  color: var(--app-avatar-tinta);
+  cursor: pointer;
+  /* Cuadrado pase lo que pase: en una fila apretada no se encoge a lo ancho y deja de ser circulo. */
+  aspect-ratio: 1;
+  /* La foto, si la hay, se recorta al circulo. */
+  overflow: hidden;
+  /* Safari de iOS a veces ignora el recorte redondeado de un hijo con capa propia. */
+  isolation: isolate;
+}
+
+.app__avatar-foto {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* El recorte tambien en la imagen, para que no dependa solo del `overflow` del boton. */
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.app__menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  display: grid;
+  gap: 0.25rem;
+  min-width: 15rem;
+  padding: 0.5rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 1rem;
+  background: var(--app-superficie);
+  box-shadow: 0 24px 80px rgb(0 0 0 / 0.45);
+}
+
+.app__menu-correo {
+  padding: 0.5rem 0.75rem;
+  overflow-wrap: anywhere;
+  color: var(--app-tenue);
+  font-size: 0.8125rem;
+}
+
+.app__menu-opcion {
+  padding: 0.625rem 0.75rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: transparent;
+  color: var(--app-tinta);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .app__menu-opcion:hover {
+    background: var(--app-superficie-alta);
+  }
+}
+
+/* ---------- Contenido ---------- */
+
+.app__contenido {
+  max-width: 1440px;
+  margin: 0 auto;
+  /* Abajo deja sitio a la navegacion flotante del movil. */
+  padding: 2rem 1.25rem 7rem;
+  padding-left: max(1.25rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1.25rem, env(safe-area-inset-right, 0px));
+}
+
+.app__contenido:focus {
+  outline: none;
+}
+
+/* Las secciones del panel son destino de anclas: Inicio desde la barra, el dock y las demas
+   paginas (SCRUM-182, SCRUM-296), y los modulos desde «Ver los modulos». La barra de arriba es
+   pegajosa y mide 76 px; sin este margen el titulo quedaba debajo de ella. */
+.app__portada,
+.app__seccion {
+  scroll-margin-top: 5.5rem;
+}
+
+.app__aviso {
+  display: grid;
+  gap: 1rem;
+  justify-items: start;
+  max-width: 36rem;
+  padding: 1.25rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 24px;
+  background: var(--app-superficie);
+  color: var(--app-tenue);
+}
+
+.app__aviso--fallo {
+  color: var(--app-tinta);
+}
+
+.app__boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 0;
+  border-radius: 0.875rem;
+  background: var(--app-salvia);
+  color: var(--app-sobre-primario);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .app__boton:hover:not(:disabled) {
+    background: var(--app-bienestar-acento);
+  }
+}
+
+.app__boton:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* ---------- Saludo y avance de hoy ---------- */
+
+.app__portada {
+  display: grid;
+  gap: 2rem;
+}
+
+.app__fecha {
+  margin-bottom: 0.75rem;
+  color: var(--app-tenue);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+}
+
+.app__saludo {
+  max-width: 48rem;
+  font-family: var(--app-fuente-titulos);
+  font-size: 42px;
+  font-weight: 600;
+  line-height: 1.04;
+  letter-spacing: -0.045em;
+}
+
+.app__saludo-pregunta {
+  color: var(--app-salvia);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.app__caja {
+  border: 1px solid var(--app-borde);
+  background: var(--app-superficie);
+}
+
+.app__avance {
+  padding: 1.25rem;
+  border-radius: 24px;
+}
+
+.app__avance-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.app__avance-cifra {
+  color: var(--app-salvia);
+  font-weight: 700;
+}
+
+.app__barra-progreso {
+  height: 0.5rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--app-borde);
+}
+
+.app__barra-progreso > div {
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--app-primario);
+  transition: width 0.3s;
+}
+
+/* Al volver de hacer algo, la barra arranca desde lo que habia y se llena (SCRUM-170). */
+.app__barra-llenandose {
+  animation: app-barra-llena 0.9s ease-out 0.25s backwards;
+}
+
+@keyframes app-barra-llena {
+  from {
+    width: var(--desde, 0%);
+  }
+}
+
+.app__nota {
+  margin-top: 0.75rem;
+  color: var(--app-tenue);
+  font-size: 0.875rem;
+  line-height: 1.625;
+}
+
+/* ---------- Secciones ---------- */
+
+.app__seccion {
+  margin-top: 3rem;
+}
+
+.app__seccion-cabecera {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.app__antetitulo {
+  margin-bottom: 0.25rem;
+  color: var(--app-tenue);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.app__antetitulo--salvia {
+  margin-top: 2rem;
+  color: var(--app-salvia);
+  letter-spacing: 0.14em;
+}
+
+.app__titulo {
+  font-family: var(--app-fuente-titulos);
+  font-size: 1.875rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.app__titulo--mediano {
+  margin-top: 0.25rem;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+/* ---------- Tarjetas de modulo ---------- */
+
+.app__modulos {
+  display: grid;
+  gap: 1rem;
+}
+
+.tarjeta-modulo {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 255px;
+  padding: 1.5rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 28px;
+  background: var(--modulo-fondo);
+  color: var(--app-tinta);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s,
+    border-color 0.2s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tarjeta-modulo:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 18px 40px rgb(0 0 0 / 0.2);
+  }
+}
+
+.tarjeta-modulo--por-activar {
+  cursor: default;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tarjeta-modulo--por-activar:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+.tarjeta-modulo__arriba {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.tarjeta-modulo__icono {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 1rem;
+  background: var(--app-hundido);
+  color: var(--modulo-acento);
+}
+
+.tarjeta-modulo__cifra {
+  padding: 0.375rem 0.75rem;
+  border-radius: 9999px;
+  background: var(--app-hundido);
+  color: var(--modulo-acento);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.tarjeta-modulo__cuerpo {
+  display: flex;
+  flex-direction: column;
+  margin-top: 2.25rem;
+}
+
+.tarjeta-modulo__titulo {
+  font-family: var(--app-fuente-titulos);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.tarjeta-modulo__texto {
+  max-width: 240px;
+  margin-top: 0.25rem;
+  color: var(--app-tenue);
+  font-size: 0.875rem;
+  line-height: 1.625;
+}
+
+.tarjeta-modulo__barra {
+  display: block;
+  height: 0.375rem;
+  margin-top: 1.5rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--app-carril);
+}
+
+.tarjeta-modulo__barra > span {
+  display: block;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--modulo-acento);
+  transition: width 0.3s;
+}
+
+.tarjeta-modulo__pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  color: var(--app-tenue);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.tarjeta-modulo__activar {
+  align-self: flex-start;
+  /* Dentro de `ExigeConexion` (una rejilla) `align-self` no manda en horizontal. */
+  justify-self: start;
+  margin-top: 1.5rem;
+}
+
+/* Sin conexion el aviso va entre el texto de la tarjeta y el boton (SCRUM-142). */
+.tarjeta-modulo__cuerpo > .exige-conexion__aviso {
+  margin-top: 1rem;
+}
+
+.tarjeta-modulo__fallo {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+}
+
+/* ---------- Ruta de 365 dias, desplegable por modulo, dentro de «Tu ruta de hoy» (SCRUM-293) ---------- */
+
+.acordeon-modulo {
+  border: 1px solid var(--app-borde);
+  border-radius: 28px;
+  background: var(--modulo-fondo);
+  color: var(--app-tinta);
+}
+
+.acordeon-modulo__encabezado {
+  margin: 0;
+  font: inherit;
+}
+
+.acordeon-modulo__boton {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  width: 100%;
+  min-height: 4.5rem;
+  padding: 1.25rem 1.5rem;
+  border: 0;
+  border-radius: 28px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.acordeon-modulo__texto {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.acordeon-modulo__titulo {
+  font-family: var(--app-fuente-titulos);
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.acordeon-modulo__descripcion {
+  margin-top: 0.125rem;
+  color: var(--app-tenue);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.acordeon-modulo__pie {
+  margin-top: 0.625rem;
+  color: var(--app-tenue);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.acordeon-modulo__texto .tarjeta-modulo__barra {
+  margin-top: 0.5rem;
+}
+
+.acordeon-modulo__chevron {
+  align-self: center;
+}
+
+.acordeon-modulo--abierto .acordeon-modulo__chevron {
+  transform: rotate(90deg);
+}
+
+.acordeon-modulo__cuerpo {
+  display: grid;
+  gap: 1rem;
+  padding: 0 1.25rem 1.25rem;
+}
+
+.acordeon-modulo__detalle {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  color: var(--app-tinta);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------- Mapa de los 365 dias ---------- */
+
+.mapa {
+  display: grid;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: none;
+  margin-inline: auto;
+}
+
+/* El mapa ocupa toda la caja, pero el texto no: se sigue leyendo en lineas cortas. */
+.mapa .app__nota {
+  max-width: 60ch;
+}
+
+.mapa__cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.mapa__vuelta {
+  color: var(--app-tenue);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* La ventana es la que se desplaza, no la pagina. `scroll-behavior: auto` para que el salto al dia
+   activo sea instantaneo aunque la pagina tenga desplazamiento suave. */
+.mapa__ventana {
+  max-height: min(40rem, 75vh);
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  border-radius: 20px;
+  background: var(--app-superficie);
+  scroll-behavior: auto;
+}
+
+.mapa__ventana .sendero__tramo {
+  margin-top: 0;
+}
+
+.arbol-sesiones__ventana {
+  max-height: min(40rem, 75vh);
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  border-radius: 20px;
+  background: var(--app-superficie);
+}
+
+.arbol-sesiones__ventana .sendero__tramo {
+  margin-top: 0;
+}
+
+.arbol-sesiones__ventana .arbol-sesiones__punto {
+  border-color: var(--app-borde);
+  background: color-mix(in srgb, var(--app-borde) 38%, var(--app-superficie));
+  color: var(--app-tenue);
+  box-shadow: 0 5px 0 color-mix(in srgb, var(--app-borde) 70%, black);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  transition:
+    background-color 400ms ease,
+    border-color 400ms ease,
+    color 400ms ease,
+    box-shadow 400ms ease,
+    filter 180ms ease;
+}
+
+.arbol-sesiones__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.arbol-sesiones__ventana .arbol-sesiones__punto--hecho {
+  border-color: var(--modulo-acento);
+  background: var(--modulo-acento);
+  color: var(--app-lienzo);
+  box-shadow: 0 5px 0 color-mix(in srgb, var(--modulo-acento) 55%, black);
+}
+
+.arbol-sesiones__ventana .arbol-sesiones__punto--pendiente {
+  border-color: color-mix(in srgb, var(--app-tenue) 44%, var(--app-borde));
+  background: color-mix(in srgb, var(--app-tenue) 22%, var(--app-superficie));
+  color: var(--app-tenue);
+}
+
+.arbol-sesiones__ventana .arbol-sesiones__punto--hoy {
+  border-color: var(--modulo-acento);
+  background: color-mix(in srgb, var(--app-borde) 38%, var(--app-superficie));
+  color: var(--app-tenue);
+  outline: 4px solid color-mix(in srgb, var(--modulo-acento) 35%, transparent);
+  outline-offset: 6px;
+  animation: arbol-sesiones-respiro 2.8s ease-in-out infinite;
+}
+
+.arbol-sesiones__ventana .arbol-sesiones__punto--hoy.arbol-sesiones__punto--hecho {
+  background: var(--modulo-acento);
+  color: var(--app-lienzo);
+}
+
+@keyframes arbol-sesiones-respiro {
+  50% {
+    outline-offset: 11px;
+    filter: brightness(1.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arbol-sesiones__ventana .arbol-sesiones__punto {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* Sin `transform`: la fila ya usa `translateX(var(--x))` para el zigzag y se perderia. */
+.mapa__punto-hecho {
+  cursor: pointer;
+}
+
+.app .sendero__popover {
+  position: fixed;
+  z-index: 100;
+  display: grid;
+  gap: 0.75rem;
+  width: min(14rem, calc(100vw - 24px));
+  padding: 0.875rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 16px;
+  background: var(--app-superficie);
+  color: var(--app-tinta);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 18%);
+}
+
+.sendero__popover-texto {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.sendero__popover-accion {
+  display: grid;
+  min-height: 2.75rem;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--app-primario);
+  color: var(--app-sobre-primario);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.sendero__popover-accion:focus-visible {
+  outline: 3px solid var(--app-tinta);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .arbol-sesiones__ventana .arbol-sesiones__punto:hover {
+    filter: brightness(1.08);
+  }
+
+  .mapa__punto-hecho:hover {
+    filter: brightness(1.08);
+  }
+}
+
+/* ---------- Ruta del dia y recomendado (SCRUM-170) ---------- */
+
+.app__ruta-y-recomendado {
+  display: grid;
+  gap: 1.25rem;
+  margin-top: 2.5rem;
+}
+
+.app__ruta-y-recomendado > .ruta {
+  min-width: 0;
+}
+
+.app__contador {
+  flex-shrink: 0;
+  padding: 0.375rem 0.75rem;
+  border-radius: 9999px;
+  background: var(--app-superficie-alta);
+  color: var(--app-salvia);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* Las filas de actividad las usa la hoja de lo de hoy del sendero. */
+.app__actividades {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fila-actividad {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.75rem;
+  border-radius: 18px;
+  transition:
+    background 0.18s,
+    opacity 0.18s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .fila-actividad:hover {
+    background: var(--app-superficie-alta);
+  }
+}
+
+.fila-actividad--hecha {
+  opacity: 0.6;
+}
+
+.fila-actividad__icono {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 14px;
+}
+
+.fila-actividad__texto {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.fila-actividad__nombre {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.fila-actividad--hecha .fila-actividad__nombre {
+  text-decoration: line-through;
+}
+
+.fila-actividad__meta {
+  margin-top: 0.125rem;
+  color: var(--app-tenue);
+  font-size: 0.75rem;
+}
+
+.fila-actividad__estado {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding-left: 0.125rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 9999px;
+  background: var(--app-superficie-alta);
+  color: var(--app-salvia);
+  transition: border-color 0.18s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .fila-actividad__estado:hover {
+    border-color: var(--app-salvia);
+  }
+}
+
+.fila-actividad__estado--hecha {
+  padding-left: 0;
+  border-color: var(--app-primario);
+  background: var(--app-primario);
+  color: var(--app-sobre-primario);
+}
+
+/* Lo ya hecho se puede repetir (SCRUM-184): la marca y, al lado, «Otra vez». */
+.fila-actividad__acciones {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fila-actividad__otra-vez {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--app-tinta);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .fila-actividad__otra-vez:hover {
+    border-color: var(--app-salvia);
+  }
+}
+
+.app__recomendado {
+  position: relative;
+  overflow: hidden;
+  padding: 1.75rem;
+  border-radius: 28px;
+  background: var(--app-descanso);
+  color: var(--app-tinta);
+}
+
+.app__recomendado-adorno {
+  position: absolute;
+  border: 1px solid var(--app-trazo-sobre);
+  border-radius: 9999px;
+  pointer-events: none;
+}
+
+.app__recomendado-adorno--grande {
+  top: -3rem;
+  right: -3rem;
+  width: 10rem;
+  height: 10rem;
+}
+
+.app__recomendado-adorno--pequeno {
+  right: -1rem;
+  bottom: 2.5rem;
+  width: 6rem;
+  height: 6rem;
+}
+
+.app__recomendado-icono {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 1rem;
+  background: var(--app-capa-sobre);
+}
+
+.app__recomendado-titulo {
+  margin-top: 0.5rem;
+  font-family: var(--app-fuente-titulos);
+  font-size: 27px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.app__recomendado-texto {
+  margin-top: 0.75rem;
+  color: var(--app-tinta-suave);
+  font-size: 0.875rem;
+  line-height: 1.625;
+}
+
+.app__recomendado-boton {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 1.75rem;
+  padding: 0.875rem 1rem;
+  border-radius: 1rem;
+  background: var(--app-salvia);
+  color: var(--app-sobre-primario);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+/* ---------- Navegacion inferior del movil: el dock (SCRUM-114) ----------
+   Una pildora centrada y despegada del borde y de la zona segura del
+   iPhone. Mide unos 65 px de alto y queda a 16 px del borde: el boton del
+   semaforo (a 104 px) y la mascota (que deja 96 px) siguen por encima. El
+   vidrio lo pone el bloque "Vidrio" del final. */
+
+.app__nav-inferior {
+  position: fixed;
+  z-index: 20;
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  display: flex;
+  gap: 0.25rem;
+  width: max-content;
+  max-width: calc(100% - 2rem);
+  padding: 0.375rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--app-superficie) 95%, transparent);
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+  transform: translateX(-50%);
+  transition:
+    transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.2s;
+}
+
+/* Al bajar se aparta hacia abajo; vuelve al subir o al detenerse. */
+.app__nav-inferior--oculto {
+  opacity: 0;
+  transform: translate(-50%, calc(100% + 1.5rem + env(safe-area-inset-bottom, 0px)));
+  pointer-events: none;
+}
+
+.app__nav-inferior-enlace {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  min-width: 4rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 11px;
+}
+
+/* ---------- Bienvenida (SCRUM-90) ---------- */
+
+.bienvenida {
+  display: grid;
+  gap: 2rem;
+  max-width: 64rem;
+}
+
+.bienvenida__formulario {
+  display: grid;
+  gap: 1.75rem;
+}
+
+.bienvenida__campo {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 28rem;
+}
+
+.bienvenida__etiqueta {
+  padding: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.bienvenida__entrada {
+  padding: 0.75rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 0.75rem;
+  background: var(--app-lienzo);
+  color: var(--app-tinta);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.bienvenida__entrada::placeholder {
+  color: var(--app-tenue);
+  opacity: 0.7;
+}
+
+/* El campo de contrasena con su ojo (SCRUM-181). Todo va acotado a `.bienvenida__caja`
+   porque `.ojo` tambien existe en `autenticacion.css`, con otros tokens, y esa hoja
+   solo se carga en las pantallas de acceso: aqui el ojo tiene que verse igual
+   llegando desde cualquier sitio. */
+.bienvenida__caja {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.bienvenida__entrada--conOjo {
+  width: 100%;
+  min-width: 0;
+  padding-right: 3rem;
+}
+
+.bienvenida__caja .ojo {
+  position: absolute;
+  right: 0.375rem;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  color: var(--app-tenue);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .bienvenida__caja .ojo:hover:not(:disabled) {
+    color: var(--app-primario);
+    background: var(--app-hundido);
+  }
+}
+
+.bienvenida__modulos {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.bienvenida__modulos .app__nota {
+  margin-top: 0;
+}
+
+.bienvenida__opcion {
+  min-height: 0;
+}
+
+.bienvenida__marca {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 9999px;
+  background: var(--app-hundido);
+}
+
+.bienvenida__marca--activa {
+  border-color: var(--modulo-acento);
+  background: var(--modulo-acento);
+  color: var(--app-sobre-primario);
+}
+
+.bienvenida__fallo {
+  margin: 0;
+  color: var(--app-emociones-acento);
+  font-size: 0.875rem;
+}
+
+.bienvenida__empezar {
+  justify-self: start;
+  padding: 0.875rem 1.5rem;
+  font-size: 0.9375rem;
+}
+
+/* ---------- Celebracion al desbloquear un modulo (SCRUM-90) ---------- */
+
+.celebracion {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 0.55);
+}
+
+.celebracion__caja {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  width: min(26rem, 100%);
+  padding: 2rem 1.5rem 1.5rem;
+  border: 1px solid var(--modulo-acento);
+  border-radius: 28px;
+  background: var(--modulo-fondo);
+  color: var(--app-tinta);
+  text-align: center;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 0.45);
+}
+
+.celebracion__icono {
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  margin-bottom: 0.5rem;
+  border-radius: 1.25rem;
+  background: var(--app-hundido);
+  color: var(--modulo-acento);
+}
+
+.celebracion__modulo {
+  margin: 0;
+  color: var(--modulo-acento);
+}
+
+.celebracion__titulo {
+  font-family: var(--app-fuente-titulos);
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.celebracion__texto {
+  color: var(--app-tinta-suave);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.celebracion__boton {
+  margin-top: 1rem;
+}
+/* ---------- Perfil (SCRUM-101) ---------- */
+
+.perfil {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 48rem;
+}
+
+.perfil__volver {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  justify-self: start;
+  color: var(--app-tenue);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .perfil__volver:hover {
+    color: var(--app-salvia);
+  }
+}
+
+.perfil__volver-flecha {
+  display: inline-grid;
+  transform: rotate(180deg);
+}
+
+.perfil__titulo {
+  font-size: 2.25rem;
+}
+
+.perfil__apartado {
+  display: grid;
+  /* Una sola columna que se encoge. Con la pista `auto` por defecto, la columna crecia hasta lo
+     que mide lo mas ancho de adentro (una palabra larga, un boton) y empujaba la pagina hacia la
+     derecha en pantallas de 320 px. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 1.25rem;
+  border-radius: 24px;
+}
+
+.perfil__apartado--peligro {
+  border-color: color-mix(in srgb, var(--app-emociones-acento) 45%, var(--app-borde));
+}
+
+.perfil__apartado-titulo {
+  font-family: var(--app-fuente-titulos);
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.perfil__ayuda {
+  margin-top: 0;
+}
+
+/* ---------- La foto de perfil (SCRUM-120) ---------- */
+
+.perfil__foto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+.perfil__foto-marco {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 6rem;
+  height: 6rem;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--app-avatar);
+  color: var(--app-avatar-tinta);
+  isolation: isolate;
+}
+
+.perfil__foto-imagen {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.perfil__foto-vacia {
+  display: grid;
+  place-items: center;
+}
+
+.perfil__foto-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* La entrada de archivo esta a la vista de teclado y de lector de pantalla, y
+   su etiqueta es lo que se ve: cuando la entrada tiene el foco, se nota en la
+   etiqueta, que va justo despues. */
+.perfil__foto-entrada:focus-visible + .perfil__foto-elegir {
+  outline: 2px solid var(--app-tinta);
+  outline-offset: 2px;
+}
+
+.perfil__foto-elegir--ocupado {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* ---------- La mascota propia (SCRUM-122) ----------
+   Comparte con la foto la fila y el boton de elegir archivo (`perfil__foto`,
+   `perfil__foto-acciones`, `perfil__foto-entrada`, `perfil__foto-elegir`): es el
+   mismo patron. Lo que cambia es el marco, que es cuadrado y deja ver el dibujo
+   entero, porque no es un rostro que se recorte en circulo. */
+
+.perfil__mascota-marco {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 6rem;
+  height: 6rem;
+  overflow: hidden;
+  border: 1px solid var(--app-borde);
+  border-radius: 18px;
+  background: var(--app-lienzo);
+  color: var(--app-tenue);
+}
+
+.perfil__mascota-dibujo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.perfil__mascota-vacia {
+  display: grid;
+  place-items: center;
+}
+
+/* La guia de como preparar el dibujo. */
+.perfil__guia {
+  border-top: 1px solid var(--app-borde);
+  padding-top: 0.75rem;
+}
+
+.perfil__guia-resumen {
+  display: inline-block;
+  padding: 0.25rem 0;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.perfil__guia-resumen:focus-visible {
+  outline: 2px solid var(--app-tinta);
+  outline-offset: 2px;
+}
+
+.perfil__guia-cuerpo {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.perfil__guia-pasos {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding-left: 1.25rem;
+  line-height: 1.5;
+}
+
+.perfil__guia-pasos ul {
+  margin: 0.375rem 0 0;
+  padding-left: 1.125rem;
+}
+
+.perfil__guia-pasos kbd {
+  padding: 0 0.3em;
+  border: 1px solid var(--app-borde);
+  border-radius: 6px;
+  background: var(--app-lienzo);
+  font-family: inherit;
+  font-size: 0.8125em;
+}
+
+.perfil__guia-pdf {
+  margin: 0;
+}
+
+.perfil__fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.perfil__entrada {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.perfil__formulario {
+  display: grid;
+  gap: 1rem;
+  max-width: 28rem;
+}
+
+.perfil__accion {
+  justify-self: start;
+}
+
+/* Dos o mas acciones de un mismo apartado, una junto a la otra y, si no caben, en otra linea. */
+.perfil__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.perfil__correo {
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.perfil__modulos {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.perfil__modulo {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 18px;
+  background: var(--app-lienzo);
+  color: var(--app-tinta);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.18s,
+    border-color 0.18s;
+}
+
+.perfil__modulo--activo {
+  border-color: var(--modulo-acento);
+  background: var(--modulo-fondo);
+}
+
+.perfil__modulo-nombre {
+  flex: 1;
+  /* Puede ser mas angosto que su palabra mas larga («Recomendaciones»); si no cabe, se corta con
+     guion y, en ultimo caso, donde haga falta. */
+  min-width: 0;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  font-weight: 600;
+}
+
+.perfil__interruptor {
+  position: relative;
+  /* Ni el interruptor ni el icono se aplastan: es el texto el que cede el lugar. */
+  flex: none;
+  width: 2.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  background: var(--app-borde);
+  transition: background 0.18s;
+}
+
+.perfil__interruptor > span {
+  position: absolute;
+  top: 0.1875rem;
+  left: 0.1875rem;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 9999px;
+  background: var(--app-tinta);
+  transition: transform 0.18s;
+}
+
+.perfil__modulo--activo .perfil__interruptor,
+.perfil__tarjeta-de-aviso--activa .perfil__interruptor {
+  background: var(--modulo-acento);
+}
+
+.perfil__modulo--activo .perfil__interruptor > span,
+.perfil__tarjeta-de-aviso--activa .perfil__interruptor > span {
+  background: var(--app-sobre-primario);
+  transform: translateX(1rem);
+}
+
+/* Pantallas de 360 px o menos (iPhone SE de primera generacion, 320 px, y los Android chicos): se
+   le quita aire a lo que rodea el texto para que «Recomendaciones» entre entera en el interruptor
+   en lugar de partirse en cuatro lineas. */
+@media (max-width: 22.5rem) {
+  .perfil {
+    padding-inline: 0.875rem;
+  }
+
+  .perfil__apartado {
+    padding: 1rem;
+  }
+
+  .perfil__modulo {
+    gap: 0.625rem;
+    padding: 0.625rem;
+  }
+
+  .perfil__modulo .tarjeta-modulo__icono {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.875rem;
+  }
+
+  .perfil__modulo-nombre {
+    font-size: 0.9375rem;
+  }
+}
+
+/* Un plegable cerrado mide unos 280 px (SCRUM-179). Con cuatro entradas de 64 px el dock
+   no cabe en los 248 que le quedan; asi las entradas se encogen a lo que mide su texto. */
+@media (max-width: 18rem) {
+  .app__nav-inferior-enlace {
+    min-width: 0;
+    padding-inline: 0.375rem;
+  }
+}
+
+.perfil__hora {
+  flex: none;
+  width: 8.5rem;
+}
+
+/* El desplegable de frecuencia del semaforo: del ancho de su contenido, no del renglon. */
+.perfil__selector {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* ---------- Los avisos del perfil, en dos tarjetas ----------
+   Cada una: un interruptor, lo que hace y, encendida, sus opciones. Los
+   colores del modulo de bienestar llegan por `--modulo-*` desde el componente,
+   como en las tarjetas de modulo. */
+.perfil__tarjeta-de-aviso {
+  display: grid;
+  padding: 0.875rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 20px;
+  background: var(--app-lienzo);
+  transition:
+    background 0.18s,
+    border-color 0.18s;
+}
+
+.perfil__tarjeta-de-aviso--activa {
+  border-color: var(--modulo-acento);
+  background: var(--modulo-fondo);
+}
+
+/* El interruptor es toda la fila de arriba; la tarjeta ya pone el marco. */
+.perfil__tarjeta-interruptor {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--app-tinta);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.perfil__tarjeta-de-aviso .perfil__ayuda {
+  margin-top: 0.625rem;
+}
+
+/* Lo que se despliega: el espacio con lo de arriba va dentro, para que crezca
+   junto con la altura y no haya un salto al terminar. */
+.perfil__despliegue {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.875rem;
+}
+
+/* Los chips son casillas de verdad: la real cubre el chip, invisible, y recibe
+   el foco y los toques. Lo que se ve es el cuerpo, que sigue a la casilla. */
+.perfil__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.perfil__chip {
+  position: relative;
+  display: inline-flex;
+}
+
+.perfil__chip-entrada {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.perfil__chip-cuerpo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.875rem;
+  border: 1px solid color-mix(in srgb, var(--modulo-acento) 55%, transparent);
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--app-tinta);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  transition:
+    background 0.18s,
+    border-color 0.18s,
+    color 0.18s;
+}
+
+.perfil__chip-entrada:checked + .perfil__chip-cuerpo {
+  border-color: var(--modulo-acento);
+  background: var(--modulo-acento);
+  color: var(--app-sobre-primario);
+}
+
+.perfil__chip-entrada:focus-visible {
+  outline: none;
+}
+
+.perfil__chip-entrada:focus-visible + .perfil__chip-cuerpo {
+  outline: 2px solid var(--app-salvia);
+  outline-offset: 3px;
+}
+
+/* La marca de verificacion entra al elegir el chip y no deja hueco cuando no
+   esta elegido. El margen negativo anula el espacio del `gap` mientras mide 0. */
+.perfil__chip-marca {
+  display: inline-grid;
+  width: 0;
+  margin-right: -0.375rem;
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    width 0.18s,
+    margin-right 0.18s,
+    opacity 0.18s;
+}
+
+.perfil__chip-entrada:checked + .perfil__chip-cuerpo .perfil__chip-marca {
+  width: 0.875rem;
+  margin-right: 0;
+  opacity: 1;
+}
+
+.perfil__chip-detalle {
+  font-weight: 500;
+}
+
+.perfil__secundario {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 0.875rem;
+  background: transparent;
+  color: var(--app-tinta);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.perfil__peligro {
+  justify-self: start;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--app-emociones-acento);
+  border-radius: 0.875rem;
+  background: transparent;
+  color: var(--app-emociones-acento);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .perfil__peligro:hover:not(:disabled) {
+    background: var(--app-emociones);
+  }
+}
+
+.perfil__peligro:disabled,
+.perfil__secundario:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.perfil__mascota {
+  max-width: none;
+}
+
+/* Cinco personajes: tres por fila en el movil (3 y 2, ninguno solo) y los
+   cinco en fila desde 768 px. */
+.perfil__personajes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.perfil__personaje {
+  display: grid;
+  justify-items: center;
+  gap: 0.125rem;
+  padding: 0.75rem 0.5rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 18px;
+  background: var(--app-lienzo);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background 0.18s,
+    border-color 0.18s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .perfil__personaje:hover {
+    border-color: var(--app-tenue);
+  }
+}
+
+.perfil__personaje--elegido {
+  border-color: var(--app-salvia);
+  background: var(--app-superficie-alta);
+}
+
+/* El radio esta oculto: el foco se ve en la tarjeta. */
+.perfil__personaje:has(input:focus-visible) {
+  outline: 2px solid var(--app-salvia);
+  outline-offset: 3px;
+}
+
+.perfil__personaje-dibujo {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 0.25rem;
+}
+
+/* La mascota propia (SCRUM-122) es un dibujo cualquiera, no un sprite hecho para
+   este cuadro: se ve entero. Mientras llega, queda el cuadro vacio. */
+.perfil__personaje-dibujo--propio {
+  object-fit: contain;
+}
+
+.perfil__personaje-dibujo--vacio {
+  border-radius: 14px;
+  background: var(--app-superficie-alta);
+}
+
+.perfil__personaje-nombre {
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.perfil__personaje-rasgo {
+  color: var(--app-tenue);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.perfil__bien,
+.perfil__fallo {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.perfil__bien {
+  color: var(--app-salvia);
+}
+
+.perfil__fallo {
+  color: var(--app-emociones-acento);
+}
+
+/* ---------- Sendero de un modulo (SCRUM-92) ---------- */
+
+.sendero {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 40rem;
+}
+
+.sendero__cuerpo {
+  display: grid;
+  gap: 1rem;
+}
+
+.sendero__cabecera {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.sendero__cabecera .tarjeta-modulo__icono {
+  flex-shrink: 0;
+  background: var(--modulo-fondo);
+}
+
+.sendero__anteriores {
+  border-radius: 18px;
+  background: var(--modulo-fondo);
+}
+
+.sendero__anteriores summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3.5rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: 18px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.sendero__anteriores summary::-webkit-details-marker {
+  display: none;
+}
+
+.sendero__anteriores strong {
+  display: block;
+  font-size: 0.875rem;
+}
+
+.sendero__resumen {
+  display: block;
+  color: var(--app-tenue);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.sendero__sello {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background: var(--modulo-acento);
+  color: var(--app-lienzo);
+}
+
+.sendero__chevron {
+  display: inline-grid;
+  margin-left: auto;
+  color: var(--app-tenue);
+  transition: transform 0.2s;
+}
+
+.sendero__anteriores[open] .sendero__chevron {
+  transform: rotate(90deg);
+}
+
+.sendero__lista-anteriores {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0 1rem 1rem 3.625rem;
+  color: var(--app-tenue);
+  font-size: 0.8125rem;
+  list-style: none;
+}
+
+.sendero__lista-anteriores li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sendero__lista-anteriores svg {
+  color: var(--modulo-acento);
+}
+
+.sendero__etapa {
+  display: grid;
+  padding: 1.25rem;
+  border-radius: 24px;
+}
+
+.sendero__etapa-cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.sendero__ceja {
+  margin-bottom: 0.25rem;
+  color: var(--modulo-acento);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.sendero__explicacion {
+  margin-top: 0.5rem;
+}
+
+.sendero__tramo {
+  position: relative;
+  margin-top: 1rem;
+}
+
+/* El SVG mide un pixel de ancho y se dibuja desde el centro: cada punto se
+   desplaza `--x` desde ahi, y la traza usa esas mismas cifras. */
+.sendero__traza {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.sendero__traza path {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.sendero__tramo--hecho {
+  stroke: var(--modulo-acento);
+  stroke-width: 6;
+}
+
+.sendero__tramo--pendiente {
+  stroke: var(--app-borde);
+  stroke-width: 4;
+  stroke-dasharray: 2 11;
+}
+
+.sendero__puntos {
+  position: relative;
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Las alturas tienen que coincidir con ALTO_DE_FILA y ALTO_DE_FILA_DE_HOY de
+   sendero/geometria.ts, que es con lo que se dibuja la traza. */
+.sendero__fila {
+  display: grid;
+  place-items: center;
+  height: 112px;
+}
+
+/* Se desplaza el punto y no la fila: una fila desplazada se saldria de la
+   pantalla por un lado y daria desplazamiento horizontal en el movil. */
+.sendero__fila > * {
+  transform: translateX(var(--x, 0px));
+}
+
+.sendero__fila--hoy {
+  height: 156px;
+}
+
+.sendero__envoltura {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.sendero__punto {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  padding: 0;
+  border: 2px solid var(--app-borde);
+  border-radius: 9999px;
+  background: var(--app-superficie);
+  color: var(--app-tenue);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 800;
+  box-shadow: 0 5px 0 var(--app-borde);
+}
+
+.sendero__punto--hecho {
+  border-color: var(--modulo-acento);
+  background: var(--modulo-acento);
+  color: var(--app-lienzo);
+  box-shadow: 0 5px 0 color-mix(in srgb, var(--modulo-acento) 55%, black);
+}
+
+.sendero__punto--futuro {
+  border-style: dashed;
+  background: var(--app-lienzo);
+  box-shadow: none;
+}
+
+.sendero__punto--meta {
+  width: 82px;
+  height: 82px;
+  border-width: 3px;
+}
+
+.sendero__punto--meta.sendero__punto--hecho {
+  background: var(--app-superficie);
+  color: var(--modulo-acento);
+}
+
+.sendero__punto--hoy {
+  position: relative;
+  width: 92px;
+  height: 92px;
+  border-color: var(--modulo-acento);
+  background: var(--modulo-fondo);
+  color: var(--modulo-acento);
+  cursor: pointer;
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
+}
+
+.sendero__punto--hoy:active {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 var(--app-borde);
+}
+
+.sendero__punto--completo {
+  background: var(--modulo-acento);
+  color: var(--app-lienzo);
+  box-shadow: 0 5px 0 color-mix(in srgb, var(--modulo-acento) 55%, black);
+}
+
+/* Mientras hoy no cuente, el punto respira para invitar a pulsarlo. */
+.sendero__punto--respira::after {
+  position: absolute;
+  inset: -12px;
+  border: 3px solid var(--modulo-acento);
+  border-radius: 9999px;
+  content: '';
+  opacity: 0.3;
+  pointer-events: none;
+  animation: sendero-respiro 2.6s ease-in-out infinite;
+}
+
+@keyframes sendero-respiro {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.96);
+  }
+
+  50% {
+    opacity: 0.08;
+    transform: scale(1.08);
+  }
+}
+
+.sendero__anillo {
+  position: absolute;
+  inset: -12px;
+  width: calc(100% + 24px);
+  height: calc(100% + 24px);
+  pointer-events: none;
+  transform: rotate(-90deg);
+}
+
+.sendero__anillo circle {
+  fill: none;
+  stroke-width: 5;
+}
+
+.sendero__anillo-fondo {
+  stroke: var(--app-borde);
+}
+
+.sendero__anillo-avance {
+  stroke: var(--modulo-acento);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.4s;
+}
+
+.sendero__etiqueta {
+  position: absolute;
+  top: calc(100% + 16px);
+  color: var(--app-tinta);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.sendero__ver-hoy {
+  justify-self: start;
+  margin-top: 1rem;
+}
+
+.sendero__bloqueada {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px dashed var(--app-borde);
+  border-radius: 18px;
+  color: var(--app-tenue);
+}
+
+.sendero__candado {
+  display: inline-grid;
+  flex-shrink: 0;
+}
+
+.sendero__bloqueada-titulo {
+  color: var(--app-tinta);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.sendero__bloqueada-texto {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* ---------- Lo de hoy, al pulsar el punto de hoy ---------- */
+
+.hoja {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: grid;
+  align-items: end;
+  background: rgb(0 0 0 / 0.55);
+}
+
+.hoja__caja {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+  max-height: 85vh;
+  /* La ventana visible, sin la barra del navegador que sube y baja. */
+  max-height: 85dvh;
+  overflow-y: auto;
+  /* El ultimo boton no queda debajo de la barra de gestos del telefono. */
+  padding: 1.5rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  border: 1px solid var(--app-borde);
+  border-bottom: 0;
+  border-radius: 28px 28px 0 0;
+  background: var(--app-superficie);
+  box-shadow: 0 -12px 60px rgb(0 0 0 / 0.4);
+}
+
+.hoja__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.hoja__modulo {
+  margin: 0;
+  color: var(--modulo-acento);
+}
+
+.hoja__frecuencia {
+  display: inline-block;
+  margin-right: 0.5rem;
+  padding: 0.0625rem 0.5rem;
+  border-radius: 9999px;
+  background: var(--modulo-fondo);
+  color: var(--modulo-acento);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.hoja__cerrar {
+  justify-self: stretch;
+}
+
+/* Lo que se sugiere, aparte de lo que toca (SCRUM-184). */
+.hoja__sugeridas {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--app-borde);
+}
+
+.hoja__sugeridas-titulo {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 800;
+}
+
+/* ---------- El historial de un modulo (SCRUM-184) ---------- */
+
+.sendero__historial {
+  display: grid;
+  gap: 0.875rem;
+  padding: 1.25rem;
+  border-radius: 24px;
+}
+
+.sendero__historial-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.sendero__historial-dia {
+  display: grid;
+  gap: 0.375rem;
+}
+
+.sendero__historial-fecha {
+  margin: 0;
+  color: var(--modulo-acento, var(--app-salvia));
+  font-size: 0.8125rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.sendero__historial-lista {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sendero__historial-hecho {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 14px;
+  background: var(--app-superficie-alta);
+}
+
+.sendero__historial-hora {
+  flex-shrink: 0;
+  min-width: 4.75rem;
+  color: var(--app-tenue);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.sendero__historial-nombre {
+  overflow-wrap: anywhere;
+  font-size: 0.9375rem;
+}
+
+.sendero__historial-mas {
+  justify-self: start;
+}
+
+/* ---------- Mascota flotante (SCRUM-99) ---------- */
+
+/* Ocupa toda la ventana pero no recibe toques: solo la mascota y su globo. Por
+   debajo de los dialogos (z-index 60) y por encima del contenido. */
+.mascota {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  pointer-events: none;
+}
+
+.mascota__cuerpo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: auto;
+}
+
+.mascota__boton {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 24px;
+  background: transparent;
+  cursor: grab;
+  /* El navegador no desplaza la pagina al arrastrarla con el dedo. */
+  touch-action: none;
+  transition:
+    transform 0.2s,
+    opacity 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mascota--arrastrando .mascota__boton {
+  cursor: grabbing;
+}
+
+.mascota__dibujo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.35));
+  user-select: none;
+  pointer-events: none;
+}
+
+/* ---------- La mascota propia (SCRUM-122) ---------- */
+
+/* Mientras llega su dibujo no se pinta nada, para no mostrar un instante a
+   Fungito y cambiarlo despues. */
+.mascota__dibujo--esperando {
+  opacity: 0;
+}
+
+/* Un SVG propio no trae las cuatro caras de los personajes: lo que cambia es
+   como se mueve (en el componente) y como brilla (aqui). */
+.mascota[data-personaje='propia'] .mascota__dibujo {
+  object-fit: contain;
+  transition: filter 0.4s;
+}
+
+.mascota[data-personaje='propia'][data-expresion='feliz'] .mascota__dibujo {
+  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.35)) brightness(1.08) saturate(1.15);
+}
+
+.mascota[data-personaje='propia'][data-expresion='celebrando'] .mascota__dibujo {
+  filter: drop-shadow(0 8px 14px rgb(0 0 0 / 0.4)) brightness(1.12) saturate(1.3);
+}
+
+.mascota[data-personaje='propia'][data-expresion='dormida'] .mascota__dibujo {
+  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.3)) brightness(0.78) saturate(0.55);
+}
+
+/* Duerme con unas «z» que suben y se apagan. */
+.mascota__sueno {
+  position: absolute;
+  top: -0.25rem;
+  right: 0.25rem;
+  color: var(--app-tenue);
+  font-size: 1rem;
+  font-weight: 700;
+  pointer-events: none;
+  animation: mascota-sueno 3s ease-in-out infinite;
+}
+
+@keyframes mascota-sueno {
+  0% {
+    opacity: 0;
+    transform: translate(0, 6px) scale(0.8);
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(6px, -14px) scale(1.1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascota__sueno {
+    opacity: 0.8;
+    animation: none;
+  }
+}
+
+.mascota--encogida .mascota__boton {
+  opacity: 0.7;
+  transform: scale(0.75);
+}
+
+/* Mientras se escribe, se aparta: casi transparente y sin recibir toques, para
+   no tapar nunca el campo. */
+.mascota--apartada .mascota__cuerpo {
+  pointer-events: none;
+}
+
+.mascota--apartada .mascota__boton {
+  opacity: 0.3;
+  transform: scale(0.6);
+}
+
+.mascota__globo {
+  position: absolute;
+  width: min(280px, calc(100vw - 24px));
+  padding: 0.875rem 1rem 1rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 20px;
+  background: var(--app-superficie-alta);
+  box-shadow: 0 18px 40px rgb(0 0 0 / 0.35);
+  pointer-events: auto;
+}
+
+.mascota__quien {
+  color: var(--app-salvia);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.mascota__frase {
+  margin-top: 0.375rem;
+  padding-right: 1rem;
+  font-family: var(--app-fuente-titulos);
+  font-size: 1.0625rem;
+  line-height: 1.35;
+}
+
+.mascota__cerrar {
+  position: absolute;
+  top: 0.375rem;
+  right: 0.5rem;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--app-tenue);
+  font: inherit;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mascota__cerrar:hover {
+    color: var(--app-tinta);
+  }
+}
+
+.mascota__hablar {
+  margin-top: 0.75rem;
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--app-primario);
+  color: var(--app-sobre-primario);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* Una invitacion de la pantalla (SCRUM-194): no se va sola y deja elegir sin culpa. Los dos
+   botones caben en una fila; en un telefono estrecho pasan a dos. */
+.mascota__globo--invitacion {
+  width: min(320px, calc(100vw - 24px));
+}
+
+.mascota__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.mascota__acciones .mascota__hablar {
+  margin-top: 0;
+}
+
+.mascota__rechazar {
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border: 1px solid var(--app-borde);
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--app-tinta);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Con VSD IA abierto (SCRUM-100) se posa en la esquina del asistente, por
+   encima de su velo (z-index 60), y es solo un dibujo: no recibe toques. */
+.mascota--con-asistente {
+  z-index: 61;
+}
+
+.mascota--con-asistente .mascota__cuerpo {
+  pointer-events: none;
+}
+
+/* ---------- Puntos de quiebre del diseño (sm 640, md 768, lg 1024) ---------- */
+
+@media (min-width: 640px) {
+  .app__barra-interior {
+    padding-left: max(2rem, env(safe-area-inset-left, 0px));
+    padding-right: max(2rem, env(safe-area-inset-right, 0px));
+  }
+
+  .app__contenido {
+    padding-left: max(2rem, env(safe-area-inset-left, 0px));
+    padding-right: max(2rem, env(safe-area-inset-right, 0px));
+  }
+
+  .app__saludo {
+    font-size: 3rem;
+  }
+
+  .sendero__etapa,
+  .sendero__historial {
+    padding: 1.75rem;
+  }
+
+  /* Fuera del movil, lo de hoy se abre en el centro y no como hoja. */
+  .hoja {
+    align-items: center;
+    justify-items: center;
+    padding: 1rem;
+  }
+
+  .hoja__caja {
+    width: min(30rem, 100%);
+    border-bottom: 1px solid var(--app-borde);
+    border-radius: 28px;
+  }
+}
+
+@media (min-width: 768px) {
+  .app__nav {
+    display: flex;
+  }
+
+  .app__modulos {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .tarjeta-modulo {
+    min-height: 292px;
+  }
+
+  .perfil__personajes {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  /* Con la mascota propia son seis: en el movil siguen siendo 3 y 3. */
+  .perfil__personajes--con-propia {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .app__nav-inferior {
+    display: none;
+  }
+
+  .app__contenido {
+    padding-bottom: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app__barra-interior {
+    padding-left: max(3rem, env(safe-area-inset-left, 0px));
+    padding-right: max(3rem, env(safe-area-inset-right, 0px));
+  }
+
+  .app__contenido {
+    padding-top: 2.5rem;
+    padding-bottom: 2.5rem;
+    padding-left: max(3rem, env(safe-area-inset-left, 0px));
+    padding-right: max(3rem, env(safe-area-inset-right, 0px));
+  }
+
+  .app__portada {
+    grid-template-columns: 1fr 340px;
+    align-items: end;
+  }
+
+  .app__saludo {
+    font-size: 58px;
+  }
+
+  .app__ruta-y-recomendado {
+    grid-template-columns: 1fr 340px;
+    align-items: start;
+  }
+
+  /* La invitacion acompana a la ruta mientras se baja por ella. */
+  .app__ruta-y-recomendado > .app__recomendado {
+    position: sticky;
+    top: 6rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app *,
+  .app *::before,
+  .app *::after {
+    transition: none !important;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .tarjeta-modulo:hover {
+      transform: none;
+    }
+  }
+
+  .sendero__punto--respira::after {
+    animation: none;
+  }
+
+  /* Sin «reducir movimiento» se hunden un poco al pulsar; con el, no se mueven (SCRUM-284). */
+  .app__enlace:active,
+  .app__nav-inferior-enlace:active {
+    transform: none;
+  }
+}
+
+/* ==========================================================================
+   Vidrio (SCRUM-113)
+
+   Lo que flota sobre el contenido es de vidrio esmerilado: deja ver lo de
+   detras, desenfocado, con un borde y un brillo sutiles en el canto.
+
+   - Safari, y con el todo iOS, solo entiende `-webkit-backdrop-filter`:
+     van los dos, el prefijado primero.
+   - El fondo nunca es del todo transparente. Sobre el desenfoque queda una
+     capa de la superficie del tema, mas densa donde hay texto que leer, y
+     el contraste se mide contra esa capa.
+   - Rendimiento: el desenfoque va en capas fijas y pequenas, nunca se
+     anima, y el radio es moderado. Es lo que el iPhone compone en la GPU
+     sin perder fotogramas al desplazarse.
+   - Sin `backdrop-filter`, o con "reducir transparencia" en el sistema, el
+     fondo pasa a ser solido.
+
+   Los selectores llevan `.app` delante para ganar a la regla propia de
+   cada pieza, este donde este su hoja.
+   ========================================================================== */
+
+/* La barra superior se queda arriba al desplazar: es la que mas vidrio luce. */
+.app .app__barra {
+  position: sticky;
+  z-index: 40;
+  top: 0;
+  border-bottom-color: color-mix(in srgb, var(--app-borde) 60%, transparent);
+  background: var(--vidrio-fondo-denso);
+  -webkit-backdrop-filter: var(--vidrio-filtro);
+  backdrop-filter: var(--vidrio-filtro);
+}
+
+.app .app__nav-inferior,
+.app .app__menu,
+.app .semaforo__boton,
+.app .semaforo__recordatorio,
+.app .mascota__globo {
+  border-color: var(--vidrio-borde);
+  background: var(--vidrio-fondo);
+  -webkit-backdrop-filter: var(--vidrio-filtro);
+  backdrop-filter: var(--vidrio-filtro);
+  box-shadow: var(--vidrio-brillo), var(--vidrio-sombra);
+}
+
+/* Donde hay que leer un parrafo, una capa mas densa. */
+.app .app__menu,
+.app .semaforo__recordatorio,
+.app .mascota__globo {
+  background: var(--vidrio-fondo-denso);
+}
+
+/* El recordatorio conserva el color de su nivel en el canto. */
+.app .semaforo__recordatorio {
+  border-left-color: var(--semaforo-nivel, var(--vidrio-borde));
+}
+
+/* Las hojas y los dialogos: grandes, asi que densos, y quietos mientras
+   estan abiertos. */
+.app .semaforo-ventana,
+.app .asistente,
+.app .hoja__caja {
+  background: var(--vidrio-fondo-denso);
+  -webkit-backdrop-filter: var(--vidrio-filtro);
+  backdrop-filter: var(--vidrio-filtro);
+  box-shadow: var(--vidrio-brillo), var(--vidrio-sombra);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .app,
+  :root[data-tema='claro'] .app {
+    --vidrio-fondo: var(--app-superficie);
+    --vidrio-fondo-denso: var(--app-superficie);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .app,
+  :root[data-tema='claro'] .app {
+    --vidrio-fondo: var(--app-superficie);
+    --vidrio-fondo-denso: var(--app-superficie);
+    --vidrio-filtro: none;
+  }
+}

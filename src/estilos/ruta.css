@@ -1,0 +1,85 @@
+/*
+ * La ruta del dia del panel (SCRUM-170, SCRUM-294).
+ *
+ * Una caja con los modulos activos juntos, como pestañas que se despliegan (`.acordeon-modulo`,
+ * en `aplicacion.css`), y al lograr el dia, un aviso con una estrella. Los colores salen de los
+ * tokens `--app-*` y de `--modulo-*`, asi que sirve igual en los dos temas. Todo movimiento se
+ * apaga con `prefers-reduced-motion`.
+ */
+
+.ruta {
+  position: relative;
+  overflow: hidden;
+  padding: 1.25rem;
+  border-radius: 28px;
+  background: var(--app-superficie);
+}
+
+.ruta__cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ruta__modulos {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+/* ---------- Lo logrado hoy ---------- */
+
+.ruta__logro {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 20px;
+  background: var(--app-superficie-alta);
+}
+
+.ruta__logro-icono {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 50%;
+  background: var(--app-avatar);
+  color: var(--app-avatar-tinta);
+  animation: ruta-salta 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.ruta__logro-titulo {
+  font-family: var(--app-fuente-titulos);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.ruta__logro-texto {
+  color: var(--app-tenue);
+  font-size: 0.875rem;
+}
+
+@keyframes ruta-salta {
+  0% {
+    transform: scale(0.6);
+  }
+
+  60% {
+    transform: scale(1.18);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (min-width: 640px) {
+  .ruta {
+    padding: 1.75rem;
+  }
+}

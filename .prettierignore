@@ -2,3 +2,7 @@ dist/
 coverage/
 node_modules/
 package-lock.json
+
+# El contrato de las reglas locales de VSD IA (SCRUM-141) es una copia exacta del que
+# publica el backend en docs/contratos/reglas-locales.json: no se reformatea.
+src/asistente/contrato/*.json

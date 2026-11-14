@@ -1,0 +1,392 @@
+/* ============================================================
+   Hacer una actividad
+   ============================================================
+   Comparte la barra superior con el panel: marca a la izquierda,
+   salida en medio y selector de tema en la esquina. Estando
+   dentro de una actividad, la salida lleva al panel y no a la
+   portada, porque volver al catalogo es lo que se quiere el
+   noventa por ciento de las veces.
+   ============================================================ */
+
+.actividad {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--fondo);
+  /* La pagina llega hasta el borde (`viewport-fit=cover`). Con el telefono de lado, sin esto el texto de
+     la izquierda queda tapado por la muesca o la isla, y el ultimo boton por la barra de gestos. Con el
+     telefono de pie estos valores son 0 y no cambia nada (SCRUM-239). */
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Recargar a mitad de una actividad pierde lo que se llevaba hecho. Mientras hay una abierta, arrastrar
+   hacia abajo desde arriba ya no dispara «tirar para recargar»; el rebote propio del sistema se queda. */
+html:has(.actividad) {
+  overscroll-behavior-y: contain;
+}
+
+.actividad__barra {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: min(100% - 32px, 1120px);
+  margin-inline: auto;
+  padding-block: 16px;
+  min-height: 72px;
+  border-bottom: 1px solid var(--borde);
+}
+
+.actividad__marca {
+  margin-right: auto;
+}
+
+/* El nombre de la marca nunca se parte en dos lineas (SCRUM-233). */
+.actividad__marca .marca__texto {
+  white-space: nowrap;
+}
+
+/* Deja hueco al selector de tema, que va en la esquina de esta misma barra: sus 66 px, los
+   12 px de su margen y un poco de aire. La salida mide 44 px de alto, como un toque comodo. */
+.actividad__volver {
+  margin-right: 80px;
+  padding: 12px 14px;
+  color: var(--texto-tenue);
+  font-size: 0.875rem;
+  border-radius: var(--radio-pildora);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    color var(--rapido) var(--curva),
+    background var(--rapido) var(--curva);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .actividad__volver:hover {
+    color: var(--texto);
+    background: var(--fondo-sutil);
+  }
+}
+
+/* En un telefono angosto (de 360 px o menos) no caben la marca con su nombre, la salida y el
+   selector de tema: el nombre se partia en dos lineas y la barra se desarmaba (SCRUM-233).
+   Como en el panel (racha.css), la marca queda en el isotipo y su nombre, "VSD-H, inicio",
+   solo para quien usa lector de pantalla. */
+@media (max-width: 22.75rem) {
+  .actividad__marca .marca__texto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+}
+
+.actividad__contenido {
+  display: grid;
+  place-items: center;
+  padding: 24px 16px 64px;
+}
+
+.actividad__caja {
+  width: min(100%, 34rem);
+}
+
+.actividad__categoria {
+  margin: 0 0 4px;
+  color: var(--texto-tenue);
+  font-size: 0.875rem;
+  text-transform: lowercase;
+}
+
+.actividad__texto {
+  margin: 0 0 20px;
+  color: var(--texto);
+  font-size: 1.0625rem;
+  line-height: 1.55;
+}
+
+.actividad__cargando {
+  margin: 0;
+  color: var(--texto-tenue);
+}
+
+/* ---------- El formulario de una mecanica ---------- */
+
+.actividad__formulario {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+/* Etiqueta encima del campo, no al lado: a 320 px de ancho, al lado
+   no cabe, y partir la etiqueta en dos lineas se lee peor. */
+.actividad__campo {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.actividad__campo label {
+  color: var(--texto);
+  font-size: 0.9375rem;
+}
+
+.actividad__campo input,
+.actividad__campo select,
+.actividad__campo textarea {
+  padding: 10px 12px;
+  color: var(--texto);
+  background: var(--fondo-sutil);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  font: inherit;
+}
+
+.actividad__campo input:focus-visible,
+.actividad__campo select:focus-visible,
+.actividad__campo textarea:focus-visible {
+  outline: 2px solid var(--texto);
+  outline-offset: 2px;
+}
+
+/* Solo crece hacia abajo: estirarlo a lo ancho rompe la columna a 320 px. */
+.actividad__texto-libre {
+  min-height: 6.5rem;
+  resize: vertical;
+}
+
+.actividad__texto-libre::placeholder {
+  color: var(--texto-tenue);
+}
+
+/* ---------- Preguntas con opciones (SCRUM-93) ---------- */
+
+.actividad__indicacion {
+  margin: 0;
+}
+
+.actividad__pregunta {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.actividad__pregunta legend {
+  margin-bottom: 10px;
+  padding: 0;
+  color: var(--texto);
+  font-size: 0.9375rem;
+}
+
+.actividad__opciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Cada opcion es una pildora con su radio o casilla dentro: se pulsa en
+   todo el rectangulo, y con teclado funciona como un control nativo. */
+.actividad__opcion {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  color: var(--texto);
+  background: var(--fondo-sutil);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-pildora);
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition:
+    border-color var(--rapido) var(--curva),
+    background var(--rapido) var(--curva);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .actividad__opcion:hover {
+    border-color: var(--texto-tenue);
+  }
+}
+
+.actividad__opcion--elegida {
+  border-color: var(--texto);
+}
+
+.actividad__opcion input {
+  margin: 0;
+  accent-color: var(--texto);
+}
+
+.actividad__opcion:has(input:focus-visible) {
+  outline: 2px solid var(--texto);
+  outline-offset: 2px;
+}
+
+/* El token del tema y no un color fijo: cambia con el tema claro y oscuro y
+   mantiene el contraste en los dos. */
+.actividad__falta {
+  margin: 0;
+  color: var(--error);
+  font-size: 0.9375rem;
+}
+
+/* ---------- Al terminar ---------- */
+
+/* El nivel se ve, pero sin gritar. Un resultado sobre el propio
+   bienestar no necesita un cartel de colores: acompana, no
+   califica. De ahi que solo cambie el borde lateral. */
+.actividad__nivel {
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  border-left: 3px solid var(--borde);
+  background: var(--fondo-sutil);
+  border-radius: 0 10px 10px 0;
+  color: var(--texto);
+}
+
+.actividad__nivel--favorable {
+  border-left-color: #3f9e6a;
+}
+
+.actividad__nivel--en_seguimiento {
+  border-left-color: #b8893a;
+}
+
+.actividad__nivel--requiere_atencion {
+  border-left-color: #b5563f;
+}
+
+.actividad__apoyo {
+  margin: 0 0 20px;
+  color: var(--texto);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+/* ---------- Lineas de atencion (SCRUM-94) ----------
+   Se ofrecen sin alarma: los mismos tonos neutros que el resto de la
+   pantalla, sin rojo y sin iconos de aviso. Un telefono apuntado por
+   si hace falta, no un cartel de emergencia. */
+
+.actividad__lineas {
+  margin: 0 0 24px;
+}
+
+.actividad__lineas-titulo {
+  margin: 0 0 8px;
+  color: var(--texto);
+  font-size: 1.0625rem;
+}
+
+.actividad__lista-de-lineas {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.actividad__linea {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  background: var(--fondo-sutil);
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+}
+
+.actividad__linea-titulo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  margin: 0;
+  color: var(--texto);
+}
+
+.actividad__linea-cobertura {
+  padding: 2px 10px;
+  color: var(--texto-tenue);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-pildora);
+  font-size: 0.8125rem;
+}
+
+.actividad__linea-descripcion {
+  margin: 0;
+  color: var(--texto-tenue);
+  font-size: 0.9375rem;
+}
+
+.actividad__linea-enlace {
+  justify-self: start;
+  color: var(--texto);
+  font-size: 0.9375rem;
+  text-underline-offset: 3px;
+}
+
+.actividad__linea-enlace:focus-visible {
+  outline: 2px solid var(--texto);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.actividad__pendiente {
+  margin-top: 24px;
+}
+
+.actividad__fallo {
+  padding: 16px;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  background: var(--fondo-sutil);
+}
+
+/* El boton principal de la actividad (SCRUM-106). `.pildora` sola no
+   tiene fondo propio, y aqui se veia con el gris nativo del navegador.
+   Se le da el estilo de accion de la aplicacion solo dentro de la
+   actividad: la portada, el acceso y el registro no cambian. Los de
+   `--fantasma` siguen como estaban, con borde y sin fondo. */
+.actividad .pildora:not(.pildora--fantasma) {
+  color: var(--acento-contraste);
+  background: var(--acento);
+  box-shadow: var(--resplandor-accion);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .actividad .pildora:not(.pildora--fantasma):hover:not(:disabled) {
+    background: var(--acento-claro);
+  }
+}
+
+/* Mientras guarda: se nota que no responde, sin perder el color. */
+.actividad .pildora:disabled {
+  opacity: 0.55;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.actividad__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+/* «Siguiente actividad» (SCRUM-295): si cambia el modulo, su nombre va debajo, mas pequeno. Sin
+   `opacity`: el texto chico tiene que conservar el contraste de la pildora. */
+.pildora--con-subtitulo {
+  flex-direction: column;
+  gap: 0;
+  line-height: 1.25;
+}
+
+.pildora__subtitulo {
+  font-size: 0.75rem;
+  font-weight: 500;
+}

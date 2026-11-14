@@ -1,0 +1,71 @@
+# ============================================================
+#  VSD Health - Lighthouse: accesibilidad y SEO (SCRUM-158)
+# ============================================================
+#  Mide la aplicacion compilada, en un navegador de verdad, y falla si
+#  la accesibilidad baja de 95 o el SEO baja de 90 en alguna de las
+#  pantallas que se pueden abrir sin cuenta.
+#
+#  Es lo que las pruebas con axe no pueden ver (jsdom no pinta): el
+#  contraste de color, el tamano de lo que se toca, el aspecto real.
+#
+#  Va aparte de ci.yml porque es lento y mide otra cosa. Mide la
+#  compilacion local, no PRE: lo que se revisa es el codigo del Pull
+#  Request, no lo que esta desplegado.
+# ============================================================
+
+name: Lighthouse
+
+on:
+  pull_request:
+  push:
+    branches: [desarrollo, preproduccion, produccion]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lighthouse-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lighthouse:
+    name: Accesibilidad y SEO
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Descargar el codigo
+        uses: actions/checkout@v7
+
+      - name: Preparar Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Compilar como produccion
+        # Como produccion y no como desarrollo: fuera de produccion la pagina se
+        # cierra a los buscadores a proposito (`noindex`), y Lighthouse lo contaria
+        # como un fallo de SEO. Lo que se mide es lo que veria un buscador el dia
+        # que la pagina sea publica. El dominio es de mentira: solo hace falta para
+        # escribir el sitemap.
+        env:
+          VITE_APP_ENV: production
+          VITE_URL_PUBLICA: https://ejemplo.invalid
+        run: npm run build
+
+      - name: Medir con Lighthouse
+        # La version fija, como las demas herramientas del CI. La configuracion
+        # (pantallas y umbrales) esta en lighthouserc.json; arranca sola
+        # `vite preview` sobre `dist/`.
+        run: npx --yes @lhci/cli@0.15.1 autorun
+
+      - name: Guardar los informes
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: informes-de-lighthouse
+          path: .lighthouseci
+          if-no-files-found: ignore
+          retention-days: 14

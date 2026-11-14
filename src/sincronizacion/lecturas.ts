@@ -1,0 +1,267 @@
+import type { RespuestaCondicional } from '../infraestructura/api/clienteHttp.ts';
+import { cicloActual, exigirLaMismaSesion, generacionDeSesion } from './ciclo.ts';
+import { clasificarFallo } from './clasificarFallo.ts';
+import { conLimite } from './tiempo.ts';
+
+/**
+ * Lecturas con copia local (SCRUM-138): lo que se lee de la API y se guarda en el
+ * dispositivo para poder volver a leerlo sin conexion.
+ *
+ * ## Que se guarda, y que no
+ *
+ * **Lo que es igual para todos**: el catalogo de actividades, por ejemplo. Lo de una
+ * persona se lee con `no-store` a proposito, y su copia lleva sus propias reglas: la del
+ * diario (SCRUM-139) esta en `diarioLocal.ts`, que ademas la mantiene al dia con lo que
+ * la persona escribe sin conexion; la de los pendientes llegara con SCRUM-140.
+ *
+ * En los dos casos la copia vive en el almacen **de la persona** y cifrada, como todo lo
+ * demas: se borra al cerrar sesion, y nada queda en claro en un equipo compartido.
+ *
+ * ## Como se lee
+ *
+ * 1. Se pregunta a la API, mandando el `ETag` de la copia: si no cambio, el
+ *    servidor responde `304` y no baja nada.
+ * 2. Si hay algo nuevo, se guarda con su `ETag` y se devuelve.
+ * 3. **Si no se pudo preguntar porque no hay conexion** (o el servidor no responde),
+ *    se devuelve la copia, diciendo que lo es.
+ * 4. Si falla por otra razon —el servidor dijo que no—, el error sale tal cual: una
+ *    copia no tapa un "no existe" o un "no tienes permiso".
+ *
+ * Sin copia y sin conexion, no hay nada que devolver: el error sale, y quien llama
+ * dice que hace falta conexion la primera vez. **Nunca se inventa un valor.**
+ */
+
+export interface LecturaConCopia<T> {
+  readonly valor: T;
+  /** Si viene de la copia guardada porque no se pudo preguntar a la API. */
+  readonly deLaCopia: boolean;
+  /** Cuando se guardo la copia, en ISO 8601, si se uso una. */
+  readonly guardadoEn: string | null;
+}
+
+interface Copia<T> {
+  readonly valor: T;
+  readonly etag: string | null;
+}
+
+/**
+ * Cuanto se espera a la API cuando ya hay una copia, antes de usar la copia y seguir en
+ * segundo plano. Con una red lenta o una API dormida, abrir algo no puede quedarse
+ * esperando: la copia ya sirve.
+ */
+export const ESPERA_CON_COPIA_EN_MS = 2500;
+
+/** Lo que cuesta una copia que no se puede leer: nada. Se trata como si no hubiera. */
+async function leerLaCopia<T>(
+  clave: string,
+): Promise<{ readonly copia: Copia<T>; readonly guardadoEn: string } | null> {
+  const generacionInicial = generacionDeSesion();
+
+  try {
+    const lectura = await cicloActual()?.almacen.leerLectura<Copia<T>>(clave);
+
+    // Es la copia de quien tenia la sesion al empezar: si ya no la tiene, no es para quien llego despues.
+    if (lectura === null || lectura === undefined || generacionDeSesion() !== generacionInicial) {
+      return null;
+    }
+
+    const { valor } = lectura;
+
+    // Lo guardado puede no tener la forma esperada (lo escribio otra version).
+    if (typeof valor !== 'object' || valor === null || !('valor' in valor)) {
+      return null;
+    }
+
+    return { copia: valor, guardadoEn: lectura.guardadoEn };
+  } catch {
+    // El almacen se cerro, o no se pudo descifrar: no hay copia que valga.
+    return null;
+  }
+}
+
+/**
+ * Lo que hay guardado de `clave`, **sin preguntar a la API**. Para lo que solo
+ * necesita acordarse de algo ya leido: el nombre de una actividad, por ejemplo.
+ */
+export async function leerSoloLaCopia<T>(clave: string): Promise<T | null> {
+  return (await leerLaCopia<T>(clave))?.copia.valor ?? null;
+}
+
+/**
+ * Lo mismo, y **cuando se guardo** (en ISO 8601): para quien tiene que decir de cuando son los
+ * datos que ensena (SCRUM-142). `null` si no hay nada guardado.
+ */
+export async function leerSoloLaCopiaConFecha<T>(
+  clave: string,
+): Promise<{ readonly valor: T; readonly guardadoEn: string } | null> {
+  const guardada = await leerLaCopia<T>(clave);
+
+  return guardada === null
+    ? null
+    : { valor: guardada.copia.valor, guardadoEn: guardada.guardadoEn };
+}
+
+async function guardarLaCopia<T>(
+  clave: string,
+  copia: Copia<T>,
+  generacionInicial: number,
+): Promise<void> {
+  try {
+    // Lo leido es de quien tenia la sesion al empezar: si ya no la tiene, no va al almacen de quien llego despues.
+    if (generacionDeSesion() === generacionInicial) {
+      await cicloActual()?.almacen.guardarLectura(clave, copia, new Date());
+    }
+  } catch {
+    // Sin espacio, o el almacen se cerro. La lectura ya se hizo: no se pierde por esto.
+  }
+}
+
+/**
+ * Cambia lo guardado de `clave` sin preguntar a la API: recibe lo que hay (o `null`) y
+ * devuelve lo nuevo, o `null` para no tocar nada. Sirve para copias que no vienen enteras
+ * de la API sino que se arman de a poco con lo que se va sabiendo (SCRUM-139).
+ *
+ * Nunca falla: sin espacio, o con el almacen cerrado, simplemente no se guarda.
+ */
+export async function modificarLaCopia<T>(
+  clave: string,
+  cambiar: (actual: T | null) => T | null,
+  generacionInicial: number = generacionDeSesion(),
+): Promise<void> {
+  if (generacionDeSesion() !== generacionInicial) return;
+  const guardada = await leerLaCopia<T>(clave);
+
+  // Lo leido es de otra sesion: no hay nada que cambiar ni donde guardarlo.
+  if (generacionDeSesion() !== generacionInicial) {
+    return;
+  }
+
+  const nueva = cambiar(guardada?.copia.valor ?? null);
+
+  if (nueva !== null) {
+    await guardarLaCopia(
+      clave,
+      { valor: nueva, etag: guardada?.copia.etag ?? null },
+      generacionInicial,
+    );
+  }
+}
+
+/**
+ * Cuando se uso la copia sin esperar a la API, la lectura sigue sola: si trae algo nuevo,
+ * se guarda para la proxima vez. Si falla, no pasa nada: la copia ya se uso.
+ */
+function renovarEnSegundoPlano<T>(
+  clave: string,
+  pedida: Promise<RespuestaCondicional<T>>,
+  generacionInicial: number,
+): void {
+  void pedida
+    .then(async (despues) => {
+      if (despues.estado === 'nuevo') {
+        await guardarLaCopia(
+          clave,
+          { valor: despues.valor, etag: despues.etag },
+          generacionInicial,
+        );
+      }
+    })
+    .catch(() => undefined);
+}
+
+/** Una peticion cancelada no es "no hay conexion": quien la cancelo ya no espera nada. */
+function seCancelo(error: unknown, senal: AbortSignal | undefined): boolean {
+  return senal?.aborted === true || (error instanceof DOMException && error.name === 'AbortError');
+}
+
+export interface OpcionesDeLaLectura {
+  /**
+   * Preguntar de verdad (SCRUM-232): esperar a la API sin el limite de tiempo de la copia y, si
+   * no se puede llegar a ella, fallar en lugar de entregar la copia.
+   *
+   * Es para quien necesita saber si algo **no esta**. Una copia vieja puede no tenerlo solo
+   * porque es de antes de que se publicara, asi que no prueba nada.
+   */
+  readonly verificar?: boolean;
+}
+
+/**
+ * Lee `clave` de la API, o de la copia si no se puede. Ver arriba.
+ *
+ * @param traer Hace la lectura condicional: recibe el `ETag` de la copia, si hay.
+ */
+export async function leerConCopia<T>(
+  clave: string,
+  traer: (etag: string | null) => Promise<RespuestaCondicional<T>>,
+  senal?: AbortSignal,
+  opciones?: OpcionesDeLaLectura,
+): Promise<LecturaConCopia<T>> {
+  // Antes del primer await: lo que se lee es de quien tiene la sesion ahora.
+  const generacionInicial = generacionDeSesion();
+  const guardada = await leerLaCopia<T>(clave);
+
+  // Con otra persona, la copia y su ETag ya no sirven para preguntar con la sesion de ahora.
+  exigirLaMismaSesion(generacionInicial);
+
+  const verificar = opciones?.verificar === true;
+
+  try {
+    const pedida = traer(guardada?.copia.etag ?? null);
+    let respuesta: RespuestaCondicional<T>;
+
+    if (guardada === null || verificar) {
+      // Sin copia no hay otra cosa que hacer que esperar, y si se pidio la verdad, tampoco.
+      respuesta = await pedida;
+    } else {
+      // Con copia, no se hace esperar a la persona: pasado el tiempo se usa la copia, y
+      // la lectura sigue en segundo plano para renovarla.
+      const alcanzo = await conLimite(pedida, ESPERA_CON_COPIA_EN_MS);
+
+      if (alcanzo === 'tiempo') {
+        exigirLaMismaSesion(generacionInicial);
+        renovarEnSegundoPlano(clave, pedida, generacionInicial);
+
+        return { valor: guardada.copia.valor, deLaCopia: true, guardadoEn: guardada.guardadoEn };
+      }
+
+      respuesta = alcanzo;
+    }
+
+    // La respuesta es para quien pregunto: si ya es otra la sesion, ni se le entrega ni se guarda.
+    exigirLaMismaSesion(generacionInicial);
+
+    if (respuesta.estado === 'sin_cambios') {
+      if (guardada !== null) {
+        return { valor: guardada.copia.valor, deLaCopia: false, guardadoEn: guardada.guardadoEn };
+      }
+
+      // El servidor dijo "no cambio" sin que se hubiera preguntado por nada: no
+      // hay valor que devolver. No debe pasar; si pasa, que se note.
+      throw new Error('El servidor dijo que no cambio algo de lo que no hay copia.');
+    }
+
+    await guardarLaCopia(
+      clave,
+      { valor: respuesta.valor, etag: respuesta.etag },
+      generacionInicial,
+    );
+
+    exigirLaMismaSesion(generacionInicial);
+    return { valor: respuesta.valor, deLaCopia: false, guardadoEn: null };
+  } catch (error) {
+    exigirLaMismaSesion(generacionInicial);
+    if (seCancelo(error, senal)) {
+      throw error;
+    }
+
+    const clase = clasificarFallo(error).clase;
+
+    // Solo cuando no se pudo llegar a la API. Lo demas es una respuesta, y se respeta. Quien pidio
+    // verificar no se conforma con la copia: prefiere el fallo.
+    if (!verificar && guardada !== null && (clase === 'red' || clase === 'temporal')) {
+      return { valor: guardada.copia.valor, deLaCopia: true, guardadoEn: guardada.guardadoEn };
+    }
+
+    throw error;
+  }
+}

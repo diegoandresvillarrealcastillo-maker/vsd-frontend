@@ -1,14 +1,14 @@
-import { useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 
 import { BotonDeEnvio, type EstadoDeEnvio } from '../../componentes/BotonDeEnvio.tsx';
 import { Campo } from '../../componentes/Campo.tsx';
+import { MedidorDeContrasena } from '../../componentes/MedidorDeContrasena.tsx';
 import { RUTAS } from '../../rutas/rutas.ts';
+import { mensajeSiNoCumple } from '../../sesion/reglaDeContrasena.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { Aparece, LienzoDeAcceso } from './LienzoDeAcceso.tsx';
 import { motivoDelEnlace } from './motivoDelEnlace.ts';
-
-const MINIMO = 8;
 
 /**
  * Los dos unicos errores que esta pantalla comprueba por su cuenta.
@@ -20,6 +20,9 @@ interface ErroresDeContrasena {
   contrasena?: string;
   repetida?: string;
 }
+
+/** Cuanto se queda el mensaje de las demas sesiones antes de entrar al panel. */
+const PAUSA_PARA_LEER_EN_MS = 2600;
 
 /**
  * A donde lleva el enlace del correo de recuperacion.
@@ -39,7 +42,9 @@ export function ContrasenaNueva() {
   const [repetida, setRepetida] = useState('');
   const [estado, setEstado] = useState<EstadoDeEnvio>('listo');
   const [error, setError] = useState<string | null>(null);
+  const [nota, setNota] = useState<string | null>(null);
   const [errorDeCampo, setErrorDeCampo] = useState<ErroresDeContrasena>({});
+  const idMedidor = useId();
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
@@ -47,8 +52,10 @@ export function ContrasenaNueva() {
 
     const fallos: ErroresDeContrasena = {};
 
-    if (contrasena.length < MINIMO) {
-      fallos.contrasena = `Necesita al menos ${MINIMO} caracteres.`;
+    const faltaAlgo = mensajeSiNoCumple(contrasena);
+
+    if (faltaAlgo !== null) {
+      fallos.contrasena = faltaAlgo;
     }
 
     if (repetida !== contrasena) {
@@ -72,7 +79,13 @@ export function ContrasenaNueva() {
     }
 
     setEstado('hecho');
-    setTimeout(() => navegar(RUTAS.PANEL, { replace: true }), 420);
+    setNota(resultado.mensaje ?? null);
+    // Con algo que leer —que paso con la sesion de los demas dispositivos— se
+    // espera un poco mas antes de seguir (SCRUM-154).
+    setTimeout(
+      () => navegar(RUTAS.PANEL, { replace: true }),
+      resultado.mensaje === undefined ? 420 : PAUSA_PARA_LEER_EN_MS,
+    );
   }
 
   if (cargando) {
@@ -146,12 +159,13 @@ export function ContrasenaNueva() {
             name="new-password"
             autoComplete="new-password"
             required
-            ayuda={`Al menos ${MINIMO} caracteres.`}
+            descritoPor={idMedidor}
             error={errorDeCampo.contrasena}
             value={contrasena}
             disabled={estado !== 'listo'}
             onChange={(e) => setContrasena(e.target.value)}
           />
+          <MedidorDeContrasena contrasena={contrasena} id={idMedidor} />
         </Aparece>
 
         <Aparece>
@@ -173,6 +187,14 @@ export function ContrasenaNueva() {
             Guardar y entrar
           </BotonDeEnvio>
         </Aparece>
+
+        {nota !== null && (
+          <Aparece>
+            <p className="aviso aviso--bien" role="status">
+              {nota}
+            </p>
+          </Aparece>
+        )}
       </form>
     </LienzoDeAcceso>
   );

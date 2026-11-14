@@ -1,0 +1,163 @@
+/* ============================================================
+   El cuestionario corto sin puntaje (SCRUM-227)
+   ============================================================
+   La tarjeta del dia, los gestos, las preguntas y la rueda de
+   emociones. Usan el kit de `viva.css`: ningun color es propio, el
+   acento es el del modulo (`--viva-modulo`) y cambia solo entre el
+   tema claro y el oscuro.
+
+   Lo que se promete aqui:
+
+   - todo lo que se toca mide al menos 44 px de alto;
+   - nada se distingue solo por el color: la ruta de la rueda se lee
+     completa, y lo elegido lleva su marca;
+   - no hay respuestas buenas ni malas: ningun estado es verde o rojo.
+   ============================================================ */
+
+.tarjeta-del-dia {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 2px solid color-mix(in srgb, var(--viva-modulo) 40%, transparent);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--viva-modulo) 8%, var(--fondo-elevado));
+}
+
+.tarjeta-del-dia__texto {
+  margin: 0;
+  color: var(--texto);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+.tarjeta-del-dia__porque {
+  color: var(--texto);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+.tarjeta-del-dia__porque summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--viva-texto);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tarjeta-del-dia__porque summary:focus-visible {
+  outline: 3px solid var(--viva-modulo);
+  outline-offset: 2px;
+}
+
+.tarjeta-del-dia__porque p {
+  margin: 0 0 4px;
+}
+
+.tarjeta-del-dia__enlace a {
+  color: var(--viva-texto);
+  font-weight: 600;
+}
+
+/* La hora, con el campo del propio dispositivo. */
+.hora-del-dia {
+  display: grid;
+  gap: 8px;
+}
+
+.hora-del-dia__etiqueta {
+  color: var(--texto);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.hora-del-dia__campo {
+  min-height: 56px;
+  width: 100%;
+  max-width: 220px;
+  padding: 10px 16px;
+  border: 2px solid var(--borde-fuerte);
+  border-radius: 16px;
+  background: var(--fondo-elevado);
+  color: var(--texto);
+  font: inherit;
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.hora-del-dia__campo:focus-visible {
+  outline: 3px solid var(--viva-modulo);
+  outline-offset: 2px;
+}
+
+/* La rueda de emociones: la ruta recorrida y los nodos de cada nivel. */
+.rueda__ruta ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--texto-tenue);
+  font-size: 0.9375rem;
+}
+
+.rueda__ruta li + li::before {
+  content: '›';
+  margin-right: 6px;
+}
+
+.rueda__ruta [aria-current='step'] {
+  color: var(--texto);
+  font-weight: 700;
+}
+
+.rueda__nodos {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rueda__nodo {
+  display: flex;
+  width: 100%;
+  min-height: 56px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+  border: 2px solid var(--borde-fuerte);
+  border-radius: 18px;
+  background: var(--fondo-elevado);
+  box-shadow: 0 4px 0 var(--borde);
+  color: var(--texto);
+  font: inherit;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rueda__nodo:active {
+  box-shadow: 0 1px 0 var(--borde);
+  transform: translateY(3px);
+}
+
+.rueda__nodo:focus-visible {
+  outline: 3px solid var(--viva-modulo);
+  outline-offset: 2px;
+}
+
+.rueda__nodo-marca {
+  color: var(--viva-modulo);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rueda__nodo:active {
+    transform: none;
+  }
+}

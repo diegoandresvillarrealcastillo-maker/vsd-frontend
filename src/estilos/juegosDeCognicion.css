@@ -1,0 +1,631 @@
+/* ============================================================
+   Los juegos de Cognicion del catalogo (SCRUM-225)
+   ============================================================
+   Opciones de una respuesta, una escena que se oculta, una lista que
+   se memoriza, un flujo de simbolos, puntos para unir en orden, cestas
+   para clasificar y palabras con letras que faltan.
+
+   Usan el mismo kit que el resto (`viva.css`, `juegos.css`): la paleta de
+   la aplicacion, la mascota, la barra de avance y el boton de abajo.
+
+   ## Lo que no se hace aqui (R3 a R5, R10)
+
+   - **Ningun rojo.** Un «casi» se pinta de ambar, y nunca senala: la
+     correcta lleva una marca y la elegida, una palabra («tu eleccion»).
+     Nada se distingue SOLO por el color.
+   - **Objetivos tactiles de 44 px o mas**, hasta los puntos de una tabla.
+   - **Nada parpadea.** El simbolo del flujo se reemplaza sin destello ni
+     desvanecimiento: un cambio por segundo como maximo.
+   - **Sin reloj.** El tiempo a la vista es una barra suave que se vacia,
+     sin numeros; con movimiento reducido queda llena.
+   ============================================================ */
+
+/* ---------- La pregunta y sus opciones ---------- */
+
+.juego__pregunta {
+  margin: 0;
+  color: var(--texto);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+}
+
+.juego__contexto {
+  display: grid;
+  justify-items: center;
+}
+
+.juego__opciones {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.juego__opciones[data-columnas='2'] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.juego__opcion {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px 14px;
+  border: 2px solid var(--borde);
+  border-radius: 18px;
+  background: var(--fondo-elevado);
+  box-shadow: 0 5px 0 var(--borde);
+  color: var(--texto);
+  cursor: pointer;
+  font: inherit;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 140ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+@media (hover: hover) {
+  .juego__opcion:not(:disabled):hover {
+    border-color: var(--viva-1);
+    box-shadow: 0 5px 0 color-mix(in srgb, var(--viva-1) 55%, var(--borde));
+    transform: translateY(-2px);
+  }
+}
+
+.juego__opcion:not(:disabled):active {
+  box-shadow: 0 1px 0 var(--borde);
+  transform: translateY(4px);
+}
+
+.juego__opcion:focus-visible {
+  outline: 3px solid var(--viva-texto);
+  outline-offset: 3px;
+}
+
+.juego__opcion:disabled {
+  cursor: default;
+}
+
+.juego__opcion-adorno {
+  display: grid;
+  flex: none;
+  place-items: center;
+  color: var(--viva-texto);
+}
+
+.juego__opcion-texto {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* La marca: una palabra o una palomita, nunca solo un color. */
+.juego__opcion-marca {
+  position: absolute;
+  top: -9px;
+  right: 8px;
+  padding: 1px 9px;
+  border-radius: var(--radio-pildora);
+  background: var(--fondo-elevado);
+  border: 2px solid currentColor;
+  color: var(--viva-texto);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* Marcada, antes de revisar (en «Recuerda la lista»): el relleno y la marca, no solo el color. */
+.juego__opcion[data-marcada] {
+  border-color: var(--viva-1);
+  background: color-mix(in srgb, var(--viva-1) 14%, var(--fondo-elevado));
+  box-shadow: 0 5px 0 color-mix(in srgb, var(--viva-1) 55%, var(--borde));
+}
+
+/* La correcta: el color del modulo y la marca. */
+.juego__opcion[data-estado='correcta'],
+.juego__cesta[data-estado='correcta'] {
+  border-color: var(--viva-1);
+  background: color-mix(in srgb, var(--viva-1) 20%, var(--fondo-elevado));
+  box-shadow: 0 5px 0 color-mix(in srgb, var(--viva-1) 60%, var(--borde));
+}
+
+/* Lo que faltaba y no se eligio: el mismo tono, mas suave, con su palabra. */
+.juego__opcion[data-estado='faltaba'] {
+  border-style: dashed;
+  border-color: var(--viva-1);
+}
+
+/* La elegida de mas: ambar, y se lee igual de bien en claro y en oscuro. Nunca rojo. */
+.juego__opcion[data-estado='elegida'],
+.juego__cesta[data-estado='elegida'] {
+  border-color: var(--viva-sol);
+  background: color-mix(in srgb, var(--viva-sol) 16%, var(--fondo-elevado));
+  box-shadow: 0 5px 0 color-mix(in srgb, var(--viva-sol) 55%, var(--borde));
+}
+
+.juego__opcion[data-estado='elegida'] .juego__opcion-marca,
+.juego__cesta[data-estado='elegida'] .juego__opcion-marca {
+  color: var(--texto);
+}
+
+.juego__opcion[data-estado='otra'],
+.juego__cesta[data-estado='otra'] {
+  opacity: 0.6;
+}
+
+.juego__despues {
+  margin: 0;
+  color: var(--texto);
+  font-size: 1rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+/* ---------- Algo que se ve unos segundos y se oculta ---------- */
+
+.juego__vista {
+  display: grid;
+  gap: 14px;
+}
+
+.juego__vista-texto {
+  margin: 0;
+  color: var(--texto-tenue);
+  font-size: 0.9375rem;
+  text-align: center;
+}
+
+.juego__vista-pista {
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--radio-pildora);
+  background: color-mix(in srgb, var(--viva-1) 14%, var(--fondo-elevado));
+}
+
+/* Se vacia de derecha a izquierda durante el tiempo de la vista. Con movimiento reducido (la regla global
+   deja las animaciones en su ultimo cuadro) queda llena de pronto: el texto sigue diciendo cuanto dura. */
+.juego__vista-barra {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--viva-1);
+  transform-origin: left center;
+  animation: juego-vaciar linear forwards;
+}
+
+@keyframes juego-vaciar {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .juego__vista-barra {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* La lista de «Recuerda la lista». */
+.juego__lista {
+  padding: 16px 18px;
+  border: 2px solid var(--borde);
+  border-radius: 20px;
+  background: var(--fondo-elevado);
+  box-shadow: 0 5px 0 var(--borde);
+}
+
+.juego__lista-titulo {
+  margin: 0 0 8px;
+  color: var(--texto-tenue);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.juego__lista ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.juego__lista li {
+  color: var(--texto);
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+}
+
+/* La escena de «Lo que vi»: una cuadricula con sus figuras y sus nombres. */
+.juego__escena {
+  display: grid;
+  width: min(100%, 360px);
+  gap: 8px;
+  grid-template-columns: repeat(var(--columnas, 3), minmax(0, 1fr));
+  margin-inline: auto;
+}
+
+.juego__celda {
+  display: grid;
+  min-height: 72px;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  border: 2px dashed var(--borde);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--viva-1) 5%, var(--fondo-elevado));
+  color: var(--viva-texto);
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.juego__celda[data-con-figura] {
+  border: 2px solid color-mix(in srgb, var(--viva-1) 40%, var(--borde));
+  background: var(--fondo-elevado);
+}
+
+/* El lugar por el que se pregunta: un borde del color del modulo y un signo de pregunta. */
+.juego__celda[data-marcada] {
+  border-style: solid;
+  border-color: var(--viva-1);
+  background: color-mix(in srgb, var(--viva-1) 18%, var(--fondo-elevado));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--viva-1) 30%, transparent);
+}
+
+.juego__celda-nombre {
+  color: var(--texto);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.1;
+  text-align: center;
+}
+
+/* ---------- El flujo de simbolos (COG-05) ---------- */
+
+.juego__objetivo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 2px solid var(--borde);
+  border-radius: 18px;
+  background: var(--fondo-elevado);
+  color: var(--viva-texto);
+}
+
+.juego__objetivo--fijo {
+  padding: 8px 12px;
+}
+
+.juego__objetivo-titulo {
+  color: var(--texto-tenue);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.juego__objetivo-ficha {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--texto);
+  font-weight: 700;
+}
+
+.juego__objetivo-ficha svg {
+  color: var(--viva-texto);
+}
+
+/* El estimulo ocupa toda la zona y es el boton: se toca en cualquier parte. Cambia de golpe, sin destello
+   (R10); aqui no hay ninguna transicion ni animacion. */
+.juego__estimulo {
+  display: grid;
+  min-height: 260px;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  width: 100%;
+  border: 2px solid var(--borde);
+  border-radius: 28px;
+  background: var(--fondo-elevado);
+  box-shadow: 0 6px 0 var(--borde);
+  color: var(--viva-texto);
+  cursor: pointer;
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.juego__estimulo:focus-visible {
+  outline: 3px solid var(--viva-texto);
+  outline-offset: 3px;
+}
+
+.juego__estimulo:active {
+  box-shadow: 0 2px 0 var(--borde);
+  transform: translateY(3px);
+}
+
+.juego__estimulo-nombre {
+  color: var(--texto);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.juego__estimulo-espera {
+  color: var(--texto-tenue);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+/* ---------- Los puntos para unir en orden (COG-08) ---------- */
+
+.juego__tablero {
+  position: relative;
+  width: min(100%, 420px);
+  aspect-ratio: 1;
+  margin-inline: auto;
+  border: 2px solid var(--borde);
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--viva-1) 4%, var(--fondo-elevado));
+}
+
+.juego__lineas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.juego__lineas line {
+  stroke: color-mix(in srgb, var(--viva-1) 60%, transparent);
+  stroke-linecap: round;
+  stroke-width: 3;
+}
+
+/* Cada punto es un boton de 44 px o mas, centrado en su lugar. */
+.juego__punto {
+  position: absolute;
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border: 2px solid var(--borde-fuerte);
+  border-radius: 50%;
+  background: var(--fondo-elevado);
+  box-shadow: 0 3px 0 var(--borde);
+  color: var(--texto);
+  cursor: pointer;
+  font: inherit;
+  font-size: 1.125rem;
+  font-weight: 800;
+  transform: translate(-50%, -50%);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.juego__punto:focus-visible {
+  outline: 3px solid var(--viva-texto);
+  outline-offset: 3px;
+}
+
+/* Tocado: relleno del color del modulo y la palomita en el nombre accesible; no solo color. */
+.juego__punto[data-hecho] {
+  border-color: var(--viva-1);
+  background: var(--viva-1);
+  color: var(--viva-sobre);
+}
+
+.juego__punto:disabled {
+  cursor: default;
+}
+
+/* ---------- Las cestas (COG-03, EMO-04) ---------- */
+
+.juego__tarjeta {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 18px 16px;
+  border: 2px solid var(--borde);
+  border-radius: 22px;
+  background: var(--fondo-elevado);
+  box-shadow: 0 5px 0 var(--borde);
+}
+
+.juego__tarjeta-cuenta {
+  color: var(--texto-tenue);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.juego__tarjeta-nombre {
+  color: var(--texto);
+  font-size: 1.5rem;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.juego__cestas {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.juego__cestas[data-cestas='3'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.juego__cesta {
+  position: relative;
+  display: grid;
+  min-height: 64px;
+  place-items: center;
+  padding: 10px 14px;
+  border: 2px solid var(--borde-fuerte);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--viva-1) 7%, var(--fondo-elevado));
+  box-shadow: 0 5px 0 var(--borde);
+  color: var(--texto);
+  cursor: pointer;
+  font: inherit;
+  font-size: 1.125rem;
+  font-weight: 700;
+  text-align: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+  .juego__cesta:not(:disabled):hover {
+    border-color: var(--viva-1);
+  }
+}
+
+.juego__cesta:not(:disabled):active {
+  box-shadow: 0 1px 0 var(--borde);
+  transform: translateY(4px);
+}
+
+.juego__cesta:focus-visible {
+  outline: 3px solid var(--viva-texto);
+  outline-offset: 3px;
+}
+
+.juego__cesta:disabled {
+  cursor: default;
+}
+
+/* Donde se puso la tarjeta, en el ejercicio de reflexion: el relleno y la palomita, sin juzgar. */
+.juego__cesta[data-puesta] {
+  border-color: var(--viva-1);
+  background: color-mix(in srgb, var(--viva-1) 16%, var(--fondo-elevado));
+}
+
+.juego__resumen {
+  display: grid;
+  gap: 10px;
+}
+
+.juego__resumen-cesta {
+  padding: 12px 14px;
+  border: 2px solid var(--borde);
+  border-radius: 16px;
+  background: var(--fondo-elevado);
+}
+
+.juego__resumen-cesta h3 {
+  margin: 0 0 6px;
+  color: var(--texto);
+  font-size: 1rem;
+}
+
+.juego__resumen-cesta ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.juego__resumen-cesta li {
+  padding: 3px 10px;
+  border-radius: var(--radio-pildora);
+  background: color-mix(in srgb, var(--viva-1) 12%, var(--fondo-elevado));
+  color: var(--texto);
+  font-size: 0.9375rem;
+}
+
+/* ---------- Las palabras (COG-07) ---------- */
+
+.juego__pista {
+  margin: 0;
+  color: var(--texto);
+  font-size: 1.125rem;
+  text-align: center;
+}
+
+.juego__palabra,
+.juego__revuelta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+}
+
+/* Letras grandes y bien separadas, sobre un fondo sin contraste extremo (dislexia, R10). */
+.juego__letra {
+  display: grid;
+  width: 46px;
+  height: 56px;
+  place-items: center;
+  border: 2px solid var(--borde);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--viva-1) 6%, var(--fondo-elevado));
+  color: var(--texto);
+  font: inherit;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.juego__letra--falta {
+  border-color: var(--viva-1);
+  background: var(--fondo-elevado);
+  padding: 0;
+}
+
+.juego__letra--falta:focus-visible {
+  outline: 3px solid var(--viva-texto);
+  outline-offset: 2px;
+}
+
+.juego__campo {
+  display: grid;
+  gap: 6px;
+}
+
+.juego__campo-etiqueta {
+  color: var(--texto-tenue);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.juego__entrada {
+  min-height: 56px;
+  padding: 8px 14px;
+  border: 2px solid var(--viva-1);
+  border-radius: 14px;
+  background: var(--fondo-elevado);
+  color: var(--texto);
+  font: inherit;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+
+.juego__entrada:focus-visible {
+  outline: 3px solid var(--viva-texto);
+  outline-offset: 2px;
+}

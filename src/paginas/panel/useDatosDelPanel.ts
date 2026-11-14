@@ -1,142 +1,143 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
-import { traerElCatalogo, type CategoriaDelCatalogo } from '../../infraestructura/api/catalogo.ts';
-import { ErrorDeLaApi } from '../../infraestructura/api/clienteHttp.ts';
-import { darDeAltaLaCuenta, type Cuenta } from '../../infraestructura/api/cuenta.ts';
-import { VERSION_DEL_AVISO } from '../../sesion/consentimiento.ts';
+import {
+  cambiarPreferencias,
+  type CambiosDePreferencias,
+  type Modulo,
+} from '../../infraestructura/api/cuenta.ts';
+import { consultarElProgreso } from '../../infraestructura/api/progreso.ts';
+import { iniciarUnaOperacionDeLaSesion } from '../../sincronizacion/ciclo.ts';
+import { useLecturaDelPanel, type LecturaDelPanel } from './useLecturaDelPanel.ts';
+
+export { explicar } from './explicar.ts';
 
 /**
  * En que punto esta la carga del panel.
  *
- * Se modela como tres casos excluyentes y no como tres banderas sueltas
- * (`cargando`, `error`, `datos`). Con banderas existen combinaciones que no
- * significan nada —cargando y con error a la vez— y tarde o temprano alguien
- * pinta una de ellas.
+ * Se modela como tres casos excluyentes y no como tres banderas sueltas (`cargando`, `error`,
+ * `datos`). Con banderas existen combinaciones que no significan nada —cargando y con error a la
+ * vez— y tarde o temprano alguien pinta una de ellas. Cuando es la copia de este equipo, `listo`
+ * lo dice (`deLaCopia`).
  */
-export type EstadoDelPanel =
-  | { readonly fase: 'cargando' }
-  | {
-      readonly fase: 'listo';
-      readonly cuenta: Cuenta;
-      readonly catalogo: readonly CategoriaDelCatalogo[];
-    }
-  | { readonly fase: 'error'; readonly mensaje: string };
+export type EstadoDelPanel = LecturaDelPanel;
 
 /**
- * Convierte el fallo en algo que se pueda leer.
+ * Trae lo que el panel necesita: la cuenta y el progreso de cada modulo, con copia en este
+ * equipo (SCRUM-140). Ver `useLecturaDelPanel`.
  *
- * Se decide por el **codigo** de la API cuando lo hay, y por el estado HTTP
- * cuando no. Nunca por el texto del error: el texto puede reescribirse sin
- * avisar, el codigo y el estado son parte del contrato.
+ * El alta de cuenta va en esa lectura y no en el inicio de sesion a proposito. Supabase
+ * autentica, pero la cuenta de VSD Health es una entidad propia que alguien tiene que crear, y
+ * hacerlo al entrar al panel tiene dos ventajas: ocurre tambien cuando la sesion se restaura al
+ * recargar la pagina, y ocurre una sola vez por pantalla en lugar de repartido entre tres
+ * formularios.
  *
- * El codigo hace falta porque el estado a veces no alcanza. Un 400 puede ser que
- * falte el consentimiento o puede ser cualquier otra cosa que la API rechace, y
- * dar por hecho lo primero produce un mensaje que manda a la persona a revisar
- * algo que estaba bien.
+ * Que la llamada sea idempotente en el servidor es lo que lo hace seguro: entrar diez veces no
+ * crea diez cuentas ni sobrescribe el consentimiento.
  *
- * Ninguno de estos mensajes cuenta nada del interior del sistema. Lo que se
- * dice es que paso y que puede hacer la persona, que son las dos unicas cosas
- * que le sirven. Y se redactan aqui, y no se reenvia el mensaje de la API,
- * porque esta pantalla sabe algo que el servidor no: que lo que fallo fue
- * entrar al panel.
- */
-function explicar(error: unknown): string {
-  if (!(error instanceof ErrorDeLaApi)) {
-    // Aqui cae que no haya red, o que la API no este arrancada. `fetch` no
-    // lanza un ErrorDeLaApi en ese caso porque no llego a haber respuesta.
-    return 'No se pudo conectar con el servidor. Revisa tu conexión y vuelve a intentarlo.';
-  }
-
-  switch (error.codigo) {
-    case 'CONSENTIMIENTO_NO_REGISTRADO':
-      return 'No se pudo crear tu cuenta porque falta la aceptación del aviso de tratamiento de datos.';
-
-    case 'CORREO_YA_REGISTRADO':
-      return 'Ese correo ya pertenece a una cuenta creada con otro método de acceso. Entra con el método que usaste la primera vez.';
-
-    // No deberia ocurrir, porque el alta va justo antes de consultar. Si pasa,
-    // decir "no tienes cuenta" es mas util que un numero.
-    case 'CUENTA_NO_REGISTRADA':
-      return 'Todavía no tienes una cuenta de VSD Health. Vuelve a intentarlo para crearla.';
-
-    default:
-      break;
-  }
-
-  if (error.estado === 401) {
-    return 'Tu sesión caducó. Vuelve a entrar.';
-  }
-
-  if (error.estado === 429) {
-    return 'Hiciste muchas peticiones seguidas. Espera un momento y vuelve a intentarlo.';
-  }
-
-  // Sin codigo reconocido queda el numero. No es bonito, pero es lo que la
-  // persona puede leernos por teléfono, y junto con el identificador de la
-  // petición es lo que permite encontrar qué pasó.
-  return `No se pudo cargar tu panel (error ${error.estado}). Vuelve a intentarlo en un momento.`;
-}
-
-/**
- * Trae lo que el panel necesita: la cuenta y el catalogo.
+ * El progreso va **despues** del alta, en serie y no en paralelo: es una ruta con cuenta, y la
+ * primera vez que alguien entra esa cuenta todavia no existe hasta que el alta termina.
  *
- * El alta de cuenta va aqui y no en el inicio de sesion a proposito. Supabase
- * autentica, pero la cuenta de VSD Health es una entidad propia que alguien
- * tiene que crear, y hacerlo al entrar al panel tiene dos ventajas: ocurre
- * tambien cuando la sesion se restaura al recargar la pagina, y ocurre una
- * sola vez por pantalla en lugar de repartido entre tres formularios.
- *
- * Que la llamada sea idempotente en el servidor es lo que lo hace seguro:
- * entrar diez veces no crea diez cuentas ni sobrescribe el consentimiento.
+ * Cambiar la cuenta (activar un modulo, la bienvenida) **si necesita conexion**: lo que
+ * responde el servidor se muestra y se deja guardado como la copia nueva.
  */
 export function useDatosDelPanel(): {
   readonly estado: EstadoDelPanel;
   readonly reintentar: () => void;
+  readonly activarModulo: (modulo: Modulo) => Promise<void>;
+  readonly completarBienvenida: (eleccion: {
+    nombre: string;
+    modulos: readonly Modulo[];
+  }) => Promise<void>;
 } {
-  const [estado, setEstado] = useState<EstadoDelPanel>({ fase: 'cargando' });
-  const [intento, setIntento] = useState(0);
+  const { estado, reintentar, actualizar } = useLecturaDelPanel();
+  const pendientes = useRef(new Set<AbortController>());
 
-  const reintentar = useCallback(() => {
-    setEstado({ fase: 'cargando' });
-    setIntento((anterior) => anterior + 1);
-  }, []);
-
+  // Al salir de la pantalla se cancela lo que siga en camino: nadie espera ya el resultado.
   useEffect(() => {
-    const control = new AbortController();
-
-    async function cargar(): Promise<void> {
-      try {
-        // En paralelo porque no dependen una de otra: el alta necesita la
-        // sesion y el catalogo es una ruta publica. En serie la pantalla
-        // tardaria el doble sin ganar nada.
-        const [cuenta, catalogo] = await Promise.all([
-          darDeAltaLaCuenta(VERSION_DEL_AVISO, control.signal),
-          traerElCatalogo(control.signal),
-        ]);
-
-        if (control.signal.aborted) {
-          return;
-        }
-
-        setEstado({ fase: 'listo', cuenta, catalogo });
-      } catch (error) {
-        // Abortar es lo que pasa al desmontar, y no es un fallo que contar:
-        // pintar un error aqui dejaria un mensaje sobre una pantalla que la
-        // persona ya dejo atras.
-        if (control.signal.aborted) {
-          return;
-        }
-
-        setEstado({ fase: 'error', mensaje: explicar(error) });
-      }
-    }
-
-    void cargar();
+    const enCamino = pendientes.current;
 
     return () => {
-      control.abort();
+      enCamino.forEach((control) => {
+        control.abort();
+      });
+      enCamino.clear();
     };
-  }, [intento]);
+  }, []);
 
-  return { estado, reintentar };
+  /**
+   * Cambia las preferencias y vuelve a pedir el progreso, como una sola operacion **de quien tiene la
+   * sesion al empezar** (SCRUM-315): se anota antes del primer `await`, viaja a las dos peticiones
+   * y se comprueba despues de cada espera. Si la sesion cambio o la pantalla se fue, el resultado no
+   * se muestra, no se guarda y no se pide nada mas con la sesion de quien llego despues.
+   *
+   * Eso no es un fallo que contar: nadie espera ya la respuesta. Un fallo de verdad sale tal cual.
+   */
+  const cambiarYActualizar = useCallback(
+    async (cambios: CambiosDePreferencias): Promise<void> => {
+      const control = new AbortController();
+
+      pendientes.current.add(control);
+
+      const operacion = iniciarUnaOperacionDeLaSesion(control.signal);
+
+      try {
+        const cuenta = await cambiarPreferencias(cambios, control.signal, operacion?.peticion);
+
+        operacion?.exigir();
+
+        const progreso = await consultarElProgreso(control.signal, operacion?.peticion);
+
+        // `actualizar` comprueba una vez mas que la operacion sigue vigente antes de mostrar y guardar.
+        actualizar({ cuenta, progreso }, operacion);
+      } catch (error) {
+        if (operacion !== null && !operacion.vigente()) {
+          return;
+        }
+
+        throw error;
+      } finally {
+        pendientes.current.delete(control);
+      }
+    },
+    [actualizar],
+  );
+
+  /**
+   * Activa un modulo mas y vuelve a pedir el progreso.
+   *
+   * Se pide de nuevo en lugar de inventar el del modulo nuevo aqui: lo que le toca hoy lo decide
+   * el servidor, y adivinarlo en el cliente daria una pantalla que cambia al recargar.
+   *
+   * Si falla, lanza: quien pulso el boton es quien tiene que contarlo.
+   */
+  const activarModulo = useCallback(
+    async (modulo: Modulo): Promise<void> => {
+      if (estado.fase !== 'listo') {
+        return;
+      }
+
+      await cambiarYActualizar({ modulosActivos: [...estado.cuenta.modulosActivos, modulo] });
+    },
+    [estado, cambiarYActualizar],
+  );
+
+  /**
+   * Guarda lo que la persona eligio en la bienvenida y pasa al dashboard.
+   *
+   * El nombre va solo si escribio uno: dejarlo vacio no borra el que hubiera. Si falla, lanza,
+   * para que la bienvenida lo cuente y deje reintentar.
+   */
+  const completarBienvenida = useCallback(
+    async (eleccion: { nombre: string; modulos: readonly Modulo[] }): Promise<void> => {
+      const nombre = eleccion.nombre.trim();
+
+      await cambiarYActualizar({
+        ...(nombre === '' ? {} : { nombre }),
+        modulosActivos: eleccion.modulos,
+      });
+    },
+    [cambiarYActualizar],
+  );
+
+  return { estado, reintentar, activarModulo, completarBienvenida };
 }

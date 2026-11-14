@@ -1,0 +1,47 @@
+/* ============================================================
+   Figuras de estiramiento (SCRUM-226)
+   ============================================================
+   Dibujos de palitos que toman su color de `currentColor`. Las
+   flechas y los arcos que dicen hacia donde va el gesto toman el
+   color del modulo, con la misma forma en claro y en oscuro: la
+   direccion nunca depende solo del color, la dice la flecha.
+   ============================================================ */
+
+.figura {
+  display: block;
+  color: var(--texto, currentColor);
+}
+
+.figura .fig-grueso {
+  stroke-width: 3.2;
+}
+
+.figura .fig-suave {
+  opacity: 0.4;
+  stroke-width: 1.6;
+}
+
+/* La pierna y el brazo del lado que no se ve. */
+.figura .fig-atras {
+  opacity: 0.5;
+}
+
+.figura .fig-dedo {
+  stroke-width: 3.4;
+}
+
+.figura .fig-relleno {
+  fill: currentColor;
+  stroke: none;
+}
+
+.figura .fig-marca {
+  stroke: var(--viva-modulo, currentColor);
+  stroke-width: 2;
+}
+
+.figura .fig-punta {
+  fill: var(--viva-modulo, currentColor);
+  stroke: var(--viva-modulo, currentColor);
+  stroke-width: 0.6;
+}

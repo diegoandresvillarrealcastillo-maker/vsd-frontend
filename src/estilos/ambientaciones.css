@@ -1,0 +1,60 @@
+/* ============================================================
+   Ambientaciones de la respiracion (SCRUM-226)
+   ============================================================
+   `data-ambientacion` lo pone la sesion (bosque, mar, amanecer, noche) y solo cambia el
+   fondo del escenario. La palabra, la cuenta y la barra se leen igual, y ninguna
+   ambientacion es la unica pista de nada. Una que no se conoce se queda sin fondo.
+
+   Ningun color es propio: salen de los tokens de la aplicacion, que cambian entre el tema
+   claro y el oscuro. Solo se permite el blanco de un reflejo y el negro para oscurecer al
+   mezclar, como en el resto de las hojas de las actividades.
+   ============================================================ */
+
+.respiracion[data-ambientacion] .respiracion__escenario {
+  border-radius: 28px;
+}
+
+.respiracion[data-ambientacion='bosque'] .respiracion__escenario {
+  background:
+    radial-gradient(
+      ellipse at 20% 100%,
+      color-mix(in srgb, var(--app-primario) 26%, transparent),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse at 85% 100%,
+      color-mix(in srgb, var(--app-primario) 20%, transparent),
+      transparent 50%
+    ),
+    color-mix(in srgb, var(--app-primario) 7%, var(--fondo-elevado));
+}
+
+.respiracion[data-ambientacion='mar'] .respiracion__escenario {
+  background:
+    linear-gradient(
+      to bottom,
+      transparent 55%,
+      color-mix(in srgb, var(--app-cognicion-acento) 24%, transparent)
+    ),
+    color-mix(in srgb, var(--app-cognicion-acento) 7%, var(--fondo-elevado));
+}
+
+.respiracion[data-ambientacion='amanecer'] .respiracion__escenario {
+  background:
+    radial-gradient(
+      circle at 50% 100%,
+      color-mix(in srgb, var(--app-emociones-acento) 34%, transparent),
+      transparent 62%
+    ),
+    color-mix(in srgb, var(--app-emociones-acento) 7%, var(--fondo-elevado));
+}
+
+.respiracion[data-ambientacion='noche'] .respiracion__escenario {
+  background:
+    radial-gradient(circle at 80% 18%, color-mix(in srgb, #fff 34%, transparent), transparent 20%),
+    color-mix(
+      in srgb,
+      color-mix(in srgb, var(--app-cognicion-acento) 70%, #000) 22%,
+      var(--fondo-elevado)
+    );
+}

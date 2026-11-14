@@ -2,19 +2,22 @@ import { motion } from 'framer-motion';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
+import { LlamarAhora } from '../../componentes/LlamarAhora.tsx';
 import { Logo } from '../../componentes/Logo.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
+import { EQUIPO, SOLO_PROBLEMAS_TECNICOS } from '../../equipo.ts';
 import { ENTRADA, REACCION_DE_BOTON } from '../../estilos/movimiento.ts';
+import type { Modulo } from '../../infraestructura/api/cuenta.ts';
 import { entorno } from '../../infraestructura/entorno.ts';
 import { RUTAS } from '../../rutas/rutas.ts';
 import { useSesion } from '../../sesion/useSesion.ts';
 import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
-import { AnillosDeConstancia } from './AnillosDeConstancia.tsx';
-import { BarrasDeSueno, MEDIA_DE_SUENO } from './BarrasDeSueno.tsx';
+import { LINEAS_DE_RESPALDO_DE_COLOMBIA } from '../actividad/lineasParaMostrar.ts';
+import { EnlacesLegales } from '../legal/EnlacesLegales.tsx';
+import { ORDEN } from '../panel/modulos.ts';
 import { InvitacionAlEntrar } from './InvitacionAlEntrar.tsx';
 import { NavegacionFlotante } from './NavegacionFlotante.tsx';
-import { PulsoDeAnimo } from './PulsoDeAnimo.tsx';
-import { TarjetaDeMetrica } from './TarjetaDeMetrica.tsx';
+import { TarjetaDeModulo } from './TarjetaDeModulo.tsx';
 import { TarjetaDePaso } from './TarjetaDePaso.tsx';
 import '../../estilos/portada.css';
 
@@ -76,11 +79,36 @@ function Marca({ children }: { children: ReactNode }) {
   );
 }
 
-const NO_HACE: readonly string[] = [
-  'No diagnostica ningún trastorno, ni lo insinúa.',
-  'No formula, sugiere ni desaconseja medicamentos.',
-  'No reemplaza a un psicólogo, un médico ni un psiquiatra.',
-  'No le muestra tu información a nadie más, ni siquiera a quien administra la aplicación.',
+interface Limite {
+  readonly clave: string;
+  readonly texto: ReactNode;
+}
+
+/**
+ * Lo que VSD Health no hace.
+ *
+ * Cada linea tiene que poder demostrarse. La ultima decia que nadie veia tus
+ * datos «ni siquiera quien administra la aplicacion»: una promesa absoluta que no
+ * se cumple al pie de la letra, porque los proveedores que alojan el servicio
+ * procesan los datos y quien tenga la credencial de la base podria leerlos
+ * (L-04 de la auditoria 360). Se dice lo que si es cierto y se puede comprobar: la
+ * aplicacion no le ensena a nadie del equipo el diario ni los resultados, y cada
+ * persona puede llevarselos o borrarlos.
+ */
+const NO_HACE: readonly Limite[] = [
+  { clave: 'diagnostico', texto: 'No diagnostica ningún trastorno, ni lo insinúa.' },
+  { clave: 'medicamentos', texto: 'No formula, sugiere ni desaconseja medicamentos.' },
+  { clave: 'profesionales', texto: 'No reemplaza a un psicólogo, un médico ni un psiquiatra.' },
+  {
+    clave: 'equipo',
+    texto: (
+      <>
+        No le muestra tu diario ni tus resultados a nadie del equipo desde la aplicación. Puedes
+        descargarlos o borrarlos cuando quieras.{' '}
+        <Link to={RUTAS.PRIVACIDAD}>Cómo cuidamos tus datos</Link>
+      </>
+    ),
+  },
 ];
 
 interface Paso {
@@ -88,31 +116,41 @@ interface Paso {
   readonly texto: string;
 }
 
+/**
+ * Lo que la aplicacion hace, en el orden en que la persona lo vive (SCRUM-313): elige sus modulos al
+ * empezar, recibe una ruta de actividades cortas cada dia y la llama cuenta los dias sin reprochar.
+ */
 const PASOS: readonly Paso[] = [
   {
-    titulo: 'Cuentas cómo estás',
+    titulo: 'Eliges por dónde empezar',
+    texto: 'Al empezar escoges tus módulos. Puedes cambiarlos después desde tu perfil.',
+  },
+  {
+    titulo: 'Haces algo corto cada día',
     texto:
-      'Respondes unas preguntas cortas. No tienes que escribir párrafos ni explicarle nada a nadie.',
+      'Tu ruta de hoy trae actividades de unos minutos. Eliges cuál y en qué orden: sin metas ni presión.',
   },
   {
-    titulo: 'Te proponemos algo corto',
-    texto: 'Una actividad de respiración, de atención o de movimiento. Duran minutos, no horas.',
-  },
-  {
-    titulo: 'Vuelves mañana',
-    texto: 'La idea es hacerlo varios días seguidos. Ahí es cuando empiezas a ver algo.',
+    titulo: 'Vuelves cuando puedas',
+    texto:
+      'Tu llama cuenta los días en que haces algo. Si un día no puedes, descansa y se enciende de nuevo cuando regreses.',
   },
 ];
 
-interface Persona {
-  readonly nombre: string;
-  readonly rol: string;
-}
-
-const EQUIPO: readonly Persona[] = [
-  { nombre: 'Diego Andrés Villarreal Castillo', rol: 'Product Owner y desarrollo' },
-  { nombre: 'Samuel Villa Pérez', rol: 'Scrum Master y desarrollo' },
-];
+/**
+ * Las actividades que cita cada tarjeta: nombres del catalogo publicado (migraciones del backend),
+ * no inventados. Si una sale del catalogo, tiene que salir de aqui.
+ */
+const ACTIVIDADES_DE_EJEMPLO: Readonly<Record<Modulo, readonly string[]>> = {
+  bienestar: ['Respiración guiada', 'Pausa de estiramiento', 'Escaneo corporal', 'Antes de dormir'],
+  cognicion: [
+    'Recuerda los colores',
+    'La palabra que sobra',
+    'Cuentas con calma',
+    'Une los puntos en orden',
+  ],
+  emociones: ['Rueda de emociones', 'Tres cosas buenas', 'Ancla 5-4-3-2-1', 'Carta a mí de mañana'],
+};
 
 export function Portada() {
   const { sesion } = useSesion();
@@ -140,12 +178,13 @@ export function Portada() {
             <p className="heroe__etiqueta">Bienestar emocional y cognitivo</p>
 
             <h1 className="heroe__titulo">
-              Lo que sientes, puesto en <span className="destacado">claro</span>.
+              Cuerpo, mente y emociones, un <span className="destacado">día</span> a la vez.
             </h1>
 
             <p className="heroe__entradilla">
-              Registra cómo te sientes, cuánto dormiste y qué hiciste hoy. Con los días vas a ver
-              cómo cambia todo eso. Sin diagnósticos y sin ponerte una nota.
+              Cada día, una ruta corta de actividades para tu bienestar, tu memoria y tus emociones.
+              Tú eliges por dónde empezar, sin metas ni presión. Sin diagnósticos y sin compararte
+              con nadie.
             </p>
 
             {/* A quien ya entró no se le ofrece crear una cuenta ni entrar: ya
@@ -183,62 +222,34 @@ export function Portada() {
             <div className="garantias">
               <Marca>No diagnostica</Marca>
               <Marca>No formula medicamentos</Marca>
-              <Marca>Tus datos son solo tuyos</Marca>
+              <Marca>Descargas o borras tus datos</Marca>
+              <Marca>Solo para mayores de 18 años</Marca>
             </div>
           </motion.div>
         </header>
 
-        {/* ---------- Lo que ves cada dia ---------- */}
+        {/* ---------- Los tres modulos ---------- */}
         <section className="seccion" id="que-hace">
           <Entra>
-            <h2 className="seccion__titulo">Lo que ves cada día</h2>
+            <h2 className="seccion__titulo">Tres módulos para empezar por donde quieras</h2>
             <p className="seccion__entradilla">
-              Todo lo que aparece aquí lo registraste tú. No hay calificaciones ni puntajes.
+              Al empezar escoges uno, dos o los tres, y los cambias después desde tu perfil.
             </p>
           </Entra>
 
-          <div className="metricas">
-            <Entra>
-              <TarjetaDeMetrica
-                etiqueta="Ánimo"
-                titulo="Cómo estuvo tu semana"
-                texto="Contar cómo te sientes te toma veinte segundos. Después de unos días ves si vas mejor o peor, que mirando un solo día no se nota."
-                dibujo={(activa) => <PulsoDeAnimo activa={activa} />}
-              />
-            </Entra>
-
-            <Entra>
-              <TarjetaDeMetrica
-                etiqueta="Constancia"
-                titulo={
-                  <>
-                    {/* El espacio va escrito y no lo pone el margen del CSS:
-                        sin el, un lector de pantalla lee "2de 3 hoy". */}
-                    <span className="metrica__cifra">2</span>{' '}
-                    <span className="metrica__unidad">de 3 hoy</span>
-                  </>
-                }
-                texto="Cada día tienes tres cosas por hacer: contar cómo estás, anotar cuánto dormiste y hacer una actividad. Si te queda una pendiente, no pasa nada."
-                dibujo={(activa) => <AnillosDeConstancia activa={activa} />}
-              />
-            </Entra>
-
-            <Entra>
-              <TarjetaDeMetrica
-                etiqueta="Descanso"
-                titulo={
-                  <>
-                    <span className="metrica__cifra">
-                      {MEDIA_DE_SUENO.toFixed(1).replace('.', ',')}
-                    </span>{' '}
-                    <span className="metrica__unidad">h de media</span>
-                  </>
-                }
-                texto="Anotas cuánto dormiste cada noche. Con el tiempo se nota si las noches cortas coinciden con los días difíciles."
-                dibujo={(activa) => <BarrasDeSueno activa={activa} />}
-              />
-            </Entra>
+          <div className="modulos">
+            {ORDEN.map((modulo) => (
+              <Entra key={modulo}>
+                <TarjetaDeModulo modulo={modulo} actividades={ACTIVIDADES_DE_EJEMPLO[modulo]} />
+              </Entra>
+            ))}
           </div>
+
+          <p className="modulos__resto">
+            También incluye un diario para escribir a tu ritmo, un semáforo para ordenar tus
+            pendientes, una llama que cuenta tus días, un asistente para conversar (VSD IA) y una
+            mascota que te acompaña.
+          </p>
         </section>
 
         {/* ---------- Como funciona ---------- */}
@@ -271,8 +282,8 @@ export function Portada() {
               </p>
 
               <ul className="limite__lista">
-                {NO_HACE.map((linea) => (
-                  <li className="limite__punto" key={linea}>
+                {NO_HACE.map(({ clave, texto }) => (
+                  <li className="limite__punto" key={clave}>
                     <svg
                       className="limite__cruz"
                       viewBox="0 0 24 24"
@@ -288,7 +299,7 @@ export function Portada() {
                         strokeLinecap="round"
                       />
                     </svg>
-                    {linea}
+                    <span>{texto}</span>
                   </li>
                 ))}
               </ul>
@@ -299,6 +310,17 @@ export function Portada() {
                   <strong>192 y elegir la opción 4</strong>, o el <strong>123</strong> si hay riesgo
                   inmediato. Las dos líneas son gratuitas y atienden a toda hora.
                 </p>
+
+                {/* Las dos son de Colombia y estan verificadas (SCRUM-257): el texto de arriba ya lo dice. */}
+                <div className="limite__llamadas">
+                  {LINEAS_DE_RESPALDO_DE_COLOMBIA.map((linea) => (
+                    <LlamarAhora
+                      key={linea.id}
+                      linea={linea}
+                      etiqueta={`Llamar al ${linea.telefono ?? ''}`}
+                    />
+                  ))}
+                </div>
               </div>
             </Entra>
           </div>
@@ -311,7 +333,7 @@ export function Portada() {
             <p className="cierre__texto">
               {sesion
                 ? 'Tu sesión sigue abierta en este dispositivo.'
-                : 'Crear la cuenta te toma menos de un minuto y solo te pedimos lo necesario.'}
+                : 'Crear la cuenta es rápido y solo te pedimos lo necesario: tu correo, una contraseña y tu fecha de nacimiento.'}
             </p>
 
             <motion.span {...REACCION_DE_BOTON}>
@@ -332,7 +354,8 @@ export function Portada() {
             <Logo className="pie__marca-logo" />
             <p className="pie__aviso">
               Lo que VSD Health ofrece es orientativo y de apoyo: no diagnostica, no formula
-              medicamentos y no reemplaza la atención de psicólogos, médicos ni psiquiatras.
+              medicamentos y no reemplaza la atención de psicólogos, médicos ni psiquiatras. Es solo
+              para mayores de 18 años.
             </p>
           </div>
 
@@ -348,14 +371,28 @@ export function Portada() {
                 <li className="pie__persona" key={persona.nombre}>
                   <span className="pie__nombre">{persona.nombre}</span>
                   <span className="pie__rol">{persona.rol}</span>
+                  <a
+                    className="pie__telefono"
+                    href={`tel:${persona.telefono}`}
+                    aria-label={`Llamar a ${persona.nombreCorto}, del equipo, por un problema técnico`}
+                  >
+                    {persona.telefonoEscrito}
+                  </a>
                 </li>
               ))}
             </ul>
+
+            {/* Solo para problemas tecnicos y con todas las letras (SCRUM-257): no es una linea de ayuda. */}
+            <p className="pie__texto">{SOLO_PROBLEMAS_TECNICOS}</p>
           </div>
 
           <div className="pie__legal">
             <span>© {new Date().getFullYear()} VSD Health</span>
-            <span>Ambiente: {entorno.nombre}</span>
+            <EnlacesLegales />
+            {/* El ambiente es un dato interno: ayuda a quien prueba en desarrollo o en
+                PRE a saber donde esta, y a nadie mas. En produccion no se muestra
+                (L-07 de la auditoria 360). */}
+            {entorno.nombre !== 'production' && <span>Ambiente: {entorno.nombre}</span>}
           </div>
         </div>
       </footer>

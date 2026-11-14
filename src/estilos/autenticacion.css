@@ -25,7 +25,7 @@
 }
 
 .acceso__marca .logo__imagen {
-  height: 54px;
+  height: 104px;
 }
 
 /* La salida hacia la portada. Debajo de la tarjeta y en tono bajo: tiene que
@@ -46,9 +46,11 @@
     background var(--rapido) var(--curva);
 }
 
-.acceso__volver:hover {
-  color: var(--texto);
-  background: var(--fondo-sutil);
+@media (hover: hover) and (pointer: fine) {
+  .acceso__volver:hover {
+    color: var(--texto);
+    background: var(--fondo-sutil);
+  }
 }
 
 /* ---------- El fondo que respira ----------
@@ -160,9 +162,14 @@
   transition: transform var(--medio) var(--curva);
 }
 
-.acceso__enlace:hover::after,
 .acceso__enlace:focus-visible::after {
   transform: scaleX(1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .acceso__enlace:hover::after {
+    transform: scaleX(1);
+  }
 }
 
 /* ---------- Campos ---------- */
@@ -225,9 +232,11 @@
     background var(--rapido) var(--curva);
 }
 
-.ojo:hover:not(:disabled) {
-  color: var(--acento);
-  background: var(--acento-suave);
+@media (hover: hover) and (pointer: fine) {
+  .ojo:hover:not(:disabled) {
+    color: var(--acento);
+    background: var(--acento-suave);
+  }
 }
 
 .ojo:disabled {
@@ -242,8 +251,10 @@
   box-shadow: 0 0 0 3px var(--acento-suave);
 }
 
-.campo__entrada:hover:not(:focus):not(:disabled) {
-  border-color: var(--acento);
+@media (hover: hover) and (pointer: fine) {
+  .campo__entrada:hover:not(:focus):not(:disabled) {
+    border-color: var(--acento);
+  }
 }
 
 /* El error vira el borde de color. Nada de sacudidas: el temblor es
@@ -319,6 +330,15 @@
   border: 1.5px solid var(--borde-fuerte);
   border-radius: 7px;
   overflow: hidden;
+  transition: border-color 180ms ease-out;
+}
+
+.casilla__caja[data-marcada='true'] {
+  border-color: var(--acento);
+}
+
+.casilla__caja--sin-movimiento {
+  transition: none;
 }
 
 /* Cuando el foco esta en el input invisible, el anillo se pinta en la caja.
@@ -379,9 +399,11 @@
     box-shadow var(--medio) var(--curva);
 }
 
-.envio:hover:not([aria-disabled='true']) {
-  filter: brightness(1.06);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--acento) 32%, transparent);
+@media (hover: hover) and (pointer: fine) {
+  .envio:hover:not([aria-disabled='true']) {
+    filter: brightness(1.06);
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--acento) 32%, transparent);
+  }
 }
 
 .envio__texto {
@@ -405,8 +427,10 @@
   transition: transform 600ms var(--curva);
 }
 
-.envio:hover:not([aria-disabled='true']) .envio__brillo {
-  transform: translateX(100%);
+@media (hover: hover) and (pointer: fine) {
+  .envio:hover:not([aria-disabled='true']) .envio__brillo {
+    transform: translateX(100%);
+  }
 }
 
 .envio[aria-disabled='true'] {
@@ -456,10 +480,12 @@
     box-shadow var(--medio) var(--curva);
 }
 
-.google:hover:not(:disabled) {
-  background: var(--fondo-sutil);
-  border-color: var(--texto-tenue);
-  box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
+@media (hover: hover) and (pointer: fine) {
+  .google:hover:not(:disabled) {
+    background: var(--fondo-sutil);
+    border-color: var(--texto-tenue);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
+  }
 }
 
 .separador {
@@ -532,7 +558,163 @@
     transition: none;
   }
 
-  .acceso__enlace:hover::after {
-    transform: scaleX(1);
+  @media (hover: hover) and (pointer: fine) {
+    .acceso__enlace:hover::after {
+      transform: scaleX(1);
+    }
   }
+}
+
+/* ---------- Completa tu registro y la pantalla de rechazo (T-03) ---------- */
+
+/* Un enlace dentro de una nota de casilla va subrayado siempre: es texto
+   corrido, y distinguirlo solo por el color no basta. */
+.casilla__nota .acceso__enlace {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.casilla__nota .acceso__enlace::after {
+  display: none;
+}
+
+/* Un boton que se ve como el enlace de al lado: es una accion, no una direccion. */
+.acceso__enlace--boton {
+  padding: 0;
+  background: none;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.acceso__enlace--boton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Lo que se ve al ser menor de 18 anos. Sin rojo ni alarma: es una persona que
+   puede haber buscado ayuda y se encuentra con una puerta cerrada. */
+.solo-mayores {
+  display: grid;
+  gap: 14px;
+  text-align: left;
+}
+
+/* Fungito de abogado y lo que dice: en columna en el movil y lado a lado si cabe. */
+.solo-mayores__abogado {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.solo-mayores__globo {
+  position: relative;
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--fondo-sutil);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  color: var(--texto-tenue);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+@media (min-width: 30rem) {
+  .solo-mayores__abogado {
+    flex-direction: row;
+  }
+
+  .solo-mayores__abogado > .fungito-abogado {
+    flex: none;
+    margin-inline: 0;
+  }
+}
+
+.solo-mayores__titulo {
+  margin: 0;
+  font-size: 1.0625rem;
+  letter-spacing: -0.01em;
+}
+
+.solo-mayores__texto,
+.solo-mayores__nota {
+  margin: 0;
+  color: var(--texto-tenue);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+.solo-mayores__lineas {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.solo-mayores__linea {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--fondo-sutil);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+.solo-mayores__linea-titulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 0;
+}
+
+.solo-mayores__cobertura {
+  color: var(--texto-apagado);
+  font-size: 0.8125rem;
+}
+
+.solo-mayores__descripcion {
+  margin: 0;
+  color: var(--texto-tenue);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* «Quiero borrar mi cuenta» en la pantalla de textos nuevos (SCRUM-237): plegado, para que no sea lo
+   primero que se ve ni se pulse sin querer. */
+.acceso__detalles {
+  text-align: left;
+}
+
+.acceso__detalles > summary {
+  cursor: pointer;
+  text-align: center;
+}
+
+.acceso__detalles[open] > summary {
+  margin-bottom: 12px;
+}
+
+.acceso__peligro {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--error);
+  border-radius: 0.875rem;
+  background: transparent;
+  color: var(--error);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .acceso__peligro:hover:not(:disabled) {
+    background: var(--error-suave);
+  }
+}
+
+.acceso__peligro:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

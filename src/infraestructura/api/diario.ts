@@ -1,0 +1,128 @@
+import { llamarALaApi, type ContextoDePeticion } from './clienteHttp.ts';
+
+/**
+ * El diario, por HTTP (SCRUM-95 en el backend, SCRUM-96 aqui).
+ *
+ * Como `resultados.ts`, es la copia de este lado del contrato que publica el
+ * backend en `openapi.json`.
+ */
+
+/** Un nodo del documento del editor: la forma JSON de ProseMirror. Nunca HTML. */
+export interface NodoDelDocumento {
+  readonly type: string;
+  readonly attrs?: Readonly<Record<string, unknown>>;
+  readonly content?: readonly NodoDelDocumento[];
+  readonly marks?: readonly {
+    readonly type: string;
+    readonly attrs?: Readonly<Record<string, unknown>>;
+  }[];
+  readonly text?: string;
+}
+
+/** Un diagrama: la escena del editor de diagramas tal cual, en JSON. */
+export interface Adjunto {
+  readonly id: string;
+  readonly tipo: 'diagrama';
+  readonly datos: Readonly<Record<string, unknown>>;
+}
+
+/** Una anotacion del diario. */
+export interface Anotacion {
+  readonly id: string;
+  /** El dia al que pertenece, en hora de Colombia: AAAA-MM-DD. */
+  readonly dia: string;
+  readonly titulo: string | null;
+  readonly contenido: NodoDelDocumento;
+  readonly adjuntos: readonly Adjunto[];
+  /** Hay que mandarla al editar. Si ya no coincide, otro dispositivo la cambio. */
+  readonly version: number;
+  readonly creadaEn: string;
+  readonly editadaEn: string;
+  /** Una hora despues de escribirla. Despues, lo nuevo va en otra anotacion. */
+  readonly editableHasta: string;
+}
+
+/**
+ * Lo que responden escribir y editar: la anotacion y si conviene acompanarla.
+ *
+ * **Sin lineas de atencion** (SCRUM-194): el diario no las manda, ni aqui se leen. Con
+ * `sugiereAcompanamiento` la mascota ofrece ayuda y, si la persona acepta, abre VSD IA.
+ */
+export interface AnotacionGuardada extends Anotacion {
+  readonly sugiereAcompanamiento: boolean;
+}
+
+export interface AnotacionPorEscribir {
+  /** Lo genera el dispositivo: reenviarlo en un reintento no duplica. */
+  readonly clientOperationId: string;
+  readonly dia: string;
+  readonly titulo?: string;
+  readonly contenido: NodoDelDocumento;
+  readonly adjuntos?: readonly Adjunto[];
+  /**
+   * La hora en que el dispositivo la escribio (ISO 8601). Importa cuando se escribe sin
+   * conexion y llega despues: la anotacion muestra esta hora y no la de cuando se
+   * recibe (ADR 0020). El servidor la acota y, si no sirve, usa la suya.
+   */
+  readonly escritaEn?: string;
+}
+
+export interface CambiosDeAnotacion {
+  readonly version: number;
+  /**
+   * La hora en que el dispositivo hizo la correccion (ISO 8601). El plazo de una hora se
+   * mide contra ella, no contra cuando llega la peticion (ADR 0020).
+   */
+  readonly editadaEn?: string;
+  /** `null` quita el titulo. */
+  readonly titulo?: string | null;
+  readonly contenido?: NodoDelDocumento;
+  readonly adjuntos?: readonly Adjunto[] | null;
+}
+
+/**
+ * Los codigos con los que la API rechaza una edicion sin tocar nada. En los
+ * dos casos lo que se traia se guarda como una anotacion nueva (ADR 0009).
+ */
+export const NO_SE_PUEDE_EDITAR: ReadonlySet<string> = new Set([
+  'EDICION_FUERA_DE_PLAZO',
+  'VERSION_DESACTUALIZADA',
+]);
+
+/** Las anotaciones de un rango de dias, por dia y hora. */
+export function consultarElDiario(
+  desde: string,
+  hasta: string,
+  senal?: AbortSignal,
+  contexto?: ContextoDePeticion,
+): Promise<readonly Anotacion[]> {
+  const consulta = new URLSearchParams({ desde, hasta });
+
+  return llamarALaApi<readonly Anotacion[]>(`/api/diario?${consulta.toString()}`, {
+    ...(senal ? { senal } : {}),
+    contexto,
+  });
+}
+
+export function escribirEnElDiario(
+  anotacion: AnotacionPorEscribir,
+  contexto?: ContextoDePeticion,
+): Promise<AnotacionGuardada> {
+  return llamarALaApi<AnotacionGuardada>('/api/diario', {
+    metodo: 'POST',
+    cuerpo: anotacion,
+    contexto,
+  });
+}
+
+export function editarAnotacion(
+  id: string,
+  cambios: CambiosDeAnotacion,
+  contexto?: ContextoDePeticion,
+): Promise<AnotacionGuardada> {
+  return llamarALaApi<AnotacionGuardada>(`/api/diario/${encodeURIComponent(id)}`, {
+    metodo: 'PATCH',
+    cuerpo: cambios,
+    contexto,
+  });
+}

@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  CLAVE_DE_LA_SESION,
   almacenamientoDeSesion,
   esSoloDeEstaPestana,
+  leerLaSesionGuardada,
   olvidarPreferenciaDePestana,
   recordarEnEsteEquipo,
 } from './almacenamiento.ts';
@@ -99,5 +101,76 @@ describe('cuando el navegador no deja guardar', () => {
     });
 
     expect(almacenamientoDeSesion.getItem(CLAVE)).toBeNull();
+  });
+});
+
+describe('leerLaSesionGuardada: quien es, sin renovar nada (SCRUM-137)', () => {
+  const SESION = {
+    access_token: 'token-vencido',
+    refresh_token: 'refresco',
+    expires_at: 1,
+    token_type: 'bearer',
+    user: { id: 'id-de-ana', email: 'ana@ejemplo.test' },
+  };
+
+  function guardar(valor: unknown, en: Storage = window.localStorage): void {
+    en.setItem(CLAVE_DE_LA_SESION, typeof valor === 'string' ? valor : JSON.stringify(valor));
+  }
+
+  it('la clave es la del cliente de Supabase', () => {
+    expect(CLAVE_DE_LA_SESION).toBe('vsd.sesion');
+  });
+
+  it('devuelve la sesion guardada aunque el token haya vencido: sirve para saber quien es', () => {
+    guardar(SESION);
+
+    expect(leerLaSesionGuardada()).toEqual(SESION);
+  });
+
+  it('la encuentra en el almacen de la pestana si la sesion no se recuerda', () => {
+    recordarEnEsteEquipo(false);
+    guardar(SESION, window.sessionStorage);
+
+    expect(leerLaSesionGuardada()?.user.id).toBe('id-de-ana');
+  });
+
+  it('la encuentra en el otro almacen (el respaldo que ya tenia la lectura)', () => {
+    recordarEnEsteEquipo(false);
+    guardar(SESION, window.localStorage);
+
+    expect(leerLaSesionGuardada()?.user.id).toBe('id-de-ana');
+  });
+
+  it('sin nada guardado, nulo', () => {
+    expect(leerLaSesionGuardada()).toBeNull();
+  });
+
+  it.each([
+    ['texto que no es JSON', 'esto no es json'],
+    ['un numero', '7'],
+    ['nulo', 'null'],
+    ['una lista', '[]'],
+    ['un objeto vacio', '{}'],
+    ['sin usuario', { refresh_token: 'refresco' }],
+    ['usuario que no es un objeto', { refresh_token: 'refresco', user: 'ana' }],
+    ['usuario nulo', { refresh_token: 'refresco', user: null }],
+    ['usuario sin identificador', { refresh_token: 'refresco', user: { email: 'a@b.c' } }],
+    ['identificador vacio', { refresh_token: 'refresco', user: { id: '' } }],
+    ['identificador que no es texto', { refresh_token: 'refresco', user: { id: 7 } }],
+    ['sin token de refresco', { user: { id: 'id-de-ana' } }],
+    ['token de refresco vacio', { refresh_token: '', user: { id: 'id-de-ana' } }],
+    ['token de refresco que no es texto', { refresh_token: 9, user: { id: 'id-de-ana' } }],
+  ])('no le cree a cualquier cosa: %s', (_nombre, valor) => {
+    guardar(valor);
+
+    expect(leerLaSesionGuardada()).toBeNull();
+  });
+
+  it('si el almacen falla, nulo y sin romper nada', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('bloqueado');
+    });
+
+    expect(leerLaSesionGuardada()).toBeNull();
   });
 });

@@ -1,0 +1,132 @@
+/* ============================================================
+   Respiracion guiada (SCRUM-210, ficha BIE-01)
+   ============================================================
+   Un circulo que se abre y se cierra al ritmo del patron. Usa el
+   mismo kit que el resto de las actividades (`viva.css`): la paleta
+   de la aplicacion, la mascota y el boton de abajo. Ningun color es
+   propio: el del circulo es el del modulo (`--viva-modulo`), y
+   cambia solo entre el tema claro y el oscuro.
+
+   Lo que importa aqui es lo que se promete:
+
+   - la advertencia se ve entera, en una tarjeta y no en letra pequena;
+   - con movimiento reducido el circulo no se anima y la barra no se
+     desliza: quedan la palabra, la cuenta en texto y la barra quieta;
+   - nada dice si se respira bien o mal, ni se pinta de rojo o de verde
+     de «correcto».
+   ============================================================ */
+
+.respiracion {
+  display: grid;
+  gap: 16px;
+}
+
+/* La advertencia: una tarjeta con su titulo, igual de legible que el resto. */
+.respiracion__aviso {
+  padding: 14px 16px;
+  border: 2px solid color-mix(in srgb, var(--viva-modulo) 55%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--viva-modulo) 10%, var(--fondo-elevado));
+}
+
+.respiracion__aviso-titulo {
+  margin: 0 0 6px;
+  color: var(--viva-texto);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.respiracion__aviso-texto {
+  margin: 0;
+  color: var(--texto);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.respiracion__escenario {
+  display: grid;
+  min-height: 280px;
+  place-items: center;
+}
+
+/* El circulo. `--escala` es hasta donde se abre y `--dur` cuanto tarda en llegar: la etapa de ahora. */
+.respiracion__circulo {
+  display: grid;
+  width: min(72vw, 260px);
+  aspect-ratio: 1;
+  align-content: center;
+  justify-items: center;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 35% 30%,
+    color-mix(in srgb, var(--viva-modulo) 55%, var(--fondo-elevado)),
+    color-mix(in srgb, var(--viva-modulo) 28%, var(--fondo-elevado))
+  );
+  box-shadow: 0 0 0 10px color-mix(in srgb, var(--viva-modulo) 14%, transparent);
+  color: var(--texto);
+  gap: 2px;
+  text-align: center;
+  transform: scale(var(--escala, 0.55));
+  transition: transform var(--dur, 0s) ease-in-out;
+}
+
+.respiracion__palabra {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.respiracion__cuenta {
+  font-size: 2.5rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.respiracion__tiempo {
+  display: grid;
+  gap: 8px;
+}
+
+.respiracion__quedan {
+  margin: 0;
+  color: var(--texto-tenue);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: center;
+}
+
+.respiracion__barra {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--viva-modulo) 18%, var(--fondo-sutil));
+}
+
+.respiracion__barra-relleno {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--viva-modulo);
+  transition: width 250ms linear;
+}
+
+/* Sin movimiento el circulo no se anima: queda a medio abrir, y lo que guia es la palabra y la cuenta
+   en texto. La barra no se desliza: salta, que ya es bastante. */
+@media (prefers-reduced-motion: reduce) {
+  .respiracion__circulo {
+    transform: scale(0.8);
+    transition: none;
+  }
+
+  .respiracion__barra-relleno {
+    transition: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .respiracion__escenario {
+    min-height: 240px;
+  }
+}

@@ -1,0 +1,253 @@
+/* ==========================================================================
+   Botones con presencia (SCRUM-309)
+
+   Un solo lugar para lo que comparten los botones principales y los
+   secundarios de la cuenta: un brillo del color de la marca, que crecen un
+   5 % al pasar el cursor y que se hunden un 5 % al pulsar. El color de cada
+   boton sigue siendo el suyo (sale de los tokens de la paleta, en claro y en
+   oscuro); aqui solo se le suma volumen y respuesta.
+
+   Los selectores llevan `:root` delante para ganar a la regla propia de cada
+   boton sin depender del orden en que carguen las hojas, que son perezosas.
+
+   Fuera de esta hoja quedan, a proposito, los botones que ya tienen su propia
+   presencia: los de la portada y el acceso (`--resplandor-accion` y el
+   destello del envio), los del tutorial y los de la barra del lienzo del
+   diario.
+
+   Con «reducir movimiento» no hay escala: solo cambian el color y la sombra.
+   Lo deshabilitado no reacciona.
+   ========================================================================== */
+
+:root {
+  --boton-base: var(--acento);
+  --boton-brillo: color-mix(in srgb, var(--acento) 45%, transparent);
+  --boton-luz: rgb(255 255 255 / 28%);
+}
+
+.app,
+.actividad {
+  --boton-base: var(--app-primario);
+  --boton-brillo: color-mix(in srgb, var(--app-primario) 45%, transparent);
+}
+
+/* ---------- Lo que comparten todos ---------- */
+
+:root
+  :is(
+    .app__boton,
+    .mascota__hablar,
+    .asistente__enviar,
+    .conexion__sincronizar,
+    .perfil__secundario,
+    .mascota__rechazar,
+    .asistente__cerrar,
+    .asistente__reintentar,
+    .conexion__cerrar,
+    .conexion__accion,
+    .aviso-sincronizacion__boton,
+    .confirmar-salida__boton,
+    .diario__editar,
+    .diario__reintentar,
+    .version-nueva__boton,
+    .semaforo__accion,
+    .semaforo-ventana__cerrar,
+    .perfil__peligro
+  ) {
+  transition-property: transform, box-shadow, background, border-color, filter;
+  transition-duration: 180ms;
+  transition-timing-function: var(--curva);
+}
+
+/* ---------- Principales: un brillo suave y el filo de arriba ---------- */
+
+:root
+  :is(.app__boton, .mascota__hablar, .asistente__enviar, .conexion__sincronizar):not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 var(--boton-luz),
+    0 4px 14px -6px var(--boton-brillo);
+}
+
+/* ---------- Secundarios: el borde ya lleva el color de la marca ---------- */
+
+:root
+  :is(
+    .perfil__secundario,
+    .mascota__rechazar,
+    .asistente__cerrar,
+    .asistente__reintentar,
+    .conexion__cerrar,
+    .conexion__accion,
+    .aviso-sincronizacion__boton,
+    .confirmar-salida__boton,
+    .diario__editar,
+    .diario__reintentar,
+    .version-nueva__boton,
+    .semaforo__accion,
+    .semaforo-ventana__cerrar
+  ):not(:disabled) {
+  border-color: color-mix(in srgb, var(--boton-base) 55%, transparent);
+}
+
+/* ---------- Pasar el cursor, solo donde hay un cursor de verdad ---------- */
+
+@media (hover: hover) and (pointer: fine) {
+  :root
+    :is(
+      .app__boton,
+      .mascota__hablar,
+      .asistente__enviar,
+      .conexion__sincronizar,
+      .perfil__secundario,
+      .mascota__rechazar,
+      .asistente__cerrar,
+      .asistente__reintentar,
+      .conexion__cerrar,
+      .conexion__accion,
+      .aviso-sincronizacion__boton,
+      .confirmar-salida__boton,
+      .diario__editar,
+      .diario__reintentar,
+      .version-nueva__boton,
+      .semaforo__accion,
+      .semaforo-ventana__cerrar,
+      .perfil__peligro
+    ):hover:not(:disabled) {
+    transform: scale(1.05);
+  }
+
+  :root
+    :is(.app__boton, .mascota__hablar, .asistente__enviar, .conexion__sincronizar):hover:not(
+      :disabled
+    ) {
+    box-shadow:
+      inset 0 1px 0 var(--boton-luz),
+      0 10px 24px -6px var(--boton-brillo);
+    filter: saturate(1.1);
+  }
+
+  :root
+    :is(
+      .perfil__secundario,
+      .mascota__rechazar,
+      .asistente__cerrar,
+      .asistente__reintentar,
+      .conexion__cerrar,
+      .conexion__accion,
+      .aviso-sincronizacion__boton,
+      .confirmar-salida__boton,
+      .diario__editar,
+      .diario__reintentar,
+      .version-nueva__boton,
+      .semaforo__accion,
+      .semaforo-ventana__cerrar
+    ):hover:not(:disabled) {
+    border-color: var(--boton-base);
+    background: color-mix(in srgb, var(--boton-base) 14%, transparent);
+    box-shadow: 0 8px 20px -10px var(--boton-brillo);
+  }
+}
+
+/* ---------- Pulsar, tambien en el telefono ---------- */
+
+:root
+  :is(
+    .app__boton,
+    .mascota__hablar,
+    .asistente__enviar,
+    .conexion__sincronizar,
+    .perfil__secundario,
+    .mascota__rechazar,
+    .asistente__cerrar,
+    .asistente__reintentar,
+    .conexion__cerrar,
+    .conexion__accion,
+    .aviso-sincronizacion__boton,
+    .confirmar-salida__boton,
+    .diario__editar,
+    .diario__reintentar,
+    .version-nueva__boton,
+    .semaforo__accion,
+    .semaforo-ventana__cerrar,
+    .perfil__peligro
+  ):active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+/* ---------- Sin movimiento: solo cambia el color ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  :root
+    :is(
+      .app__boton,
+      .mascota__hablar,
+      .asistente__enviar,
+      .conexion__sincronizar,
+      .perfil__secundario,
+      .mascota__rechazar,
+      .asistente__cerrar,
+      .asistente__reintentar,
+      .conexion__cerrar,
+      .conexion__accion,
+      .aviso-sincronizacion__boton,
+      .confirmar-salida__boton,
+      .diario__editar,
+      .diario__reintentar,
+      .version-nueva__boton,
+      .semaforo__accion,
+      .semaforo-ventana__cerrar,
+      .perfil__peligro
+    ) {
+    transition-property: box-shadow, background, border-color;
+  }
+
+  :root
+    :is(
+      .app__boton,
+      .mascota__hablar,
+      .asistente__enviar,
+      .conexion__sincronizar,
+      .perfil__secundario,
+      .mascota__rechazar,
+      .asistente__cerrar,
+      .asistente__reintentar,
+      .conexion__cerrar,
+      .conexion__accion,
+      .aviso-sincronizacion__boton,
+      .confirmar-salida__boton,
+      .diario__editar,
+      .diario__reintentar,
+      .version-nueva__boton,
+      .semaforo__accion,
+      .semaforo-ventana__cerrar,
+      .perfil__peligro
+    ):active:not(:disabled) {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) and (hover: hover) and (pointer: fine) {
+  :root
+    :is(
+      .app__boton,
+      .mascota__hablar,
+      .asistente__enviar,
+      .conexion__sincronizar,
+      .perfil__secundario,
+      .mascota__rechazar,
+      .asistente__cerrar,
+      .asistente__reintentar,
+      .conexion__cerrar,
+      .conexion__accion,
+      .aviso-sincronizacion__boton,
+      .confirmar-salida__boton,
+      .diario__editar,
+      .diario__reintentar,
+      .version-nueva__boton,
+      .semaforo__accion,
+      .semaforo-ventana__cerrar,
+      .perfil__peligro
+    ):hover:not(:disabled) {
+    transform: none;
+  }
+}

@@ -1,0 +1,46 @@
+{
+  // El service worker (SCRUM-135).
+  //
+  // Corre fuera de la pagina: no tiene `window` ni `document`, y su global es
+  // `self`, con otros tipos (`ServiceWorkerGlobalScope`). Mezclarlo con el
+  // proyecto de la aplicacion hace que los tipos de uno y otro se pisen, asi que
+  // tiene el suyo, con la libreria de workers en lugar de la del DOM.
+  //
+  // Las reglas que no necesitan el navegador (`src/pwa/reglasDelServiceWorker.ts`)
+  // estan en los dos proyectos: se prueban con la aplicacion y las importa el
+  // service worker.
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "WebWorker"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+
+    "noEmit": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.sw.tsbuildinfo",
+    "composite": true,
+
+    "moduleDetection": "force",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "useDefineForClassFields": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    // Apagada aqui a proposito: los tipos de Workbox declaran sus propiedades
+    // opcionales de una forma que esta regla no acepta (`cacheWillUpdate?: ...`
+    // frente a `WorkboxPlugin`), y el error no esta en nuestro codigo. Este
+    // proyecto es un solo archivo; la regla sigue activa en la aplicacion.
+    "exactOptionalPropertyTypes": false,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+
+    // Ni los tipos de Vite ni los del DOM: aqui no existen.
+    "types": []
+  },
+  "include": ["src/sw.ts", "src/pwa/reglasDelServiceWorker.ts"]
+}

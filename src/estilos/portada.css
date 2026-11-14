@@ -102,12 +102,19 @@
    quita la propia capsula, para que la marca quede del todo a la izquierda. */
 .navegacion__marca {
   margin-right: auto;
+  color: var(--nav-texto);
 }
 
-/* El logo lleva "VSD" arriba y "Health" debajo. Por debajo de esta altura, la
-   segunda linea se convierte en una mancha y el logo deja de leerse. */
+/* En la capsula va el loto con el nombre escrito al lado (SCRUM-287): el logo completo, a esta
+   altura, deja "HEALTH" hecho una mancha. El logo completo esta en el pie. */
 .navegacion__marca .logo__imagen {
-  height: 44px;
+  height: 40px;
+}
+
+/* La capsula es oscura en los dos temas: ahi el loto va con sus tonos claros, sin el filtro que
+   lo oscurece sobre el crema (global.css). */
+:root[data-tema='claro'] .navegacion .logo__imagen {
+  filter: none;
 }
 
 .navegacion__enlaces {
@@ -146,9 +153,11 @@
   font-weight: var(--peso-titulo);
 }
 
-.navegacion__enlace:hover,
-.navegacion__accion:hover {
-  color: var(--nav-texto);
+@media (hover: hover) and (pointer: fine) {
+  .navegacion__enlace:hover,
+  .navegacion__accion:hover {
+    color: var(--nav-texto);
+  }
 }
 
 /* Mientras la burbuja no esta aqui, el boton se sostiene con un contorno: sin
@@ -196,8 +205,10 @@
   transition: background var(--rapido) var(--curva);
 }
 
-.navegacion__sesion:hover {
-  background: rgb(255 255 255 / 8%);
+@media (hover: hover) and (pointer: fine) {
+  .navegacion__sesion:hover {
+    background: rgb(255 255 255 / 8%);
+  }
 }
 
 /* El verde de "salud en positivo", usado aqui como senal de que algo esta
@@ -300,17 +311,21 @@
 }
 
 /* ============================================================
-   Tarjetas de metrica
-   ============================================================ */
+   Tarjetas de modulo (SCRUM-313)
+   ============================================================
+   Una por modulo de la aplicacion, con el color que ese modulo tiene dentro de la cuenta: verde para
+   Bienestar, azul para Cognicion y coral para Emociones (los tres colores con significado de la
+   paleta: vital, dato y pulso). El fondo no se tine: el texto conserva el contraste de siempre y el
+   color vive en el borde de arriba, el icono y las actividades. */
 
-.metricas {
+.modulos {
   display: grid;
   gap: 16px;
   grid-template-columns: 1fr;
 }
 
 @media (width >= 760px) {
-  .metricas {
+  .modulos {
     grid-template-columns: repeat(3, 1fr);
   }
 }
@@ -318,18 +333,21 @@
 /* Cada tarjeta esta envuelta en el animador de entrada, asi que es ese
    envoltorio el que ocupa la celda de la rejilla. Sin estirarlo primero, las
    tres tarjetas acaban con alturas distintas segun lo que diga su texto. */
-.metricas > *,
+.modulos > *,
 .pasos > * {
   height: 100%;
 }
 
-.metrica {
+.modulo-portada {
+  --modulo: var(--acento);
+
   display: flex;
   flex-direction: column;
   height: 100%;
   padding: 24px;
   background: var(--fondo-elevado);
   border: 1px solid var(--borde);
+  border-top: 4px solid var(--modulo);
   border-radius: var(--radio-grande);
   box-shadow: var(--sombra);
   transition:
@@ -337,79 +355,76 @@
     box-shadow var(--medio) var(--curva);
 }
 
+.modulo-portada--bienestar {
+  --modulo: var(--vital);
+}
+
+.modulo-portada--cognicion {
+  --modulo: var(--dato);
+}
+
+.modulo-portada--emociones {
+  --modulo: var(--pulso);
+}
+
 /* El desplazamiento y la escala los lleva Framer Motion; aqui solo el borde y
    la sombra, que son propiedades que el CSS resuelve mejor. */
-.metrica--activa {
-  border-color: var(--acento);
+.modulo-portada--activa {
+  border-color: var(--modulo);
   box-shadow:
     var(--sombra),
-    0 0 0 1px color-mix(in srgb, var(--acento) 40%, transparent);
+    0 0 0 1px color-mix(in srgb, var(--modulo) 40%, transparent);
 }
 
-.metrica__lienzo {
+.modulo-portada__icono {
   display: grid;
   place-items: center;
-  min-height: 168px;
-  margin-bottom: 20px;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 16px;
+  color: var(--modulo);
+  background: color-mix(in srgb, var(--modulo) 16%, var(--fondo-elevado));
+  border-radius: var(--radio-pildora);
 }
 
-.metrica__etiqueta {
+.modulo-portada__titulo {
   margin: 0 0 6px;
-  color: var(--texto-apagado);
-  font-size: 0.75rem;
-  font-weight: var(--peso-titulo);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.metrica__titulo {
-  margin: 0 0 8px;
   font-size: 1.3125rem;
   line-height: 1.2;
   letter-spacing: -0.025em;
 }
 
-.metrica__texto {
-  margin: 0;
+.modulo-portada__texto {
+  margin: 0 0 20px;
   color: var(--texto-tenue);
   font-size: 0.9375rem;
 }
 
-/* El dato grande de cada tarjeta. Nunca es un puntaje: son horas,
-   veces o dias, cosas que la persona reconoce porque las vivio. */
-.metrica__cifra {
-  font-size: 2.75rem;
-  font-weight: var(--peso-titulo);
-  line-height: 1;
-  letter-spacing: -0.04em;
-  font-variant-numeric: tabular-nums;
-}
-
-.metrica__unidad {
-  margin-left: 4px;
-  color: var(--texto-apagado);
-  font-size: 1rem;
-  font-weight: var(--peso-texto);
-  letter-spacing: -0.01em;
-}
-
-/* ---------- Sueno: las barras ---------- */
-.sueno {
+/* Pegadas al fondo de la tarjeta: asi las tres empiezan sus actividades a la misma altura aunque
+   la frase de un modulo ocupe dos renglones y la de otro uno. */
+.modulo-portada__actividades {
   display: flex;
-  align-items: flex-end;
-  gap: 7px;
-  height: 92px;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: auto 0 0;
+  padding: 0;
+  list-style: none;
 }
 
-.sueno__barra {
-  width: 15px;
-  border-radius: var(--radio-chico);
-  background: linear-gradient(
-    180deg,
-    var(--vital) 0%,
-    color-mix(in srgb, var(--vital) 28%, transparent) 100%
-  );
-  transform-origin: bottom;
+.modulo-portada__actividades li {
+  padding: 5px 12px;
+  color: var(--texto);
+  font-size: 0.8125rem;
+  background: color-mix(in srgb, var(--modulo) 9%, var(--fondo-elevado));
+  border: 1px solid color-mix(in srgb, var(--modulo) 35%, var(--borde));
+  border-radius: var(--radio-pildora);
+}
+
+.modulos__resto {
+  max-width: 62ch;
+  margin: 32px 0 0;
+  color: var(--texto-tenue);
+  font-size: 1rem;
 }
 
 /* ============================================================
@@ -442,9 +457,11 @@
 /* El desplazamiento y la escala los lleva Framer Motion; aqui solo el borde y
    el fondo. Sin fondo propio, la tarjeta levantada dejaria ver el halo del
    lienzo por debajo y el borde flotaria sobre nada. */
-.paso:hover {
-  background: var(--fondo-elevado);
-  border-color: var(--acento);
+@media (hover: hover) and (pointer: fine) {
+  .paso:hover {
+    background: var(--fondo-elevado);
+    border-color: var(--acento);
+  }
 }
 
 .paso__numero {
@@ -522,6 +539,15 @@
   font-size: 1rem;
 }
 
+/* Un enlace dentro de una linea del limite toma el color del texto y va
+   subrayado: en esa seccion de fondo propio, el color de enlace de siempre no
+   tiene el contraste garantizado. */
+.limite__punto a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .limite__cruz {
   flex: none;
   margin-top: 3px;
@@ -543,6 +569,17 @@
 }
 
 .limite__ayuda strong {
+  color: var(--limite-texto);
+}
+
+/* «Llamar al 192» y «Llamar al 123» (SCRUM-257): las dos lineas de Colombia que el texto nombra. */
+.limite__llamadas {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.limite__llamadas .llamar-ahora {
   color: var(--limite-texto);
 }
 
@@ -602,7 +639,7 @@
 }
 
 .pie__marca-logo .logo__imagen {
-  height: 48px;
+  height: 112px;
 }
 
 .pie__aviso {
@@ -650,6 +687,14 @@
 .pie__rol {
   color: var(--texto-apagado);
   font-size: 0.8125rem;
+}
+
+/* El telefono tecnico de cada persona (SCRUM-257): un enlace con un blanco de toque comodo. */
+.pie__telefono {
+  justify-self: start;
+  padding-block: 4px;
+  color: var(--texto);
+  font-variant-numeric: tabular-nums;
 }
 
 .pie__legal {
@@ -724,7 +769,9 @@
     background var(--rapido) var(--curva);
 }
 
-.invitacion__cerrar:hover {
-  color: var(--texto);
-  background: var(--fondo-sutil);
+@media (hover: hover) and (pointer: fine) {
+  .invitacion__cerrar:hover {
+    color: var(--texto);
+    background: var(--fondo-sutil);
+  }
 }

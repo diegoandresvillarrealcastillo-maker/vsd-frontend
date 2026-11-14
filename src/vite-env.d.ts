@@ -1,4 +1,12 @@
 /// <reference types="vite/client" />
+/// <reference types="vite-plugin-pwa/client" />
+
+/**
+ * Lo que Vite incrusta al compilar (`vite.config.ts`): cuando se compilo y que commit era (SCRUM-234). No existe
+ * fuera de una compilacion; `src/version.ts` lo lee con cuidado.
+ */
+declare const __VSD_VERSION__:
+  { readonly compiladaEl: string | null; readonly commit: string | null } | undefined;
 
 /**
  * Las variables de entorno que el frontend conoce.
@@ -24,8 +32,25 @@ interface ImportMetaEnv {
   /** development | preproduction | production */
   readonly VITE_APP_ENV: string;
 
-  /** `si` para ofrecer entrar con Google. Cualquier otro valor lo oculta. */
+  /**
+   * `si` para ofrecer entrar con Google; `prueba` para ofrecerlo con el aviso de que solo
+   * entran las cuentas autorizadas (la pantalla de consentimiento en modo de prueba).
+   * Cualquier otro valor lo oculta.
+   */
   readonly VITE_PROVEEDOR_GOOGLE?: string;
+  readonly VITE_GEMINI_PRE_TEST?: string;
+
+  /**
+   * La clave **del sitio** de Cloudflare Turnstile (SCRUM-165). Publica por
+   * diseno. Sin ella no hay CAPTCHA. La clave secreta no va aqui nunca.
+   */
+  readonly VITE_TURNSTILE_SITE_KEY?: string;
+
+  /**
+   * Identificador de medicion de Google Analytics 4 (`G-XXXXXXXXXX`). Publico por
+   * diseno. Sin el no hay banner ni analitica.
+   */
+  readonly VITE_GA_ID?: string;
 }
 
 interface ImportMeta {

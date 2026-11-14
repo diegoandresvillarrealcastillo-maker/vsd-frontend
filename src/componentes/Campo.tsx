@@ -8,6 +8,11 @@ type Props = {
   error?: string | undefined;
   /** Texto de apoyo permanente, por ejemplo el minimo de caracteres. */
   ayuda?: string | undefined;
+  /**
+   * El id de algo que describe al campo y vive fuera de el, como el medidor de
+   * la contrasena. Se suma a la ayuda y al error en `aria-describedby`.
+   */
+  descritoPor?: string | undefined;
 } & Omit<InputHTMLAttributes<HTMLInputElement>, 'id' | 'className'>;
 
 /**
@@ -24,7 +29,7 @@ type Props = {
  * estado vive aqui y no fuera porque es puramente visual: quien usa el campo no
  * tiene por que saber que existe, y quien lo coloca tampoco.
  */
-export function Campo({ etiqueta, error, ayuda, type, ...resto }: Props) {
+export function Campo({ etiqueta, error, ayuda, descritoPor, type, ...resto }: Props) {
   const id = useId();
   const idError = `${id}-error`;
   const idAyuda = `${id}-ayuda`;
@@ -32,7 +37,7 @@ export function Campo({ etiqueta, error, ayuda, type, ...resto }: Props) {
   const [revelada, setRevelada] = useState(false);
   const esContrasena = type === 'password';
 
-  const describenAlCampo = [ayuda ? idAyuda : null, error ? idError : null]
+  const describenAlCampo = [ayuda ? idAyuda : null, descritoPor ?? null, error ? idError : null]
     .filter(Boolean)
     .join(' ');
 

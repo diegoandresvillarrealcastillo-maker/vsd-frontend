@@ -1,0 +1,21 @@
+/* ============================================================
+   El envoltorio de las capas de la racha en el cuerpo de la pagina (SCRUM-243)
+
+   El panel de la llama y la celebracion son capas `position: fixed`. Se pintan **en el cuerpo de la
+   pagina** y no donde nacen, por dos razones medidas:
+
+   - La barra de arriba lleva `backdrop-filter`, y un ancestro con filtro se vuelve el contenedor de sus
+     hijos fijos: la hoja del telefono (`bottom: 0`) se media contra la barra de 76 px y quedaba fuera de
+     la pantalla.
+   - La pantalla de una actividad apila su contenido (`z-index: 1`), asi que el `z-index` de la
+     celebracion no le servia contra el aviso de sincronizacion, el de version nueva ni el de analitica.
+
+   Los tokens de la paleta (`--app-*`, `--llama-*`, `--viva-*`) cuelgan de `.app` y de `.actividad`, asi
+   que el envoltorio lleva la clase que toque. Esas clases traen reglas de pagina entera (alto minimo,
+   fondo, rejilla): `display: contents` las deja sin caja, y solo pasa la paleta a lo de dentro.
+   ============================================================ */
+
+.app.racha-portal,
+.actividad.racha-portal {
+  display: contents;
+}

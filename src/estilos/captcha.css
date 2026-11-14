@@ -1,0 +1,19 @@
+/* ---------- Verificacion de que eres una persona (SCRUM-165) ----------
+   El widget de Cloudflare va en un iframe y solo se ve si necesita que la
+   persona haga algo; la linea de estado de abajo es la que siempre esta. */
+.captcha {
+  display: grid;
+  gap: 8px;
+}
+
+.captcha__widget {
+  min-height: 0;
+}
+
+.captcha__widget iframe {
+  max-width: 100%;
+}
+
+.captcha__estado {
+  margin: 0;
+}

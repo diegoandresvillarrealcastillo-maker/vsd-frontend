@@ -1,0 +1,294 @@
+{
+  "objetos": [
+    {
+      "clave": "circulo",
+      "nombre": "círculo"
+    },
+    {
+      "clave": "cuadrado",
+      "nombre": "cuadrado"
+    },
+    {
+      "clave": "triangulo",
+      "nombre": "triángulo"
+    },
+    {
+      "clave": "rombo",
+      "nombre": "rombo"
+    },
+    {
+      "clave": "estrella",
+      "nombre": "estrella"
+    },
+    {
+      "clave": "hoja",
+      "nombre": "hoja"
+    },
+    {
+      "clave": "gota",
+      "nombre": "gota"
+    },
+    {
+      "clave": "luna",
+      "nombre": "luna"
+    },
+    {
+      "clave": "nube",
+      "nombre": "nube"
+    },
+    {
+      "clave": "manzana",
+      "nombre": "manzana"
+    },
+    {
+      "clave": "pera",
+      "nombre": "pera"
+    },
+    {
+      "clave": "uva",
+      "nombre": "uvas"
+    },
+    {
+      "clave": "naranja",
+      "nombre": "naranja"
+    },
+    {
+      "clave": "banano",
+      "nombre": "banano"
+    },
+    {
+      "clave": "fresa",
+      "nombre": "fresa"
+    },
+    {
+      "clave": "limon",
+      "nombre": "limón"
+    },
+    {
+      "clave": "cereza",
+      "nombre": "cerezas"
+    },
+    {
+      "clave": "pina",
+      "nombre": "piña"
+    },
+    {
+      "clave": "gato",
+      "nombre": "gato"
+    },
+    {
+      "clave": "perro",
+      "nombre": "perro"
+    },
+    {
+      "clave": "pez",
+      "nombre": "pez"
+    },
+    {
+      "clave": "ave",
+      "nombre": "ave"
+    },
+    {
+      "clave": "mariposa",
+      "nombre": "mariposa"
+    },
+    {
+      "clave": "tortuga",
+      "nombre": "tortuga"
+    },
+    {
+      "clave": "conejo",
+      "nombre": "conejo"
+    },
+    {
+      "clave": "abeja",
+      "nombre": "abeja"
+    },
+    {
+      "clave": "caracol",
+      "nombre": "caracol"
+    },
+    {
+      "clave": "sol",
+      "nombre": "sol"
+    },
+    {
+      "clave": "lluvia",
+      "nombre": "lluvia"
+    },
+    {
+      "clave": "rayo",
+      "nombre": "rayo"
+    },
+    {
+      "clave": "copo",
+      "nombre": "copo de nieve"
+    },
+    {
+      "clave": "viento",
+      "nombre": "viento"
+    },
+    {
+      "clave": "arcoiris",
+      "nombre": "arcoíris"
+    },
+    {
+      "clave": "sombrilla",
+      "nombre": "sombrilla"
+    },
+    {
+      "clave": "arbol",
+      "nombre": "árbol"
+    },
+    {
+      "clave": "flor",
+      "nombre": "flor"
+    },
+    {
+      "clave": "montana",
+      "nombre": "montaña"
+    },
+    {
+      "clave": "ola",
+      "nombre": "ola"
+    },
+    {
+      "clave": "hongo",
+      "nombre": "hongo"
+    },
+    {
+      "clave": "palmera",
+      "nombre": "palmera"
+    },
+    {
+      "clave": "cactus",
+      "nombre": "cactus"
+    },
+    {
+      "clave": "trebol",
+      "nombre": "trébol"
+    },
+    {
+      "clave": "llave",
+      "nombre": "llave"
+    },
+    {
+      "clave": "taza",
+      "nombre": "taza"
+    },
+    {
+      "clave": "silla",
+      "nombre": "silla"
+    },
+    {
+      "clave": "lampara",
+      "nombre": "lámpara"
+    },
+    {
+      "clave": "puerta",
+      "nombre": "puerta"
+    },
+    {
+      "clave": "ventana",
+      "nombre": "ventana"
+    },
+    {
+      "clave": "libro",
+      "nombre": "libro"
+    },
+    {
+      "clave": "reloj",
+      "nombre": "reloj"
+    },
+    {
+      "clave": "cama",
+      "nombre": "cama"
+    },
+    {
+      "clave": "bus",
+      "nombre": "bus"
+    },
+    {
+      "clave": "bicicleta",
+      "nombre": "bicicleta"
+    },
+    {
+      "clave": "barco",
+      "nombre": "barco"
+    },
+    {
+      "clave": "avion",
+      "nombre": "avión"
+    },
+    {
+      "clave": "tren",
+      "nombre": "tren"
+    },
+    {
+      "clave": "carro",
+      "nombre": "carro"
+    },
+    {
+      "clave": "moto",
+      "nombre": "moto"
+    },
+    {
+      "clave": "cohete",
+      "nombre": "cohete"
+    },
+    {
+      "clave": "globo",
+      "nombre": "globo aerostático"
+    }
+  ],
+  "figuras": [
+    "cuello:inclinar-der",
+    "cuello:inclinar-izq",
+    "cuello:girar-der",
+    "cuello:girar-izq",
+    "cuello:bajar",
+    "cuello:alargar",
+    "cuello:soltar",
+    "cuello:respirar",
+    "hombros:subir",
+    "hombros:circulo-atras",
+    "hombros:circulo-adelante",
+    "hombros:juntar",
+    "hombros:abrazo",
+    "hombros:cruzar-der",
+    "hombros:cruzar-izq",
+    "hombros:abrir",
+    "manos:circulo",
+    "manos:palma-arriba",
+    "manos:palma-abajo",
+    "manos:abrir-cerrar",
+    "manos:dedos",
+    "manos:oracion",
+    "manos:sacudir",
+    "manos:presionar",
+    "espalda:alargar",
+    "espalda:torcer-der",
+    "espalda:torcer-izq",
+    "espalda:redondear",
+    "espalda:arco",
+    "espalda:inclinar-der",
+    "espalda:inclinar-izq",
+    "espalda:adelante",
+    "piernas:tobillos",
+    "piernas:estirar",
+    "piernas:punta-talon",
+    "piernas:marchar",
+    "piernas:empujar",
+    "piernas:cruzar",
+    "piernas:pantorrillas",
+    "piernas:sacudir",
+    "ojos:lejos",
+    "ojos:cerca-lejos",
+    "ojos:parpadear",
+    "ojos:arriba-abajo",
+    "ojos:der-izq",
+    "ojos:palmas",
+    "ojos:circulo",
+    "ojos:cerrar"
+  ]
+}

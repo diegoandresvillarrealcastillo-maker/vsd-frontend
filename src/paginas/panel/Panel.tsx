@@ -1,194 +1,454 @@
-import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 
-import { Logo } from '../../componentes/Logo.tsx';
+import { PantallaDeCarga } from '../../componentes/PantallaDeCarga.tsx';
+import { ExigeConexion } from '../../componentes/ExigeConexion.tsx';
+import { DatoCuriosoDelDia } from '../../datosCuriosos/DatoCuriosoDelDia.tsx';
+import { PieDeLaApp } from '../../componentes/PieDeLaApp.tsx';
+import { PermisoDeAvisos } from '../../notificaciones/PermisoDeAvisos.tsx';
+import { tutorialVisto } from '../../tutorial/memoriaDelTutorial.ts';
+import { TutorialDeFungito } from '../../tutorial/TutorialDeFungito.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
-import '../../estilos/panel.css';
-import type { Cuenta } from '../../infraestructura/api/cuenta.ts';
-import type { CategoriaDelCatalogo } from '../../infraestructura/api/catalogo.ts';
-import { RUTAS } from '../../rutas/rutas.ts';
-import { useSesion } from '../../sesion/useSesion.ts';
-import { SelectorDeTema } from '../../tema/SelectorDeTema.tsx';
+import '../../estilos/aplicacion.css';
+import '../../estilos/panelVivo.css';
+import type { Cuenta, Modulo } from '../../infraestructura/api/cuenta.ts';
+import type { ActividadDeHoy, ProgresoDelModulo } from '../../infraestructura/api/progreso.ts';
+import { MascotaFlotante } from '../../mascota/MascotaFlotante.tsx';
+import { useAvisoDeLaTarde } from '../../racha/useAvisoDeLaTarde.ts';
+import { rutaDeActividad, rutaDeModulo } from '../../rutas/rutas.ts';
+import { Semaforo } from '../../semaforo/Semaforo.tsx';
+import { formatoEn, zonaActual } from '../../tiempo/zonaHoraria.ts';
+import { Bienvenida } from './Bienvenida.tsx';
+import { Celebracion } from './Celebracion.tsx';
+import { BarraSuperior, NavegacionInferior } from './Estructura.tsx';
+import { Icono } from './Icono.tsx';
+import { MODULOS, ORDEN } from './modulos.ts';
+import { porcentaje } from './porcentaje.ts';
+import { DatosDeHace } from '../../conexion/DatosDeHace.tsx';
+import { AvanceDeHoy } from './ruta/AvanceDeHoy.tsx';
+import { construirLaRuta } from './ruta/construirLaRuta.ts';
+import { recordarLaRutaAbierta, rutaAbierta } from './ruta/memoriaDeLaRuta.ts';
+import { RutaDelDia } from './ruta/RutaDelDia.tsx';
+import { useAvanceCelebrable } from './ruta/useAvanceCelebrable.ts';
 import { useDatosDelPanel } from './useDatosDelPanel.ts';
+import { useEntradaDelPanel } from './useEntradaDelPanel.ts';
 
 /**
- * Primera pantalla despues de entrar.
+ * El dashboard, con el diseño de Figma Make "Aplicación de salud integral"
+ * (SCRUM-89).
  *
- * Sigue siendo provisional como panel —el de verdad es la epica SCRUM-12— pero
- * ya no es un andamio: es el primer sitio donde la aplicacion **habla con
- * nuestra API**. Al entrar da de alta la cuenta de VSD Health y trae el
- * catalogo, y lo que pinta son los datos que devuelve el servidor.
+ * La estructura, los colores y la tipografia son los del diseño. Lo que cambia
+ * es de donde salen los datos: **ningun numero esta escrito aqui**. El saludo
+ * usa el nombre de la cuenta, el avance de hoy y el de cada modulo salen de
+ * `GET /api/progreso`, y el plan diario es lo que el servidor dice que toca.
  *
- * Eso importa mas de lo que parece. Hasta ahora el frontend solo hablaba con
- * Supabase para autenticar, asi que quien se registraba tenia identidad y no
- * tenia cuenta, y cualquier operacion suya habria respondido 403.
+ * La mascota flota sobre el dashboard (SCRUM-99) y celebra cuando el plan del
+ * dia queda completo o se desbloquea un modulo.
  *
- * La barra de arriba no es provisional: la marca a la izquierda y el selector
- * de tema a la derecha son lo que va a quedar cuando esta pantalla se llene.
- * El logo lleva al panel y no a la portada: estando dentro, pulsar la marca
- * tiene que devolver a casa, no sacar de la cuenta.
+ * Lo que el diseño trae y aqui todavia no esta:
+ * - VSD IA, que se abre desde la mascota (SCRUM-100).
+ * - La etiqueta "Vista de prueba", que era del prototipo.
  */
+
+/** "Viernes, 2 de octubre", en la zona de la persona, como el servidor. */
+function hoyEnCastellano(): string {
+  const texto = formatoEn(zonaActual(), 'es-CO', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(new Date());
+
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
 export function Panel() {
-  const { correo, salir } = useSesion();
-  const { estado, reintentar } = useDatosDelPanel();
+  return <VistaDelPanel {...useDatosDelPanel()} />;
+}
+
+/**
+ * Lo que se pinta, separado de donde salen los datos.
+ *
+ * Asi la pantalla se puede ver con datos de ejemplo —para compararla con el
+ * diseño— sin sesion ni servidor, y el gancho de datos se prueba aparte.
+ */
+export function VistaDelPanel({
+  estado,
+  reintentar,
+  activarModulo,
+  completarBienvenida,
+}: ReturnType<typeof useDatosDelPanel>) {
+  // Las secciones (Inicio, Progreso) solo existen en el dashboard.
+  // En la bienvenida, en la carga o en un error, sus enlaces no llevarian a
+  // ningun sitio.
+  const enDashboard = estado.fase === 'listo' && estado.cuenta.modulosActivos.length > 0;
 
   return (
-    <div className="panel">
-      <header className="panel__barra">
-        <Logo to={RUTAS.PANEL} className="panel__marca" />
+    <div className="app">
+      <BarraSuperior conSecciones={enDashboard} />
 
-        {/* El logo lleva al panel, que estando dentro es la casa. La portada
-            es otro sitio y necesita su propio enlace: sin el, entrar a la
-            cuenta es un camino de ida. */}
-        <Link className="panel__salida" to={RUTAS.INICIO}>
-          Ir a la página principal
-        </Link>
+      <main id={ID_DEL_CONTENIDO} tabIndex={-1} className="app__contenido">
+        {estado.fase === 'cargando' && (
+          // La mascota corre sobre la barra (SCRUM-283) y `role="status"`: se ve que algo
+          // viene y un lector de pantalla lo anuncia sin interrumpir (SCRUM-180).
+          <PantallaDeCarga mensaje="Cargando tu espacio…" enLinea />
+        )}
 
-        {/* Incrustado en la barra, no flotando sobre la ventana: aqui si hay
-            una barra a la que pertenecer, y queda igual de arriba y a la
-            derecha sin tener que tapar el contenido. */}
-        <SelectorDeTema variante="incrustado" />
-      </header>
+        {estado.fase === 'error' && (
+          // `role="alert"` si interrumpe: la persona tiene que enterarse de
+          // que algo fallo para poder reintentar.
+          <div className="app__aviso app__aviso--fallo" role="alert">
+            <p>{estado.mensaje}</p>
 
-      <main id={ID_DEL_CONTENIDO} tabIndex={-1} className="panel__contenido">
-        <div className="panel__caja">
-          <h1>Ya estás dentro</h1>
-          <p className="panel__correo">{correo}</p>
+            <button type="button" className="app__boton" onClick={reintentar}>
+              Reintentar
+            </button>
+          </div>
+        )}
 
-          {/* `role="status"` lo anuncia un lector de pantalla sin interrumpir.
-              Sin esto, quien no ve la pantalla no sabe que se esta cargando
-              algo y solo encuentra una caja vacia. */}
-          {estado.fase === 'cargando' && (
-            <p className="panel__cargando" role="status">
-              Cargando tu cuenta y las actividades…
-            </p>
-          )}
+        {/* Una cuenta que todavia no eligio modulos no llega al dashboard:
+            primero la bienvenida (SCRUM-90). Se ve una sola vez, porque al
+            elegir la lista deja de estar vacia. */}
+        {estado.fase === 'listo' && estado.cuenta.modulosActivos.length === 0 && (
+          <Bienvenida cuenta={estado.cuenta} alTerminar={completarBienvenida} />
+        )}
 
-          {/* `role="alert"` si interrumpe, y aqui corresponde: la persona tiene
-              que enterarse de que algo fallo para poder reintentar. */}
-          {estado.fase === 'error' && (
-            <div className="panel__fallo" role="alert">
-              <p className="panel__fallo-texto">{estado.mensaje}</p>
+        {/* Sin conexion se ve la copia de este equipo, y se dice de cuando es (SCRUM-140). */}
+        {estado.fase === 'listo' && estado.deLaCopia !== null && (
+          <DatosDeHace
+            guardadoEn={estado.deLaCopia}
+            ahora={estado.ahora}
+            porEnviar={estado.sinEnviar}
+          />
+        )}
 
-              <button type="button" className="pildora" onClick={reintentar}>
-                Reintentar
-              </button>
-            </div>
-          )}
+        {estado.fase === 'listo' && estado.cuenta.modulosActivos.length > 0 && (
+          <Dashboard
+            cuenta={estado.cuenta}
+            progreso={estado.progreso}
+            activarModulo={activarModulo}
+          />
+        )}
 
-          {estado.fase === 'listo' && (
-            <>
-              <TuCuenta cuenta={estado.cuenta} />
-              <Actividades catalogo={estado.catalogo} />
-            </>
-          )}
-
-          <button type="button" className="pildora pildora--fantasma" onClick={() => void salir()}>
-            Cerrar sesión
-          </button>
-        </div>
+        {/* El aviso de la portada se ve una vez, antes de entrar. Este es el que
+            acompana a quien usa la aplicacion a diario (L-03 de la auditoria 360). */}
+        <PieDeLaApp />
       </main>
+
+      {enDashboard && <NavegacionInferior />}
+    </div>
+  );
+}
+
+function Dashboard({
+  cuenta,
+  progreso,
+  activarModulo,
+}: {
+  cuenta: Cuenta;
+  progreso: readonly ProgresoDelModulo[];
+  activarModulo: (modulo: Modulo) => Promise<void>;
+}) {
+  // El modulo recien desbloqueado y cuantos tiene ahora, para celebrarlo.
+  const [celebracion, setCelebracion] = useState<{ modulo: Modulo; total: number } | null>(null);
+
+  async function activarYCelebrar(modulo: Modulo): Promise<void> {
+    await activarModulo(modulo);
+    setCelebracion({ modulo, total: cuenta.modulosActivos.length + 1 });
+  }
+
+  // Si el tutorial ya se vio, la oferta de avisos no tiene nada que esperar.
+  const [tutorialTerminado, setTutorialTerminado] = useState(() => tutorialVisto(cuenta.id));
+
+  // Las secciones entran escalonadas (SCRUM-310), salvo que el tutorial este por abrirse: mide el panel
+  // al montar y la entrada lo desplazaria. Se decide al llegar y no cambia cuando el tutorial se cierra.
+  const [conEntrada] = useState(tutorialTerminado);
+  const entrada = useEntradaDelPanel(conEntrada);
+
+  // El modulo cuya ruta de 365 dias esta desplegada en «Tu ruta de hoy» (SCRUM-293): uno solo a la
+  // vez, y se recuerda el ultimo en este equipo. Sin nada guardado, todos cerrados.
+  const [desplegado, setDesplegado] = useState<Modulo | null>(() => rutaAbierta(cuenta.id));
+
+  function alternarLaRuta(modulo: Modulo): void {
+    const siguiente = desplegado === modulo ? null : modulo;
+
+    setDesplegado(siguiente);
+    recordarLaRutaAbierta(cuenta.id, siguiente);
+  }
+
+  const porModulo = new Map(progreso.map((uno) => [uno.modulo, uno]));
+  const ruta = useMemo(() => construirLaRuta(progreso), [progreso]);
+  const { nuevas } = useAvanceCelebrable(ruta.idsHechos);
+  // La racha por la tarde (SCRUM-243): una vez al dia, y solo si de verdad esta en juego algo.
+  const avisoDeLaRacha = useAvisoDeLaTarde();
+
+  // Llegar desde otra pagina con un ancla (el dock de Mi diario, SCRUM-182): el
+  // contenido se pinta despues de la carga, cuando el navegador ya no busca el
+  // ancla por su cuenta. El tablero solo existe con la cuenta cargada, asi que a
+  // estas alturas la seccion ya esta en el documento.
+  const { hash } = useLocation();
+
+  useEffect(() => {
+    if (hash !== '') {
+      document.getElementById(hash.slice(1))?.scrollIntoView();
+    }
+  }, [hash]);
+
+  return (
+    <>
+      {/* La primera vez que se ve el panel, Fungito se presenta (SCRUM-187) y, cuando termina,
+          se ofrecen los avisos (SCRUM-188): una ventana despues de la otra, nunca las dos. */}
+      <TutorialDeFungito cuenta={cuenta.id} alCerrar={() => setTutorialTerminado(true)} />
+      {tutorialTerminado && <PermisoDeAvisos key={cuenta.id} cuenta={cuenta.id} />}
+
+      <motion.section id="inicio" className="app__portada" aria-labelledby="saludo" {...entrada(0)}>
+        <div>
+          <p className="app__fecha">{hoyEnCastellano()}</p>
+          <h1 id="saludo" className="app__saludo">
+            {cuenta.nombre === undefined ? 'Hola.' : `Hola, ${cuenta.nombre}.`}
+            <br />
+            <span className="app__saludo-pregunta">¿Por dónde empezamos hoy?</span>
+          </h1>
+        </div>
+
+        <div className="app__avance-y-dato">
+          <AvanceDeHoy hechas={ruta.hechas} total={ruta.total} recienHechas={nuevas.size} />
+          <DatoCuriosoDelDia />
+        </div>
+      </motion.section>
+
+      <motion.section
+        id="progreso"
+        className="app__seccion app__ruta-y-recomendado"
+        {...entrada(1)}
+      >
+        <RutaDelDia
+          ruta={ruta}
+          nuevas={nuevas}
+          personaId={cuenta.id}
+          desplegado={desplegado}
+          alAlternar={alternarLaRuta}
+        />
+        <Recomendado siguiente={ruta.siguiente} hayPlan={ruta.total > 0} />
+      </motion.section>
+
+      <motion.section
+        id="programas"
+        className="app__seccion"
+        aria-labelledby="titulo-modulos"
+        {...entrada(2)}
+      >
+        <div className="app__seccion-cabecera">
+          <div>
+            <p className="app__antetitulo">Tu espacio de salud</p>
+            <h2 id="titulo-modulos" className="app__titulo">
+              Elige dónde enfocarte
+            </h2>
+          </div>
+        </div>
+
+        <div className="app__modulos">
+          {ORDEN.map((modulo) => {
+            const suyo = porModulo.get(modulo);
+
+            return suyo === undefined ? (
+              <ModuloPorActivar key={modulo} modulo={modulo} activar={activarYCelebrar} />
+            ) : (
+              <TarjetaDeModulo key={modulo} progreso={suyo} />
+            );
+          })}
+        </div>
+      </motion.section>
+
+      {celebracion !== null && (
+        <Celebracion
+          modulo={celebracion.modulo}
+          total={celebracion.total}
+          alCerrar={() => setCelebracion(null)}
+        />
+      )}
+
+      <MascotaFlotante
+        mascota={cuenta.mascota}
+        celebrar={ruta.planCompleto || celebracion !== null}
+        {...(avisoDeLaRacha === null ? {} : { fraseDeLaPantalla: avisoDeLaRacha })}
+      />
+      <Semaforo />
+    </>
+  );
+}
+
+/** Un modulo activo. Lleva a su sendero (SCRUM-92). */
+function TarjetaDeModulo({ progreso }: { progreso: ProgresoDelModulo }) {
+  const datos = MODULOS[progreso.modulo];
+  const { etapa } = progreso;
+  const avance = porcentaje(etapa.sesionesHechas, etapa.sesionesDeLaEtapa);
+  const nombreDeEtapa = `${etapa.esTemporada ? 'Temporada' : 'Etapa'} ${etapa.numero}`;
+
+  return (
+    <Link
+      to={rutaDeModulo(progreso.modulo)}
+      className="tarjeta-modulo"
+      style={{ '--modulo-fondo': datos.fondo, '--modulo-acento': datos.acento } as CSSProperties}
+    >
+      <span className="tarjeta-modulo__arriba">
+        <span className="tarjeta-modulo__icono">
+          <Icono nombre={datos.icono} tamano={24} />
+        </span>
+        <span className="tarjeta-modulo__cifra">{avance}%</span>
+      </span>
+
+      <span className="tarjeta-modulo__cuerpo">
+        <span className="tarjeta-modulo__titulo">{datos.titulo}</span>
+        <span className="tarjeta-modulo__texto">{datos.descripcion}</span>
+
+        <span className="tarjeta-modulo__barra" aria-hidden="true">
+          <span style={{ width: `${avance}%` }} />
+        </span>
+
+        <span className="tarjeta-modulo__pie">
+          <span>
+            {nombreDeEtapa} · {etapa.sesionesHechas} de {etapa.sesionesDeLaEtapa} sesiones
+          </span>
+          <Icono nombre="arrow" tamano={16} />
+        </span>
+      </span>
+    </Link>
+  );
+}
+
+/**
+ * Un modulo que la persona no tiene activo.
+ *
+ * Activarlo es un clic. La celebracion al desbloquearlo llega con SCRUM-90;
+ * aqui solo se activa y aparece en su sitio sin recargar.
+ */
+function ModuloPorActivar({
+  modulo,
+  activar,
+}: {
+  modulo: Modulo;
+  activar: (modulo: Modulo) => Promise<void>;
+}) {
+  const datos = MODULOS[modulo];
+  const [ocupado, setOcupado] = useState(false);
+  const [fallo, setFallo] = useState(false);
+
+  async function alPulsar() {
+    setOcupado(true);
+    setFallo(false);
+
+    try {
+      await activar(modulo);
+    } catch {
+      setFallo(true);
+      setOcupado(false);
+    }
+  }
+
+  return (
+    <div
+      className="tarjeta-modulo tarjeta-modulo--por-activar"
+      style={{ '--modulo-fondo': datos.fondo, '--modulo-acento': datos.acento } as CSSProperties}
+    >
+      <span className="tarjeta-modulo__arriba">
+        <span className="tarjeta-modulo__icono">
+          <Icono nombre={datos.icono} tamano={24} />
+        </span>
+      </span>
+
+      <span className="tarjeta-modulo__cuerpo">
+        <span className="tarjeta-modulo__titulo">{datos.titulo}</span>
+        <span className="tarjeta-modulo__texto">{datos.descripcion}</span>
+
+        {/* Activar un modulo cambia la cuenta: lo decide el servidor, asi que sin conexion
+            se ve y dice por que no se puede (SCRUM-142). */}
+        <ExigeConexion>
+          <button
+            type="button"
+            className="app__boton tarjeta-modulo__activar"
+            onClick={() => void alPulsar()}
+            disabled={ocupado}
+          >
+            <Icono nombre="plus" tamano={16} />
+            {ocupado ? 'Añadiendo…' : `Añadir ${datos.titulo}`}
+          </button>
+
+          {fallo && (
+            <span className="tarjeta-modulo__fallo" role="alert">
+              No se pudo añadir. Inténtalo de nuevo.
+            </span>
+          )}
+        </ExigeConexion>
+      </span>
     </div>
   );
 }
 
 /**
- * Da formato a una fecha que llego como texto ISO.
- *
- * Si no se puede interpretar se devuelve tal cual en lugar de ensenar
- * "Invalid Date": un dato raro es mejor que una palabra en ingles que no
- * significa nada para quien la lee.
+ * La tarjeta "Recomendado" del diseño, con algo que de verdad toca: la
+ * siguiente actividad pendiente de hoy. En el diseño era un texto fijo.
  */
-function enCastellano(iso: string): string {
-  const fecha = new Date(iso);
-
-  if (Number.isNaN(fecha.getTime())) {
-    return iso;
-  }
-
-  return fecha.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
-}
-
-/**
- * La cuenta, tal como la devuelve la API.
- *
- * Se ensena el consentimiento con su version y su fecha porque es la prueba de
- * lo que la persona acepto y cuando, y tiene derecho a poder verla.
- */
-function TuCuenta({ cuenta }: { cuenta: Cuenta }) {
+function Recomendado({
+  siguiente,
+  hayPlan,
+}: {
+  siguiente: { modulo: Modulo; actividad: ActividadDeHoy } | undefined;
+  hayPlan: boolean;
+}) {
   return (
-    <section className="panel__seccion">
-      <h2 className="panel__titulo">Tu cuenta</h2>
+    <aside className="app__recomendado" aria-labelledby="titulo-recomendado">
+      <span
+        className="app__recomendado-adorno app__recomendado-adorno--grande"
+        aria-hidden="true"
+      />
+      <span
+        className="app__recomendado-adorno app__recomendado-adorno--pequeno"
+        aria-hidden="true"
+      />
 
-      <dl className="panel__datos">
-        <dt>Correo</dt>
-        <dd>{cuenta.correo}</dd>
+      {/* Destellos y no la luna (SCRUM-285): la luna es la del cambio de tema, y se confundian. */}
+      <span className="app__recomendado-icono">
+        <Icono nombre="sparkles" />
+      </span>
 
-        <dt>Rol</dt>
-        <dd>{cuenta.rol}</dd>
+      <p className="app__antetitulo app__antetitulo--salvia">Recomendado</p>
 
-        {cuenta.nombre !== undefined && (
-          <>
-            <dt>Nombre</dt>
-            <dd>{cuenta.nombre}</dd>
-          </>
-        )}
-
-        <dt>Aviso aceptado</dt>
-        <dd>
-          Versión {cuenta.consentimiento.versionPolitica}, el{' '}
-          {enCastellano(cuenta.consentimiento.aceptadoEn)}
-        </dd>
-      </dl>
-    </section>
-  );
-}
-
-/**
- * El catalogo.
- *
- * Todavia no se puede completar ninguna: el motor de actividades es la epica
- * VSDH-E09. Se listan porque son lo que la API ofrece, y ensenarlas con un
- * boton que no lleva a ningun sitio seria prometer algo que no existe.
- */
-function Actividades({ catalogo }: { catalogo: readonly CategoriaDelCatalogo[] }) {
-  if (catalogo.length === 0) {
-    return (
-      <section className="panel__seccion">
-        <h2 className="panel__titulo">Actividades</h2>
-        <p className="panel__vacio">Todavía no hay actividades disponibles.</p>
-      </section>
-    );
-  }
-
-  return (
-    <section className="panel__seccion">
-      <h2 className="panel__titulo">Actividades disponibles</h2>
-
-      {catalogo.map((categoria) => (
-        <div key={categoria.id} className="panel__categoria">
-          <h3 className="panel__categoria-nombre">{categoria.nombre}</h3>
-
-          {categoria.descripcion !== undefined && (
-            <p className="panel__categoria-texto">{categoria.descripcion}</p>
-          )}
-
-          <ul className="panel__actividades">
-            {categoria.actividades.map((actividad) => (
-              <li key={actividad.id} className="panel__actividad">
-                <span className="panel__actividad-nombre">{actividad.nombre}</span>
-
-                {actividad.tipo !== undefined && (
-                  <span className="panel__actividad-tipo">{actividad.tipo}</span>
-                )}
-
-                {actividad.descripcion !== undefined && (
-                  <span className="panel__actividad-texto">{actividad.descripcion}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </section>
+      {siguiente !== undefined ? (
+        <>
+          <h2 id="titulo-recomendado" className="app__recomendado-titulo">
+            {siguiente.actividad.nombre}
+          </h2>
+          <p className="app__recomendado-texto">
+            {siguiente.actividad.descripcion ??
+              `Lo siguiente de tu plan en ${MODULOS[siguiente.modulo].titulo}.`}
+          </p>
+          <Link className="app__recomendado-boton" to={rutaDeActividad(siguiente.actividad.id)}>
+            Comenzar
+            <Icono nombre="arrow" tamano={16} />
+          </Link>
+        </>
+      ) : hayPlan ? (
+        <>
+          <h2 id="titulo-recomendado" className="app__recomendado-titulo">
+            Hoy ya hiciste todo tu plan
+          </h2>
+          <p className="app__recomendado-texto">Descansar también es cuidarte.</p>
+        </>
+      ) : (
+        <>
+          <h2 id="titulo-recomendado" className="app__recomendado-titulo">
+            Empieza por un módulo
+          </h2>
+          <p className="app__recomendado-texto">
+            Elige dónde quieres enfocarte y aquí te diremos por dónde seguir.
+          </p>
+          <a className="app__recomendado-boton" href="#programas">
+            Ver los módulos
+            <Icono nombre="arrow" tamano={16} />
+          </a>
+        </>
+      )}
+    </aside>
   );
 }

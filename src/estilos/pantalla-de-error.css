@@ -1,0 +1,138 @@
+/* ============================================================
+   La pantalla que se ve cuando la aplicacion falla (SCRUM-156)
+   ============================================================
+   Se pinta cuando algo ya esta roto, asi que solo usa los tokens de
+   `.app` (colores de los dos temas) y nada que dependa de otra hoja:
+   ni el lienzo, ni el selector de tema, ni la barra.
+
+   Sin rojo ni iconos de alarma: quien la ve puede estar pasando un
+   mal momento, y no es culpa suya.
+   ------------------------------------------------------------ */
+
+.error-pantalla {
+  min-height: 100dvh;
+  display: grid;
+  place-items: start center;
+  padding: 24px 16px 48px;
+  background: var(--app-lienzo);
+  color: var(--app-tinta);
+  font-family: var(--app-fuente);
+  line-height: 1.55;
+}
+
+.error-pantalla__tarjeta {
+  width: 100%;
+  max-width: 36rem;
+  display: grid;
+  gap: 20px;
+  padding: 24px 20px;
+  background: var(--app-superficie);
+  border: 1px solid var(--app-borde);
+  border-radius: 16px;
+}
+
+.error-pantalla__titulo {
+  margin: 0;
+  font-family: var(--app-fuente-titulos);
+  font-size: clamp(1.5rem, 5vw, 1.9rem);
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+/* Recibe el foco al aparecer, para quien navega con teclado o lector de
+   pantalla; el contorno no hace falta, pero tampoco se quita del todo. */
+.error-pantalla__titulo:focus {
+  outline: none;
+}
+
+.error-pantalla__titulo:focus-visible {
+  outline: 3px solid var(--app-primario);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.error-pantalla__texto,
+.error-pantalla__linea-titulo {
+  margin: 0;
+}
+
+.error-pantalla__texto {
+  color: var(--app-tinta-suave);
+  max-width: 62ch;
+}
+
+.error-pantalla__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+}
+
+.error-pantalla__acciones .app__boton {
+  text-decoration: none;
+}
+
+.error-pantalla__enlace {
+  color: var(--app-salvia);
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+
+.error-pantalla__enlace:focus-visible,
+.error-pantalla .app__boton:focus-visible {
+  outline: 3px solid var(--app-primario);
+  outline-offset: 3px;
+}
+
+.error-pantalla__lineas {
+  display: grid;
+  gap: 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--app-borde);
+}
+
+.error-pantalla__subtitulo {
+  margin: 0;
+  font-family: var(--app-fuente-titulos);
+  font-size: 1.15rem;
+  line-height: 1.3;
+}
+
+.error-pantalla__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.error-pantalla__linea {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  background: var(--app-superficie-alta);
+  border-radius: 12px;
+}
+
+.error-pantalla__linea-titulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  font-size: 1.05rem;
+}
+
+.error-pantalla__cobertura {
+  color: var(--app-tenue);
+  font-size: 0.85rem;
+}
+
+@media (min-width: 640px) {
+  .error-pantalla {
+    padding-top: 64px;
+  }
+
+  .error-pantalla__tarjeta {
+    padding: 32px;
+  }
+}

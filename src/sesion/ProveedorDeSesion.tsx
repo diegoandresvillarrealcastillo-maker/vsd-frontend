@@ -1,13 +1,24 @@
-import type { AuthError, Session } from '@supabase/supabase-js';
+import { isAuthRetryableFetchError, type AuthError, type Session } from '@supabase/supabase-js';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import { olvidarElDatoGuardado } from '../datosCuriosos/memoriaDelDia.ts';
+import { olvidarLosArchivosDeLaPersona } from '../foto/archivosDeLaPersona.ts';
+import { olvidarLaRacha } from '../racha/memoriaDeLaRacha.ts';
 import {
+  esSoloDeEstaPestana,
+  leerLaSesionGuardada,
   olvidarPreferenciaDePestana,
   recordarEnEsteEquipo,
 } from '../infraestructura/supabase/almacenamiento.ts';
 import { supabase } from '../infraestructura/supabase/cliente.ts';
+import { reiniciarLasFrases } from '../mascota/bancoDeFrases.ts';
+import { dejarDeAvisarAEsteNavegador } from '../notificaciones/navegador.ts';
+import { olvidarLoVisto } from '../paginas/panel/ruta/useAvanceCelebrable.ts';
 import { RUTAS } from '../rutas/rutas.ts';
-import { VERSION_DEL_AVISO } from './consentimiento.ts';
+import { alCambiarLaSesion, olvidarLosDatosDeLaSesionActual } from '../sincronizacion/ciclo.ts';
+import { olvidarLaZonaDeLaCuenta } from '../tiempo/zonaHoraria.ts';
+import { olvidarElRegistroGuardado } from './useRegistroCompleto.ts';
+import { consultarLosTextosVigentes, type TextosVigentes } from '../infraestructura/api/aviso.ts';
 import {
   SesionContexto,
   type DatosDeAcceso,
@@ -17,12 +28,20 @@ import {
 } from './SesionContexto.ts';
 
 /**
- * Al registrarse y al entrar con Google, la sesion se recuerda.
+ * Al registrarse con correo, el almacen es el duradero.
  *
- * La pregunta de si recordar el equipo solo la hace la pantalla de inicio de
- * sesion. Al crear una cuenta no tiene sentido —acabas de hacerla y vas a
- * entrar igual— y ponerla ahi seria una casilla mas que leer en el peor
- * momento para pedir atencion.
+ * La pregunta de «Mantener la sesion en este equipo» solo la hace la pantalla de
+ * acceso (SCRUM-164): al crear una cuenta no tiene sentido —acabas de hacerla y
+ * vas a entrar igual— y seria una casilla mas que leer en el peor momento.
+ *
+ * Aqui se elige el almacen duradero por una razon tecnica, no de producto: el
+ * flujo PKCE guarda un verificador al registrarse, y el enlace del correo casi
+ * siempre se abre en **otra pestana**, que no veria uno guardado solo en la
+ * pestana donde se registro.
+ *
+ * Limite conocido: la sesion que nace de ese enlace queda guardada en el equipo.
+ * Quien se registra en un equipo compartido tiene que cerrar sesion al terminar.
+ * Cerrar ese hueco exige repensar la confirmacion por correo y es otro ticket.
  */
 const RECORDAR_SIEMPRE = true;
 
@@ -31,6 +50,12 @@ const BIEN: ResultadoDeAcceso = { ok: true };
 const SIN_CONFIGURAR: ResultadoDeAcceso = {
   ok: false,
   mensaje: 'La aplicación no tiene configurado el acceso. Avisa a quien la administra.',
+};
+
+const SIN_SERVIDOR: ResultadoDeAcceso = {
+  ok: false,
+  mensaje:
+    'No se pudo conectar con el servidor para crear tu cuenta. Revisa tu conexión y vuelve a intentarlo.',
 };
 
 /**
@@ -54,18 +79,63 @@ function clienteONulo(): ReturnType<typeof supabase> | null {
 
 const DEMASIADOS_INTENTOS = 'Demasiados intentos seguidos. Espera un momento y vuelve.';
 
+const DEMAS_SESIONES_CERRADAS = 'Cerramos tu sesión en los demás dispositivos.';
+
+const DEMAS_SESIONES_ABIERTAS =
+  'No pudimos cerrar tu sesión en los demás dispositivos. Si alguno no es tuyo, cambia la contraseña otra vez en un momento.';
+
+/**
+ * Despues de cambiar la contrasena, cierra la sesion de todos los demas
+ * dispositivos y deja abierta solo esta (SCRUM-154).
+ *
+ * Cambiar la contrasena porque alguien mas pudo entrar no sirve de nada si esa
+ * persona conserva su sesion: Supabase no la cierra por su cuenta. Es lo que
+ * hace que cambiarla sea de verdad el remedio de "creo que entraron a mi
+ * cuenta".
+ *
+ * La contrasena ya cambio cuando se llega aqui, asi que un fallo no la
+ * deshace ni se vuelve un error: la persona tiene que saberlo, porque quedo con
+ * la sensacion de haber cerrado algo que sigue abierto. Por eso el resultado es
+ * siempre `ok` y lo que cambia es el mensaje.
+ *
+ * Los demas dispositivos pierden la sesion en cuanto intentan renovarla; el
+ * token que ya tengan sigue valiendo hasta que caduque (una hora por defecto en
+ * Supabase).
+ */
+async function cerrarLasDemasSesiones(
+  cliente: ReturnType<typeof supabase>,
+): Promise<ResultadoDeAcceso> {
+  try {
+    const { error } = await cliente.auth.signOut({ scope: 'others' });
+
+    return { ok: true, mensaje: error ? DEMAS_SESIONES_ABIERTAS : DEMAS_SESIONES_CERRADAS };
+  } catch {
+    return { ok: true, mensaje: DEMAS_SESIONES_ABIERTAS };
+  }
+}
+
 /** Cada codigo de error de Supabase con su texto en espanol. */
 const MENSAJES: Readonly<Record<string, string>> = {
   invalid_credentials: 'El correo o la contraseña no coinciden.',
-  weak_password: 'Esa contraseña es muy corta. Necesita al menos 8 caracteres.',
+  weak_password:
+    'Esa contraseña no cumple lo que se pide: al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.',
   email_not_confirmed: 'Todavía no confirmaste el correo. Revisa tu bandeja.',
   over_request_rate_limit: DEMASIADOS_INTENTOS,
   over_email_send_rate_limit: 'Se enviaron muchos correos seguidos. Espera unos minutos.',
   validation_failed: 'Revisa el correo: no tiene un formato válido.',
 
+  // El CAPTCHA (SCRUM-165). No acusa a nadie: el token pudo caducar o la red
+  // fallar a medias, y la pantalla ya pidio uno nuevo.
+  captcha_failed: 'No pudimos comprobar que eres una persona. Inténtalo de nuevo.',
+
   // Estos dos no son culpa de quien esta delante de la pantalla: son
   // configuracion que falta en Supabase. Decirle "el correo o la contrasena no
   // coinciden" la mandaria a revisar algo que esta bien.
+  // El cambio de contrasena desde el perfil (SCRUM-101).
+  same_password: 'La contraseña nueva tiene que ser distinta de la actual.',
+  reauthentication_needed: 'Para cambiar la contraseña primero pide el código de verificación.',
+  reauthentication_not_valid: 'El código no es válido o ya venció. Pide uno nuevo.',
+
   email_provider_disabled: 'El acceso por correo no está habilitado todavía. Avisa al equipo.',
   signup_disabled: 'El registro está cerrado ahora mismo. Avisa al equipo.',
 };
@@ -109,25 +179,51 @@ function traducir(error: AuthError | null): ResultadoDeAcceso {
 /**
  * Lo mismo, pero para el registro.
  *
- * Una cuenta que ya existe se responde aparte porque en el registro **si hay
- * que decirlo**: sin eso la persona se queda sin saber por que no puede
- * continuar. La frase va en condicional para no afirmarlo de plano.
+ * Que el correo ya tenga una cuenta **tampoco se revela**: es la misma regla
+ * del inicio de sesion y de la recuperacion (S-08 de la auditoria 360). Una
+ * pantalla de registro que responde distinto segun el correo existe o no sirve
+ * para averiguar, direccion por direccion, quien usa una herramienta de salud
+ * mental. Antes aqui se hacia una concesion («Si ya tienes una cuenta...»);
+ * se quito porque el mensaje solo salia cuando la cuenta existia.
  *
- * Es una concesion consciente. En el inicio de sesion y en la recuperacion la
- * regla de no revelar se mantiene entera; aqui cede lo justo para que la
- * pantalla sirva de algo.
+ * Con la confirmacion por correo activada, Supabase ya responde igual en los
+ * dos casos y nunca devuelve estos codigos. Se tratan como exito por si el
+ * proveedor se configura sin confirmacion: sin esto, esa configuracion
+ * reabriria la fuga sin que nada fallara.
+ *
+ * La pantalla de registro cuenta el resto: dice lo mismo en los dos casos y
+ * deja a un enlace tanto entrar como recuperar la contrasena.
  */
 function traducirRegistro(error: AuthError | null): ResultadoDeAcceso {
   const codigo = error?.code ?? '';
 
   if (codigo === 'user_already_exists' || codigo === 'email_exists') {
-    return {
-      ok: false,
-      mensaje: 'Si ya tienes una cuenta con ese correo, entra desde la pantalla de acceso.',
-    };
+    return BIEN;
   }
 
   return traducir(error);
+}
+
+/**
+ * La sesion que ESTE navegador tiene guardada ahora (SCRUM-270).
+ *
+ * Es lo que cuenta: lo que trae un aviso de Supabase puede venir de otra pestana, y con la sesion
+ * que no se recuerda en el equipo cada pestana guarda la suya.
+ *
+ * Si no hay sesion porque el token vencio y SIN CONEXION no se pudo renovar, la sesion sigue
+ * guardada y sirve para saber quien es: se abre la aplicacion sin conexion (SCRUM-137). Cualquier
+ * otro fallo es una sesion que de verdad no existe.
+ */
+async function leerLaSesionDeEsteNavegador(
+  cliente: ReturnType<typeof supabase>,
+): Promise<Session | null> {
+  const { data, error } = await cliente.auth.getSession();
+  const sinRenovar =
+    data.session === null && error !== null && isAuthRetryableFetchError(error)
+      ? leerLaSesionGuardada()
+      : null;
+
+  return data.session ?? sinRenovar;
 }
 
 export function ProveedorDeSesion({ children }: { children: ReactNode }) {
@@ -143,6 +239,9 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let vigente = true;
+    // Cada lectura de la sesion lleva su turno: solo la ultima que se pidio puede adoptarse, y una
+    // que contesta tarde no pisa a una mas nueva.
+    let revision = 0;
     const cliente = clienteONulo();
 
     if (!cliente) {
@@ -152,11 +251,12 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     }
 
     // Primero lo que ya hubiera guardado, para no expulsar a quien recarga.
-    void cliente.auth
-      .getSession()
-      .then(({ data }) => {
-        if (vigente) {
-          setSesion(data.session);
+    const turnoDelArranque = ++revision;
+
+    void leerLaSesionDeEsteNavegador(cliente)
+      .then((leida) => {
+        if (vigente && turnoDelArranque === revision) {
+          setSesion(leida);
           setCargando(false);
         }
       })
@@ -166,14 +266,44 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
         }
       });
 
-    // Y despues, cualquier cambio: entrar, salir, o que se renueve el token.
-    // Sin esta suscripcion, cerrar sesion en otra pestana dejaria esta creyendo
-    // que sigue dentro.
-    const { data: suscripcion } = cliente.auth.onAuthStateChange((_evento, nueva) => {
-      if (vigente) {
-        setSesion(nueva);
-        setCargando(false);
-      }
+    // Y despues, cualquier cambio: entrar, salir, o que se renueve el token. Sin esta suscripcion,
+    // cerrar sesion en otra pestana dejaria esta creyendo que sigue dentro.
+    //
+    // El aviso es solo una senal (SCRUM-270): no se adopta lo que trae, porque puede ser la sesion
+    // de otra persona que entro en otra pestana del mismo navegador. Se vuelve a leer la que esta
+    // pestana tiene guardada. Y se lee fuera del aviso: Supabase lo llama con su candado puesto, y
+    // pedirle la sesion desde dentro es esperar a algo que espera por uno.
+    const { data: suscripcion } = cliente.auth.onAuthStateChange(() => {
+      const turno = ++revision;
+
+      queueMicrotask(() => {
+        void leerLaSesionDeEsteNavegador(cliente)
+          .then((actual) => {
+            if (!vigente || turno !== revision) {
+              return;
+            }
+
+            // Sin sesion, lo que era de quien estaba —su foto, su mascota propia, lo que su
+            // mascota ya le dijo— no se queda. `salir` ya lo suelta, pero la sesion tambien
+            // termina sin pasar por ahi: caduca, se revoca, o se cierra en otra pestana.
+            if (actual === null) {
+              olvidarLosArchivosDeLaPersona();
+              olvidarElDatoGuardado();
+              olvidarLaRacha();
+              reiniciarLasFrases();
+              olvidarLoVisto();
+            }
+
+            setSesion(actual);
+            setCargando(false);
+          })
+          .catch(() => {
+            // No se pudo leer: se queda la sesion que habia, sin dejar la pantalla esperando.
+            if (vigente && turno === revision) {
+              setCargando(false);
+            }
+          });
+      });
     });
 
     return () => {
@@ -182,17 +312,38 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // El almacen local sigue a la sesion (SCRUM-136). Se mira el identificador de
+  // Supabase y no el de nuestra cuenta: es el unico que se conoce sin conexion.
+  //
+  // Que la sesion termine NO borra lo guardado: si caduco o se cerro en otra
+  // pestana, lo que la persona hizo sin conexion sigue ahi para cuando vuelva a
+  // entrar. Solo `salir` lo olvida.
+  const persona = sesion?.user.id ?? null;
+
+  useEffect(() => {
+    void alCambiarLaSesion(persona, { persistente: !esSoloDeEstaPestana() });
+  }, [persona]);
+
   const registrarse = useCallback(
     async ({
       correo,
       contrasena,
+      captchaToken,
       aceptaElAviso,
-    }: DatosDeAcceso & { aceptaElAviso: boolean }): Promise<ResultadoDeAcceso> => {
-      if (!aceptaElAviso) {
+      aceptaLosTerminos,
+    }: DatosDeAcceso & {
+      aceptaElAviso: boolean;
+      aceptaLosTerminos: boolean;
+    }): Promise<ResultadoDeAcceso> => {
+      if (!aceptaElAviso || !aceptaLosTerminos) {
         // No es una validacion de formulario cualquiera. Sin autorizacion
         // previa y expresa no hay base legal para guardar un solo dato de
-        // salud, asi que la cuenta no puede crearse.
-        return { ok: false, mensaje: 'Para crear la cuenta hace falta aceptar el aviso.' };
+        // salud, asi que la cuenta no puede crearse. Son dos casillas porque
+        // son dos documentos: el aviso de privacidad y los terminos.
+        return {
+          ok: false,
+          mensaje: 'Para crear la cuenta hace falta aceptar el aviso de privacidad y los términos.',
+        };
       }
 
       recordarEnEsteEquipo(RECORDAR_SIEMPRE);
@@ -203,15 +354,34 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
         return SIN_CONFIGURAR;
       }
 
+      // Las versiones del aviso y de los terminos se piden a la API, que es su
+      // unica fuente (SCRUM-85). Si no se puede saber cuales estan vigentes no
+      // se crea la cuenta: registrarla con una version supuesta seria guardar un
+      // consentimiento que nadie puede demostrar.
+      let textos: TextosVigentes;
+
+      try {
+        textos = await consultarLosTextosVigentes();
+      } catch {
+        return SIN_SERVIDOR;
+      }
+
       const { error } = await cliente.auth.signUp({
         email: correo,
         password: contrasena,
         options: {
+          // Solo lo que se acepto y cuando, como constancia de que se marcaron
+          // las casillas al registrarse. La fecha de nacimiento no va aqui: no
+          // hace falta para crear la identidad y no tiene por que viajar en el
+          // token de cada peticion. El consentimiento que vale lo registra la
+          // API al crear la cuenta.
           data: {
-            version_aviso: VERSION_DEL_AVISO,
+            version_aviso: textos.aviso,
+            version_terminos: textos.terminos,
             acepto_en: new Date().toISOString(),
           },
           emailRedirectTo: `${window.location.origin}${RUTAS.PANEL}`,
+          ...(captchaToken === undefined ? {} : { captchaToken }),
         },
       });
 
@@ -221,7 +391,12 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
   );
 
   const entrar = useCallback(
-    async ({ correo, contrasena, recordar }: DatosDeEntrada): Promise<ResultadoDeAcceso> => {
+    async ({
+      correo,
+      contrasena,
+      recordar,
+      captchaToken,
+    }: DatosDeEntrada): Promise<ResultadoDeAcceso> => {
       // Antes de iniciar sesion, no despues: el token se escribe durante la
       // llamada, y para entonces ya tiene que estar decidido donde va.
       recordarEnEsteEquipo(recordar);
@@ -235,6 +410,7 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
       const { error } = await cliente.auth.signInWithPassword({
         email: correo,
         password: contrasena,
+        ...(captchaToken === undefined ? {} : { options: { captchaToken } }),
       });
 
       return traducir(error);
@@ -259,26 +435,37 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
     return traducir(error);
   }, []);
 
-  const pedirRecuperacion = useCallback(async (correo: string): Promise<ResultadoDeAcceso> => {
-    const cliente = clienteONulo();
+  const pedirRecuperacion = useCallback(
+    async (correo: string, captchaToken?: string): Promise<ResultadoDeAcceso> => {
+      const cliente = clienteONulo();
 
-    if (!cliente) {
-      return SIN_CONFIGURAR;
-    }
+      if (!cliente) {
+        return SIN_CONFIGURAR;
+      }
 
-    const { error } = await cliente.auth.resetPasswordForEmail(correo, {
-      redirectTo: `${window.location.origin}${RUTAS.CONTRASENA_NUEVA}`,
-    });
+      const { error } = await cliente.auth.resetPasswordForEmail(correo, {
+        redirectTo: `${window.location.origin}${RUTAS.CONTRASENA_NUEVA}`,
+        ...(captchaToken === undefined ? {} : { captchaToken }),
+      });
 
-    // Se responde lo mismo haya cuenta o no, y tambien si la llamada fallo por
-    // limite de peticiones. Decir "ese correo no existe" permitiria averiguar
-    // quien tiene cuenta probando direcciones una a una.
-    if (error?.status === 429) {
-      return { ok: false, mensaje: 'Demasiados intentos seguidos. Espera un momento y vuelve.' };
-    }
+      // Se responde lo mismo haya cuenta o no, y tambien si la llamada fallo por
+      // limite de peticiones. Decir "ese correo no existe" permitiria averiguar
+      // quien tiene cuenta probando direcciones una a una.
+      if (error?.status === 429) {
+        return { ok: false, mensaje: 'Demasiados intentos seguidos. Espera un momento y vuelve.' };
+      }
 
-    return BIEN;
-  }, []);
+      // Sin esto, un CAPTCHA que fallo diria «te enviamos el correo» cuando no se
+      // envio nada. Tampoco revela nada: el CAPTCHA se comprueba antes de mirar
+      // si el correo existe.
+      if (error?.code === 'captcha_failed') {
+        return traducir(error);
+      }
+
+      return BIEN;
+    },
+    [],
+  );
 
   const cambiarContrasena = useCallback(async (nueva: string): Promise<ResultadoDeAcceso> => {
     const cliente = clienteONulo();
@@ -289,12 +476,77 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
 
     const { error } = await cliente.auth.updateUser({ password: nueva });
 
+    if (error) {
+      return traducir(error);
+    }
+
+    return cerrarLasDemasSesiones(cliente);
+  }, []);
+
+  /**
+   * Primer paso del cambio de contrasena desde el perfil: Supabase manda un
+   * codigo al correo de la cuenta. Con "Secure password change" activado en
+   * el proyecto, la contrasena nueva solo se acepta con ese codigo.
+   */
+  const pedirCodigoDeVerificacion = useCallback(async (): Promise<ResultadoDeAcceso> => {
+    const cliente = clienteONulo();
+
+    if (!cliente) {
+      return SIN_CONFIGURAR;
+    }
+
+    const { error } = await cliente.auth.reauthenticate();
+
     return traducir(error);
   }, []);
 
+  /**
+   * Segundo paso: la contrasena nueva con el codigo. Va directo a Supabase,
+   * como en el registro: nuestra API nunca la ve.
+   */
+  const cambiarContrasenaConCodigo = useCallback(
+    async (nueva: string, codigo: string): Promise<ResultadoDeAcceso> => {
+      const cliente = clienteONulo();
+
+      if (!cliente) {
+        return SIN_CONFIGURAR;
+      }
+
+      const { error } = await cliente.auth.updateUser({ password: nueva, nonce: codigo.trim() });
+
+      if (error) {
+        return traducir(error);
+      }
+
+      return cerrarLasDemasSesiones(cliente);
+    },
+    [],
+  );
+
   const salir = useCallback(async (): Promise<void> => {
+    // Primero, y sin esperar: se empieza a olvidar lo guardado en este equipo
+    // (SCRUM-136). Quien sale decide por si misma; nada de lo privado se queda
+    // para la siguiente persona. Tiene que ir antes de soltar el token porque
+    // sabe de quien es lo que borra por la sesion que todavia esta abierta.
+    // Avisar de que quedan cambios sin enviar, antes de llegar aqui, es de quien
+    // llama a `salir` (el menu de la cuenta, SCRUM-142): aqui ya no hay vuelta atras.
+    const olvido = olvidarLosDatosDeLaSesionActual();
+
+    // Antes de soltar el token: este navegador deja de recibir los avisos de
+    // quien sale (SCRUM-102). No bloquea la salida si falla.
+    await dejarDeAvisarAEsteNavegador();
     await clienteONulo()?.auth.signOut();
+    await olvido;
     olvidarPreferenciaDePestana();
+    // La zona y los archivos de esa cuenta no se quedan para la siguiente persona, ni
+    // el historial de lo que su mascota le dijo (SCRUM-142).
+    olvidarLaZonaDeLaCuenta();
+    olvidarLosArchivosDeLaPersona();
+    olvidarElRegistroGuardado();
+    olvidarElDatoGuardado();
+    olvidarLaRacha();
+    reiniciarLasFrases();
+    olvidarLoVisto();
     setSesion(null);
   }, []);
 
@@ -308,6 +560,8 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
       entrarConGoogle,
       pedirRecuperacion,
       cambiarContrasena,
+      pedirCodigoDeVerificacion,
+      cambiarContrasenaConCodigo,
       salir,
     }),
     [
@@ -318,6 +572,8 @@ export function ProveedorDeSesion({ children }: { children: ReactNode }) {
       entrarConGoogle,
       pedirRecuperacion,
       cambiarContrasena,
+      pedirCodigoDeVerificacion,
+      cambiarContrasenaConCodigo,
       salir,
     ],
   );

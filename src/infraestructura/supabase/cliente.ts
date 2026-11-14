@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import { credencialesDeSupabase } from '../entorno.ts';
-import { almacenamientoDeSesion } from './almacenamiento.ts';
+import { almacenamientoDeSesion, CLAVE_DE_LA_SESION } from './almacenamiento.ts';
 
 /**
  * El cliente de Supabase, uno solo para toda la aplicacion.
@@ -24,7 +24,7 @@ export function supabase(): SupabaseClient {
     auth: {
       // Donde vive la sesion lo decide el adaptador, no este cliente.
       storage: almacenamientoDeSesion,
-      storageKey: 'vsd.sesion',
+      storageKey: CLAVE_DE_LA_SESION,
 
       persistSession: true,
 

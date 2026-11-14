@@ -1,0 +1,49 @@
+/* El boton «Llamar ahora» (SCRUM-257). Toma el color de lo que tiene alrededor y no los
+   suyos: se usa en la portada, en la aplicacion y en las pantallas de acceso y de
+   error, que no comparten paleta. Sin rojo ni iconos de alarma: es una puerta que se
+   deja abierta, no una sirena (como las lineas que acompana). */
+.llamar-ahora {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  margin: 0.5rem 0.75rem 0 0;
+  padding: 0 1.25rem;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 0.12s ease-out,
+    background-color 0.12s ease-out;
+}
+
+.llamar-ahora:active {
+  transform: scale(0.97);
+  background-color: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.llamar-ahora:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .llamar-ahora:hover {
+    background-color: color-mix(in srgb, currentColor 8%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .llamar-ahora {
+    transition: none;
+  }
+
+  .llamar-ahora:active {
+    transform: none;
+  }
+}
