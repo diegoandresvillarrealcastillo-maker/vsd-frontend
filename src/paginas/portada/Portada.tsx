@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { LlamarAhora } from '../../componentes/LlamarAhora.tsx';
 import { Logo } from '../../componentes/Logo.tsx';
 import { ID_DEL_CONTENIDO } from '../../componentes/SaltoAlContenido.tsx';
-import { EQUIPO, SOLO_PROBLEMAS_TECNICOS } from '../../equipo.ts';
+import { ACLARACION_DEL_SOPORTE, CORREO_DE_SOPORTE, EQUIPO } from '../../equipo.ts';
 import { ENTRADA, REACCION_DE_BOTON } from '../../estilos/movimiento.ts';
 import type { Modulo } from '../../infraestructura/api/cuenta.ts';
 import { entorno } from '../../infraestructura/entorno.ts';
@@ -371,19 +371,15 @@ export function Portada() {
                 <li className="pie__persona" key={persona.nombre}>
                   <span className="pie__nombre">{persona.nombre}</span>
                   <span className="pie__rol">{persona.rol}</span>
-                  <a
-                    className="pie__telefono"
-                    href={`tel:${persona.telefono}`}
-                    aria-label={`Llamar a ${persona.nombreCorto}, del equipo, por un problema técnico`}
-                  >
-                    {persona.telefonoEscrito}
-                  </a>
                 </li>
               ))}
             </ul>
 
-            {/* Solo para problemas tecnicos y con todas las letras (SCRUM-257): no es una linea de ayuda. */}
-            <p className="pie__texto">{SOLO_PROBLEMAS_TECNICOS}</p>
+            <p className="pie__texto">
+              Para soporte técnico, escríbenos a{' '}
+              <a href={`mailto:${CORREO_DE_SOPORTE}`}>{CORREO_DE_SOPORTE}</a>.{' '}
+              {ACLARACION_DEL_SOPORTE}
+            </p>
           </div>
 
           <div className="pie__legal">
