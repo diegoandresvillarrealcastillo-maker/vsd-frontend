@@ -125,7 +125,11 @@ let usuario: UserEvent;
 const alTerminar = vi.fn();
 
 beforeEach(() => {
-  vi.spyOn(Math, 'random').mockReturnValue(0);
+  vi.spyOn(globalThis.crypto, 'getRandomValues').mockImplementation(((arreglo: Uint32Array) => {
+    arreglo[0] = 0;
+
+    return arreglo;
+  }) as typeof globalThis.crypto.getRandomValues);
   usuario = userEvent.setup({ delay: null });
 });
 

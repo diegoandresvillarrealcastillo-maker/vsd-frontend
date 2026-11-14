@@ -283,11 +283,19 @@ describe('una mecanica nueva, elegida por su motor (SCRUM-209)', () => {
   it('se juega con la sesion del panel y el resultado dice cual fue', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     // La secuencia de la ronda: la primera, la segunda y la tercera casilla.
-    vi.spyOn(Math, 'random')
-      .mockReturnValueOnce(0.1)
-      .mockReturnValueOnce(0.35)
-      .mockReturnValueOnce(0.6)
-      .mockReturnValue(0.01);
+    const azar = vi.spyOn(globalThis.crypto, 'getRandomValues');
+    for (const casilla of [0, 1, 2]) {
+      azar.mockImplementationOnce(((arreglo: Uint32Array) => {
+        arreglo[0] = casilla;
+
+        return arreglo;
+      }) as typeof globalThis.crypto.getRandomValues);
+    }
+    azar.mockImplementation(((arreglo: Uint32Array) => {
+      arreglo[0] = 0;
+
+      return arreglo;
+    }) as typeof globalThis.crypto.getRandomValues);
 
     const jugador = userEvent.setup({ delay: null, advanceTimers: vi.advanceTimersByTime });
 
