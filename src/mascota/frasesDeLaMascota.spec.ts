@@ -140,7 +140,7 @@ describe('el banco de frases', () => {
     });
 
     it('no quedo ningun caracter roto por una mala codificacion', () => {
-      expect(ofensoras(/[�ÃÂ]/u)).toEqual([]);
+      expect(ofensoras(/[\uFFFDÃÂ]/u)).toEqual([]);
     });
 
     it('ninguna palabra de las que siempre llevan tilde o ene esta sin ella', () => {
