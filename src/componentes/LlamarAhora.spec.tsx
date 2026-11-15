@@ -40,7 +40,7 @@ describe('LlamarAhora', () => {
     expect(boton).toHaveAttribute('href', 'tel:123');
   });
 
-  it.each(['+573112801363', '8009112000', '024', '988'])('marca "%s" tal cual', (telefono) => {
+  it.each(['+573001234567', '8009112000', '024', '988'])('marca "%s" tal cual', (telefono) => {
     render(<LlamarAhora linea={{ ...LINEA, telefono }} />);
 
     expect(screen.getByRole('link')).toHaveAttribute('href', `tel:${telefono}`);

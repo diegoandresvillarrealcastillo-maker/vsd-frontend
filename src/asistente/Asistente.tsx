@@ -37,7 +37,7 @@ import { useReglasLocales } from './useReglasLocales.ts';
  *   tiene una senal de riesgo, la respuesta ensena siempre las lineas de
  *   atencion.
  * - Lo escrito vive en memoria mientras esta abierto y se olvida al cerrarlo.
- *   En la prueba opcional de Gemini, el mensaje marcado se envia a Google.
+ *   En produccion, una pregunta de salud no reconocida puede enviarse a Gemini.
  * - Nunca se queda cargando: sin conexion, o si tarda demasiado, lo dice. Y
  *   como entonces no se sabe que habria respondido, deja a mano las dos
  *   lineas nacionales.
@@ -243,6 +243,12 @@ export function Asistente({
                 Prueba de Gemini en PRE: las reglas responden primero. Si no reconocen tu pregunta,
                 el texto puede enviarse a Google, que puede usarlo para mejorar sus servicios. Usa
                 solo situaciones ficticias; no incluyas datos personales ni de salud reales.
+              </p>
+            ) : entorno.esProduccion ? (
+              <p className="asistente__nota">
+                Las reglas responden primero. Si no cubren una pregunta general de salud, el texto
+                puede enviarse a Gemini de Google. No incluyas nombres, correos ni otros datos que
+                te identifiquen. VSD Health no guarda esta conversación.
               </p>
             ) : (
               <p className="asistente__nota">

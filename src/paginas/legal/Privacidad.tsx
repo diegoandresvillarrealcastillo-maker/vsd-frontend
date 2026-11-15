@@ -176,8 +176,12 @@ const SECCIONES: readonly SeccionLegal[] = [
           devuelve, y nada más.
         </p>
         <p>
-          El asistente funciona con reglas propias, no con un servicio externo de inteligencia
-          artificial, y no guarda lo que le escribes.
+          El asistente aplica primero reglas propias para las señales de riesgo, los recursos de
+          apoyo y los temas que ya conoce. Si esas reglas no cubren una pregunta general de salud,
+          puede enviar únicamente el texto de esa pregunta a Gemini de Google para redactar una
+          respuesta. VSD Health no guarda la conversación ni envía a Gemini tu identificador de
+          cuenta, correo, diario, resultados o archivos. Evita incluir en la pregunta nombres,
+          correos u otros datos que te identifiquen.
         </p>
       </>
     ),
@@ -206,7 +210,10 @@ const SECCIONES: readonly SeccionLegal[] = [
             <strong>Brevo</strong>: el envío de los correos de activación y recuperación.
           </li>
           <li>
-            <strong>Google</strong>: solo si eliges entrar con Google.
+            <strong>Google</strong>: si eliges entrar con Google y, en VSD IA, cuando las reglas no
+            cubren una pregunta general de salud. En ese caso Gemini recibe solo el texto de la
+            pregunta. El nivel gratuito de Gemini puede usar las entradas y salidas para mejorar los
+            productos de Google, de acuerdo con sus condiciones.
           </li>
           <ProveedorGoogleAnalytics />
           <li>
