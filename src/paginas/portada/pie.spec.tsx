@@ -76,24 +76,21 @@ describe('El pie de la portada y el ambiente', () => {
   });
 });
 
-describe('El pie y el cuerpo de la portada: los telefonos (SCRUM-257)', () => {
-  it('el equipo deja su telefono tecnico, y dice que es solo para problemas tecnicos', () => {
+describe('El pie y el cuerpo de la portada: el soporte tecnico', () => {
+  it('ofrece el correo corporativo y aclara que no es una linea de ayuda', () => {
     pintar();
 
     const pie = screen.getByRole('contentinfo');
 
-    expect(within(pie).getByRole('link', { name: /Llamar a Diego/ })).toHaveAttribute(
-      'href',
-      'tel:+573112801363',
-    );
-    expect(within(pie).getByRole('link', { name: /Llamar a Samuel/ })).toHaveAttribute(
-      'href',
-      'tel:+573245889281',
-    );
-    expect(pie).toHaveTextContent('311 280 1363');
-    expect(pie).toHaveTextContent('324 588 9281');
-    expect(pie).toHaveTextContent('Son solo para problemas técnicos de la aplicación');
-    expect(pie).toHaveTextContent('No son una línea de ayuda');
+    const correos = within(pie).getAllByRole('link', { name: 'vsdcompany69@gmail.com' });
+    expect(correos.length).toBeGreaterThan(0);
+    expect(
+      correos.every((correo) => correo.getAttribute('href') === 'mailto:vsdcompany69@gmail.com'),
+    ).toBe(true);
+    expect(pie).not.toHaveTextContent('311 280 1363');
+    expect(pie).not.toHaveTextContent('324 588 9281');
+    expect(pie).toHaveTextContent('solo para problemas técnicos de la aplicación');
+    expect(pie).toHaveTextContent('no es una línea de ayuda');
   });
 
   it('las dos lineas de Colombia que nombra la portada se pueden marcar, y son las de siempre', () => {
@@ -103,7 +100,7 @@ describe('El pie y el cuerpo de la portada: los telefonos (SCRUM-257)', () => {
     expect(screen.getByRole('link', { name: 'Llamar al 123' })).toHaveAttribute('href', 'tel:123');
   });
 
-  it('el telefono del equipo no esta junto a «Llamar ahora»: ese texto es solo de las lineas', () => {
+  it('el contacto tecnico no usa «Llamar ahora»: ese texto es solo de las lineas', () => {
     pintar();
 
     expect(screen.queryByRole('link', { name: /Llamar ahora/ })).not.toBeInTheDocument();

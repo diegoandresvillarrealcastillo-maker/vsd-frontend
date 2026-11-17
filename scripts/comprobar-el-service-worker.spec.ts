@@ -99,7 +99,7 @@ self.addEventListener('activate', (evento) => {
 });
 
 self.addEventListener('message', (evento) => {
-  if (evento.data && evento.data.type === 'SKIP_WAITING') {
+  if (evento.origin === self.location.origin && evento.data && evento.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
 });
@@ -404,6 +404,15 @@ describe('instalarse, activarse y la orden de la pagina', () => {
 
     expect(aprobo).toBe(false);
     expect(salida).toContain('un mensaje que no es la orden no activa nada');
+  });
+
+  it('falla si la orden de actualizacion acepta otro origen', async () => {
+    escribir({ sw: swCon('evento.origin === self.location.origin && ', '') });
+
+    const { aprobo, salida } = await correr();
+
+    expect(aprobo).toBe(false);
+    expect(salida).toContain('un mensaje de otro origen no activa la version nueva');
   });
 
   it('falla si la orden de la pagina no activa la version nueva', async () => {

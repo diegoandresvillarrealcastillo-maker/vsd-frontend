@@ -40,16 +40,23 @@ function sesionDe(parametros: Record<string, unknown>): SesionDeLaActividad {
 const alTerminar = vi.fn();
 let usuario: UserEvent;
 
-/** Cada llamada al azar elige la casilla que corresponda: 0 es la primera, 0,3 la segunda, 0,6 la tercera... */
+/** Cada llamada al generador seguro elige el indice indicado en la ronda. */
 function secuencias(...rondas: number[][]) {
-  const azar = vi.spyOn(Math, 'random');
-  const valores = rondas.flat().map((casilla) => (casilla + 0.1) / COLORES.length);
+  const azar = vi.spyOn(globalThis.crypto, 'getRandomValues');
 
-  for (const valor of valores) {
-    azar.mockReturnValueOnce(valor);
+  for (const casilla of rondas.flat()) {
+    azar.mockImplementationOnce(((arreglo: Uint32Array) => {
+      arreglo[0] = casilla;
+
+      return arreglo;
+    }) as typeof globalThis.crypto.getRandomValues);
   }
 
-  azar.mockReturnValue(0.01);
+  azar.mockImplementation(((arreglo: Uint32Array) => {
+    arreglo[0] = 0;
+
+    return arreglo;
+  }) as typeof globalThis.crypto.getRandomValues);
 }
 
 function pintar(parametros: Record<string, unknown> = NORMAL, enviando = false) {

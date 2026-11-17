@@ -38,25 +38,21 @@ describe('PieDeLaApp', () => {
     expect(version.closest('a')).toBeNull();
   });
 
-  it('deja el telefono tecnico del equipo, y dice que es solo para problemas tecnicos (SCRUM-257)', () => {
+  it('deja el correo tecnico del equipo y aclara que no es una linea de ayuda', () => {
     pintar();
 
     const pie = screen.getByRole('contentinfo');
 
-    expect(screen.getByRole('link', { name: /Llamar a Diego/ })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'vsdcompany69@gmail.com' })).toHaveAttribute(
       'href',
-      'tel:+573112801363',
+      'mailto:vsdcompany69@gmail.com',
     );
-    expect(screen.getByRole('link', { name: /Llamar a Samuel/ })).toHaveAttribute(
-      'href',
-      'tel:+573245889281',
-    );
-    expect(pie).toHaveTextContent('Son solo para problemas técnicos de la aplicación');
-    expect(pie).toHaveTextContent('No son una línea de ayuda');
+    expect(pie).toHaveTextContent('solo para problemas técnicos de la aplicación');
+    expect(pie).toHaveTextContent('no es una línea de ayuda');
     expect(pie).toHaveTextContent('¿Dónde busco ayuda?');
   });
 
-  it('el teléfono del equipo nunca es un «Llamar ahora», que es solo de las líneas de atención', () => {
+  it('el contacto del equipo nunca es un «Llamar ahora», que es solo de las líneas de atención', () => {
     pintar();
 
     expect(screen.queryByRole('link', { name: /Llamar ahora/ })).not.toBeInTheDocument();

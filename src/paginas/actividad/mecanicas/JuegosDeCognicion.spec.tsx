@@ -17,7 +17,7 @@ import { repartir, tiempoAlaVista } from './cognicion.ts';
  * Los tres juegos de Cognicion, dentro del motor de verdad, con la API
  * simulada y el azar fijo.
  *
- * Con `Math.random` devolviendo siempre 0 el reparto es siempre el mismo: la
+ * Con Web Crypto devolviendo siempre 0 el reparto es siempre el mismo: la
  * prueba sabe donde esta cada pareja, que digitos salen y que casilla cambia,
  * y puede jugar partidas perfectas y malas a proposito.
  */
@@ -96,7 +96,11 @@ let usuario: ReturnType<typeof userEvent.setup>;
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
-  vi.spyOn(Math, 'random').mockReturnValue(0);
+  vi.spyOn(globalThis.crypto, 'getRandomValues').mockImplementation(((arreglo: Uint32Array) => {
+    arreglo.fill(0);
+
+    return arreglo;
+  }) as typeof globalThis.crypto.getRandomValues);
   usuario = userEvent.setup({ delay: null, advanceTimers: vi.advanceTimersByTime });
   registrarResultado.mockResolvedValue({
     id: 'r-1',

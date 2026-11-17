@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { BotonDeEnvio, type EstadoDeEnvio } from '../../componentes/BotonDeEnvio.tsx';
@@ -19,6 +19,31 @@ import { recordarQueElRegistroEstaCompleto } from '../../sesion/useRegistroCompl
 import { useSesion } from '../../sesion/useSesion.ts';
 import { CamposDelRegistro } from './CamposDelRegistro.tsx';
 import { Aparece, LienzoDeAcceso } from './LienzoDeAcceso.tsx';
+
+const REGISTRO_CONFIRMADO = 'Correo confirmado. Tu cuenta quedó lista; ya puedes iniciar sesión.';
+
+/**
+ * Comprueba que ESTA identidad trae constancia de las mismas versiones que la
+ * API mantiene vigentes. Esto no autoriza nada: `user_metadata` es editable y
+ * la API vuelve a validar y guardar el consentimiento al crear la cuenta.
+ */
+function yaAceptoEstosTextos(
+  metadatos: Record<string, unknown> | undefined,
+  textos: { readonly aviso: string; readonly terminos: string },
+): boolean {
+  if (metadatos === undefined) {
+    return false;
+  }
+
+  const aceptoEn = metadatos.acepto_en;
+
+  return (
+    metadatos.version_aviso === textos.aviso &&
+    metadatos.version_terminos === textos.terminos &&
+    typeof aceptoEn === 'string' &&
+    Number.isFinite(Date.parse(aceptoEn))
+  );
+}
 
 /** Lo que se le dice a la persona segun lo que respondio la API. */
 function explicar(error: unknown): string {
@@ -99,13 +124,28 @@ export function CompletarRegistro() {
 
   const persona = sesion?.user.id ?? null;
 
-  // Quien ya tiene el registro completo no tiene nada que hacer aqui. Llega
-  // pasando por la direccion directamente, o con el boton de atras.
+  const rechazar = useCallback(() => {
+    // La fecha se descarta: ya cumplio su funcion y no se guarda en ninguna parte.
+    olvidarLaFechaDelRegistro();
+    setFechaEscrita('');
+    void navegar(RUTAS.SOLO_MAYORES, { replace: true });
+    void salir();
+  }, [navegar, salir]);
+
+  // Quien confirma el correo en el mismo navegador ya dio la fecha y acepto
+  // las versiones vigentes al crear la identidad. En ese caso se completa la
+  // cuenta sin pedirle lo mismo otra vez y se cierra la sesion nacida del
+  // enlace: la siguiente pantalla es el acceso, como promete el registro.
+  //
+  // En otro navegador, para Google, cuentas antiguas o textos que cambiaron se
+  // conserva el formulario. La API sigue siendo quien valida edad y versiones.
   useEffect(() => {
     const control = new AbortController();
 
-    consultarElEstadoDelRegistro(control.signal)
-      .then((resultado) => {
+    async function prepararElRegistro() {
+      try {
+        const resultado = await consultarElEstadoDelRegistro(control.signal);
+
         if (control.signal.aborted) {
           return;
         }
@@ -119,25 +159,57 @@ export function CompletarRegistro() {
           return;
         }
 
-        setComprobando(false);
-      })
-      .catch(() => {
-        // Sin conexion no se sabe, y la pantalla sirve igual: la API manda.
-        if (!control.signal.aborted) {
-          setComprobando(false);
+        if (resultado.estado === 'sin-cuenta' && delRegistro !== null) {
+          const textos = await consultarLosTextosVigentes(control.signal);
+
+          if (control.signal.aborted) {
+            return;
+          }
+
+          if (yaAceptoEstosTextos(sesion?.user.user_metadata, textos)) {
+            await completarElRegistro({ fechaNacimiento: delRegistro, textos }, control.signal);
+
+            if (control.signal.aborted) {
+              return;
+            }
+
+            olvidarLaFechaDelRegistro();
+
+            if (persona !== null) {
+              recordarQueElRegistroEstaCompleto(persona);
+            }
+
+            await salir();
+            void navegar(RUTAS.ACCESO, {
+              replace: true,
+              state: { confirmacion: REGISTRO_CONFIRMADO },
+            });
+            return;
+          }
         }
-      });
+      } catch (fallo) {
+        if (control.signal.aborted) {
+          return;
+        }
+
+        if (esUnRechazoPorEdad(fallo)) {
+          rechazar();
+          return;
+        }
+
+        // Sin conexion o con datos antiguos no se acepta nada por deduccion:
+        // el formulario queda disponible y la API sigue mandando.
+      }
+
+      if (!control.signal.aborted) {
+        setComprobando(false);
+      }
+    }
+
+    void prepararElRegistro();
 
     return () => control.abort();
-  }, [destino, navegar, persona]);
-
-  function rechazar() {
-    // La fecha se descarta: ya cumplio su funcion y no se guarda en ninguna parte.
-    olvidarLaFechaDelRegistro();
-    setFecha('');
-    void navegar(RUTAS.SOLO_MAYORES, { replace: true });
-    void salir();
-  }
+  }, [delRegistro, destino, navegar, persona, rechazar, salir, sesion?.user.user_metadata]);
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();

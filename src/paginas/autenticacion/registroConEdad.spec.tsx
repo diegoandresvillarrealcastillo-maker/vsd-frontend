@@ -43,6 +43,19 @@ vi.mock('../../infraestructura/api/registro.ts', async (importarLoReal) => ({
 vi.mock('../../infraestructura/api/aviso.ts', () => ({ consultarLosTextosVigentes }));
 
 const SESION = { user: { id: 'persona-1', email: 'ana@ejemplo.test' } } as Session;
+const SESION_DEL_REGISTRO = {
+  ...SESION,
+  user: {
+    ...SESION.user,
+    id: 'persona-1',
+    email: 'ana@ejemplo.test',
+    user_metadata: {
+      version_aviso: '2026-09-1',
+      version_terminos: '2026-10-1',
+      acepto_en: '2026-11-14T12:00:00.000Z',
+    },
+  },
+};
 
 function estado(parcial: Partial<EstadoDeSesion> = {}): EstadoDeSesion {
   const vacio = vi.fn().mockResolvedValue({ ok: true });
@@ -290,6 +303,7 @@ function pintarCompletar(valor: EstadoDeSesion, volverA?: string) {
           <Route path={RUTAS.COMPLETAR_REGISTRO} element={<CompletarRegistro />} />
           <Route path={RUTAS.PANEL} element={<p>Panel de prueba</p>} />
           <Route path={RUTAS.PERFIL} element={<p>Perfil de prueba</p>} />
+          <Route path={RUTAS.ACCESO} element={<p>Acceso de prueba</p>} />
           <Route path={RUTAS.SOLO_MAYORES} element={<SoloMayores />} />
         </Routes>
       </MemoryRouter>
@@ -494,44 +508,47 @@ describe('Completa tu registro: la fecha se pide una sola vez (SCRUM-189)', () =
     guardarLaFechaDelRegistro('ana@ejemplo.test', ADULTO);
   });
 
-  it('si ya la dio al registrarse en este equipo, no se la vuelve a pedir', async () => {
-    pintarCompletar(estado());
-    await formularioListo();
+  it('si confirmo en este equipo y las versiones coinciden, completa sin repetir datos', async () => {
+    const salir = vi.fn().mockResolvedValue(undefined);
+    pintarCompletar(estado({ sesion: SESION_DEL_REGISTRO, salir }));
 
+    expect(await screen.findByText('Acceso de prueba')).toBeInTheDocument();
+    expect(completarElRegistro).toHaveBeenCalledWith(
+      {
+        fechaNacimiento: ADULTO,
+        textos: { aviso: '2026-09-1', terminos: '2026-10-1' },
+      },
+      expect.any(AbortSignal),
+    );
+    expect(salir).toHaveBeenCalledTimes(1);
     expect(screen.queryByLabelText('Fecha de nacimiento')).not.toBeInTheDocument();
-    expect(screen.getByText(/Ya tenemos tu fecha de nacimiento/)).toBeInTheDocument();
-    // Las dos casillas siguen siendo de esta pantalla: el consentimiento se da con su version.
-    expect(screen.getByLabelText(/Acepto el aviso de privacidad/)).not.toBeChecked();
-    expect(screen.getByLabelText(/Acepto los términos/)).not.toBeChecked();
   });
 
-  it('con las dos casillas basta: manda la fecha recordada y sigue', async () => {
-    pintarCompletar(estado());
-    await formularioListo();
-
-    await aceptarTodo();
-    await usuario.click(screen.getByRole('button', { name: 'Continuar' }));
-
-    await waitFor(() => {
-      expect(completarElRegistro).toHaveBeenCalledTimes(1);
-    });
-    expect(completarElRegistro).toHaveBeenCalledWith({
-      fechaNacimiento: ADULTO,
-      textos: { aviso: '2026-09-1', terminos: '2026-10-1' },
-    });
-    expect(await screen.findByText('Panel de prueba')).toBeInTheDocument();
-  });
-
-  it('al terminar, se borra del dispositivo', async () => {
-    pintarCompletar(estado());
-    await formularioListo();
-
-    await aceptarTodo();
-    await usuario.click(screen.getByRole('button', { name: 'Continuar' }));
-    await screen.findByText('Panel de prueba');
+  it('al completar automaticamente, se borra del dispositivo', async () => {
+    pintarCompletar(estado({ sesion: SESION_DEL_REGISTRO }));
+    await screen.findByText('Acceso de prueba');
 
     expect(leerLaFechaDelRegistro('ana@ejemplo.test')).toBeNull();
     expect(localStorage.getItem('vsd-h:fecha-del-registro')).toBeNull();
+  });
+
+  it('si los textos cambiaron, no presupone consentimiento y muestra el formulario', async () => {
+    consultarLosTextosVigentes.mockResolvedValue({ aviso: '2026-11-1', terminos: '2026-10-1' });
+    pintarCompletar(estado({ sesion: SESION_DEL_REGISTRO }));
+    await formularioListo();
+
+    expect(completarElRegistro).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('Fecha de nacimiento')).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Acepto el aviso de privacidad/)).not.toBeChecked();
+  });
+
+  it('si la sesion no trae la constancia, mantiene el formulario de respaldo', async () => {
+    pintarCompletar(estado());
+    await formularioListo();
+
+    expect(completarElRegistro).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('Fecha de nacimiento')).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Acepto los términos/)).not.toBeChecked();
   });
 
   it('el 29 de febrero se trata bien', async () => {

@@ -85,7 +85,7 @@ clientsClaim();
 
 // La pagina avisa de que la persona acepto la version nueva.
 self.addEventListener('message', (evento) => {
-  if (esOrdenDeActualizar(evento.data)) {
+  if (evento.origin === self.location.origin && esOrdenDeActualizar(evento.data)) {
     void self.skipWaiting();
   }
 });
